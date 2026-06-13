@@ -1,6 +1,7 @@
 name: Build and Publish grow-app Image
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
