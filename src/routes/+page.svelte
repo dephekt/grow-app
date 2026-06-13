@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
+  import type { DeviceSnapshot, DeviceUiConfig, DeviceUiEntity, DeviceUiGroup, EntityConfig, EntityState, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
 
   let { data } = $props<{ data: { snapshot: Snapshot } }>();
 
@@ -16,6 +16,27 @@
   let entitiesById = $derived(new Map(snapshot.entities.map((entity) => [entity.id, entity])));
   let writableCount = $derived(snapshot.entities.filter((entity) => entity.writable).length);
   let lastUpdate = $derived(snapshot.broker.lastMessageAt ?? snapshot.generatedAt);
+
+  interface PresentedEntity {
+    entity: EntityConfig;
+    label: string;
+    order: number;
+    groupId?: string;
+    role?: string;
+  }
+
+  interface PresentedSection {
+    id: string;
+    title: string;
+    order: number;
+    defaultOpen: boolean;
+    entries: PresentedEntity[];
+  }
+
+  interface DevicePresentation {
+    metrics: PresentedEntity[];
+    sections: PresentedSection[];
+  }
 
   $effect(() => {
     const events = new EventSource('/api/events');
@@ -85,7 +106,118 @@
     return device.entityIds
       .map((id) => entitiesById.get(id))
       .filter((entity): entity is EntityConfig => Boolean(entity))
-      .sort((a, b) => Number(b.writable) - Number(a.writable) || a.name.localeCompare(b.name));
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  function entityMatchKey(entity: EntityConfig): string {
+    return `${entity.component}:${entity.objectId ?? entity.id}`;
+  }
+
+  function metadataByEntity(config: DeviceUiConfig | undefined): Map<string, DeviceUiEntity> {
+    const metadata = new Map<string, DeviceUiEntity>();
+    for (const entry of config?.entities ?? []) metadata.set(`${entry.component}:${entry.objectId}`, entry);
+    return metadata;
+  }
+
+  function groupById(config: DeviceUiConfig | undefined): Map<string, DeviceUiGroup> {
+    const groups = new Map<string, DeviceUiGroup>();
+    for (const group of config?.groups ?? []) groups.set(group.id, group);
+    return groups;
+  }
+
+  function toPresentedEntity(entity: EntityConfig, metadata?: DeviceUiEntity): PresentedEntity {
+    return {
+      entity,
+      label: metadata?.label ?? entity.name,
+      order: metadata?.order ?? 0,
+      groupId: metadata?.group,
+      role: metadata?.role
+    };
+  }
+
+  function sortPresented(a: PresentedEntity, b: PresentedEntity): number {
+    return a.order - b.order || a.label.localeCompare(b.label);
+  }
+
+  function isDiagnostic(entity: EntityConfig): boolean {
+    return entity.entityCategory === 'diagnostic' || entity.objectId === 'uptime' || entity.objectId === 'wifi_signal';
+  }
+
+  function fallbackPresentation(entities: EntityConfig[]): DevicePresentation {
+    const controls = entities.filter((entity) => entity.writable && !entity.dangerous).map((entity) => toPresentedEntity(entity));
+    const readings = entities.filter((entity) => !entity.writable && !entity.dangerous && !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity));
+    const maintenance = entities.filter((entity) => entity.dangerous).map((entity) => toPresentedEntity(entity));
+    const diagnostics = entities.filter((entity) => isDiagnostic(entity)).map((entity) => toPresentedEntity(entity));
+
+    return {
+      metrics: [],
+      sections: [
+        { id: 'controls', title: 'Controls', order: 10, defaultOpen: true, entries: controls.sort(sortPresented) },
+        { id: 'readings', title: 'Readings', order: 20, defaultOpen: true, entries: readings.sort(sortPresented) },
+        { id: 'maintenance', title: 'Maintenance', order: 80, defaultOpen: false, entries: maintenance.sort(sortPresented) },
+        { id: 'diagnostics', title: 'Diagnostics', order: 90, defaultOpen: false, entries: diagnostics.sort(sortPresented) }
+      ].filter((section) => section.entries.length > 0)
+    };
+  }
+
+  function devicePresentation(device: DeviceSnapshot): DevicePresentation {
+    const entities = deviceEntities(device);
+    const config = snapshot.uiConfigs[device.nodeId];
+    if (!config) return fallbackPresentation(entities);
+
+    const entityMetadata = metadataByEntity(config);
+    const groups = groupById(config);
+    const consumed = new Set<string>();
+
+    const metrics = entities
+      .map((entity) => {
+        const metadata = entityMetadata.get(entityMatchKey(entity));
+        const group = metadata ? groups.get(metadata.group) : undefined;
+        const metric = metadata?.role === 'metric' || group?.variant === 'metrics';
+        return metadata && metric ? toPresentedEntity(entity, metadata) : null;
+      })
+      .filter((entry): entry is PresentedEntity => Boolean(entry))
+      .sort(sortPresented);
+
+    for (const entry of metrics) consumed.add(entry.entity.id);
+
+    const sections = [...groups.values()]
+      .filter((group) => group.variant !== 'metrics')
+      .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
+      .map((group) => {
+        const entries = entities
+          .filter((entity) => !consumed.has(entity.id))
+          .map((entity) => {
+            const metadata = entityMetadata.get(entityMatchKey(entity));
+            return metadata?.group === group.id ? toPresentedEntity(entity, metadata) : null;
+          })
+          .filter((entry): entry is PresentedEntity => Boolean(entry))
+          .sort(sortPresented);
+
+        for (const entry of entries) consumed.add(entry.entity.id);
+
+        return {
+          id: group.id,
+          title: group.title,
+          order: group.order,
+          defaultOpen: group.defaultOpen,
+          entries
+        };
+      })
+      .filter((section) => section.entries.length > 0);
+
+    const remaining = entities.filter((entity) => !consumed.has(entity.id));
+    const diagnostics = remaining.filter(isDiagnostic).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
+    const other = remaining.filter((entity) => !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
+
+    if (diagnostics.length > 0) {
+      sections.push({ id: 'diagnostics_fallback', title: 'Diagnostics', order: 900, defaultOpen: false, entries: diagnostics });
+    }
+    if (other.length > 0) {
+      sections.push({ id: 'other', title: 'Other', order: 990, defaultOpen: false, entries: other });
+    }
+
+    return { metrics, sections: sections.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title)) };
   }
 
   async function sendCommand(entity: EntityConfig, value?: unknown) {
@@ -108,6 +240,83 @@
     commandPending = { ...commandPending, [entity.id]: false };
   }
 </script>
+
+{#snippet entityRow(entry: PresentedEntity)}
+  {@const entity = entry.entity}
+  <div class="entity">
+    <div class="entity-meta">
+      <span>{entry.label}</span>
+      <small>{entity.component}{entity.deviceClass ? ` · ${entity.deviceClass}` : ''}</small>
+    </div>
+
+    <div class="entity-control">
+      {#if entity.writable && entity.component === 'switch'}
+        <button
+          type="button"
+          class="toggle"
+          class:on={stateFor(entity).value === entity.payloadOn}
+          disabled={commandPending[entity.id]}
+          onclick={() => sendCommand(entity, stateFor(entity).value !== entity.payloadOn)}
+        >
+          {stateFor(entity).value === entity.payloadOn ? 'On' : 'Off'}
+        </button>
+      {:else if entity.writable && entity.component === 'number'}
+        <input
+          type="number"
+          min={entity.min}
+          max={entity.max}
+          step={entity.step ?? 'any'}
+          value={stateFor(entity).value ?? ''}
+          disabled={commandPending[entity.id]}
+          onblur={(event) => sendCommand(entity, event.currentTarget.value)}
+        />
+      {:else if entity.writable && entity.component === 'select'}
+        <select
+          value={stateFor(entity).value ?? ''}
+          disabled={commandPending[entity.id]}
+          onchange={(event) => sendCommand(entity, event.currentTarget.value)}
+        >
+          <option value="" disabled>Select</option>
+          {#each entity.options ?? [] as option}
+            <option value={option}>{option}</option>
+          {/each}
+        </select>
+      {:else if entity.writable && entity.component === 'button'}
+        <button
+          type="button"
+          class:danger={entity.dangerous}
+          disabled={commandPending[entity.id]}
+          onclick={() => sendCommand(entity)}
+        >
+          Send
+        </button>
+      {:else if entity.writable}
+        <form
+          onsubmit={(event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const input = new FormData(form).get('value');
+            sendCommand(entity, input);
+            form.reset();
+          }}
+        >
+          <input name="value" aria-label={`${entry.label} command`} disabled={commandPending[entity.id]} />
+          <button type="submit" disabled={commandPending[entity.id]}>Set</button>
+        </form>
+      {:else}
+        <span class="value">{formatState(entity)}</span>
+      {/if}
+    </div>
+
+    {#if entity.writable && entity.component !== 'number'}
+      <span class="value secondary">{formatState(entity)}</span>
+    {/if}
+
+    {#if commandErrors[entity.id]}
+      <p class="command-error">{commandErrors[entity.id]}</p>
+    {/if}
+  </div>
+{/snippet}
 
 <svelte:head>
   <title>grow-app · {snapshot.site}</title>
@@ -162,6 +371,7 @@
   {:else}
     <section class="device-grid" aria-label="Devices">
       {#each snapshot.devices as device (device.id)}
+        {@const presentation = devicePresentation(device)}
         <article class="device">
           <header>
             <div>
@@ -176,81 +386,31 @@
             </span>
           </header>
 
-          <div class="entity-list">
-            {#each deviceEntities(device) as entity (entity.id)}
-              <div class="entity">
-                <div class="entity-meta">
-                  <span>{entity.name}</span>
-                  <small>{entity.component}{entity.deviceClass ? ` · ${entity.deviceClass}` : ''}</small>
+          {#if presentation.metrics.length > 0}
+            <div class="metric-grid" aria-label={`${device.name} key readings`}>
+              {#each presentation.metrics as entry (entry.entity.id)}
+                <div class="metric">
+                  <span>{entry.label}</span>
+                  <strong>{formatState(entry.entity)}</strong>
                 </div>
+              {/each}
+            </div>
+          {/if}
 
-                <div class="entity-control">
-                  {#if entity.writable && entity.component === 'switch'}
-                    <button
-                      type="button"
-                      class="toggle"
-                      class:on={stateFor(entity).value === entity.payloadOn}
-                      disabled={commandPending[entity.id]}
-                      onclick={() => sendCommand(entity, stateFor(entity).value !== entity.payloadOn)}
-                    >
-                      {stateFor(entity).value === entity.payloadOn ? 'On' : 'Off'}
-                    </button>
-                  {:else if entity.writable && entity.component === 'number'}
-                    <input
-                      type="number"
-                      min={entity.min}
-                      max={entity.max}
-                      step={entity.step ?? 'any'}
-                      value={stateFor(entity).value ?? ''}
-                      disabled={commandPending[entity.id]}
-                      onblur={(event) => sendCommand(entity, event.currentTarget.value)}
-                    />
-                  {:else if entity.writable && entity.component === 'select'}
-                    <select
-                      value={stateFor(entity).value ?? ''}
-                      disabled={commandPending[entity.id]}
-                      onchange={(event) => sendCommand(entity, event.currentTarget.value)}
-                    >
-                      <option value="" disabled>Select</option>
-                      {#each entity.options ?? [] as option}
-                        <option value={option}>{option}</option>
-                      {/each}
-                    </select>
-                  {:else if entity.writable && entity.component === 'button'}
-                    <button
-                      type="button"
-                      class:danger={entity.dangerous}
-                      disabled={commandPending[entity.id]}
-                      onclick={() => sendCommand(entity)}
-                    >
-                      Send
-                    </button>
-                  {:else if entity.writable}
-                    <form
-                      onsubmit={(event) => {
-                        event.preventDefault();
-                        const form = event.currentTarget;
-                        const input = new FormData(form).get('value');
-                        sendCommand(entity, input);
-                        form.reset();
-                      }}
-                    >
-                      <input name="value" aria-label={`${entity.name} command`} disabled={commandPending[entity.id]} />
-                      <button type="submit" disabled={commandPending[entity.id]}>Set</button>
-                    </form>
-                  {:else}
-                    <span class="value">{formatState(entity)}</span>
-                  {/if}
+          <div class="section-list">
+            {#each presentation.sections as section (section.id)}
+              <details class="device-section" open={section.defaultOpen}>
+                <summary>
+                  <span>{section.title}</span>
+                  <small>{section.entries.length}</small>
+                </summary>
+
+                <div class="entity-list">
+                  {#each section.entries as entry (entry.entity.id)}
+                    {@render entityRow(entry)}
+                  {/each}
                 </div>
-
-                {#if entity.writable && entity.component !== 'number'}
-                  <span class="value secondary">{formatState(entity)}</span>
-                {/if}
-
-                {#if commandErrors[entity.id]}
-                  <p class="command-error">{commandErrors[entity.id]}</p>
-                {/if}
-              </div>
+              </details>
             {/each}
           </div>
         </article>
@@ -402,6 +562,76 @@
     display: grid;
   }
 
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 10px;
+    padding: 16px;
+    border-bottom: 1px solid #e5ebe7;
+    background: #f9fbfa;
+  }
+
+  .metric {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #d7ded9;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .metric span {
+    display: block;
+    color: #52635c;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .metric strong {
+    display: block;
+    margin-top: 6px;
+    overflow-wrap: anywhere;
+    font-size: 1.28rem;
+    line-height: 1.1;
+  }
+
+  .section-list {
+    display: grid;
+  }
+
+  .device-section {
+    border-top: 1px solid #e5ebe7;
+  }
+
+  .device-section:first-child {
+    border-top: 0;
+  }
+
+  .device-section summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 12px 16px;
+    cursor: pointer;
+    color: #26342e;
+    font-weight: 800;
+  }
+
+  .device-section summary small {
+    min-width: 28px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #edf3ef;
+    text-align: center;
+    font-size: 0.72rem;
+  }
+
+  .device-section[open] summary {
+    border-bottom: 1px solid #edf1ee;
+    background: #fbfcfb;
+  }
+
   .entity {
     display: grid;
     grid-template-columns: minmax(120px, 1fr) minmax(120px, auto);
@@ -409,10 +639,6 @@
     align-items: center;
     padding: 12px 16px;
     border-top: 1px solid #edf1ee;
-  }
-
-  .entity:first-child {
-    border-top: 0;
   }
 
   .entity-meta {

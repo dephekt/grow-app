@@ -34,6 +34,7 @@ export interface EntityConfig {
   unit?: string;
   deviceClass?: string;
   stateClass?: string;
+  entityCategory?: string;
   icon?: string;
   payloadOn?: string;
   payloadOff?: string;
@@ -51,12 +52,37 @@ export interface EntityConfig {
 
 export interface DeviceSnapshot {
   id: string;
+  nodeId: string;
   name: string;
   manufacturer?: string;
   model?: string;
   swVersion?: string;
   availability: AvailabilityState;
   entityIds: string[];
+}
+
+export interface DeviceUiGroup {
+  id: string;
+  title: string;
+  order: number;
+  variant?: 'metrics' | 'list' | string;
+  defaultOpen: boolean;
+}
+
+export interface DeviceUiEntity {
+  component: string;
+  objectId: string;
+  group: string;
+  role?: 'metric' | string;
+  order: number;
+  label?: string;
+}
+
+export interface DeviceUiConfig {
+  schema: 'grow-ui.v1';
+  nodeId: string;
+  groups: DeviceUiGroup[];
+  entities: DeviceUiEntity[];
 }
 
 export interface EntityState {
@@ -81,10 +107,11 @@ export interface Snapshot {
   devices: DeviceSnapshot[];
   entities: EntityConfig[];
   states: Record<string, EntityState>;
+  uiConfigs: Record<string, DeviceUiConfig>;
 }
 
 export interface SnapshotEvent {
-  type: 'snapshot' | 'entity' | 'state' | 'availability' | 'broker';
+  type: 'snapshot' | 'entity' | 'state' | 'availability' | 'broker' | 'ui';
   snapshot?: Snapshot;
   entity?: EntityConfig;
   entityId?: string;
@@ -92,6 +119,8 @@ export interface SnapshotEvent {
   deviceId?: string;
   availability?: AvailabilityState;
   broker?: BrokerSnapshot;
+  uiConfig?: DeviceUiConfig;
+  nodeId?: string;
 }
 
 export interface CommandRequest {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildCommandPublish, parseDiscoveryPayload, parseDiscoveryTopic } from '../../src/lib/server/mqtt/discovery';
+import { parseUiConfigPayload, parseUiConfigTopic } from '../../src/lib/server/mqtt/ui-metadata';
 
 const prefix = 'grow/daniel-home/_discovery';
 
@@ -33,6 +34,7 @@ describe('MQTT discovery parsing', () => {
       availabilityTopic: 'grow/daniel-home/atoms3u-sensor-rig/status',
       unit: '°C',
       deviceClass: 'temperature',
+      entityCategory: undefined,
       writable: false
     });
   });
@@ -55,6 +57,105 @@ describe('MQTT discovery parsing', () => {
     );
 
     expect(entity?.options).toEqual(['rainbow', 'ironblack']);
+  });
+
+  it('parses abbreviated entity category and icon fields', () => {
+    const entity = parseDiscoveryPayload(
+      `${prefix}/sensor/atoms3u_sensor_rig/wifi_signal/config`,
+      JSON.stringify({
+        name: 'WiFi Signal',
+        uniq_id: 'atoms3u_wifi_signal',
+        stat_t: 'grow/daniel-home/atoms3u-sensor-rig/sensor/wifi_signal/state',
+        ent_cat: 'diagnostic',
+        ic: 'mdi:wifi',
+        dev: { ids: ['atoms3u-sensor-rig'], name: 'AtomS3U Sensor Rig' }
+      }),
+      prefix
+    );
+
+    expect(entity).toMatchObject({
+      entityCategory: 'diagnostic',
+      icon: 'mdi:wifi'
+    });
+  });
+});
+
+describe('device UI metadata parsing', () => {
+  const topicPrefix = 'grow/daniel-home';
+
+  it('parses retained device UI config topics and payloads', () => {
+    const topic = `${topicPrefix}/atlas-hydro-monitor/_ui/config`;
+
+    expect(parseUiConfigTopic(topic, topicPrefix)).toBe('atlas-hydro-monitor');
+    expect(
+      parseUiConfigPayload(
+        topic,
+        JSON.stringify({
+          schema: 'grow-ui.v1',
+          nodeId: 'atlas-hydro-monitor',
+          groups: [
+            { id: 'overview', title: 'Overview', order: 0, variant: 'metrics', defaultOpen: true },
+            { id: 'ph_cal', title: 'pH Calibration', order: 40 }
+          ],
+          entities: [
+            { component: 'sensor', objectId: 'water_ph', group: 'overview', role: 'metric', order: 20, label: 'Water pH' },
+            { component: 'button', objectId: 'ph_cal_mid__7_00_', group: 'ph_cal', order: 10, label: 'pH Mid Point' }
+          ]
+        }),
+        topicPrefix
+      )
+    ).toEqual({
+      nodeId: 'atlas-hydro-monitor',
+      config: {
+        schema: 'grow-ui.v1',
+        nodeId: 'atlas-hydro-monitor',
+        groups: [
+          { id: 'overview', title: 'Overview', order: 0, variant: 'metrics', defaultOpen: true },
+          { id: 'ph_cal', title: 'pH Calibration', order: 40, variant: undefined, defaultOpen: false }
+        ],
+        entities: [
+          {
+            component: 'sensor',
+            objectId: 'water_ph',
+            group: 'overview',
+            role: 'metric',
+            order: 20,
+            label: 'Water pH'
+          },
+          {
+            component: 'button',
+            objectId: 'ph_cal_mid__7_00_',
+            group: 'ph_cal',
+            role: undefined,
+            order: 10,
+            label: 'pH Mid Point'
+          }
+        ]
+      }
+    });
+  });
+
+  it('rejects mismatched node ids and treats empty retained payloads as deletes', () => {
+    const topic = `${topicPrefix}/atlas-hydro-monitor/_ui/config`;
+
+    expect(parseUiConfigPayload(topic, 'null', topicPrefix)).toBeNull();
+    expect(
+      parseUiConfigPayload(
+        topic,
+        JSON.stringify({
+          schema: 'grow-ui.v1',
+          nodeId: 'atoms3u-sensor-rig',
+          groups: [],
+          entities: []
+        }),
+        topicPrefix
+      )
+    ).toBeNull();
+
+    expect(parseUiConfigPayload(topic, '', topicPrefix)).toEqual({
+      nodeId: 'atlas-hydro-monitor',
+      config: null
+    });
   });
 });
 

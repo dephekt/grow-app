@@ -2,11 +2,13 @@ import mqtt, { type MqttClient } from 'mqtt';
 import { EventEmitter } from 'node:events';
 import { buildCommandPublish, parseDiscoveryPayload } from './discovery';
 import { getSiteMqttConfig, type SiteMqttConfig } from './config';
+import { parseUiConfigPayload } from './ui-metadata';
 import type {
   AvailabilityState,
   BrokerSnapshot,
   CommandRequest,
   DeviceSnapshot,
+  DeviceUiConfig,
   EntityConfig,
   EntityState,
   Snapshot,
@@ -23,6 +25,7 @@ export class SiteMqttService {
   private readonly availabilityByDevice = new Map<string, AvailabilityState>();
   private readonly topicToEntity = new Map<string, Set<string>>();
   private readonly availabilityTopicToEntity = new Map<string, Set<string>>();
+  private readonly uiByNodeId = new Map<string, DeviceUiConfig>();
   private readonly retainedByTopic = new Map<string, string>();
   private readonly emitter = new EventEmitter();
   private broker: BrokerSnapshot = {
@@ -84,6 +87,7 @@ export class SiteMqttService {
   snapshot(): Snapshot {
     const entities = [...this.entities.values()].sort((a, b) => a.name.localeCompare(b.name));
     const states = Object.fromEntries([...this.stateByEntity.entries()]);
+    const uiConfigs = Object.fromEntries([...this.uiByNodeId.entries()]);
 
     return {
       site: this.config.site,
@@ -93,7 +97,8 @@ export class SiteMqttService {
       broker: this.broker,
       devices: this.devices(entities),
       entities,
-      states
+      states,
+      uiConfigs
     };
   }
 
@@ -128,6 +133,15 @@ export class SiteMqttService {
     const discovered = parseDiscoveryPayload(topic, payload, this.config.discoveryPrefix);
     if (discovered) {
       this.upsertEntity(discovered);
+      return;
+    }
+
+    const uiConfig = parseUiConfigPayload(topic, payload, this.config.topicPrefix);
+    if (uiConfig) {
+      if (uiConfig.config) this.uiByNodeId.set(uiConfig.nodeId, uiConfig.config);
+      else this.uiByNodeId.delete(uiConfig.nodeId);
+      this.emit({ type: 'ui', nodeId: uiConfig.nodeId, uiConfig: uiConfig.config ?? undefined });
+      this.emit({ type: 'snapshot', snapshot: this.snapshot() });
       return;
     }
 
@@ -199,8 +213,10 @@ export class SiteMqttService {
 
     for (const entity of entities) {
       const id = entity.device.identifiers[0];
+      const nodeId = entity.nodeId ?? id;
       const current = devices.get(id) ?? {
         id,
+        nodeId,
         name: entity.device.name,
         manufacturer: entity.device.manufacturer,
         model: entity.device.model,
