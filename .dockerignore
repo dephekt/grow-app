@@ -1,0 +1,13 @@
+node_modules
+.pnpm-cache
+.pnpm-data
+.pnpm-state
+.svelte-kit
+build
+coverage
+playwright-report
+test-results
+.env
+.env.*
+.git
+.forgejo
