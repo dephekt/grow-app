@@ -1,0 +1,40 @@
+name: Build and Publish grow-app Image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+    paths:
+      - 'Dockerfile'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'src/**'
+      - 'svelte.config.js'
+      - 'vite.config.ts'
+      - '.forgejo/workflows/build.yaml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Dockerfile'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'src/**'
+      - 'svelte.config.js'
+      - 'vite.config.ts'
+      - '.forgejo/workflows/build.yaml'
+
+jobs:
+  build:
+    runs-on: stackdrift
+    uses: stackdrift-images/ci-templates/.forgejo/workflows/docker-build.yml@main
+    with:
+      image_name: codeberg.org/stackdrift-images/grow-app
+      upstream_image_search: docker.io/node
+      upstream_name_short: node
+    secrets:
+      registry_password: ${{ secrets.REGISTRY_DEPLOY_KEY }}
