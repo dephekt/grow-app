@@ -220,6 +220,10 @@
     return { metrics, sections: sections.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title)) };
   }
 
+  function initialOpen(node: HTMLDetailsElement, open: boolean): void {
+    node.open = open;
+  }
+
   async function sendCommand(entity: EntityConfig, value?: unknown) {
     if (entity.dangerous && !confirm(`Publish command for ${entity.name}?`)) return;
 
@@ -399,7 +403,7 @@
 
           <div class="section-list">
             {#each presentation.sections as section (section.id)}
-              <details class="device-section" open={section.defaultOpen}>
+              <details class="device-section" use:initialOpen={section.defaultOpen}>
                 <summary>
                   <span>{section.title}</span>
                   <small>{section.entries.length}</small>

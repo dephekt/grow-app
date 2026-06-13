@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const snapshot = {
   site: 'daniel-home',
@@ -29,7 +29,14 @@ const snapshot = {
       manufacturer: 'Atlas Scientific',
       model: 'Hydro kit',
       availability: 'unknown',
-      entityIds: ['atlas_water_temperature', 'atlas_water_ph', 'atlas_ph_cal_mid', 'atlas_restart', 'atlas_uptime']
+      entityIds: [
+        'atlas_water_temperature',
+        'atlas_water_ph',
+        'atlas_enable_ph_circuit',
+        'atlas_ph_cal_mid',
+        'atlas_restart',
+        'atlas_uptime'
+      ]
     }
   ],
   entities: [
@@ -98,6 +105,24 @@ const snapshot = {
       raw: {}
     },
     {
+      id: 'atlas_enable_ph_circuit',
+      component: 'switch',
+      name: 'Enable pH Circuit',
+      uniqueId: 'atlas_enable_ph_circuit',
+      objectId: 'enable_ph_circuit',
+      nodeId: 'atlas-hydro-monitor',
+      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
+      stateTopic: 'grow/daniel-home/atlas-hydro-monitor/switch/enable_ph_circuit/state',
+      commandTopic: 'grow/daniel-home/atlas-hydro-monitor/switch/enable_ph_circuit/command',
+      payloadOn: 'ON',
+      payloadOff: 'OFF',
+      payloadAvailable: 'online',
+      payloadNotAvailable: 'offline',
+      dangerous: false,
+      writable: true,
+      raw: {}
+    },
+    {
       id: 'atlas_restart',
       component: 'button',
       name: 'Restart',
@@ -134,6 +159,7 @@ const snapshot = {
     atoms3u_temperature: { value: '24.8', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
     atlas_water_temperature: { value: '22.1', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
     atlas_water_ph: { value: '6.42', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
+    atlas_enable_ph_circuit: { value: 'ON', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
     atlas_uptime: { value: '1h', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() }
   },
   uiConfigs: {
@@ -142,6 +168,7 @@ const snapshot = {
       nodeId: 'atlas-hydro-monitor',
       groups: [
         { id: 'overview', title: 'Key Readings', order: 0, variant: 'metrics', defaultOpen: true },
+        { id: 'controls', title: 'Circuit Controls', order: 20, defaultOpen: true },
         { id: 'ph_cal', title: 'pH Calibration', order: 40, defaultOpen: false },
         { id: 'maintenance', title: 'Maintenance', order: 80, defaultOpen: false }
       ],
@@ -155,6 +182,7 @@ const snapshot = {
           label: 'Water Temp'
         },
         { component: 'sensor', objectId: 'water_ph', group: 'overview', role: 'metric', order: 20, label: 'Water pH' },
+        { component: 'switch', objectId: 'enable_ph_circuit', group: 'controls', order: 10 },
         { component: 'button', objectId: 'ph_cal_mid__7_00_', group: 'ph_cal', order: 10, label: 'pH Mid Point' },
         { component: 'button', objectId: 'restart_device', group: 'maintenance', order: 90, label: 'Restart Device' }
       ]
@@ -170,6 +198,45 @@ test.beforeEach(async ({ page }) => {
     await route.abort('failed');
   });
 });
+
+async function installMockEventSource(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const sources: Array<{
+      listeners: Map<string, Set<(event: MessageEvent) => void>>;
+      emit(type: string, payload: unknown): void;
+      close(): void;
+    }> = [];
+
+    class MockEventSource {
+      listeners = new Map<string, Set<(event: MessageEvent) => void>>();
+      onerror: ((event: Event) => void) | null = null;
+      url: string;
+
+      constructor(url: string | URL) {
+        this.url = String(url);
+        sources.push(this);
+      }
+
+      addEventListener(type: string, listener: EventListener): void {
+        const listeners = this.listeners.get(type) ?? new Set<(event: MessageEvent) => void>();
+        listeners.add(listener as (event: MessageEvent) => void);
+        this.listeners.set(type, listeners);
+      }
+
+      emit(type: string, payload: unknown): void {
+        const event = new MessageEvent(type, { data: JSON.stringify(payload) });
+        for (const listener of this.listeners.get(type) ?? []) listener(event);
+      }
+
+      close(): void {}
+    }
+
+    window.EventSource = MockEventSource as unknown as typeof EventSource;
+    (window as unknown as { __emitEventSource: (type: string, payload: unknown) => void }).__emitEventSource = (type, payload) => {
+      for (const source of sources) source.emit(type, payload);
+    };
+  });
+}
 
 test('renders the local HMI on desktop and small screens', async ({ page }) => {
   await page.goto('/');
@@ -195,4 +262,35 @@ test('renders the local HMI on desktop and small screens', async ({ page }) => {
   await expect(phCalibration).toHaveAttribute('open', '');
   await expect(phCalibration.getByText('pH Mid Point')).toBeVisible();
   await expect(phCalibration.getByRole('button', { name: 'Send' })).toBeVisible();
+});
+
+test('keeps manually collapsed default-open sections closed across live updates', async ({ page }) => {
+  await installMockEventSource(page);
+  await page.goto('/');
+
+  const atlas = page.locator('article.device').filter({ has: page.getByRole('heading', { name: 'Atlas Hydro Monitor' }) });
+  await expect(atlas).toBeVisible();
+
+  const controls = atlas.locator('details.device-section').filter({ hasText: 'Circuit Controls' });
+  await expect(controls).toHaveAttribute('open', '');
+  await expect(controls.getByText('Enable pH Circuit')).toBeVisible();
+
+  await controls.locator('summary').click();
+  await expect(controls).not.toHaveAttribute('open', '');
+  await expect(controls.getByText('Enable pH Circuit')).toBeHidden();
+
+  await page.evaluate(() => {
+    (window as unknown as { __emitEventSource: (type: string, payload: unknown) => void }).__emitEventSource('state', {
+      type: 'state',
+      entityId: 'atlas_water_ph',
+      state: {
+        value: '6.43',
+        updatedAt: new Date('2026-06-13T12:01:00Z').toISOString()
+      }
+    });
+  });
+
+  await expect(atlas.locator('.metric-grid')).toContainText('6.43 pH');
+  await expect(controls).not.toHaveAttribute('open', '');
+  await expect(controls.getByText('Enable pH Circuit')).toBeHidden();
 });
