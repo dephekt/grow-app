@@ -1,0 +1,19 @@
+const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="grow-app">
+  <rect width="64" height="64" rx="14" fill="#17211d"/>
+  <path d="M18 39c0-14 10-24 28-25 1 18-8 30-24 31 3-9 9-16 18-22-12 4-20 12-22 24" fill="#7ccf7a"/>
+  <path d="M18 47c7-1 15-3 24-10" fill="none" stroke="#e7f5df" stroke-width="4" stroke-linecap="round"/>
+</svg>
+`;
+
+const headers = {
+  'content-type': 'image/svg+xml',
+  'cache-control': 'public, max-age=86400'
+};
+
+export function GET() {
+  return new Response(icon, { headers });
+}
+
+export function HEAD() {
+  return new Response(null, { headers });
+}
