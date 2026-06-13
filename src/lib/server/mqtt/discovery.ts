@@ -162,7 +162,7 @@ export function parseDiscoveryPayload(
     min: numberValue(payload.min),
     max: numberValue(payload.max),
     step: numberValue(payload.step),
-    options: parseOptions(payload.options),
+    options: parseOptions(payload.options) ?? parseOptions(payload.ops),
     dangerous,
     writable: Boolean(commandTopic),
     raw: payload

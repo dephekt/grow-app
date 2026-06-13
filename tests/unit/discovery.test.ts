@@ -40,6 +40,22 @@ describe('MQTT discovery parsing', () => {
   it('rejects topics outside the discovery prefix', () => {
     expect(parseDiscoveryTopic('homeassistant/sensor/foo/config', prefix)).toBeNull();
   });
+
+  it('parses ESPHome abbreviated select options', () => {
+    const entity = parseDiscoveryPayload(
+      `${prefix}/select/atoms3u_sensor_rig/palette/config`,
+      JSON.stringify({
+        ops: ['rainbow', 'ironblack'],
+        name: 'Palette',
+        uniq_id: 'atoms3u_palette',
+        cmd_t: 'grow/daniel-home/atoms3u/select/palette/command',
+        dev: { ids: ['atoms3u'], name: 'AtomS3U' }
+      }),
+      prefix
+    );
+
+    expect(entity?.options).toEqual(['rainbow', 'ironblack']);
+  });
 });
 
 describe('command publishing', () => {

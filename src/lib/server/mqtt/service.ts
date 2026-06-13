@@ -23,6 +23,7 @@ export class SiteMqttService {
   private readonly availabilityByDevice = new Map<string, AvailabilityState>();
   private readonly topicToEntity = new Map<string, Set<string>>();
   private readonly availabilityTopicToEntity = new Map<string, Set<string>>();
+  private readonly retainedByTopic = new Map<string, string>();
   private readonly emitter = new EventEmitter();
   private broker: BrokerSnapshot = {
     connected: false,
@@ -122,6 +123,7 @@ export class SiteMqttService {
 
   private handleMessage(topic: string, payload: string): void {
     this.broker = { ...this.broker, lastMessageAt: new Date().toISOString() };
+    this.retainedByTopic.set(topic, payload);
 
     const discovered = parseDiscoveryPayload(topic, payload, this.config.discoveryPrefix);
     if (discovered) {
@@ -172,6 +174,20 @@ export class SiteMqttService {
 
     if (!this.availabilityByDevice.has(entity.device.identifiers[0])) {
       this.availabilityByDevice.set(entity.device.identifiers[0], 'unknown');
+    }
+
+    if (entity.stateTopic && this.retainedByTopic.has(entity.stateTopic)) {
+      this.stateByEntity.set(entity.id, {
+        value: this.retainedByTopic.get(entity.stateTopic) ?? null,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    if (entity.availabilityTopic && this.retainedByTopic.has(entity.availabilityTopic)) {
+      const payload = this.retainedByTopic.get(entity.availabilityTopic);
+      const availability =
+        payload === entity.payloadAvailable ? 'online' : payload === entity.payloadNotAvailable ? 'offline' : 'unknown';
+      this.availabilityByDevice.set(entity.device.identifiers[0], availability);
     }
 
     this.emit({ type: 'entity', entity });
