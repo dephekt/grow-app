@@ -15,6 +15,7 @@ describe('MQTT discovery parsing', () => {
         stat_t: '~/sensor/temperature/state',
         avty_t: '~/status',
         unit_of_meas: '°C',
+        sug_dsp_prc: 2,
         dev_cla: 'temperature',
         dev: {
           ids: ['atoms3u-sensor-rig'],
@@ -33,9 +34,30 @@ describe('MQTT discovery parsing', () => {
       stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/sensor/temperature/state',
       availabilityTopic: 'grow/daniel-home/atoms3u-sensor-rig/status',
       unit: '°C',
+      suggestedDisplayPrecision: 2,
       deviceClass: 'temperature',
       entityCategory: undefined,
       writable: false
+    });
+  });
+
+  it('parses long suggested display precision fields', () => {
+    const entity = parseDiscoveryPayload(
+      `${prefix}/sensor/atoms3u_sensor_rig/vpd/config`,
+      JSON.stringify({
+        name: 'VPD',
+        uniq_id: 'atoms3u_vpd',
+        stat_t: 'grow/daniel-home/atoms3u-sensor-rig/sensor/vpd/state',
+        unit_of_measurement: 'kPa',
+        suggested_display_precision: 2,
+        dev: { ids: ['atoms3u-sensor-rig'], name: 'AtomS3U Sensor Rig' }
+      }),
+      prefix
+    );
+
+    expect(entity).toMatchObject({
+      unit: 'kPa',
+      suggestedDisplayPrecision: 2
     });
   });
 
