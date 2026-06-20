@@ -46,3 +46,36 @@ docker run --rm -p 3080:3000 \
 
 `MQTT_PASSWORD` is useful for local shells. `MQTT_PASSWORD_FILE` is preferred in
 Docker/Compose so broker credentials can be mounted as secrets.
+
+## Updating the deployed LAN site
+
+The deployed site at `http://192.168.8.3:3080` is not served directly from this
+git checkout. It runs from the `media-stack` Docker Compose project:
+
+- Compose file: `/home/daniel/dev/media-stack/grow/docker-compose.yml`
+- Service: `grow-app-site`
+- Published image: `codeberg.org/stackdrift-images/grow-app:edge-node24-bookworm-slim`
+- Port mapping: `3080:3000`
+
+Pushing to `main` in this repo triggers the Forgejo workflow in
+`.forgejo/workflows/build.yaml`. That workflow builds and publishes the
+`edge-node24-bookworm-slim` image tag. After the workflow finishes, the media
+server still needs to pull the refreshed mutable tag and recreate the container.
+
+From `/home/daniel/dev/media-stack`:
+
+```bash
+make grow-pull
+make grow-app-site-up
+
+curl http://192.168.8.3:3080/health
+```
+
+`make grow-pull` explicitly refreshes the already-present mutable `edge-*` image
+tag. `make grow-app-site-up` recreates only the running grow-app service through
+the remote `media-server` Docker context. Use `make grow-up` instead when the
+grow Compose file or secrets need to be synced first.
+
+If a change also edits `grow-fleet` device UI metadata, deploy the app first,
+then update or republish the affected device discovery/UI config so the retained
+MQTT metadata matches the new layout.
