@@ -25,6 +25,8 @@ function parseGroup(value: unknown): DeviceUiGroup | null {
     title,
     order: numberValue(raw.order, 0),
     variant: stringValue(raw.variant),
+    surface: stringValue(raw.surface),
+    deviceSettingsSection: stringValue(raw.deviceSettingsSection),
     defaultOpen: typeof raw.defaultOpen === 'boolean' ? raw.defaultOpen : false
   };
 }

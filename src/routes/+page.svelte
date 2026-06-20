@@ -1,329 +1,26 @@
 <script lang="ts">
-  import type { DeviceSnapshot, DeviceUiConfig, DeviceUiEntity, DeviceUiGroup, EntityConfig, EntityState, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
+  import EntityRow from '$lib/EntityRow.svelte';
+  import { dashboardPresentation } from '$lib/device-presentation';
+  import { createLiveSnapshot } from '$lib/live-snapshot.svelte';
+  import type { Snapshot } from '$lib/server/mqtt/types';
 
   let { data } = $props<{ data: { snapshot: Snapshot } }>();
 
-  function cloneSnapshot(value: Snapshot): Snapshot {
-    return structuredClone(value);
-  }
-
   // svelte-ignore state_referenced_locally
-  let snapshot = $state<Snapshot>(cloneSnapshot(data.snapshot));
-  let error = $state<string | null>(null);
-  let commandPending = $state<Record<string, boolean>>({});
-  let commandErrors = $state<Record<string, string>>({});
+  const live = createLiveSnapshot(data.snapshot);
 
-  let entitiesById = $derived(new Map(snapshot.entities.map((entity) => [entity.id, entity])));
-  let writableCount = $derived(snapshot.entities.filter((entity) => entity.writable).length);
-  let lastUpdate = $derived(snapshot.broker.lastMessageAt ?? snapshot.generatedAt);
+  let writableCount = $derived(live.snapshot.entities.filter((entity) => entity.writable).length);
+  let lastUpdate = $derived(live.snapshot.broker.lastMessageAt ?? live.snapshot.generatedAt);
 
-  interface PresentedEntity {
-    entity: EntityConfig;
-    label: string;
-    order: number;
-    groupId?: string;
-    role?: string;
-  }
+  $effect(() => live.connect());
 
-  interface PresentedSection {
-    id: string;
-    title: string;
-    order: number;
-    defaultOpen: boolean;
-    entries: PresentedEntity[];
-  }
-
-  interface DevicePresentation {
-    metrics: PresentedEntity[];
-    sections: PresentedSection[];
-  }
-
-  $effect(() => {
-    const events = new EventSource('/api/events');
-
-    events.addEventListener('snapshot', (event) => {
-      snapshot = JSON.parse((event as MessageEvent).data) as Snapshot;
-      error = null;
-    });
-
-    events.addEventListener('entity', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
-      if (!update.entity) return;
-      snapshot = {
-        ...snapshot,
-        entities: [...snapshot.entities.filter((entity) => entity.id !== update.entity?.id), update.entity]
-      };
-    });
-
-    events.addEventListener('state', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
-      if (!update.entityId || !update.state) return;
-      snapshot = {
-        ...snapshot,
-        states: {
-          ...snapshot.states,
-          [update.entityId]: update.state
-        },
-        broker: { ...snapshot.broker, lastMessageAt: update.state.updatedAt }
-      };
-    });
-
-    events.addEventListener('availability', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
-      if (!update.deviceId || !update.availability) return;
-      snapshot = {
-        ...snapshot,
-        devices: snapshot.devices.map((device) =>
-          device.id === update.deviceId ? { ...device, availability: update.availability ?? 'unknown' } : device
-        )
-      };
-    });
-
-    events.addEventListener('broker', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
-      if (!update.broker) return;
-      snapshot = { ...snapshot, broker: update.broker };
-    });
-
-    events.onerror = () => {
-      error = 'Live event stream disconnected';
-    };
-
-    return () => events.close();
-  });
-
-  function stateFor(entity: EntityConfig): EntityState {
-    return snapshot.states[entity.id] ?? { value: null, updatedAt: null };
-  }
-
-  function formatState(entity: EntityConfig): string {
-    const state = stateFor(entity).value;
-    if (state === null || state === undefined || state === '') return 'No state yet';
-    return entity.unit ? `${state} ${entity.unit}` : state;
-  }
-
-  function deviceEntities(device: DeviceSnapshot): EntityConfig[] {
-    return device.entityIds
-      .map((id) => entitiesById.get(id))
-      .filter((entity): entity is EntityConfig => Boolean(entity))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  function entityMatchKey(entity: EntityConfig): string {
-    return `${entity.component}:${entity.objectId ?? entity.id}`;
-  }
-
-  function metadataByEntity(config: DeviceUiConfig | undefined): Map<string, DeviceUiEntity> {
-    const metadata = new Map<string, DeviceUiEntity>();
-    for (const entry of config?.entities ?? []) metadata.set(`${entry.component}:${entry.objectId}`, entry);
-    return metadata;
-  }
-
-  function groupById(config: DeviceUiConfig | undefined): Map<string, DeviceUiGroup> {
-    const groups = new Map<string, DeviceUiGroup>();
-    for (const group of config?.groups ?? []) groups.set(group.id, group);
-    return groups;
-  }
-
-  function toPresentedEntity(entity: EntityConfig, metadata?: DeviceUiEntity): PresentedEntity {
-    return {
-      entity,
-      label: metadata?.label ?? entity.name,
-      order: metadata?.order ?? 0,
-      groupId: metadata?.group,
-      role: metadata?.role
-    };
-  }
-
-  function sortPresented(a: PresentedEntity, b: PresentedEntity): number {
-    return a.order - b.order || a.label.localeCompare(b.label);
-  }
-
-  function isDiagnostic(entity: EntityConfig): boolean {
-    return entity.entityCategory === 'diagnostic' || entity.objectId === 'uptime' || entity.objectId === 'wifi_signal';
-  }
-
-  function fallbackPresentation(entities: EntityConfig[]): DevicePresentation {
-    const controls = entities.filter((entity) => entity.writable && !entity.dangerous).map((entity) => toPresentedEntity(entity));
-    const readings = entities.filter((entity) => !entity.writable && !entity.dangerous && !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity));
-    const maintenance = entities.filter((entity) => entity.dangerous).map((entity) => toPresentedEntity(entity));
-    const diagnostics = entities.filter((entity) => isDiagnostic(entity)).map((entity) => toPresentedEntity(entity));
-
-    return {
-      metrics: [],
-      sections: [
-        { id: 'controls', title: 'Controls', order: 10, defaultOpen: true, entries: controls.sort(sortPresented) },
-        { id: 'readings', title: 'Readings', order: 20, defaultOpen: true, entries: readings.sort(sortPresented) },
-        { id: 'maintenance', title: 'Maintenance', order: 80, defaultOpen: false, entries: maintenance.sort(sortPresented) },
-        { id: 'diagnostics', title: 'Diagnostics', order: 90, defaultOpen: false, entries: diagnostics.sort(sortPresented) }
-      ].filter((section) => section.entries.length > 0)
-    };
-  }
-
-  function devicePresentation(device: DeviceSnapshot): DevicePresentation {
-    const entities = deviceEntities(device);
-    const config = snapshot.uiConfigs[device.nodeId];
-    if (!config) return fallbackPresentation(entities);
-
-    const entityMetadata = metadataByEntity(config);
-    const groups = groupById(config);
-    const consumed = new Set<string>();
-
-    const metrics = entities
-      .map((entity) => {
-        const metadata = entityMetadata.get(entityMatchKey(entity));
-        const group = metadata ? groups.get(metadata.group) : undefined;
-        const metric = metadata?.role === 'metric' || group?.variant === 'metrics';
-        return metadata && metric ? toPresentedEntity(entity, metadata) : null;
-      })
-      .filter((entry): entry is PresentedEntity => Boolean(entry))
-      .sort(sortPresented);
-
-    for (const entry of metrics) consumed.add(entry.entity.id);
-
-    const sections = [...groups.values()]
-      .filter((group) => group.variant !== 'metrics')
-      .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
-      .map((group) => {
-        const entries = entities
-          .filter((entity) => !consumed.has(entity.id))
-          .map((entity) => {
-            const metadata = entityMetadata.get(entityMatchKey(entity));
-            return metadata?.group === group.id ? toPresentedEntity(entity, metadata) : null;
-          })
-          .filter((entry): entry is PresentedEntity => Boolean(entry))
-          .sort(sortPresented);
-
-        for (const entry of entries) consumed.add(entry.entity.id);
-
-        return {
-          id: group.id,
-          title: group.title,
-          order: group.order,
-          defaultOpen: group.defaultOpen,
-          entries
-        };
-      })
-      .filter((section) => section.entries.length > 0);
-
-    const remaining = entities.filter((entity) => !consumed.has(entity.id));
-    const diagnostics = remaining.filter(isDiagnostic).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
-    const other = remaining.filter((entity) => !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
-
-    if (diagnostics.length > 0) {
-      sections.push({ id: 'diagnostics_fallback', title: 'Diagnostics', order: 900, defaultOpen: false, entries: diagnostics });
-    }
-    if (other.length > 0) {
-      sections.push({ id: 'other', title: 'Other', order: 990, defaultOpen: false, entries: other });
-    }
-
-    return { metrics, sections: sections.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title)) };
-  }
-
-  function initialOpen(node: HTMLDetailsElement, open: boolean): void {
-    node.open = open;
-  }
-
-  async function sendCommand(entity: EntityConfig, value?: unknown) {
-    if (entity.dangerous && !confirm(`Publish command for ${entity.name}?`)) return;
-
-    commandPending = { ...commandPending, [entity.id]: true };
-    commandErrors = { ...commandErrors, [entity.id]: '' };
-
-    const response = await fetch(`/api/entities/${entity.id}/command`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ value, confirm: entity.dangerous })
-    });
-
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      commandErrors = { ...commandErrors, [entity.id]: body.error ?? 'Command failed' };
-    }
-
-    commandPending = { ...commandPending, [entity.id]: false };
+  function deviceSettingsHref(nodeId: string): string {
+    return `/device-settings?device=${encodeURIComponent(nodeId)}`;
   }
 </script>
 
-{#snippet entityRow(entry: PresentedEntity)}
-  {@const entity = entry.entity}
-  <div class="entity">
-    <div class="entity-meta">
-      <span>{entry.label}</span>
-      <small>{entity.component}{entity.deviceClass ? ` · ${entity.deviceClass}` : ''}</small>
-    </div>
-
-    <div class="entity-control">
-      {#if entity.writable && entity.component === 'switch'}
-        <button
-          type="button"
-          class="toggle"
-          class:on={stateFor(entity).value === entity.payloadOn}
-          disabled={commandPending[entity.id]}
-          onclick={() => sendCommand(entity, stateFor(entity).value !== entity.payloadOn)}
-        >
-          {stateFor(entity).value === entity.payloadOn ? 'On' : 'Off'}
-        </button>
-      {:else if entity.writable && entity.component === 'number'}
-        <input
-          type="number"
-          min={entity.min}
-          max={entity.max}
-          step={entity.step ?? 'any'}
-          value={stateFor(entity).value ?? ''}
-          disabled={commandPending[entity.id]}
-          onblur={(event) => sendCommand(entity, event.currentTarget.value)}
-        />
-      {:else if entity.writable && entity.component === 'select'}
-        <select
-          value={stateFor(entity).value ?? ''}
-          disabled={commandPending[entity.id]}
-          onchange={(event) => sendCommand(entity, event.currentTarget.value)}
-        >
-          <option value="" disabled>Select</option>
-          {#each entity.options ?? [] as option}
-            <option value={option}>{option}</option>
-          {/each}
-        </select>
-      {:else if entity.writable && entity.component === 'button'}
-        <button
-          type="button"
-          class:danger={entity.dangerous}
-          disabled={commandPending[entity.id]}
-          onclick={() => sendCommand(entity)}
-        >
-          Send
-        </button>
-      {:else if entity.writable}
-        <form
-          onsubmit={(event) => {
-            event.preventDefault();
-            const form = event.currentTarget;
-            const input = new FormData(form).get('value');
-            sendCommand(entity, input);
-            form.reset();
-          }}
-        >
-          <input name="value" aria-label={`${entry.label} command`} disabled={commandPending[entity.id]} />
-          <button type="submit" disabled={commandPending[entity.id]}>Set</button>
-        </form>
-      {:else}
-        <span class="value">{formatState(entity)}</span>
-      {/if}
-    </div>
-
-    {#if entity.writable && entity.component !== 'number'}
-      <span class="value secondary">{formatState(entity)}</span>
-    {/if}
-
-    {#if commandErrors[entity.id]}
-      <p class="command-error">{commandErrors[entity.id]}</p>
-    {/if}
-  </div>
-{/snippet}
-
 <svelte:head>
-  <title>grow-app · {snapshot.site}</title>
+  <title>grow-app · {live.snapshot.site}</title>
   <meta
     name="description"
     content="Local site-mode grow HMI for broker health, live MQTT state, and discovered controls"
@@ -334,23 +31,23 @@
   <section class="status-band" aria-label="Site status">
     <div>
       <p class="eyebrow">Site mode</p>
-      <h1>{snapshot.site}</h1>
+      <h1>{live.snapshot.site}</h1>
     </div>
 
     <dl class="stats">
       <div>
         <dt>Broker</dt>
-        <dd class:ok={snapshot.broker.connected} class:bad={!snapshot.broker.connected}>
-          {snapshot.broker.connected ? 'Connected' : snapshot.broker.connecting ? 'Connecting' : 'Offline'}
+        <dd class:ok={live.snapshot.broker.connected} class:bad={!live.snapshot.broker.connected}>
+          {live.snapshot.broker.connected ? 'Connected' : live.snapshot.broker.connecting ? 'Connecting' : 'Offline'}
         </dd>
       </div>
       <div>
         <dt>Devices</dt>
-        <dd>{snapshot.devices.length}</dd>
+        <dd>{live.snapshot.devices.length}</dd>
       </div>
       <div>
         <dt>Entities</dt>
-        <dd>{snapshot.entities.length}</dd>
+        <dd>{live.snapshot.entities.length}</dd>
       </div>
       <div>
         <dt>Writable</dt>
@@ -363,19 +60,19 @@
     </dl>
   </section>
 
-  {#if snapshot.broker.error || error}
-    <p class="banner">{snapshot.broker.error ?? error}</p>
+  {#if live.snapshot.broker.error || live.error}
+    <p class="banner">{live.snapshot.broker.error ?? live.error}</p>
   {/if}
 
-  {#if snapshot.devices.length === 0}
+  {#if live.snapshot.devices.length === 0}
     <section class="empty">
       <h2>Waiting for retained discovery</h2>
-      <p>{snapshot.discoveryPrefix}/#</p>
+      <p>{live.snapshot.discoveryPrefix}/#</p>
     </section>
   {:else}
     <section class="device-grid" aria-label="Devices">
-      {#each snapshot.devices as device (device.id)}
-        {@const presentation = devicePresentation(device)}
+      {#each live.snapshot.devices as device (device.id)}
+        {@const presentation = dashboardPresentation(live.snapshot, device)}
         <article class="device">
           <header>
             <div>
@@ -395,27 +92,34 @@
               {#each presentation.metrics as entry (entry.entity.id)}
                 <div class="metric">
                   <span>{entry.label}</span>
-                  <strong>{formatState(entry.entity)}</strong>
+                  <strong>{live.formatState(entry.entity)}</strong>
                 </div>
               {/each}
             </div>
           {/if}
 
-          <div class="section-list">
-            {#each presentation.sections as section (section.id)}
-              <details class="device-section" use:initialOpen={section.defaultOpen}>
-                <summary>
-                  <span>{section.title}</span>
-                  <small>{section.entries.length}</small>
-                </summary>
+          {#if presentation.quickControls.length > 0}
+            <section class="quick-controls" aria-label={`${device.name} quick controls`}>
+              <div class="section-heading">
+                <h3>Quick controls</h3>
+                <small>{presentation.quickControls.length}</small>
+              </div>
+              <div class="entity-list">
+                {#each presentation.quickControls as entry (entry.entity.id)}
+                  <EntityRow
+                    {entry}
+                    state={live.stateFor(entry.entity)}
+                    pending={live.commandPending[entry.entity.id]}
+                    error={live.commandErrors[entry.entity.id]}
+                    onCommand={live.sendCommand}
+                  />
+                {/each}
+              </div>
+            </section>
+          {/if}
 
-                <div class="entity-list">
-                  {#each section.entries as entry (entry.entity.id)}
-                    {@render entityRow(entry)}
-                  {/each}
-                </div>
-              </details>
-            {/each}
+          <div class="device-actions">
+            <a class="settings-link" href={deviceSettingsHref(device.nodeId)}>Device settings</a>
           </div>
         </article>
       {/each}
@@ -456,6 +160,7 @@
 
   h1,
   h2,
+  h3,
   p,
   dl {
     margin: 0;
@@ -468,6 +173,10 @@
 
   h2 {
     font-size: 1.05rem;
+  }
+
+  h3 {
+    font-size: 0.95rem;
   }
 
   .eyebrow {
@@ -494,8 +203,7 @@
 
   dt,
   small,
-  .subtle,
-  .secondary {
+  .subtle {
     color: #66736e;
   }
 
@@ -515,8 +223,7 @@
   }
 
   .bad,
-  .offline,
-  .command-error {
+  .offline {
     color: #a62b24;
   }
 
@@ -562,10 +269,6 @@
     text-transform: capitalize;
   }
 
-  .entity-list {
-    display: grid;
-  }
-
   .metric-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
@@ -598,31 +301,22 @@
     line-height: 1.1;
   }
 
-  .section-list {
-    display: grid;
+  .quick-controls {
+    border-bottom: 1px solid #e5ebe7;
   }
 
-  .device-section {
-    border-top: 1px solid #e5ebe7;
-  }
-
-  .device-section:first-child {
-    border-top: 0;
-  }
-
-  .device-section summary {
+  .section-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     min-height: 44px;
     padding: 12px 16px;
-    cursor: pointer;
     color: #26342e;
     font-weight: 800;
   }
 
-  .device-section summary small {
+  .section-heading small {
     min-width: 28px;
     padding: 2px 8px;
     border-radius: 999px;
@@ -631,115 +325,41 @@
     font-size: 0.72rem;
   }
 
-  .device-section[open] summary {
-    border-bottom: 1px solid #edf1ee;
-    background: #fbfcfb;
-  }
-
-  .entity {
+  .entity-list {
     display: grid;
-    grid-template-columns: minmax(120px, 1fr) minmax(120px, auto);
-    gap: 10px;
-    align-items: center;
-    padding: 12px 16px;
-    border-top: 1px solid #edf1ee;
   }
 
-  .entity-meta {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-  }
-
-  .entity-meta span,
-  .value {
-    overflow-wrap: anywhere;
-  }
-
-  .entity-control {
+  .device-actions {
     display: flex;
     justify-content: flex-end;
-    min-width: 0;
+    padding: 12px 16px;
   }
 
-  .entity-control form {
-    display: flex;
-    gap: 6px;
-  }
-
-  .entity-control input,
-  .entity-control select {
-    width: min(180px, 38vw);
+  .settings-link {
+    display: inline-flex;
     min-height: 36px;
-    box-sizing: border-box;
+    align-items: center;
+    padding: 0 12px;
     border: 1px solid #cbd6cf;
     border-radius: 6px;
-    background: #ffffff;
     color: #17211d;
-  }
-
-  button {
-    min-height: 36px;
-    border: 1px solid #1f6f54;
-    border-radius: 6px;
-    background: #1f6f54;
-    color: #ffffff;
-    cursor: pointer;
+    background: #f8faf9;
     font-weight: 700;
+    text-decoration: none;
   }
 
-  button:disabled,
-  input:disabled,
-  select:disabled {
-    cursor: wait;
-    opacity: 0.55;
-  }
-
-  .toggle {
-    min-width: 72px;
-    border-color: #7c8795;
-    background: #7c8795;
-  }
-
-  .toggle.on {
+  .settings-link:hover {
     border-color: #1f6f54;
-    background: #1f6f54;
-  }
-
-  .danger {
-    border-color: #a62b24;
-    background: #a62b24;
-  }
-
-  .value.secondary {
-    grid-column: 1 / -1;
-    font-size: 0.82rem;
-  }
-
-  .command-error {
-    grid-column: 1 / -1;
-    font-size: 0.82rem;
+    color: #1f6f54;
   }
 
   @media (max-width: 820px) {
-    .status-band,
-    .entity {
+    .status-band {
       grid-template-columns: 1fr;
     }
 
     .stats {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .entity-control {
-      justify-content: stretch;
-    }
-
-    .entity-control input,
-    .entity-control select,
-    .entity-control button,
-    .entity-control form {
-      width: 100%;
     }
   }
 </style>

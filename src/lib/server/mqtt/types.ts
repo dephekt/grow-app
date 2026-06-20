@@ -66,6 +66,8 @@ export interface DeviceUiGroup {
   title: string;
   order: number;
   variant?: 'metrics' | 'list' | string;
+  surface?: 'dashboard' | 'device-settings' | string;
+  deviceSettingsSection?: 'controls' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other' | string;
   defaultOpen: boolean;
 }
 
@@ -73,7 +75,7 @@ export interface DeviceUiEntity {
   component: string;
   objectId: string;
   group: string;
-  role?: 'metric' | string;
+  role?: 'metric' | 'quick-control' | string;
   order: number;
   label?: string;
 }

@@ -1,194 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-
-const snapshot = {
-  site: 'daniel-home',
-  topicPrefix: 'grow/daniel-home',
-  discoveryPrefix: 'grow/daniel-home/_discovery',
-  generatedAt: new Date('2026-06-13T12:00:00Z').toISOString(),
-  broker: {
-    connected: true,
-    connecting: false,
-    error: null,
-    lastConnectedAt: new Date('2026-06-13T11:59:00Z').toISOString(),
-    lastMessageAt: new Date('2026-06-13T12:00:00Z').toISOString()
-  },
-  devices: [
-    {
-      id: 'atoms3u-sensor-rig',
-      nodeId: 'atoms3u-sensor-rig',
-      name: 'AtomS3U Sensor Rig',
-      manufacturer: 'M5Stack',
-      model: 'AtomS3U',
-      availability: 'online',
-      entityIds: ['atoms3u_temperature']
-    },
-    {
-      id: 'atlas-hydro-monitor',
-      nodeId: 'atlas-hydro-monitor',
-      name: 'Atlas Hydro Monitor',
-      manufacturer: 'Atlas Scientific',
-      model: 'Hydro kit',
-      availability: 'unknown',
-      entityIds: [
-        'atlas_water_temperature',
-        'atlas_water_ph',
-        'atlas_enable_ph_circuit',
-        'atlas_ph_cal_mid',
-        'atlas_restart',
-        'atlas_uptime'
-      ]
-    }
-  ],
-  entities: [
-    {
-      id: 'atoms3u_temperature',
-      component: 'sensor',
-      name: 'Temperature',
-      uniqueId: 'atoms3u_temperature',
-      device: { identifiers: ['atoms3u-sensor-rig'], name: 'AtomS3U Sensor Rig' },
-      stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/sensor/temperature/state',
-      unit: '°C',
-      payloadAvailable: 'online',
-      payloadNotAvailable: 'offline',
-      dangerous: false,
-      writable: false,
-      raw: {}
-    },
-    {
-      id: 'atlas_water_temperature',
-      component: 'sensor',
-      name: 'Water Temperature',
-      uniqueId: 'atlas_water_temperature',
-      objectId: 'water_temperature',
-      nodeId: 'atlas-hydro-monitor',
-      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
-      stateTopic: 'grow/daniel-home/atlas-hydro-monitor/sensor/water_temperature/state',
-      unit: '°C',
-      deviceClass: 'temperature',
-      payloadAvailable: 'online',
-      payloadNotAvailable: 'offline',
-      dangerous: false,
-      writable: false,
-      raw: {}
-    },
-    {
-      id: 'atlas_water_ph',
-      component: 'sensor',
-      name: 'Water pH',
-      uniqueId: 'atlas_water_ph',
-      objectId: 'water_ph',
-      nodeId: 'atlas-hydro-monitor',
-      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
-      stateTopic: 'grow/daniel-home/atlas-hydro-monitor/sensor/water_ph/state',
-      unit: 'pH',
-      deviceClass: 'ph',
-      payloadAvailable: 'online',
-      payloadNotAvailable: 'offline',
-      dangerous: false,
-      writable: false,
-      raw: {}
-    },
-    {
-      id: 'atlas_ph_cal_mid',
-      component: 'button',
-      name: 'pH Cal Mid (7.00)',
-      uniqueId: 'atlas_ph_cal_mid',
-      objectId: 'ph_cal_mid__7_00_',
-      nodeId: 'atlas-hydro-monitor',
-      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
-      commandTopic: 'grow/daniel-home/atlas-hydro-monitor/button/ph_cal_mid/command',
-      payloadPress: 'PRESS',
-      payloadAvailable: 'online',
-      payloadNotAvailable: 'offline',
-      dangerous: true,
-      writable: true,
-      raw: {}
-    },
-    {
-      id: 'atlas_enable_ph_circuit',
-      component: 'switch',
-      name: 'Enable pH Circuit',
-      uniqueId: 'atlas_enable_ph_circuit',
-      objectId: 'enable_ph_circuit',
-      nodeId: 'atlas-hydro-monitor',
-      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
-      stateTopic: 'grow/daniel-home/atlas-hydro-monitor/switch/enable_ph_circuit/state',
-      commandTopic: 'grow/daniel-home/atlas-hydro-monitor/switch/enable_ph_circuit/command',
-      payloadOn: 'ON',
-      payloadOff: 'OFF',
-      payloadAvailable: 'online',
-      payloadNotAvailable: 'offline',
-      dangerous: false,
-      writable: true,
-      raw: {}
-    },
-    {
-      id: 'atlas_restart',
-      component: 'button',
-      name: 'Restart',
-      uniqueId: 'atlas_restart',
-      objectId: 'restart_device',
-      nodeId: 'atlas-hydro-monitor',
-      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
-      commandTopic: 'grow/daniel-home/atlas-hydro-monitor/button/restart/command',
-      payloadPress: 'PRESS',
-      payloadAvailable: 'online',
-      payloadNotAvailable: 'offline',
-      dangerous: true,
-      writable: true,
-      raw: {}
-    },
-    {
-      id: 'atlas_uptime',
-      component: 'sensor',
-      name: 'Uptime',
-      uniqueId: 'atlas_uptime',
-      objectId: 'uptime',
-      nodeId: 'atlas-hydro-monitor',
-      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
-      stateTopic: 'grow/daniel-home/atlas-hydro-monitor/sensor/uptime/state',
-      entityCategory: 'diagnostic',
-      payloadAvailable: 'online',
-      payloadNotAvailable: 'offline',
-      dangerous: false,
-      writable: false,
-      raw: {}
-    }
-  ],
-  states: {
-    atoms3u_temperature: { value: '24.8', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atlas_water_temperature: { value: '22.1', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atlas_water_ph: { value: '6.42', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atlas_enable_ph_circuit: { value: 'ON', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atlas_uptime: { value: '1h', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() }
-  },
-  uiConfigs: {
-    'atlas-hydro-monitor': {
-      schema: 'grow-ui.v1',
-      nodeId: 'atlas-hydro-monitor',
-      groups: [
-        { id: 'overview', title: 'Key Readings', order: 0, variant: 'metrics', defaultOpen: true },
-        { id: 'controls', title: 'Circuit Controls', order: 20, defaultOpen: true },
-        { id: 'ph_cal', title: 'pH Calibration', order: 40, defaultOpen: false },
-        { id: 'maintenance', title: 'Maintenance', order: 80, defaultOpen: false }
-      ],
-      entities: [
-        {
-          component: 'sensor',
-          objectId: 'water_temperature',
-          group: 'overview',
-          role: 'metric',
-          order: 10,
-          label: 'Water Temp'
-        },
-        { component: 'sensor', objectId: 'water_ph', group: 'overview', role: 'metric', order: 20, label: 'Water pH' },
-        { component: 'switch', objectId: 'enable_ph_circuit', group: 'controls', order: 10 },
-        { component: 'button', objectId: 'ph_cal_mid__7_00_', group: 'ph_cal', order: 10, label: 'pH Mid Point' },
-        { component: 'button', objectId: 'restart_device', group: 'maintenance', order: 90, label: 'Restart Device' }
-      ]
-    }
-  }
-};
+import { dashboardSnapshot as snapshot } from './fixtures/dashboard-snapshot';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/snapshot', async (route) => {
@@ -238,7 +49,7 @@ async function installMockEventSource(page: Page): Promise<void> {
   });
 }
 
-test('renders the local HMI on desktop and small screens', async ({ page }) => {
+test('renders a scan-focused local HMI dashboard', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'daniel-home' })).toBeVisible();
@@ -253,31 +64,26 @@ test('renders the local HMI on desktop and small screens', async ({ page }) => {
   await expect(keyReadings.getByText('22.1 °C')).toBeVisible();
   await expect(keyReadings.getByText('Water pH')).toBeVisible();
   await expect(keyReadings.getByText('6.42 pH')).toBeVisible();
+  await expect(atlas.getByRole('heading', { name: 'Quick controls' })).toBeVisible();
+  await expect(atlas.getByText('Enable pH Circuit')).toBeVisible();
+  await expect(atlas.getByRole('link', { name: 'Device settings' })).toHaveAttribute(
+    'href',
+    '/device-settings?device=atlas-hydro-monitor'
+  );
 
-  const phCalibration = atlas.locator('details.device-section').filter({ hasText: 'pH Calibration' });
-  await expect(phCalibration).not.toHaveAttribute('open', '');
-  await expect(phCalibration.getByText('pH Mid Point')).toBeHidden();
-
-  await phCalibration.locator('summary').click();
-  await expect(phCalibration).toHaveAttribute('open', '');
-  await expect(phCalibration.getByText('pH Mid Point')).toBeVisible();
-  await expect(phCalibration.getByRole('button', { name: 'Send' })).toBeVisible();
+  await expect(atlas.getByText('pH Calibration')).toBeHidden();
+  await expect(atlas.getByText('pH Mid Point')).toBeHidden();
+  await expect(atlas.getByText('Restart Device')).toBeHidden();
+  await expect(atlas.getByText('Uptime')).toBeHidden();
 });
 
-test('keeps manually collapsed default-open sections closed across live updates', async ({ page }) => {
+test('keeps dashboard metrics live without showing device settings sections', async ({ page }) => {
   await installMockEventSource(page);
   await page.goto('/');
 
   const atlas = page.locator('article.device').filter({ has: page.getByRole('heading', { name: 'Atlas Hydro Monitor' }) });
   await expect(atlas).toBeVisible();
-
-  const controls = atlas.locator('details.device-section').filter({ hasText: 'Circuit Controls' });
-  await expect(controls).toHaveAttribute('open', '');
-  await expect(controls.getByText('Enable pH Circuit')).toBeVisible();
-
-  await controls.locator('summary').click();
-  await expect(controls).not.toHaveAttribute('open', '');
-  await expect(controls.getByText('Enable pH Circuit')).toBeHidden();
+  await expect(atlas.getByText('pH Calibration')).toBeHidden();
 
   await page.evaluate(() => {
     (window as unknown as { __emitEventSource: (type: string, payload: unknown) => void }).__emitEventSource('state', {
@@ -291,6 +97,41 @@ test('keeps manually collapsed default-open sections closed across live updates'
   });
 
   await expect(atlas.locator('.metric-grid')).toContainText('6.43 pH');
-  await expect(controls).not.toHaveAttribute('open', '');
-  await expect(controls.getByText('Enable pH Circuit')).toBeHidden();
+  await expect(atlas.getByText('pH Calibration')).toBeHidden();
+});
+
+test('renders device calibration settings from query state', async ({ page }) => {
+  await page.goto('/device-settings?device=atlas-hydro-monitor&section=calibration');
+
+  await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Atlas Hydro Monitor' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Calibration/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'pH Calibration' })).toBeVisible();
+  await expect(page.getByText('pH Mid Point')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Send' })).toBeVisible();
+  await expect(page.getByText('Restart Device')).toBeHidden();
+
+  const phCalibration = page.locator('details.settings-group').filter({
+    has: page.getByRole('heading', { name: 'pH Calibration' })
+  });
+  await phCalibration.getByRole('heading', { name: 'pH Calibration' }).click();
+  await expect(phCalibration.getByText('pH Mid Point')).toBeHidden();
+  await phCalibration.getByRole('heading', { name: 'pH Calibration' }).click();
+  await expect(phCalibration.getByText('pH Mid Point')).toBeVisible();
+});
+
+test('navigates device settings sections and devices with URL state', async ({ page }) => {
+  await page.goto('/device-settings?device=atlas-hydro-monitor&section=calibration');
+
+  await page.getByRole('link', { name: /Controls/ }).click();
+  await expect(page).toHaveURL(/device=atlas-hydro-monitor&section=controls/);
+  await expect(page.getByRole('link', { name: /Controls/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByText('Enable pH Circuit')).toBeVisible();
+
+  await page.getByRole('link', { name: /AtomS3U Sensor Rig/ }).click();
+  await expect(page).toHaveURL(/\/device-settings\?device=atoms3u-sensor-rig$/);
+  await expect(page.getByRole('heading', { name: 'AtomS3U Sensor Rig' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Alerts/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByText('CO2 High Threshold')).toBeVisible();
+  await expect(page.getByText('CO2 High Alert')).toBeVisible();
 });

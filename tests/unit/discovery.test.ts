@@ -110,8 +110,24 @@ describe('device UI metadata parsing', () => {
         schema: 'grow-ui.v1',
         nodeId: 'atlas-hydro-monitor',
         groups: [
-          { id: 'overview', title: 'Overview', order: 0, variant: 'metrics', defaultOpen: true },
-          { id: 'ph_cal', title: 'pH Calibration', order: 40, variant: undefined, defaultOpen: false }
+          {
+            id: 'overview',
+            title: 'Overview',
+            order: 0,
+            variant: 'metrics',
+            surface: undefined,
+            deviceSettingsSection: undefined,
+            defaultOpen: true
+          },
+          {
+            id: 'ph_cal',
+            title: 'pH Calibration',
+            order: 40,
+            variant: undefined,
+            surface: undefined,
+            deviceSettingsSection: undefined,
+            defaultOpen: false
+          }
         ],
         entities: [
           {
@@ -132,6 +148,49 @@ describe('device UI metadata parsing', () => {
           }
         ]
       }
+    });
+  });
+
+  it('parses optional device settings placement metadata', () => {
+    const topic = `${topicPrefix}/atlas-hydro-monitor/_ui/config`;
+
+    expect(
+      parseUiConfigPayload(
+        topic,
+        JSON.stringify({
+          schema: 'grow-ui.v1',
+          nodeId: 'atlas-hydro-monitor',
+          groups: [
+            {
+              id: 'controls',
+              title: 'Circuit Controls',
+              order: 20,
+              surface: 'device-settings',
+              deviceSettingsSection: 'controls'
+            }
+          ],
+          entities: [
+            {
+              component: 'switch',
+              objectId: 'enable_ph_circuit',
+              group: 'controls',
+              role: 'quick-control',
+              order: 10
+            }
+          ]
+        }),
+        topicPrefix
+      )?.config
+    ).toMatchObject({
+      groups: [
+        {
+          id: 'controls',
+          surface: 'device-settings',
+          deviceSettingsSection: 'controls',
+          defaultOpen: false
+        }
+      ],
+      entities: [{ component: 'switch', objectId: 'enable_ph_circuit', role: 'quick-control' }]
     });
   });
 
