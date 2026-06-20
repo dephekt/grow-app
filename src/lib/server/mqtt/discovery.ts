@@ -18,6 +18,7 @@ const topicKeys = {
   unit: ['unit_of_measurement', 'unit_of_meas'],
   deviceClass: ['device_class', 'dev_cla'],
   stateClass: ['state_class', 'stat_cla'],
+  suggestedDisplayPrecision: ['suggested_display_precision', 'sug_dsp_prc'],
   entityCategory: ['entity_category', 'ent_cat'],
   icon: ['icon', 'ic'],
   uniqueId: ['unique_id', 'uniq_id'],
@@ -51,6 +52,14 @@ function numberValue(value: unknown): number | undefined {
 function getString(payload: Record<string, unknown>, keys: readonly string[]): string | undefined {
   for (const key of keys) {
     const value = text(payload[key]);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+function getNumber(payload: Record<string, unknown>, keys: readonly string[]): number | undefined {
+  for (const key of keys) {
+    const value = numberValue(payload[key]);
     if (value !== undefined) return value;
   }
   return undefined;
@@ -155,6 +164,7 @@ export function parseDiscoveryPayload(
     unit: getString(payload, topicKeys.unit),
     deviceClass: getString(payload, topicKeys.deviceClass),
     stateClass: getString(payload, topicKeys.stateClass),
+    suggestedDisplayPrecision: getNumber(payload, topicKeys.suggestedDisplayPrecision),
     entityCategory: getString(payload, topicKeys.entityCategory),
     icon: getString(payload, topicKeys.icon),
     payloadOn: getString(payload, topicKeys.payloadOn) ?? 'ON',

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PresentedEntity } from '$lib/device-presentation';
   import type { EntityConfig, EntityState } from '$lib/server/mqtt/types';
+  import { formatEntityState } from '$lib/state-format';
 
   let {
     entry,
@@ -19,8 +20,7 @@
   let entity = $derived(entry.entity);
 
   function formatState(): string {
-    if (state.value === null || state.value === undefined || state.value === '') return 'No state yet';
-    return entity.unit ? `${state.value} ${entity.unit}` : state.value;
+    return formatEntityState(entity, state);
   }
 </script>
 

@@ -1,4 +1,5 @@
 import type { EntityConfig, EntityState, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
+import { formatEntityState } from '$lib/state-format';
 
 function cloneSnapshot(value: Snapshot): Snapshot {
   return structuredClone(value);
@@ -69,9 +70,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot) {
   }
 
   function formatState(entity: EntityConfig): string {
-    const state = stateFor(entity).value;
-    if (state === null || state === undefined || state === '') return 'No state yet';
-    return entity.unit ? `${state} ${entity.unit}` : state;
+    return formatEntityState(entity, stateFor(entity));
   }
 
   async function sendCommand(entity: EntityConfig, value?: unknown) {

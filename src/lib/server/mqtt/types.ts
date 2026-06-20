@@ -34,6 +34,7 @@ export interface EntityConfig {
   unit?: string;
   deviceClass?: string;
   stateClass?: string;
+  suggestedDisplayPrecision?: number;
   entityCategory?: string;
   icon?: string;
   payloadOn?: string;
