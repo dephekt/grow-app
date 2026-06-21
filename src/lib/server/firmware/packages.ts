@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import type { FirmwareChannel, FirmwareDeviceConfig } from '$lib/server/mqtt/types';
 
 export interface CodebergPackage {
@@ -11,6 +12,8 @@ export interface CodebergPackage {
 export interface FirmwarePackageManifest {
   schema: 'grow-firmware-package.v1';
   channel: FirmwareChannel;
+  build_profile: string;
+  flashable: true;
   device: string;
   node_id: string;
   project_name: string;
@@ -48,11 +51,56 @@ export interface EspHomeUpdateManifest {
 }
 
 const DEFAULT_CODEBERG_BASE_URL = 'https://codeberg.org';
+const DEFAULT_FIRMWARE_PACKAGE_OWNER = 'stackdrift-firmware';
 const PACKAGE_LIST_PAGE_SIZE = 50;
 const STABLE_VERSION_RE = /^v(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)$/;
 const EDGE_VERSION_RE = /^edge-(?<created>\d{8}T\d{6}Z)-(?<sha>[0-9a-f]{7,40})$/;
 
 type Fetch = typeof fetch;
+
+export interface PackageAuthConfig {
+  authUser?: string;
+  token?: string;
+  scheme: 'basic' | 'bearer';
+}
+
+export interface FirmwarePackageSource {
+  baseUrl: string;
+  owner: string;
+  auth?: PackageAuthConfig;
+}
+
+export interface PackageFetchOptions {
+  baseUrl?: string;
+  auth?: PackageAuthConfig;
+}
+
+function env(name: string): string | undefined {
+  const value = process.env[name];
+  return value && value.length > 0 ? value : undefined;
+}
+
+function secretEnv(name: string): string | undefined {
+  const direct = env(name);
+  if (direct) return direct;
+
+  const file = env(`${name}_FILE`);
+  if (!file) return undefined;
+
+  return readFileSync(file, 'utf8').replace(/\r?\n$/, '');
+}
+
+export function getFirmwarePackageSource(): FirmwarePackageSource {
+  const token = secretEnv('FIRMWARE_PACKAGE_TOKEN');
+  const scheme = env('FIRMWARE_PACKAGE_AUTH_SCHEME') === 'bearer' ? 'bearer' : 'basic';
+  const authUser = env('FIRMWARE_PACKAGE_AUTH_USER');
+  const auth = token ? { authUser, token, scheme } satisfies PackageAuthConfig : undefined;
+  return {
+    baseUrl: env('FIRMWARE_PACKAGE_BASE_URL') ?? DEFAULT_CODEBERG_BASE_URL,
+    owner: env('FIRMWARE_PACKAGE_OWNER') ?? DEFAULT_FIRMWARE_PACKAGE_OWNER,
+    auth
+  };
+}
 
 function stableVersionKey(version: string): [number, number, number] | null {
   const match = STABLE_VERSION_RE.exec(version);
@@ -88,6 +136,23 @@ function packageApiBase(baseUrl = DEFAULT_CODEBERG_BASE_URL): string {
   return baseUrl.replace(/\/+$/, '');
 }
 
+function normalizeFetchOptions(options: string | PackageFetchOptions | FirmwarePackageSource = {}): PackageFetchOptions {
+  if (typeof options === 'string') return { baseUrl: options };
+  return options;
+}
+
+function authHeaders(auth?: PackageAuthConfig): HeadersInit | undefined {
+  if (!auth?.token) return undefined;
+  if (auth.scheme === 'bearer') return { Authorization: `Bearer ${auth.token}` };
+  if (!auth.authUser) throw new Error('FIRMWARE_PACKAGE_AUTH_USER is required for basic package auth');
+  const value = Buffer.from(`${auth.authUser}:${auth.token}`).toString('base64');
+  return { Authorization: `Basic ${value}` };
+}
+
+async function packageFetch(fetchImpl: Fetch, url: string, options: PackageFetchOptions): Promise<Response> {
+  return fetchImpl(url, { headers: authHeaders(options.auth) });
+}
+
 export function packageDownloadUrl(
   owner: string,
   packageName: string,
@@ -103,8 +168,10 @@ export async function listCodebergPackages(
   owner: string,
   packageName: string,
   fetchImpl: Fetch = fetch,
-  baseUrl = DEFAULT_CODEBERG_BASE_URL
+  options: string | PackageFetchOptions = {}
 ): Promise<CodebergPackage[]> {
+  const fetchOptions = normalizeFetchOptions(options);
+  const baseUrl = fetchOptions.baseUrl ?? DEFAULT_CODEBERG_BASE_URL;
   const root = packageApiBase(baseUrl);
   const packages: CodebergPackage[] = [];
   let page = 1;
@@ -116,7 +183,7 @@ export async function listCodebergPackages(
       page: String(page),
       limit: String(PACKAGE_LIST_PAGE_SIZE)
     });
-    const response = await fetchImpl(`${root}/api/v1/packages/${encodeURIComponent(owner)}?${params.toString()}`);
+    const response = await packageFetch(fetchImpl, `${root}/api/v1/packages/${encodeURIComponent(owner)}?${params.toString()}`, fetchOptions);
     if (!response.ok) throw new Error(`Package list failed: ${response.status}`);
     const payload = (await response.json()) as unknown;
     if (!Array.isArray(payload)) throw new Error('Package list response was not an array');
@@ -151,10 +218,10 @@ export async function downloadPackageManifest(
   device: FirmwareDeviceConfig,
   version: string,
   fetchImpl: Fetch = fetch,
-  baseUrl = DEFAULT_CODEBERG_BASE_URL
+  source: FirmwarePackageSource = getFirmwarePackageSource()
 ): Promise<FirmwarePackageManifest> {
-  const url = packageDownloadUrl(device.packageOwner, device.package, version, `${device.device}.manifest.json`, baseUrl);
-  const response = await fetchImpl(url);
+  const url = packageDownloadUrl(source.owner, device.package, version, `${device.device}.manifest.json`, source.baseUrl);
+  const response = await packageFetch(fetchImpl, url, source);
   if (!response.ok) throw new Error(`Package manifest download failed: ${response.status}`);
   return parsePackageManifest(await response.json());
 }
@@ -163,19 +230,21 @@ export async function resolveFirmwarePackage(
   device: FirmwareDeviceConfig,
   channel: FirmwareChannel,
   fetchImpl: Fetch = fetch,
-  baseUrl = DEFAULT_CODEBERG_BASE_URL
+  source: FirmwarePackageSource = getFirmwarePackageSource()
 ): Promise<ResolvedFirmwarePackage | null> {
-  const packages = await listCodebergPackages(device.packageOwner, device.package, fetchImpl, baseUrl);
+  const packages = await listCodebergPackages(source.owner, device.package, fetchImpl, source);
   const listing = selectPackageVersion(packages, channel);
   if (!listing) return null;
 
-  const manifest = await downloadPackageManifest(device, listing.version, fetchImpl, baseUrl);
-  assertPackageManifestMatchesDevice(manifest, device, channel);
+  const manifest = await downloadPackageManifest(device, listing.version, fetchImpl, source);
+  assertPackageManifestMatchesDevice(manifest, device, channel, source.owner);
   return { listing, manifest };
 }
 
-export function toEspHomeManifest(manifest: FirmwarePackageManifest, nodeId: string): EspHomeUpdateManifest {
+export function toEspHomeManifest(manifest: FirmwarePackageManifest, nodeId: string, token?: string): EspHomeUpdateManifest {
   const otaFilename = otaArtifactFilename(manifest);
+  const params = new URLSearchParams({ version: manifest.version });
+  if (token) params.set('token', token);
   return {
     name: manifest.project_name,
     version: manifest.version,
@@ -183,7 +252,7 @@ export function toEspHomeManifest(manifest: FirmwarePackageManifest, nodeId: str
       {
         chipFamily: manifest.chip_family,
         ota: {
-          path: `/api/firmware/devices/${encodeURIComponent(nodeId)}/binary/${encodeURIComponent(otaFilename)}?version=${encodeURIComponent(manifest.version)}`,
+          path: `/api/firmware/devices/${encodeURIComponent(nodeId)}/binary/${encodeURIComponent(otaFilename)}?${params.toString()}`,
           md5: manifest.md5[otaFilename],
           summary: manifest.release_summary,
           release_url: manifest.release_url
@@ -197,11 +266,13 @@ export async function downloadAndValidateBinary(
   manifest: FirmwarePackageManifest,
   filename: string,
   fetchImpl: Fetch = fetch,
-  baseUrl = DEFAULT_CODEBERG_BASE_URL
+  sourceOrOptions: FirmwarePackageSource | PackageFetchOptions = {}
 ): Promise<Uint8Array> {
   if (!manifest.artifact_filenames.includes(filename)) throw new Error('Artifact is not in the package manifest');
-  const url = packageDownloadUrl(manifest.package_owner, manifest.package, manifest.version, filename, baseUrl);
-  const response = await fetchImpl(url);
+  const source = normalizeFetchOptions(sourceOrOptions);
+  const owner = 'owner' in sourceOrOptions ? sourceOrOptions.owner : manifest.package_owner;
+  const url = packageDownloadUrl(owner, manifest.package, manifest.version, filename, source.baseUrl ?? DEFAULT_CODEBERG_BASE_URL);
+  const response = await packageFetch(fetchImpl, url, source);
   if (!response.ok) throw new Error(`Package binary download failed: ${response.status}`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   validateBinaryChecksums(manifest, filename, bytes);
@@ -244,6 +315,8 @@ export function parsePackageManifest(payload: unknown): FirmwarePackageManifest 
   const parsed = {
     schema: manifest.schema,
     channel: manifest.channel,
+    build_profile: manifest.build_profile,
+    flashable: manifest.flashable,
     device: manifest.device,
     node_id: manifest.node_id,
     project_name: manifest.project_name,
@@ -263,6 +336,8 @@ export function parsePackageManifest(payload: unknown): FirmwarePackageManifest 
 
   if (parsed.schema !== 'grow-firmware-package.v1') throw new Error('Unsupported package manifest schema');
   if (parsed.channel !== 'stable' && parsed.channel !== 'edge') throw new Error('Unsupported package manifest channel');
+  if (typeof parsed.build_profile !== 'string' || parsed.build_profile.length === 0) throw new Error('Package manifest missing build_profile');
+  if (parsed.flashable !== true) throw new Error('Package manifest is not flashable');
   for (const key of ['device', 'node_id', 'project_name', 'package_owner', 'package', 'version', 'source_sha', 'chip_family'] as const) {
     if (typeof parsed[key] !== 'string' || parsed[key].length === 0) throw new Error(`Package manifest missing ${key}`);
   }
@@ -282,12 +357,13 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 export function assertPackageManifestMatchesDevice(
   manifest: FirmwarePackageManifest,
   device: FirmwareDeviceConfig,
-  channel?: FirmwareChannel
+  channel?: FirmwareChannel,
+  expectedPackageOwner = device.packageOwner
 ): void {
   if (channel && manifest.channel !== channel) throw new Error('Package manifest channel does not match selected channel');
   if (manifest.node_id !== device.nodeId) throw new Error('Package manifest node id does not match device metadata');
   if (manifest.project_name !== device.projectName) throw new Error('Package manifest project name does not match device metadata');
-  if (manifest.package_owner !== device.packageOwner || manifest.package !== device.package) {
+  if (manifest.package_owner !== expectedPackageOwner || manifest.package !== device.package) {
     throw new Error('Package manifest package identity does not match device metadata');
   }
   if (manifest.device !== device.device) throw new Error('Package manifest device does not match device metadata');

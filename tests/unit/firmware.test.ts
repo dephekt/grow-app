@@ -1,14 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildFirmwareChannelConfig,
   parseFirmwareChannelPayload,
   parseFirmwareDevicePayload,
   parseProjectVersion
 } from '../../src/lib/server/firmware/metadata';
+import { requireFirmwareUpdateToken } from '../../src/lib/server/firmware/access';
 import {
   downloadAndValidateBinary,
   listCodebergPackages,
   parsePackageManifest,
+  resolveFirmwarePackage,
   selectPackageVersion,
   toEspHomeManifest,
   validateBinaryChecksums,
@@ -22,10 +24,12 @@ const topicPrefix = 'grow/daniel-home';
 const manifest = {
   schema: 'grow-firmware-package.v1',
   channel: 'stable',
+  build_profile: 'site-private',
+  flashable: true,
   device: 'atoms3u-sensor-rig',
   node_id: 'atoms3u-sensor-rig',
   project_name: 'stackdrift.atoms3u-sensor-rig',
-  package_owner: 'stackdrift',
+  package_owner: 'stackdrift-firmware',
   package: 'atoms3u-sensor-rig',
   version: 'v1.2.3',
   source_sha: '0123456789abcdef',
@@ -52,7 +56,7 @@ describe('firmware metadata parsing', () => {
           schema: 'grow-firmware-device.v1',
           nodeId: 'atoms3u-sensor-rig',
           projectName: 'stackdrift.atoms3u-sensor-rig',
-          packageOwner: 'stackdrift',
+          packageOwner: 'stackdrift-firmware',
           package: 'atoms3u-sensor-rig',
           device: 'atoms3u-sensor-rig',
           chipFamily: 'ESP32-S3',
@@ -99,9 +103,11 @@ describe('firmware package selection and manifests', () => {
 
   it('lists package versions across Codeberg pagination', async () => {
     const requests: string[] = [];
-    const fetchImpl = async (input: string | URL | Request) => {
+    const authHeaders: Array<string | null> = [];
+    const fetchImpl = async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       requests.push(url);
+      authHeaders.push(new Headers(init?.headers).get('authorization'));
       const page = new URL(url).searchParams.get('page');
       if (page === '1') {
         return Response.json(
@@ -119,23 +125,28 @@ describe('firmware package selection and manifests', () => {
       return Response.json([{ name: 'atoms3u-sensor-rig', version: 'v1.1.0', type: 'generic', created_at: '2026-06-11T00:00:00Z' }]);
     };
 
-    await expect(listCodebergPackages('stackdrift', 'atoms3u-sensor-rig', fetchImpl as typeof fetch)).resolves.toEqual([
+    await expect(
+      listCodebergPackages('stackdrift-firmware', 'atoms3u-sensor-rig', fetchImpl as typeof fetch, {
+        auth: { authUser: 'stackdrift', token: 'secret', scheme: 'basic' }
+      })
+    ).resolves.toEqual([
       { name: 'atoms3u-sensor-rig', version: 'v1.0.0', type: 'generic', createdAt: '2026-06-10T00:00:00Z' },
       { name: 'atoms3u-sensor-rig', version: 'v1.1.0', type: 'generic', createdAt: '2026-06-11T00:00:00Z' }
     ]);
     expect(requests.map((url) => new URL(url).searchParams.get('page'))).toEqual(['1', '2']);
     expect(requests.map((url) => new URL(url).searchParams.get('limit'))).toEqual(['50', '50']);
+    expect(authHeaders).toEqual(['Basic c3RhY2tkcmlmdDpzZWNyZXQ=', 'Basic c3RhY2tkcmlmdDpzZWNyZXQ=']);
   });
 
   it('translates package manifests into ESPHome update manifests', () => {
-    expect(toEspHomeManifest(manifest, 'atoms3u-sensor-rig')).toEqual({
+    expect(toEspHomeManifest(manifest, 'atoms3u-sensor-rig', 'download-token')).toEqual({
       name: 'stackdrift.atoms3u-sensor-rig',
       version: 'v1.2.3',
       builds: [
         {
           chipFamily: 'ESP32-S3',
           ota: {
-            path: '/api/firmware/devices/atoms3u-sensor-rig/binary/atoms3u-sensor-rig.ota.bin?version=v1.2.3',
+            path: '/api/firmware/devices/atoms3u-sensor-rig/binary/atoms3u-sensor-rig.ota.bin?version=v1.2.3&token=download-token',
             md5: '4a3b8aa1363813d51abb788cfd4c294e',
             summary: 'Two commits since firmware/atoms3u-sensor-rig/v1.2.2',
             release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
@@ -153,7 +164,12 @@ describe('firmware package selection and manifests', () => {
       new Response(bytes, {
         status: 200
       });
-    await expect(downloadAndValidateBinary(manifest, 'atoms3u-sensor-rig.ota.bin', fetchImpl as typeof fetch)).resolves.toEqual(bytes);
+    await expect(
+      downloadAndValidateBinary(manifest, 'atoms3u-sensor-rig.ota.bin', fetchImpl as typeof fetch, {
+        baseUrl: 'https://codeberg.org',
+        auth: { authUser: 'stackdrift', token: 'secret', scheme: 'basic' }
+      })
+    ).resolves.toEqual(bytes);
 
     const bad = new TextEncoder().encode('bad');
     expect(() => validateBinaryChecksums(manifest, 'atoms3u-sensor-rig.ota.bin', bad)).toThrow('SHA256 mismatch');
@@ -161,6 +177,68 @@ describe('firmware package selection and manifests', () => {
 
   it('rejects package manifests without the firmware schema', () => {
     expect(() => parsePackageManifest({ ...manifest, schema: undefined })).toThrow('Unsupported package manifest schema');
+  });
+
+  it('rejects package manifests that are not marked flashable', () => {
+    expect(() => parsePackageManifest({ ...manifest, flashable: false })).toThrow('Package manifest is not flashable');
+  });
+
+  it('uses configured package owner even when retained metadata is stale', async () => {
+    const fetchImpl = async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/api/v1/packages/')) {
+        expect(url).toContain('/api/v1/packages/stackdrift-firmware?');
+        return Response.json([{ name: 'atoms3u-sensor-rig', version: 'v1.2.3', type: 'generic', created_at: '2026-06-10T00:00:00Z' }]);
+      }
+      expect(url).toContain('/api/packages/stackdrift-firmware/generic/atoms3u-sensor-rig/v1.2.3/');
+      return Response.json(manifest);
+    };
+
+    await expect(
+      resolveFirmwarePackage(
+        {
+          schema: 'grow-firmware-device.v1',
+          nodeId: 'atoms3u-sensor-rig',
+          projectName: 'stackdrift.atoms3u-sensor-rig',
+          packageOwner: 'stackdrift',
+          package: 'atoms3u-sensor-rig',
+          device: 'atoms3u-sensor-rig',
+          chipFamily: 'ESP32-S3',
+          installedVersion: 'v1.2.2',
+          manifestUrl: 'http://192.168.8.3:3080/api/firmware/devices/atoms3u-sensor-rig/manifest'
+        },
+        'stable',
+        fetchImpl as typeof fetch,
+        {
+          baseUrl: 'https://codeberg.org',
+          owner: 'stackdrift-firmware'
+        }
+      )
+    ).resolves.toMatchObject({ manifest: { package_owner: 'stackdrift-firmware' } });
+  });
+});
+
+describe('firmware update proxy access', () => {
+  const originalToken = process.env.FIRMWARE_UPDATE_TOKEN;
+
+  afterEach(() => {
+    if (originalToken === undefined) delete process.env.FIRMWARE_UPDATE_TOKEN;
+    else process.env.FIRMWARE_UPDATE_TOKEN = originalToken;
+  });
+
+  it('accepts the shared firmware update token', () => {
+    process.env.FIRMWARE_UPDATE_TOKEN = 'download-token';
+
+    expect(requireFirmwareUpdateToken(new URL('http://localhost/manifest?token=download-token'))).toEqual({ token: 'download-token' });
+  });
+
+  it('rejects missing or invalid firmware update tokens', async () => {
+    process.env.FIRMWARE_UPDATE_TOKEN = 'download-token';
+
+    const response = requireFirmwareUpdateToken(new URL('http://localhost/manifest?token=wrong'));
+
+    expect(response).toBeInstanceOf(Response);
+    expect((response as Response).status).toBe(401);
   });
 });
 
