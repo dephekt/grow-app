@@ -7,6 +7,7 @@ import {
 } from '../../src/lib/server/firmware/metadata';
 import {
   downloadAndValidateBinary,
+  listCodebergPackages,
   parsePackageManifest,
   selectPackageVersion,
   toEspHomeManifest,
@@ -94,6 +95,36 @@ describe('firmware package selection and manifests', () => {
   it('selects latest stable semver and newest edge packages', () => {
     expect(selectPackageVersion(packages, 'stable')?.version).toBe('v1.10.0');
     expect(selectPackageVersion(packages, 'edge')?.version).toBe('edge-20260620T190102Z-bbbbbbbbbbbb');
+  });
+
+  it('lists package versions across Codeberg pagination', async () => {
+    const requests: string[] = [];
+    const fetchImpl = async (input: string | URL | Request) => {
+      const url = String(input);
+      requests.push(url);
+      const page = new URL(url).searchParams.get('page');
+      if (page === '1') {
+        return Response.json(
+          [
+            { name: 'atoms3u-sensor-rig', version: 'v1.0.0', type: 'generic', created_at: '2026-06-10T00:00:00Z' },
+            { name: 'other-device', version: 'v9.9.9', type: 'generic', created_at: '2026-06-10T00:00:00Z' }
+          ],
+          {
+            headers: {
+              link: '<https://codeberg.org/api/v1/packages/stackdrift?limit=50&page=2&q=atoms3u-sensor-rig&type=generic>; rel="next"'
+            }
+          }
+        );
+      }
+      return Response.json([{ name: 'atoms3u-sensor-rig', version: 'v1.1.0', type: 'generic', created_at: '2026-06-11T00:00:00Z' }]);
+    };
+
+    await expect(listCodebergPackages('stackdrift', 'atoms3u-sensor-rig', fetchImpl as typeof fetch)).resolves.toEqual([
+      { name: 'atoms3u-sensor-rig', version: 'v1.0.0', type: 'generic', createdAt: '2026-06-10T00:00:00Z' },
+      { name: 'atoms3u-sensor-rig', version: 'v1.1.0', type: 'generic', createdAt: '2026-06-11T00:00:00Z' }
+    ]);
+    expect(requests.map((url) => new URL(url).searchParams.get('page'))).toEqual(['1', '2']);
+    expect(requests.map((url) => new URL(url).searchParams.get('limit'))).toEqual(['50', '50']);
   });
 
   it('translates package manifests into ESPHome update manifests', () => {
