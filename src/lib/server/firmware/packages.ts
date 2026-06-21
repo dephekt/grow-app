@@ -48,6 +48,7 @@ export interface EspHomeUpdateManifest {
 }
 
 const DEFAULT_CODEBERG_BASE_URL = 'https://codeberg.org';
+const PACKAGE_LIST_PAGE_SIZE = 50;
 const STABLE_VERSION_RE = /^v(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)$/;
 const EDGE_VERSION_RE = /^edge-(?<created>\d{8}T\d{6}Z)-(?<sha>[0-9a-f]{7,40})$/;
 
@@ -105,16 +106,38 @@ export async function listCodebergPackages(
   baseUrl = DEFAULT_CODEBERG_BASE_URL
 ): Promise<CodebergPackage[]> {
   const root = packageApiBase(baseUrl);
-  const url = `${root}/api/v1/packages/${encodeURIComponent(owner)}?type=generic&q=${encodeURIComponent(packageName)}`;
-  const response = await fetchImpl(url);
-  if (!response.ok) throw new Error(`Package list failed: ${response.status}`);
-  const payload = (await response.json()) as unknown;
-  if (!Array.isArray(payload)) throw new Error('Package list response was not an array');
+  const packages: CodebergPackage[] = [];
+  let page = 1;
 
-  return payload
-    .map((item) => parseCodebergPackage(item))
-    .filter((item): item is CodebergPackage => Boolean(item))
-    .filter((item) => item.name === packageName && item.type === 'generic');
+  while (true) {
+    const params = new URLSearchParams({
+      type: 'generic',
+      q: packageName,
+      page: String(page),
+      limit: String(PACKAGE_LIST_PAGE_SIZE)
+    });
+    const response = await fetchImpl(`${root}/api/v1/packages/${encodeURIComponent(owner)}?${params.toString()}`);
+    if (!response.ok) throw new Error(`Package list failed: ${response.status}`);
+    const payload = (await response.json()) as unknown;
+    if (!Array.isArray(payload)) throw new Error('Package list response was not an array');
+
+    packages.push(
+      ...payload
+        .map((item) => parseCodebergPackage(item))
+        .filter((item): item is CodebergPackage => Boolean(item))
+        .filter((item) => item.name === packageName && item.type === 'generic')
+    );
+
+    const linkHeader = response.headers.get('link');
+    if (linkHeader) {
+      if (!hasNextPage(linkHeader)) break;
+    } else if (payload.length < PACKAGE_LIST_PAGE_SIZE) {
+      break;
+    }
+    page += 1;
+  }
+
+  return packages;
 }
 
 export function selectPackageVersion(packages: CodebergPackage[], channel: FirmwareChannel): CodebergPackage | null {
@@ -206,6 +229,13 @@ function parseCodebergPackage(item: unknown): CodebergPackage | null {
     type: payload.type,
     createdAt: typeof payload.created_at === 'string' ? payload.created_at : null
   };
+}
+
+function hasNextPage(linkHeader: string): boolean {
+  return linkHeader
+    .split(',')
+    .map((entry) => entry.trim())
+    .some((entry) => /;\s*rel="next"/.test(entry));
 }
 
 export function parsePackageManifest(payload: unknown): FirmwarePackageManifest {
