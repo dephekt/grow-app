@@ -28,6 +28,7 @@ export const dashboardSnapshot = {
       name: 'Atlas Hydro Monitor',
       manufacturer: 'Atlas Scientific',
       model: 'Hydro kit',
+      swVersion: 'v0.1.0 (ESPHome 2026.6.2)',
       availability: 'unknown',
       entityIds: [
         'atlas_water_temperature',
@@ -35,7 +36,9 @@ export const dashboardSnapshot = {
         'atlas_enable_ph_circuit',
         'atlas_ph_cal_mid',
         'atlas_restart',
-        'atlas_uptime'
+        'atlas_uptime',
+        'atlas_firmware_update',
+        'atlas_check_firmware_update'
       ]
     }
   ],
@@ -189,6 +192,38 @@ export const dashboardSnapshot = {
       dangerous: false,
       writable: false,
       raw: {}
+    },
+    {
+      id: 'atlas_firmware_update',
+      component: 'update',
+      name: 'Firmware Update',
+      uniqueId: 'atlas_firmware_update',
+      objectId: 'firmware_update',
+      nodeId: 'atlas-hydro-monitor',
+      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
+      stateTopic: 'grow/daniel-home/atlas-hydro-monitor/update/firmware_update/state',
+      commandTopic: 'grow/daniel-home/atlas-hydro-monitor/update/firmware_update/command',
+      payloadAvailable: 'online',
+      payloadNotAvailable: 'offline',
+      dangerous: false,
+      writable: true,
+      raw: {}
+    },
+    {
+      id: 'atlas_check_firmware_update',
+      component: 'button',
+      name: 'Check Firmware Update',
+      uniqueId: 'atlas_check_firmware_update',
+      objectId: 'check_firmware_update',
+      nodeId: 'atlas-hydro-monitor',
+      device: { identifiers: ['atlas-hydro-monitor'], name: 'Atlas Hydro Monitor' },
+      commandTopic: 'grow/daniel-home/atlas-hydro-monitor/button/check_firmware_update/command',
+      payloadPress: 'PRESS',
+      payloadAvailable: 'online',
+      payloadNotAvailable: 'offline',
+      dangerous: true,
+      writable: true,
+      raw: {}
     }
   ],
   states: {
@@ -198,7 +233,17 @@ export const dashboardSnapshot = {
     atlas_water_temperature: { value: '22.1', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
     atlas_water_ph: { value: '6.42', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
     atlas_enable_ph_circuit: { value: 'ON', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atlas_uptime: { value: '1h', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() }
+    atlas_uptime: { value: '1h', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
+    atlas_firmware_update: {
+      value: JSON.stringify({
+        state: 'ON',
+        installed_version: 'v0.1.0',
+        latest_version: 'v0.2.0',
+        release_summary: 'Two firmware changes',
+        release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
+      }),
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    }
   },
   uiConfigs: {
     'atoms3u-sensor-rig': {
@@ -266,5 +311,21 @@ export const dashboardSnapshot = {
         { component: 'button', objectId: 'restart_device', group: 'maintenance', order: 90, label: 'Restart Device' }
       ]
     }
+  },
+  firmware: {
+    devices: {
+      'atlas-hydro-monitor': {
+        schema: 'grow-firmware-device.v1',
+        nodeId: 'atlas-hydro-monitor',
+        projectName: 'stackdrift.atlas-hydro-kit',
+        packageOwner: 'stackdrift',
+        package: 'atlas-hydro-kit',
+        device: 'atlas-hydro-kit',
+        chipFamily: 'ESP32',
+        installedVersion: 'v0.1.0',
+        manifestUrl: 'http://192.168.8.3:3080/api/firmware/devices/atlas-hydro-monitor/manifest'
+      }
+    },
+    channels: {}
   }
 } satisfies Snapshot;

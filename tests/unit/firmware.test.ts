@@ -1,0 +1,160 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildFirmwareChannelConfig,
+  parseFirmwareChannelPayload,
+  parseFirmwareDevicePayload,
+  parseProjectVersion
+} from '../../src/lib/server/firmware/metadata';
+import {
+  downloadAndValidateBinary,
+  parsePackageManifest,
+  selectPackageVersion,
+  toEspHomeManifest,
+  validateBinaryChecksums,
+  type CodebergPackage,
+  type FirmwarePackageManifest
+} from '../../src/lib/server/firmware/packages';
+import { parseFirmwareUpdateState } from '../../src/lib/server/firmware/update-state';
+
+const topicPrefix = 'grow/daniel-home';
+
+const manifest = {
+  schema: 'grow-firmware-package.v1',
+  channel: 'stable',
+  device: 'atoms3u-sensor-rig',
+  node_id: 'atoms3u-sensor-rig',
+  project_name: 'stackdrift.atoms3u-sensor-rig',
+  package_owner: 'stackdrift',
+  package: 'atoms3u-sensor-rig',
+  version: 'v1.2.3',
+  source_sha: '0123456789abcdef',
+  chip_family: 'ESP32-S3',
+  artifact_filenames: ['atoms3u-sensor-rig.ota.bin', 'atoms3u-sensor-rig.factory.bin'],
+  md5: {
+    'atoms3u-sensor-rig.ota.bin': '4a3b8aa1363813d51abb788cfd4c294e',
+    'atoms3u-sensor-rig.factory.bin': 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+  },
+  sha256: {
+    'atoms3u-sensor-rig.ota.bin': '7711f755d25874261ba889d6c343474b3952fd5f90d8918833d2e375bf8468c2',
+    'atoms3u-sensor-rig.factory.bin': 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+  },
+  release_summary: 'Two commits since firmware/atoms3u-sensor-rig/v1.2.2',
+  release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
+} satisfies FirmwarePackageManifest;
+
+describe('firmware metadata parsing', () => {
+  it('parses retained device firmware metadata', () => {
+    expect(
+      parseFirmwareDevicePayload(
+        `${topicPrefix}/atoms3u-sensor-rig/_firmware/config`,
+        JSON.stringify({
+          schema: 'grow-firmware-device.v1',
+          nodeId: 'atoms3u-sensor-rig',
+          projectName: 'stackdrift.atoms3u-sensor-rig',
+          packageOwner: 'stackdrift',
+          package: 'atoms3u-sensor-rig',
+          device: 'atoms3u-sensor-rig',
+          chipFamily: 'ESP32-S3',
+          installedVersion: 'v1.2.2',
+          manifestUrl: 'http://192.168.8.3:3080/api/firmware/devices/atoms3u-sensor-rig/manifest'
+        }),
+        topicPrefix
+      )?.config
+    ).toMatchObject({
+      nodeId: 'atoms3u-sensor-rig',
+      projectName: 'stackdrift.atoms3u-sensor-rig',
+      installedVersion: 'v1.2.2'
+    });
+  });
+
+  it('parses app-owned retained channel config', () => {
+    const config = buildFirmwareChannelConfig('atoms3u-sensor-rig', 'edge', '2026-06-20T18:00:00.000Z');
+    expect(parseFirmwareChannelPayload(`${topicPrefix}/_app/firmware/atoms3u-sensor-rig/channel`, JSON.stringify(config), topicPrefix)).toEqual({
+      nodeId: 'atoms3u-sensor-rig',
+      config
+    });
+  });
+
+  it('extracts ESPHome project versions from swVersion text', () => {
+    expect(parseProjectVersion('v1.2.3 (ESPHome 2026.6.2)')).toBe('v1.2.3');
+    expect(parseProjectVersion('edge-20260620T180102Z-012345abcdef')).toBe('edge-20260620T180102Z-012345abcdef');
+    expect(parseProjectVersion('Version: 2026.5.3')).toBeNull();
+  });
+});
+
+describe('firmware package selection and manifests', () => {
+  const packages = [
+    { name: 'atoms3u-sensor-rig', version: 'v1.2.0', type: 'generic', createdAt: '2026-06-10T00:00:00Z' },
+    { name: 'atoms3u-sensor-rig', version: 'v1.10.0', type: 'generic', createdAt: '2026-06-12T00:00:00Z' },
+    { name: 'atoms3u-sensor-rig', version: 'v1.2-cache-test', type: 'generic', createdAt: '2026-06-13T00:00:00Z' },
+    { name: 'atoms3u-sensor-rig', version: 'edge-20260620T180102Z-aaaaaaaaaaaa', type: 'generic', createdAt: '2026-06-20T18:01:02Z' },
+    { name: 'atoms3u-sensor-rig', version: 'edge-20260620T190102Z-bbbbbbbbbbbb', type: 'generic', createdAt: '2026-06-20T19:01:02Z' }
+  ] satisfies CodebergPackage[];
+
+  it('selects latest stable semver and newest edge packages', () => {
+    expect(selectPackageVersion(packages, 'stable')?.version).toBe('v1.10.0');
+    expect(selectPackageVersion(packages, 'edge')?.version).toBe('edge-20260620T190102Z-bbbbbbbbbbbb');
+  });
+
+  it('translates package manifests into ESPHome update manifests', () => {
+    expect(toEspHomeManifest(manifest, 'atoms3u-sensor-rig')).toEqual({
+      name: 'stackdrift.atoms3u-sensor-rig',
+      version: 'v1.2.3',
+      builds: [
+        {
+          chipFamily: 'ESP32-S3',
+          ota: {
+            path: '/api/firmware/devices/atoms3u-sensor-rig/binary/atoms3u-sensor-rig.ota.bin?version=v1.2.3',
+            md5: '4a3b8aa1363813d51abb788cfd4c294e',
+            summary: 'Two commits since firmware/atoms3u-sensor-rig/v1.2.2',
+            release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
+          }
+        }
+      ]
+    });
+  });
+
+  it('validates binary checksums before proxying', async () => {
+    const bytes = new TextEncoder().encode('grow firmware\n');
+    validateBinaryChecksums(manifest, 'atoms3u-sensor-rig.ota.bin', bytes);
+
+    const fetchImpl = async () =>
+      new Response(bytes, {
+        status: 200
+      });
+    await expect(downloadAndValidateBinary(manifest, 'atoms3u-sensor-rig.ota.bin', fetchImpl as typeof fetch)).resolves.toEqual(bytes);
+
+    const bad = new TextEncoder().encode('bad');
+    expect(() => validateBinaryChecksums(manifest, 'atoms3u-sensor-rig.ota.bin', bad)).toThrow('SHA256 mismatch');
+  });
+
+  it('rejects package manifests without the firmware schema', () => {
+    expect(() => parsePackageManifest({ ...manifest, schema: undefined })).toThrow('Unsupported package manifest schema');
+  });
+});
+
+describe('ESPHome update state parsing', () => {
+  it('parses update JSON payloads and raw fallback states', () => {
+    expect(
+      parseFirmwareUpdateState(
+        JSON.stringify({
+          state: 'ON',
+          installed_version: 'v1.2.2',
+          latest_version: 'v1.2.3',
+          release_summary: 'Two commits',
+          release_url: 'https://example.invalid/release',
+          error: ''
+        })
+      )
+    ).toMatchObject({
+      state: 'ON',
+      installedVersion: 'v1.2.2',
+      latestVersion: 'v1.2.3',
+      releaseSummary: 'Two commits',
+      releaseUrl: 'https://example.invalid/release',
+      error: null
+    });
+
+    expect(parseFirmwareUpdateState('OFF')).toMatchObject({ state: 'OFF', latestVersion: null });
+  });
+});

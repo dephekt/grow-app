@@ -1,5 +1,6 @@
 <script lang="ts">
   import EntityRow from '$lib/EntityRow.svelte';
+  import FirmwareUpdatesPanel from '$lib/FirmwareUpdatesPanel.svelte';
   import { deviceSettingsPresentation } from '$lib/device-presentation';
   import { createLiveSnapshot } from '$lib/live-snapshot.svelte';
   import type { DeviceSettingsPanel } from '$lib/device-presentation';
@@ -96,6 +97,10 @@
             {/each}
           </nav>
         {/if}
+
+        <div class="updates-region">
+          <FirmwareUpdatesPanel snapshot={live.snapshot} device={selectedDevice} />
+        </div>
 
         {#if activePanel}
           <div class="group-list">
@@ -306,6 +311,10 @@
   .group-list {
     display: grid;
     gap: 16px;
+    margin-top: 16px;
+  }
+
+  .updates-region {
     margin-top: 16px;
   }
 

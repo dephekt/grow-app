@@ -88,6 +88,32 @@ export interface DeviceUiConfig {
   entities: DeviceUiEntity[];
 }
 
+export type FirmwareChannel = 'stable' | 'edge';
+
+export interface FirmwareDeviceConfig {
+  schema: 'grow-firmware-device.v1';
+  nodeId: string;
+  projectName: string;
+  packageOwner: string;
+  package: string;
+  device: string;
+  chipFamily: string;
+  installedVersion?: string;
+  manifestUrl?: string;
+}
+
+export interface FirmwareChannelConfig {
+  schema: 'grow-firmware-channel.v1';
+  nodeId: string;
+  channel: FirmwareChannel;
+  updatedAt: string;
+}
+
+export interface FirmwareSnapshot {
+  devices: Record<string, FirmwareDeviceConfig>;
+  channels: Record<string, FirmwareChannelConfig>;
+}
+
 export interface EntityState {
   value: string | null;
   updatedAt: string | null;
@@ -111,10 +137,11 @@ export interface Snapshot {
   entities: EntityConfig[];
   states: Record<string, EntityState>;
   uiConfigs: Record<string, DeviceUiConfig>;
+  firmware: FirmwareSnapshot;
 }
 
 export interface SnapshotEvent {
-  type: 'snapshot' | 'entity' | 'state' | 'availability' | 'broker' | 'ui';
+  type: 'snapshot' | 'entity' | 'state' | 'availability' | 'broker' | 'ui' | 'firmware';
   snapshot?: Snapshot;
   entity?: EntityConfig;
   entityId?: string;
@@ -124,6 +151,7 @@ export interface SnapshotEvent {
   broker?: BrokerSnapshot;
   uiConfig?: DeviceUiConfig;
   nodeId?: string;
+  firmware?: FirmwareSnapshot;
 }
 
 export interface CommandRequest {

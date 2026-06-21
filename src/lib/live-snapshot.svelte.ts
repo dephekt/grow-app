@@ -58,6 +58,12 @@ export function createLiveSnapshot(initialSnapshot: Snapshot) {
       snapshot = { ...snapshot, broker: update.broker };
     });
 
+    events.addEventListener('firmware', (event) => {
+      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
+      if (!update.firmware) return;
+      snapshot = { ...snapshot, firmware: update.firmware };
+    });
+
     events.onerror = () => {
       error = 'Live event stream disconnected';
     };
