@@ -41,6 +41,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Install Docker CLI
+        run: |
+          set -e
+          if ! command -v docker > /dev/null 2>&1; then
+            apt-get update
+            apt-get install -y docker.io
+          fi
+          docker version --client
+
       - name: Extract Upstream Version
         id: upstream
         run: |
