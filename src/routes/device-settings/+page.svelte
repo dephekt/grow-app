@@ -278,6 +278,13 @@
     text-decoration: none;
   }
 
+  .section-tabs a {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: min(100%, 132px);
+    max-width: 100%;
+  }
+
   .device-nav a.selected,
   .section-tabs a.active {
     border-color: #1f6f54;
@@ -285,10 +292,13 @@
     color: #136f3b;
   }
 
-  .device-nav a span,
-  .section-tabs a span {
+  .device-nav a span {
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+
+  .section-tabs a span {
+    white-space: nowrap;
   }
 
   .settings-workspace {
@@ -296,7 +306,9 @@
   }
 
   .section-tabs {
-    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
   }
 
   .section-tabs small {
