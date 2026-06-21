@@ -78,8 +78,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: codeberg.org
-          username: stackdrift
-          password: ${{ secrets.REGISTRY_DEPLOY_KEY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.FORGEJO_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
