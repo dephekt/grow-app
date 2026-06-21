@@ -14,13 +14,34 @@ export const POST: RequestHandler = async ({ params }) => {
 
     const channel = service.selectedFirmwareChannel(nodeId);
     const resolved = await resolveFirmwarePackage(device, channel);
+    if (!resolved) {
+      return json({
+        ok: true,
+        nodeId,
+        channel,
+        package: null,
+        listing: null,
+        checkTriggered: false
+      });
+    }
+    if (resolved.manifest.version === device.installedVersion) {
+      return json({
+        ok: true,
+        nodeId,
+        channel,
+        package: resolved.manifest,
+        listing: resolved.listing,
+        checkTriggered: false
+      });
+    }
+
     const checkTriggered = await service.triggerFirmwareCheck(nodeId);
     return json({
       ok: true,
       nodeId,
       channel,
-      package: resolved?.manifest ?? null,
-      listing: resolved?.listing ?? null,
+      package: resolved.manifest,
+      listing: resolved.listing,
       checkTriggered
     });
   } catch (error) {

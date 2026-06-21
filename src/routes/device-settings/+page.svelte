@@ -17,9 +17,9 @@
   // svelte-ignore state_referenced_locally
   const live = createLiveSnapshot(data.snapshot);
 
+  let devices = $derived(live.snapshot.devices ?? []);
   let selectedDevice = $derived(
-    live.snapshot.devices.find((device) => device.nodeId === data.selectedDeviceId || device.id === data.selectedDeviceId) ??
-      live.snapshot.devices[0]
+    devices.find((device) => device.nodeId === data.selectedDeviceId || device.id === data.selectedDeviceId) ?? devices[0]
   );
   let panels = $derived(selectedDevice ? deviceSettingsPresentation(live.snapshot, selectedDevice) : []);
   let activePanel = $derived(
@@ -62,7 +62,7 @@
     <p class="banner">{live.snapshot.broker.error ?? live.error}</p>
   {/if}
 
-  {#if live.snapshot.devices.length === 0}
+  {#if devices.length === 0}
     <section class="empty">
       <h2>Waiting for retained discovery</h2>
       <p>{live.snapshot.discoveryPrefix}/#</p>
@@ -70,7 +70,7 @@
   {:else if selectedDevice}
     <div class="settings-layout">
       <nav class="device-nav" aria-label="Devices">
-        {#each live.snapshot.devices as device (device.id)}
+        {#each devices as device (device.id)}
           <a
             aria-current={device.id === selectedDevice.id ? 'page' : undefined}
             class:selected={device.id === selectedDevice.id}

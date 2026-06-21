@@ -10,20 +10,28 @@
 
   let packageInfo = $state<FirmwarePackageManifest | null>(null);
   let lookupPending = $state(false);
+  let packageLookupComplete = $state(false);
   let lookupError = $state('');
   let channelPending = $state(false);
   let commandPending = $state(false);
   let commandMessage = $state('');
+  let actionMessage = $state('');
   let channelOverride = $state<FirmwareChannel | null>(null);
   let lastNodeId = $state<string | null>(null);
+  let lastLookupKey = $state('');
   let requestId = 0;
 
   let nodeId = $derived(device.nodeId);
-  let firmwareConfig = $derived(snapshot.firmware.devices[nodeId] ?? snapshot.firmware.devices[device.id] ?? null);
-  let channelConfig = $derived(snapshot.firmware.channels[nodeId] ?? null);
+  let firmwareDevices = $derived(snapshot.firmware?.devices ?? {});
+  let firmwareChannels = $derived(snapshot.firmware?.channels ?? {});
+  let entities = $derived(snapshot.entities ?? []);
+  let states = $derived(snapshot.states ?? {});
+  let firmwareConfig = $derived(firmwareDevices[nodeId] ?? firmwareDevices[device.id] ?? null);
+  let hasFirmwareConfig = $derived(Boolean(firmwareConfig));
+  let channelConfig = $derived(firmwareChannels[nodeId] ?? null);
   let selectedChannel = $derived(channelOverride ?? channelConfig?.channel ?? 'stable');
   let deviceEntities = $derived(
-    snapshot.entities.filter((entity: EntityConfig) => entity.nodeId === nodeId || entity.device.identifiers.includes(nodeId))
+    entities.filter((entity: EntityConfig) => entity.nodeId === nodeId || entity.device?.identifiers?.includes(nodeId))
   );
   let updateEntity = $derived(deviceEntities.find((entity: EntityConfig) => entity.component === 'update' && entity.commandTopic));
   let checkButton = $derived(
@@ -32,11 +40,18 @@
       return entity.component === 'button' && value.includes('firmware') && value.includes('check');
     })
   );
-  let updateState = $derived(parseFirmwareUpdateState(updateEntity ? snapshot.states[updateEntity.id]?.value : null));
+  let updateState = $derived(parseFirmwareUpdateState(updateEntity ? states[updateEntity.id]?.value : null));
   let installedVersion = $derived(
     firmwareConfig?.installedVersion ?? updateState.installedVersion ?? parseProjectVersion(device.swVersion) ?? 'Unknown'
   );
-  let latestVersion = $derived(packageInfo?.version ?? updateState.latestVersion ?? 'Unknown');
+  let latestVersion = $derived(
+    packageInfo?.version ?? (packageLookupComplete ? 'No package' : updateState.latestVersion ?? 'Unknown')
+  );
+  let updateStatus = $derived(deviceUpdateStatus(updateEntity, updateState, packageInfo, installedVersion));
+  let changelogCommits = $derived(firmwareChangelogCommits(packageInfo?.changelog));
+  let hasPackageUpdate = $derived(Boolean(packageInfo && packageInfo.version !== installedVersion));
+  let releaseSummary = $derived(hasPackageUpdate ? packageInfo?.release_summary ?? updateState.releaseSummary ?? '' : '');
+  let visibleChangelogCommits = $derived(hasPackageUpdate ? changelogCommits : []);
   let canApply = $derived(
     Boolean(
       updateEntity &&
@@ -46,22 +61,31 @@
         !commandPending
     )
   );
-  let applyBlockedReason = $derived(applyReason(updateEntity, packageInfo, updateState.latestVersion, installedVersion));
+  let applyBlockedReason = $derived(applyReason(updateEntity, packageInfo, updateState.latestVersion, installedVersion, lookupPending));
+  let actionStatus = $derived(actionMessage || applyBlockedReason);
 
   $effect(() => {
     if (lastNodeId !== nodeId) {
       lastNodeId = nodeId;
       channelOverride = null;
       commandMessage = '';
+      actionMessage = '';
     }
   });
 
   $effect(() => {
-    if (!firmwareConfig) {
+    const lookupKey = hasFirmwareConfig ? `${nodeId}:${selectedChannel}` : '';
+    if (!hasFirmwareConfig) {
+      lastLookupKey = '';
       packageInfo = null;
+      packageLookupComplete = false;
       lookupError = '';
+      lookupPending = false;
+      actionMessage = '';
       return;
     }
+    if (lastLookupKey === lookupKey) return;
+    lastLookupKey = lookupKey;
     void loadPackage(nodeId, selectedChannel);
   });
 
@@ -69,92 +93,161 @@
     const id = requestId + 1;
     requestId = id;
     lookupPending = true;
+    packageLookupComplete = false;
     lookupError = '';
+    actionMessage = '';
 
-    const response = await fetch(`/api/firmware/devices/${encodeURIComponent(currentNodeId)}/package?channel=${channel}`);
-    const body = (await response.json().catch(() => ({}))) as { package?: FirmwarePackageManifest | null; error?: string };
+    try {
+      const response = await fetch(`/api/firmware/devices/${encodeURIComponent(currentNodeId)}/package?channel=${channel}`);
+      const body = (await response.json().catch(() => ({}))) as { package?: FirmwarePackageManifest | null; error?: string };
 
-    if (requestId !== id) return;
-    lookupPending = false;
+      if (requestId !== id) return;
 
-    if (!response.ok) {
+      if (!response.ok) {
+        packageInfo = null;
+        lookupError = body.error ?? 'Package lookup failed';
+        return;
+      }
+
+      packageInfo = body.package ?? null;
+      packageLookupComplete = true;
+    } catch (error) {
+      if (requestId !== id) return;
       packageInfo = null;
-      lookupError = body.error ?? 'Package lookup failed';
-      return;
+      packageLookupComplete = false;
+      lookupError = error instanceof Error ? error.message : 'Package lookup failed';
+    } finally {
+      if (requestId === id) lookupPending = false;
     }
-
-    packageInfo = body.package ?? null;
   }
 
   async function selectChannel(channel: FirmwareChannel): Promise<void> {
     if (!firmwareConfig || channel === selectedChannel || channelPending) return;
     channelPending = true;
     commandMessage = '';
+    actionMessage = '';
 
-    const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/channel`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ channel })
-    });
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    channelPending = false;
+    try {
+      const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/channel`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ channel })
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
 
-    if (!response.ok) {
-      commandMessage = body.error ?? 'Channel update failed';
-      return;
+      if (!response.ok) {
+        commandMessage = body.error ?? 'Channel update failed';
+        return;
+      }
+
+      channelOverride = channel;
+    } catch (error) {
+      commandMessage = error instanceof Error ? error.message : 'Channel update failed';
+    } finally {
+      channelPending = false;
     }
-
-    channelOverride = channel;
   }
 
   async function checkForUpdate(): Promise<void> {
     if (!firmwareConfig || commandPending) return;
     commandPending = true;
     commandMessage = '';
+    actionMessage = '';
 
-    const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/check`, { method: 'POST' });
-    const body = (await response.json().catch(() => ({}))) as {
-      package?: FirmwarePackageManifest | null;
-      checkTriggered?: boolean;
-      error?: string;
-    };
-    commandPending = false;
+    try {
+      const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/check`, { method: 'POST' });
+      const body = (await response.json().catch(() => ({}))) as {
+        package?: FirmwarePackageManifest | null;
+        checkTriggered?: boolean;
+        error?: string;
+      };
 
-    if (!response.ok) {
-      commandMessage = body.error ?? 'Update check failed';
-      return;
+      if (!response.ok) {
+        commandMessage = body.error ?? 'Update check failed';
+        return;
+      }
+
+      packageInfo = body.package ?? null;
+      packageLookupComplete = true;
+      if (!body.package || body.package.version === installedVersion) {
+        actionMessage = 'No new package available';
+        return;
+      }
+      actionMessage = body.checkTriggered ? 'Device check requested' : 'Package lookup refreshed';
+    } catch (error) {
+      commandMessage = error instanceof Error ? error.message : 'Update check failed';
+    } finally {
+      commandPending = false;
     }
-
-    packageInfo = body.package ?? null;
-    commandMessage = body.checkTriggered ? 'Device check requested' : 'Package lookup refreshed';
   }
 
   async function applyUpdate(): Promise<void> {
     if (!packageInfo || !canApply || commandPending) return;
     commandPending = true;
     commandMessage = '';
+    actionMessage = '';
 
-    const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/apply`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version: packageInfo.version })
-    });
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    commandPending = false;
-    commandMessage = response.ok ? 'Install requested' : body.error ?? 'Install request failed';
+    try {
+      const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/apply`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ version: packageInfo.version })
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      commandMessage = response.ok ? 'Install requested' : body.error ?? 'Install request failed';
+    } catch (error) {
+      commandMessage = error instanceof Error ? error.message : 'Install request failed';
+    } finally {
+      commandPending = false;
+    }
   }
 
   function applyReason(
     entity: EntityConfig | undefined,
     selectedPackage: FirmwarePackageManifest | null,
     deviceLatest: string | null,
-    currentVersion: string
+    currentVersion: string,
+    pending: boolean
   ): string {
-    if (!entity) return 'Bootstrap required';
-    if (!selectedPackage) return 'No package selected';
+    if (pending) return 'Checking';
+    if (!selectedPackage) return 'No package available';
     if (selectedPackage.version === currentVersion) return 'No update';
+    if (!entity) return 'Update entity unavailable';
     if (deviceLatest !== selectedPackage.version) return 'Run Check first';
     return 'Ready';
+  }
+
+  function deviceUpdateStatus(
+    entity: EntityConfig | undefined,
+    state: ReturnType<typeof parseFirmwareUpdateState>,
+    selectedPackage: FirmwarePackageManifest | null,
+    currentVersion: string
+  ): string {
+    if (!entity) return 'Unavailable';
+    if (state.error) return 'Error';
+    if (state.state) return state.state;
+    if (selectedPackage?.version === currentVersion) return 'Current';
+    if (state.latestVersion && selectedPackage && state.latestVersion === selectedPackage.version) return 'Update ready';
+    if (state.latestVersion) return 'Checked';
+    return 'Idle';
+  }
+
+  function firmwareChangelogCommits(changelog: unknown): Array<{ sha: string; subject: string }> {
+    if (!changelog || typeof changelog !== 'object' || Array.isArray(changelog)) return [];
+    const commits = (changelog as { commits?: unknown }).commits;
+    if (!Array.isArray(commits)) return [];
+
+    return commits
+      .map((commit) => {
+        if (!commit || typeof commit !== 'object' || Array.isArray(commit)) return null;
+        const raw = commit as { sha?: unknown; subject?: unknown };
+        if (typeof raw.subject !== 'string' || raw.subject.length === 0) return null;
+        return {
+          sha: typeof raw.sha === 'string' ? raw.sha : '',
+          subject: raw.subject
+        };
+      })
+      .filter((commit): commit is { sha: string; subject: string } => Boolean(commit));
   }
 </script>
 
@@ -198,7 +291,7 @@
       </div>
       <div>
         <dt>Device state</dt>
-        <dd>{updateState.state ?? 'Unknown'}</dd>
+        <dd>{updateStatus}</dd>
       </div>
       <div>
         <dt>Source SHA</dt>
@@ -206,8 +299,25 @@
       </div>
     </dl>
 
-    {#if packageInfo?.release_summary || updateState.releaseSummary}
-      <p class="summary">{packageInfo?.release_summary ?? updateState.releaseSummary}</p>
+    {#if releaseSummary || visibleChangelogCommits.length > 0}
+      <div class="release-notes">
+        {#if releaseSummary}
+          <p class="summary">{releaseSummary}</p>
+        {/if}
+
+        {#if visibleChangelogCommits.length > 0}
+          <ul class="changelog" aria-label="Firmware changelog">
+            {#each visibleChangelogCommits as commit (`${commit.sha}:${commit.subject}`)}
+              <li>
+                <span>{commit.subject}</span>
+                {#if commit.sha}
+                  <code>{commit.sha.slice(0, 12)}</code>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
     {/if}
 
     {#if updateState.error}
@@ -216,8 +326,8 @@
       <p class="status error">{lookupError}</p>
     {:else if commandMessage}
       <p class="status">{commandMessage}</p>
-    {:else if !updateEntity}
-      <p class="status warn">Bootstrap required</p>
+    {:else if !updateEntity && packageInfo?.version !== installedVersion}
+      <p class="status warn">Update entity unavailable</p>
     {/if}
 
     <div class="actions">
@@ -227,7 +337,7 @@
       <button type="button" class="apply" disabled={!canApply} title={canApply ? 'Apply firmware update' : applyBlockedReason} onclick={applyUpdate}>
         Apply
       </button>
-      <small>{applyBlockedReason}</small>
+      <small>{actionStatus}</small>
     </div>
   {:else}
     <p class="status warn">Bootstrap required</p>
@@ -316,12 +426,47 @@
     font-weight: 700;
   }
 
+  .release-notes {
+    display: grid;
+    gap: 8px;
+  }
+
   .summary,
   .status {
     padding: 10px 12px;
     border-radius: 8px;
     background: #f3f7f5;
     color: #33443c;
+  }
+
+  .changelog {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .changelog li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 8px 10px;
+    border: 1px solid #e0e7e2;
+    border-radius: 8px;
+    background: #f9fbfa;
+  }
+
+  .changelog span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .changelog code {
+    color: #66736e;
+    font: inherit;
+    font-size: 0.78rem;
   }
 
   .status.warn {

@@ -221,6 +221,58 @@ test('keeps apply disabled when selected firmware is already installed', async (
   const updates = page.getByRole('region', { name: 'Atlas Hydro Monitor firmware updates' });
   await expect(updates.getByRole('button', { name: 'Apply' })).toBeDisabled();
   await expect(updates).toContainText('No update');
+  await expect(updates).not.toContainText('Two firmware changes');
+
+  await page.route('**/api/firmware/devices/*/check', async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        channel: 'stable',
+        package: { ...firmwarePackage, version: 'v0.1.0' },
+        listing: null,
+        checkTriggered: false
+      }
+    });
+  });
+
+  await updates.getByRole('button', { name: 'Check' }).click();
+  await expect(updates).toContainText('No new package available');
+  await expect(updates).not.toContainText('Device check requested');
+});
+
+test('shows no-package status without reporting a device check', async ({ page }) => {
+  await page.route('**/api/firmware/devices/*/package**', async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        channel: 'stable',
+        package: null,
+        listing: null
+      }
+    });
+  });
+  await page.route('**/api/firmware/devices/*/check', async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        channel: 'stable',
+        package: null,
+        listing: null,
+        checkTriggered: false
+      }
+    });
+  });
+
+  await page.goto('/device-settings?device=atlas-hydro-monitor');
+
+  const updates = page.getByRole('region', { name: 'Atlas Hydro Monitor firmware updates' });
+  await expect(updates.locator('.version-grid')).toContainText('No package');
+
+  await updates.getByRole('button', { name: 'Check' }).click();
+  await expect(updates).toContainText('No new package available');
+  await expect(updates).not.toContainText('No stable package available');
+  await expect(updates).not.toContainText('Device check requested');
+  await expect(updates.getByRole('button', { name: 'Check' })).toBeEnabled();
 });
 
 test('shows bootstrap state before firmware metadata and update entities exist', async ({ page }) => {

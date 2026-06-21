@@ -1,12 +1,73 @@
-import type { EntityConfig, EntityState, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
+import type { BrokerSnapshot, EntityConfig, EntityState, FirmwareSnapshot, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
 import { formatEntityState } from '$lib/state-format';
 
-function cloneSnapshot(value: Snapshot): Snapshot {
-  return structuredClone(value);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function clonePlain<T>(value: T): T {
+  return structuredClone($state.snapshot(value) as T);
+}
+
+function recordOr<T>(value: unknown, fallback: Record<string, T>): Record<string, T> {
+  return isRecord(value) ? (clonePlain(value) as Record<string, T>) : clonePlain(fallback);
+}
+
+function brokerOr(value: unknown, fallback?: BrokerSnapshot): BrokerSnapshot {
+  const fallbackBroker = clonePlain(
+    fallback ?? {
+      connected: false,
+      connecting: false,
+      error: null,
+      lastConnectedAt: null,
+      lastMessageAt: null
+    }
+  );
+  if (!isRecord(value)) return fallbackBroker;
+
+  return {
+    connected: typeof value.connected === 'boolean' ? value.connected : fallbackBroker.connected,
+    connecting: typeof value.connecting === 'boolean' ? value.connecting : fallbackBroker.connecting,
+    error: typeof value.error === 'string' || value.error === null ? value.error : fallbackBroker.error,
+    lastConnectedAt:
+      typeof value.lastConnectedAt === 'string' || value.lastConnectedAt === null ? value.lastConnectedAt : fallbackBroker.lastConnectedAt,
+    lastMessageAt: typeof value.lastMessageAt === 'string' || value.lastMessageAt === null ? value.lastMessageAt : fallbackBroker.lastMessageAt
+  };
+}
+
+function firmwareOr(value: unknown, fallback?: FirmwareSnapshot): FirmwareSnapshot {
+  const fallbackFirmware = clonePlain(
+    fallback ?? {
+      devices: {},
+      channels: {}
+    }
+  );
+  if (!isRecord(value)) return fallbackFirmware;
+
+  return {
+    devices: recordOr(value.devices, fallbackFirmware.devices),
+    channels: recordOr(value.channels, fallbackFirmware.channels)
+  };
+}
+
+export function normalizeSnapshot(value: unknown, fallback?: Snapshot): Snapshot {
+  const raw = isRecord(value) ? value : {};
+  return {
+    site: typeof raw.site === 'string' ? raw.site : fallback?.site ?? 'grow',
+    topicPrefix: typeof raw.topicPrefix === 'string' ? raw.topicPrefix : fallback?.topicPrefix ?? '',
+    discoveryPrefix: typeof raw.discoveryPrefix === 'string' ? raw.discoveryPrefix : fallback?.discoveryPrefix ?? '',
+    generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : fallback?.generatedAt ?? new Date().toISOString(),
+    broker: brokerOr(raw.broker, fallback?.broker),
+    devices: Array.isArray(raw.devices) ? clonePlain(raw.devices) : clonePlain(fallback?.devices ?? []),
+    entities: Array.isArray(raw.entities) ? clonePlain(raw.entities) : clonePlain(fallback?.entities ?? []),
+    states: recordOr(raw.states, fallback?.states ?? {}),
+    uiConfigs: recordOr(raw.uiConfigs, fallback?.uiConfigs ?? {}),
+    firmware: firmwareOr(raw.firmware, fallback?.firmware)
+  };
 }
 
 export function createLiveSnapshot(initialSnapshot: Snapshot) {
-  let snapshot = $state<Snapshot>(cloneSnapshot(initialSnapshot));
+  let snapshot = $state<Snapshot>(normalizeSnapshot(initialSnapshot));
   let error = $state<string | null>(null);
   let commandPending = $state<Record<string, boolean>>({});
   let commandErrors = $state<Record<string, string>>({});
@@ -15,7 +76,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot) {
     const events = new EventSource('/api/events');
 
     events.addEventListener('snapshot', (event) => {
-      snapshot = JSON.parse((event as MessageEvent).data) as Snapshot;
+      snapshot = normalizeSnapshot(JSON.parse((event as MessageEvent).data), snapshot);
       error = null;
     });
 

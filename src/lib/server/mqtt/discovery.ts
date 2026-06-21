@@ -71,7 +71,7 @@ function resolveTopic(topic: string | undefined, baseTopic: string | undefined):
   return topic;
 }
 
-function normalizeId(value: string): string {
+export function normalizeDiscoveryId(value: string): string {
   return value
     .trim()
     .toLowerCase()
@@ -87,7 +87,7 @@ function parseDevice(payload: Record<string, unknown>, fallbackName: string): Di
     ? ids.map(String)
     : typeof ids === 'string'
       ? [ids]
-      : [normalizeId(fallbackName)];
+      : [normalizeDiscoveryId(fallbackName)];
 
   return {
     identifiers,
@@ -140,7 +140,7 @@ export function parseDiscoveryPayload(
   const name = rawName === 'null' ? topicParts.objectId : rawName;
   const uniqueId =
     getString(payload, topicKeys.uniqueId) ??
-    normalizeId([topicParts.component, topicParts.nodeId, topicParts.objectId].filter(Boolean).join('_'));
+    normalizeDiscoveryId([topicParts.component, topicParts.nodeId, topicParts.objectId].filter(Boolean).join('_'));
   const objectId = getString(payload, topicKeys.objectId) ?? topicParts.objectId;
   const stateTopic = resolveTopic(getString(payload, topicKeys.stateTopic), baseTopic);
   const commandTopic = resolveTopic(getString(payload, topicKeys.commandTopic), baseTopic);
@@ -151,7 +151,7 @@ export function parseDiscoveryPayload(
   const dangerous = isDangerousEntity(topicParts.component, name, objectId);
 
   return {
-    id: normalizeId(uniqueId),
+    id: normalizeDiscoveryId(uniqueId),
     component: topicParts.component,
     name,
     uniqueId,

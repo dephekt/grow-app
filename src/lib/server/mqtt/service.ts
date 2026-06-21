@@ -1,6 +1,6 @@
 import mqtt, { type MqttClient } from 'mqtt';
 import { EventEmitter } from 'node:events';
-import { buildCommandPublish, parseDiscoveryPayload } from './discovery';
+import { buildCommandPublish, normalizeDiscoveryId, parseDiscoveryPayload } from './discovery';
 import { getSiteMqttConfig, type SiteMqttConfig } from './config';
 import { parseUiConfigPayload } from './ui-metadata';
 import {
@@ -244,7 +244,8 @@ export class SiteMqttService {
     }
   }
 
-  private upsertEntity(entity: EntityConfig): void {
+  private upsertEntity(discoveredEntity: EntityConfig): void {
+    const entity = this.scopedEntity(discoveredEntity);
     const previous = this.entities.get(entity.id);
     if (previous?.stateTopic) this.topicToEntity.get(previous.stateTopic)?.delete(entity.id);
     if (previous?.availabilityTopic) this.availabilityTopicToEntity.get(previous.availabilityTopic)?.delete(entity.id);
@@ -283,6 +284,32 @@ export class SiteMqttService {
 
     this.emit({ type: 'entity', entity });
     this.emit({ type: 'snapshot', snapshot: this.snapshot() });
+  }
+
+  private scopedEntity(entity: EntityConfig): EntityConfig {
+    const existing = this.entities.get(entity.id);
+    if (!existing || this.samePhysicalEntity(existing, entity)) return entity;
+
+    const scope = entity.nodeId ?? entity.device.identifiers[0];
+    const scopedId = normalizeDiscoveryId([scope, entity.uniqueId].filter(Boolean).join('_'));
+    const scopedExisting = this.entities.get(scopedId);
+    if (!scopedExisting || this.samePhysicalEntity(scopedExisting, entity)) {
+      return { ...entity, id: scopedId };
+    }
+
+    return {
+      ...entity,
+      id: normalizeDiscoveryId([scope, entity.component, entity.objectId ?? entity.uniqueId].filter(Boolean).join('_'))
+    };
+  }
+
+  private samePhysicalEntity(left: EntityConfig, right: EntityConfig): boolean {
+    const leftNodeId = left.nodeId ?? left.device.identifiers[0];
+    const rightNodeId = right.nodeId ?? right.device.identifiers[0];
+    if (leftNodeId && rightNodeId && leftNodeId === rightNodeId) return true;
+    if (left.stateTopic && right.stateTopic && left.stateTopic === right.stateTopic) return true;
+    if (left.commandTopic && right.commandTopic && left.commandTopic === right.commandTopic) return true;
+    return left.device.identifiers.some((identifier) => right.device.identifiers.includes(identifier));
   }
 
   private devices(entities: EntityConfig[]): DeviceSnapshot[] {
