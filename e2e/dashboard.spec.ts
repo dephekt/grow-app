@@ -1,12 +1,53 @@
 import { expect, test, type Page } from '@playwright/test';
 import { dashboardSnapshot as snapshot } from './fixtures/dashboard-snapshot';
 
+const firmwarePackage = {
+  schema: 'grow-firmware-package.v1',
+  channel: 'stable',
+  device: 'atlas-hydro-kit',
+  node_id: 'atlas-hydro-monitor',
+  project_name: 'stackdrift.atlas-hydro-kit',
+  package_owner: 'stackdrift',
+  package: 'atlas-hydro-kit',
+  version: 'v0.2.0',
+  source_sha: '0123456789abcdef0123456789abcdef01234567',
+  chip_family: 'ESP32',
+  artifact_filenames: ['atlas-hydro-kit.ota.bin', 'atlas-hydro-kit.factory.bin'],
+  md5: { 'atlas-hydro-kit.ota.bin': '4a3b8aa1363813d51abb788cfd4c294e' },
+  sha256: { 'atlas-hydro-kit.ota.bin': '7711f755d25874261ba889d6c343474b3952fd5f90d8918833d2e375bf8468c2' },
+  release_summary: 'Two firmware changes',
+  release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
+};
+
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/snapshot', async (route) => {
     await route.fulfill({ json: snapshot });
   });
   await page.route('**/api/events', async (route) => {
     await route.abort('failed');
+  });
+  await page.route('**/api/firmware/devices/*/package**', async (route) => {
+    await route.fulfill({ json: { ok: true, channel: 'stable', package: firmwarePackage, listing: null } });
+  });
+  await page.route('**/api/firmware/devices/*/check', async (route) => {
+    await route.fulfill({ json: { ok: true, channel: 'stable', package: firmwarePackage, checkTriggered: true } });
+  });
+  await page.route('**/api/firmware/devices/*/channel', async (route) => {
+    const body = route.request().postData() ? ((route.request().postDataJSON() ?? {}) as { channel?: string }) : {};
+    await route.fulfill({
+      json: {
+        ok: true,
+        config: {
+          schema: 'grow-firmware-channel.v1',
+          nodeId: 'atlas-hydro-monitor',
+          channel: body.channel ?? 'stable',
+          updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+        }
+      }
+    });
+  });
+  await page.route('**/api/firmware/devices/*/apply', async (route) => {
+    await route.fulfill({ json: { ok: true, nodeId: 'atlas-hydro-monitor', channel: 'stable', version: 'v0.2.0', payload: 'INSTALL' } });
   });
 });
 
@@ -134,4 +175,79 @@ test('navigates device settings sections and devices with URL state', async ({ p
   await expect(page.getByRole('link', { name: /Alerts/ })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByText('CO2 High Threshold')).toBeVisible();
   await expect(page.getByText('CO2 High Alert')).toBeVisible();
+});
+
+test('shows stable firmware update status and applies only when device state matches', async ({ page }) => {
+  await page.goto('/device-settings?device=atlas-hydro-monitor');
+
+  const updates = page.getByRole('region', { name: 'Atlas Hydro Monitor firmware updates' });
+  await expect(updates.getByRole('heading', { name: 'Firmware updates' })).toBeVisible();
+  await expect(updates.getByRole('button', { name: 'Stable' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(updates).toContainText('v0.1.0');
+  await expect(updates).toContainText('v0.2.0');
+  await expect(updates).toContainText('0123456789ab');
+  await expect(updates).toContainText('Two firmware changes');
+  await expect(updates.getByRole('button', { name: 'Apply' })).toBeEnabled();
+
+  await updates.getByRole('button', { name: 'Apply' }).click();
+  await expect(updates).toContainText('Install requested');
+});
+
+test('switches firmware channel and triggers device update check', async ({ page }) => {
+  await page.goto('/device-settings?device=atlas-hydro-monitor');
+
+  const updates = page.getByRole('region', { name: 'Atlas Hydro Monitor firmware updates' });
+  await updates.getByRole('button', { name: 'Edge' }).click();
+  await expect(updates.getByRole('button', { name: 'Edge' })).toHaveAttribute('aria-pressed', 'true');
+
+  await updates.getByRole('button', { name: 'Check' }).click();
+  await expect(updates).toContainText('Device check requested');
+});
+
+test('keeps apply disabled when selected firmware is already installed', async ({ page }) => {
+  await page.route('**/api/firmware/devices/*/package**', async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        channel: 'stable',
+        package: { ...firmwarePackage, version: 'v0.1.0' },
+        listing: null
+      }
+    });
+  });
+
+  await page.goto('/device-settings?device=atlas-hydro-monitor');
+
+  const updates = page.getByRole('region', { name: 'Atlas Hydro Monitor firmware updates' });
+  await expect(updates.getByRole('button', { name: 'Apply' })).toBeDisabled();
+  await expect(updates).toContainText('No update');
+});
+
+test('shows bootstrap state before firmware metadata and update entities exist', async ({ page }) => {
+  await page.goto('/device-settings?device=atoms3u-sensor-rig');
+
+  const updates = page.getByRole('region', { name: 'AtomS3U Sensor Rig firmware updates' });
+  await expect(updates).toContainText('Bootstrap required');
+  await expect(updates.getByRole('button', { name: 'Apply' })).toHaveCount(0);
+});
+
+test('blocks apply until the device-side latest version matches the package', async ({ page }) => {
+  const stale = structuredClone(snapshot);
+  stale.states.atlas_firmware_update = {
+    value: JSON.stringify({
+      state: 'ON',
+      installed_version: 'v0.1.0',
+      latest_version: 'v0.3.0'
+    }),
+    updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+  };
+  await page.route('**/api/snapshot', async (route) => {
+    await route.fulfill({ json: stale });
+  });
+
+  await page.goto('/device-settings?device=atlas-hydro-monitor');
+
+  const updates = page.getByRole('region', { name: 'Atlas Hydro Monitor firmware updates' });
+  await expect(updates.getByRole('button', { name: 'Apply' })).toBeDisabled();
+  await expect(updates).toContainText('Run Check first');
 });

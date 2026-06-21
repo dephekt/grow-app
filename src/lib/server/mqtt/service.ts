@@ -3,6 +3,11 @@ import { EventEmitter } from 'node:events';
 import { buildCommandPublish, parseDiscoveryPayload } from './discovery';
 import { getSiteMqttConfig, type SiteMqttConfig } from './config';
 import { parseUiConfigPayload } from './ui-metadata';
+import {
+  buildFirmwareChannelConfig,
+  parseFirmwareChannelPayload,
+  parseFirmwareDevicePayload
+} from '$lib/server/firmware/metadata';
 import type {
   AvailabilityState,
   BrokerSnapshot,
@@ -11,6 +16,10 @@ import type {
   DeviceUiConfig,
   EntityConfig,
   EntityState,
+  FirmwareChannel,
+  FirmwareChannelConfig,
+  FirmwareDeviceConfig,
+  FirmwareSnapshot,
   Snapshot,
   SnapshotEvent
 } from './types';
@@ -26,6 +35,8 @@ export class SiteMqttService {
   private readonly topicToEntity = new Map<string, Set<string>>();
   private readonly availabilityTopicToEntity = new Map<string, Set<string>>();
   private readonly uiByNodeId = new Map<string, DeviceUiConfig>();
+  private readonly firmwareByNodeId = new Map<string, FirmwareDeviceConfig>();
+  private readonly firmwareChannelByNodeId = new Map<string, FirmwareChannelConfig>();
   private readonly retainedByTopic = new Map<string, string>();
   private readonly emitter = new EventEmitter();
   private broker: BrokerSnapshot = {
@@ -88,6 +99,7 @@ export class SiteMqttService {
     const entities = [...this.entities.values()].sort((a, b) => a.name.localeCompare(b.name));
     const states = Object.fromEntries([...this.stateByEntity.entries()]);
     const uiConfigs = Object.fromEntries([...this.uiByNodeId.entries()]);
+    const firmware = this.firmwareSnapshot();
 
     return {
       site: this.config.site,
@@ -98,7 +110,8 @@ export class SiteMqttService {
       devices: this.devices(entities),
       entities,
       states,
-      uiConfigs
+      uiConfigs,
+      firmware
     };
   }
 
@@ -126,6 +139,54 @@ export class SiteMqttService {
     });
   }
 
+  firmwareDevice(nodeId: string): FirmwareDeviceConfig | undefined {
+    return this.firmwareByNodeId.get(nodeId);
+  }
+
+  selectedFirmwareChannel(nodeId: string): FirmwareChannel {
+    return this.firmwareChannelByNodeId.get(nodeId)?.channel ?? 'stable';
+  }
+
+  firmwareUpdateEntity(nodeId: string): EntityConfig | undefined {
+    return this.deviceEntity(nodeId, (entity) => entity.component === 'update' && Boolean(entity.commandTopic));
+  }
+
+  firmwareCheckButton(nodeId: string): EntityConfig | undefined {
+    return this.deviceEntity(nodeId, (entity) => {
+      if (entity.component !== 'button' || !entity.commandTopic) return false;
+      const value = `${entity.name} ${entity.objectId ?? ''}`.toLowerCase();
+      return value.includes('firmware') && value.includes('check');
+    });
+  }
+
+  entityState(entityId: string): EntityState {
+    return this.stateByEntity.get(entityId) ?? { value: null, updatedAt: null };
+  }
+
+  async setFirmwareChannel(nodeId: string, channel: FirmwareChannel): Promise<FirmwareChannelConfig> {
+    const config = buildFirmwareChannelConfig(nodeId, channel);
+    const topic = `${this.config.topicPrefix}/_app/firmware/${nodeId}/channel`;
+    const payload = JSON.stringify(config);
+    await this.publishRaw(topic, payload, true);
+    this.retainedByTopic.set(topic, payload);
+    this.firmwareChannelByNodeId.set(nodeId, config);
+    this.emitFirmware();
+    return config;
+  }
+
+  async triggerFirmwareCheck(nodeId: string): Promise<boolean> {
+    const button = this.firmwareCheckButton(nodeId);
+    if (!button) return false;
+    await this.publishCommand(button.id, { confirm: true });
+    return true;
+  }
+
+  async applyFirmwareUpdate(nodeId: string): Promise<void> {
+    const update = this.firmwareUpdateEntity(nodeId);
+    if (!update?.commandTopic) throw new Error('Firmware update entity is not discovered');
+    await this.publishRaw(update.commandTopic, 'INSTALL', false);
+  }
+
   private handleMessage(topic: string, payload: string): void {
     this.broker = { ...this.broker, lastMessageAt: new Date().toISOString() };
     this.retainedByTopic.set(topic, payload);
@@ -142,6 +203,22 @@ export class SiteMqttService {
       else this.uiByNodeId.delete(uiConfig.nodeId);
       this.emit({ type: 'ui', nodeId: uiConfig.nodeId, uiConfig: uiConfig.config ?? undefined });
       this.emit({ type: 'snapshot', snapshot: this.snapshot() });
+      return;
+    }
+
+    const firmwareDevice = parseFirmwareDevicePayload(topic, payload, this.config.topicPrefix);
+    if (firmwareDevice) {
+      if (firmwareDevice.config) this.firmwareByNodeId.set(firmwareDevice.nodeId, firmwareDevice.config);
+      else this.firmwareByNodeId.delete(firmwareDevice.nodeId);
+      this.emitFirmware();
+      return;
+    }
+
+    const firmwareChannel = parseFirmwareChannelPayload(topic, payload, this.config.topicPrefix);
+    if (firmwareChannel) {
+      if (firmwareChannel.config) this.firmwareChannelByNodeId.set(firmwareChannel.nodeId, firmwareChannel.config);
+      else this.firmwareChannelByNodeId.delete(firmwareChannel.nodeId);
+      this.emitFirmware();
       return;
     }
 
@@ -230,6 +307,42 @@ export class SiteMqttService {
     }
 
     return [...devices.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private firmwareSnapshot(): FirmwareSnapshot {
+    return {
+      devices: Object.fromEntries([...this.firmwareByNodeId.entries()]),
+      channels: Object.fromEntries([...this.firmwareChannelByNodeId.entries()])
+    };
+  }
+
+  private deviceEntity(nodeId: string, predicate: (entity: EntityConfig) => boolean): EntityConfig | undefined {
+    for (const entity of this.entities.values()) {
+      const entityNodeId = entity.nodeId ?? entity.device.identifiers[0];
+      if (entityNodeId !== nodeId && !entity.device.identifiers.includes(nodeId)) continue;
+      if (predicate(entity)) return entity;
+    }
+    return undefined;
+  }
+
+  private publishRaw(topic: string, payload: string, retain: boolean): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      if (!this.client || !this.client.connected) {
+        reject(new Error('Broker is not connected'));
+        return;
+      }
+
+      this.client.publish(topic, payload, { qos: 0, retain }, (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+  }
+
+  private emitFirmware(): void {
+    const firmware = this.firmwareSnapshot();
+    this.emit({ type: 'firmware', firmware });
+    this.emit({ type: 'snapshot', snapshot: this.snapshot() });
   }
 
   private emit(event: SnapshotEvent): void {
