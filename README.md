@@ -33,7 +33,7 @@ and publishes commands only through discovered command topics.
 
 ## Production container
 
-The app publishes as `codeberg.org/stackdrift-images/grow-app`. The container
+The app publishes as `codeberg.org/stackdrift/grow-app`. The container
 listens on `PORT` with `HOST=0.0.0.0` by default:
 
 ```bash
@@ -41,7 +41,7 @@ docker run --rm -p 3080:3000 \
   -e MQTT_URL=mqtt://mosquitto-site:1883 \
   -e MQTT_USERNAME=grow-app-site-daniel-home \
   -e MQTT_PASSWORD_FILE=/run/secrets/MQTT_GROW_APP_SITE_PASSWORD \
-  codeberg.org/stackdrift-images/grow-app:edge-node24-bookworm-slim
+  codeberg.org/stackdrift/grow-app:edge-node24-bookworm-slim
 ```
 
 `MQTT_PASSWORD` is useful for local shells. `MQTT_PASSWORD_FILE` is preferred in
@@ -54,7 +54,7 @@ git checkout. It runs from the `media-stack` Docker Compose project:
 
 - Compose file: `/home/daniel/dev/media-stack/grow/docker-compose.yml`
 - Service: `grow-app-site`
-- Published image: `codeberg.org/stackdrift-images/grow-app:edge-node24-bookworm-slim`
+- Published image: `codeberg.org/stackdrift/grow-app:edge-node24-bookworm-slim`
 - Port mapping: `3080:3000`
 
 Pushing to `main` in this repo triggers the Forgejo workflow in
