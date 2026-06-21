@@ -48,7 +48,7 @@ jobs:
             apt-get update
             apt-get install -y docker.io
           fi
-          docker version --client
+          docker --version
 
       - name: Extract Upstream Version
         id: upstream
