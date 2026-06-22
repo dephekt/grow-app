@@ -27,7 +27,9 @@ const topicKeys = {
   payloadOff: ['payload_off', 'pl_off'],
   payloadPress: ['payload_press', 'pl_prs'],
   payloadAvailable: ['payload_available', 'pl_avail'],
-  payloadNotAvailable: ['payload_not_available', 'pl_not_avail']
+  payloadNotAvailable: ['payload_not_available', 'pl_not_avail'],
+  imagePath: ['image_path'],
+  imageUrl: ['image_url']
 } as const;
 
 export interface DiscoveryTopicParts {
@@ -176,6 +178,8 @@ export function parseDiscoveryPayload(
     max: numberValue(payload.max),
     step: numberValue(payload.step),
     options: parseOptions(payload.options) ?? parseOptions(payload.ops),
+    imagePath: getString(payload, topicKeys.imagePath),
+    imageUrl: getString(payload, topicKeys.imageUrl),
     dangerous,
     writable: Boolean(commandTopic),
     raw: payload

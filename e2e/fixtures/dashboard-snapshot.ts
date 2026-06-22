@@ -20,7 +20,7 @@ export const dashboardSnapshot = {
       manufacturer: 'M5Stack',
       model: 'AtomS3U',
       availability: 'online',
-      entityIds: ['atoms3u_temperature', 'atoms3u_co2_high_threshold', 'atoms3u_co2_high_alert']
+      entityIds: ['atoms3u_temperature', 'atoms3u_co2_high_threshold', 'atoms3u_co2_high_alert', 'atoms3u_sensor_rig_thermal_camera']
     },
     {
       id: 'atlas-hydro-monitor',
@@ -87,6 +87,21 @@ export const dashboardSnapshot = {
       nodeId: 'atoms3u-sensor-rig',
       device: { identifiers: ['atoms3u-sensor-rig'], name: 'AtomS3U Sensor Rig' },
       stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/binary_sensor/co2_high_alert/state',
+      payloadAvailable: 'online',
+      payloadNotAvailable: 'offline',
+      dangerous: false,
+      writable: false,
+      raw: {}
+    },
+    {
+      id: 'atoms3u_sensor_rig_thermal_camera',
+      component: 'camera',
+      name: 'Thermal Camera',
+      uniqueId: 'atoms3u-sensor-rig_thermal_camera',
+      objectId: 'thermal_camera',
+      nodeId: 'atoms3u-sensor-rig',
+      device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+      imagePath: '/thermal.jpg',
       payloadAvailable: 'online',
       payloadNotAvailable: 'offline',
       dangerous: false,
@@ -251,6 +266,7 @@ export const dashboardSnapshot = {
       nodeId: 'atoms3u-sensor-rig',
       groups: [
         { id: 'overview', title: 'Environment', order: 0, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
+        { id: 'thermal_view', title: 'Thermal Camera', order: 15, variant: 'camera', surface: 'dashboard', defaultOpen: true },
         {
           id: 'thresholds',
           title: 'Thresholds & Alerts',
@@ -262,6 +278,7 @@ export const dashboardSnapshot = {
       ],
       entities: [
         { component: 'sensor', objectId: 'temperature', group: 'overview', role: 'metric', order: 10 },
+        { component: 'camera', objectId: 'thermal_camera', group: 'thermal_view', role: 'camera', order: 10, label: 'Thermal Camera' },
         { component: 'number', objectId: 'co2_high_threshold', group: 'thresholds', order: 10 },
         { component: 'binary_sensor', objectId: 'co2_high_alert', group: 'thresholds', order: 20 }
       ]

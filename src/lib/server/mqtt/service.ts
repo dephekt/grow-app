@@ -39,6 +39,8 @@ export class SiteMqttService {
   private readonly firmwareChannelByNodeId = new Map<string, FirmwareChannelConfig>();
   private readonly retainedByTopic = new Map<string, string>();
   private readonly emitter = new EventEmitter();
+  private readonly cameraFrames = new Map<string, { bytes: Uint8Array; contentType: string; fetchedAt: number }>();
+  private readonly cameraFetches = new Map<string, Promise<{ bytes: Uint8Array; contentType: string } | null>>();
   private broker: BrokerSnapshot = {
     connected: false,
     connecting: false,
@@ -185,6 +187,66 @@ export class SiteMqttService {
     const update = this.firmwareUpdateEntity(nodeId);
     if (!update?.commandTopic) throw new Error('Firmware update entity is not discovered');
     await this.publishRaw(update.commandTopic, 'INSTALL', false);
+  }
+
+  private resolveCameraUrl(entity: EntityConfig): string | undefined {
+    if (entity.imageUrl) return entity.imageUrl;
+    if (entity.imagePath) {
+      const nodeId = entity.nodeId ?? entity.device.identifiers[0];
+      const sibling = this.deviceEntity(nodeId, (e) => e.objectId === 'ip_address');
+      if (!sibling) return undefined;
+      const ip = this.entityState(sibling.id).value;
+      if (!ip) return undefined;
+      return `http://${ip}${entity.imagePath}`;
+    }
+    return undefined;
+  }
+
+  async getCameraFrame(entityId: string, maxAgeMs = 1500): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+    const entity = this.entities.get(entityId);
+    if (!entity || entity.component !== 'camera') return null;
+
+    const cached = this.cameraFrames.get(entityId);
+    if (cached && Date.now() - cached.fetchedAt < maxAgeMs) {
+      return { bytes: cached.bytes, contentType: cached.contentType };
+    }
+
+    const existing = this.cameraFetches.get(entityId);
+    if (existing) return await existing;
+
+    const doFetch = async (): Promise<{ bytes: Uint8Array; contentType: string }> => {
+      const url = this.resolveCameraUrl(entity);
+      if (!url) throw new Error('camera url unresolved');
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`camera fetch ${res.status}`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const contentType = res.headers.get('content-type') ?? 'image/jpeg';
+      return { bytes, contentType };
+    };
+
+    const promise = (async () => {
+      try {
+        let frame: { bytes: Uint8Array; contentType: string };
+        try {
+          frame = await doFetch();
+        } catch {
+          frame = await doFetch();
+        }
+        this.cameraFrames.set(entityId, { ...frame, fetchedAt: Date.now() });
+        return frame;
+      } catch (error) {
+        const stale = this.cameraFrames.get(entityId);
+        if (stale) return { bytes: stale.bytes, contentType: stale.contentType };
+        const url = this.resolveCameraUrl(entity);
+        if (!url) return null;
+        throw error;
+      } finally {
+        this.cameraFetches.delete(entityId);
+      }
+    })();
+
+    this.cameraFetches.set(entityId, promise);
+    return await promise;
   }
 
   private handleMessage(topic: string, payload: string): void {

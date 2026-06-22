@@ -8,6 +8,7 @@ export type EntityComponent =
   | 'text'
   | 'light'
   | 'fan'
+  | 'camera'
   | string;
 
 export type AvailabilityState = 'online' | 'offline' | 'unknown';
@@ -29,6 +30,8 @@ export interface EntityConfig {
   nodeId?: string;
   device: DiscoveryDevice;
   stateTopic?: string;
+  imagePath?: string;
+  imageUrl?: string;
   commandTopic?: string;
   availabilityTopic?: string;
   unit?: string;
