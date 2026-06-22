@@ -1,5 +1,6 @@
 <script lang="ts">
   import EntityRow from '$lib/EntityRow.svelte';
+  import CameraImageTile from '$lib/CameraImageTile.svelte';
   import { dashboardPresentation } from '$lib/device-presentation';
   import { createLiveSnapshot } from '$lib/live-snapshot.svelte';
   import type { Snapshot } from '$lib/server/mqtt/types';
@@ -96,6 +97,14 @@
                 </div>
               {/each}
             </div>
+          {/if}
+
+          {#if presentation.cameras.length > 0}
+            <section class="camera-tiles" aria-label={`${device.name} cameras`}>
+              {#each presentation.cameras as entry (entry.entity.id)}
+                <CameraImageTile {entry} available={device.availability !== 'offline'} />
+              {/each}
+            </section>
           {/if}
 
           {#if presentation.quickControls.length > 0}
@@ -240,6 +249,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
     gap: 16px;
+    align-items: start;
     margin-top: 16px;
   }
 
@@ -299,6 +309,12 @@
     overflow-wrap: anywhere;
     font-size: 1.28rem;
     line-height: 1.1;
+  }
+
+  .camera-tiles {
+    padding: 16px;
+    border-bottom: 1px solid #e5ebe7;
+    background: #f9fbfa;
   }
 
   .quick-controls {

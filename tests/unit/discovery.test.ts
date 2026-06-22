@@ -102,6 +102,30 @@ describe('MQTT discovery parsing', () => {
     });
   });
 
+  it('parses camera discovery payload with imagePath', () => {
+    const entity = parseDiscoveryPayload(
+      `${prefix}/camera/atoms3u-sensor-rig/thermal_camera/config`,
+      JSON.stringify({
+        name: 'Thermal Camera',
+        object_id: 'thermal_camera',
+        unique_id: 'atoms3u-sensor-rig_thermal_camera',
+        image_path: '/thermal.jpg',
+        device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' }
+      }),
+      prefix
+    );
+
+    expect(entity).toMatchObject({
+      component: 'camera',
+      objectId: 'thermal_camera',
+      imagePath: '/thermal.jpg',
+      writable: false,
+      dangerous: false
+    });
+    expect(entity?.stateTopic).toBeUndefined();
+    expect(entity?.imageUrl).toBeUndefined();
+  });
+
   it('keeps duplicate ESPHome unique ids scoped to their device', () => {
     const service = new SiteMqttService({
       site: 'daniel-home',

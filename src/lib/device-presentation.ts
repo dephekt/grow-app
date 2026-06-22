@@ -31,6 +31,7 @@ export interface PresentedSection {
 export interface DashboardPresentation {
   metrics: PresentedEntity[];
   quickControls: PresentedEntity[];
+  cameras: PresentedEntity[];
 }
 
 export interface DeviceSettingsPanel {
@@ -109,9 +110,16 @@ function deviceEntities(snapshot: Snapshot, device: DeviceSnapshot): EntityConfi
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function selectCameras(entities: EntityConfig[], entityMetadata?: Map<string, DeviceUiEntity>): PresentedEntity[] {
+  return entities
+    .filter((entity) => entity.component === 'camera')
+    .map((entity) => toPresentedEntity(entity, entityMetadata?.get(entityMatchKey(entity))))
+    .sort(sortPresented);
+}
+
 function fallbackMetrics(entities: EntityConfig[]): PresentedEntity[] {
   return entities
-    .filter((entity) => !entity.writable && !entity.dangerous && !isDiagnostic(entity))
+    .filter((entity) => !entity.writable && !entity.dangerous && !isDiagnostic(entity) && entity.component !== 'camera')
     .map((entity) => toPresentedEntity(entity))
     .sort(sortPresented);
 }
@@ -119,7 +127,7 @@ function fallbackMetrics(entities: EntityConfig[]): PresentedEntity[] {
 export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot): DashboardPresentation {
   const entities = deviceEntities(snapshot, device);
   const config = snapshot.uiConfigs[device.nodeId];
-  if (!config) return { metrics: fallbackMetrics(entities), quickControls: [] };
+  if (!config) return { metrics: fallbackMetrics(entities), quickControls: [], cameras: selectCameras(entities) };
 
   const entityMetadata = metadataByEntity(config);
   const groups = groupById(config);
@@ -142,7 +150,8 @@ export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot
     .filter((entry): entry is PresentedEntity => Boolean(entry))
     .sort(sortPresented);
 
-  return { metrics, quickControls };
+  const cameras = selectCameras(entities, entityMetadata);
+  return { metrics, quickControls, cameras };
 }
 
 function groupSectionsByPanel(sections: PresentedSection[]): DeviceSettingsPanel[] {
@@ -241,7 +250,7 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
       .filter((id): id is string => Boolean(id))
   );
 
-  const remaining = entities.filter((entity) => !consumed.has(entity.id) && !metricEntityIds.has(entity.id));
+  const remaining = entities.filter((entity) => !consumed.has(entity.id) && !metricEntityIds.has(entity.id) && entity.component !== 'camera');
   const diagnostics = remaining.filter(isDiagnostic).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
   const other = remaining.filter((entity) => !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
 
