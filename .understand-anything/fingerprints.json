@@ -1,0 +1,2304 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "0bc7c82eab0c2d7267f12b15188883a21bc3f02a",
+  "generatedAt": "2026-06-21T23:55:33.358Z",
+  "files": {
+    ".dockerignore": {
+      "filePath": ".dockerignore",
+      "contentHash": "fa44bde16ff168cc228b9ef4ce75d871634b29f1b49608eb2288d16b866efae5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 14,
+      "hasStructuralAnalysis": false
+    },
+    ".forgejo/workflows/build.yaml": {
+      "filePath": ".forgejo/workflows/build.yaml",
+      "contentHash": "45382f48bdc3602a2ee14878430682a434bbb3b5255368b70bf92065c214f275",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 110,
+      "hasStructuralAnalysis": true
+    },
+    ".npmrc": {
+      "filePath": ".npmrc",
+      "contentHash": "7151cf397def0c2cb0ab65643701d27d335a72c90f775675b5f826bc7005818a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 2,
+      "hasStructuralAnalysis": false
+    },
+    ".understand-anything/.understandignore": {
+      "filePath": ".understand-anything/.understandignore",
+      "contentHash": "9c3676226d140fabf324710b102f3cdddbc162d4f527e4e729fba6d55d587076",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 49,
+      "hasStructuralAnalysis": false
+    },
+    ".understand-anything/config.json": {
+      "filePath": ".understand-anything/config.json",
+      "contentHash": "08d37f20ea0af2233ae24f094723759f952381ecb6dd7f2aaa05ef96e95eae6b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "AGENTS.md": {
+      "filePath": "AGENTS.md",
+      "contentHash": "d3d75ae7eec0bc7a3b841f3baa851f913f521ed45542e738bacb09cfcecbbaa6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 36,
+      "hasStructuralAnalysis": true
+    },
+    "Dockerfile": {
+      "filePath": "Dockerfile",
+      "contentHash": "f77432a15a70432d555d70683fc99d8277a48474dbf383543184efc540496ca9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 41,
+      "hasStructuralAnalysis": true
+    },
+    "e2e/dashboard.spec.ts": {
+      "filePath": "e2e/dashboard.spec.ts",
+      "contentHash": "d0a8c8534536176e0f24db60fe65a30943ffecb070ffd11e4d502fdd93372094",
+      "functions": [
+        {
+          "name": "installMockEventSource",
+          "params": [
+            "page"
+          ],
+          "returnType": "Promise<void>",
+          "exported": false,
+          "lineCount": 38
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@playwright/test",
+          "specifiers": [
+            "expect",
+            "test",
+            "Page"
+          ]
+        },
+        {
+          "source": "./fixtures/dashboard-snapshot",
+          "specifiers": [
+            "snapshot"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 306,
+      "hasStructuralAnalysis": true
+    },
+    "e2e/design-screenshots.spec.ts": {
+      "filePath": "e2e/design-screenshots.spec.ts",
+      "contentHash": "88c3cbe4018cdf3a0f7a6895dd04253b61035c808ae42eea6bc854b49f8ebf49",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@playwright/test",
+          "specifiers": [
+            "expect",
+            "test"
+          ]
+        },
+        {
+          "source": "./fixtures/dashboard-snapshot",
+          "specifiers": [
+            "dashboardSnapshot"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 49,
+      "hasStructuralAnalysis": true
+    },
+    "e2e/fixtures/dashboard-snapshot.ts": {
+      "filePath": "e2e/fixtures/dashboard-snapshot.ts",
+      "contentHash": "1093bd03cbfedae256fa58a5c6819e3e4fca5a66e271a236a1a077063a5a9202",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../src/lib/server/mqtt/types",
+          "specifiers": [
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "dashboardSnapshot"
+      ],
+      "totalLines": 332,
+      "hasStructuralAnalysis": true
+    },
+    "package.json": {
+      "filePath": "package.json",
+      "contentHash": "c2cf086411d7376f7508202f25186742085e29a270d640a39f70780ac47f2aa9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "playwright.config.ts": {
+      "filePath": "playwright.config.ts",
+      "contentHash": "a021b74a29bd9eacc45deda36cca6b53f578903b3af95fe3f226fc8b243f647c",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@playwright/test",
+          "specifiers": [
+            "defineConfig",
+            "devices"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "pnpm-workspace.yaml": {
+      "filePath": "pnpm-workspace.yaml",
+      "contentHash": "e4025590afcb0a904a1a1c9c4f55b6bcc00c47ba1851811b8142b07945050cd1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "c0701f9fc1907178570b22edd42e1888250ce4348d690bf5d1a3c064fa042390",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 82,
+      "hasStructuralAnalysis": true
+    },
+    "src/app.d.ts": {
+      "filePath": "src/app.d.ts",
+      "contentHash": "05836746e38b5028adbcf960715fb37504746fb8644949aa2267552774eaa696",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "src/app.html": {
+      "filePath": "src/app.html",
+      "contentHash": "c154fa97946b705942ca896ebd4f4014b5bb1be070462ccc521ef57aa2bf3854",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 14,
+      "hasStructuralAnalysis": false
+    },
+    "src/hooks.server.ts": {
+      "filePath": "src/hooks.server.ts",
+      "contentHash": "20fc77cd6fd5ceb20ee860d717b4f3d143fdfc2205d8e8d5c91c0b3de5c0fcfb",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/device-presentation.ts": {
+      "filePath": "src/lib/device-presentation.ts",
+      "contentHash": "d377435f65b570c4a920531b3091eb5bf4d82c8215da9955f13e23fdfa0de42a",
+      "functions": [
+        {
+          "name": "entityMatchKey",
+          "params": [
+            "entity"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "metadataByEntity",
+          "params": [
+            "config"
+          ],
+          "returnType": "Map<string, DeviceUiEntity>",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "groupById",
+          "params": [
+            "config"
+          ],
+          "returnType": "Map<string, DeviceUiGroup>",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "toPresentedEntity",
+          "params": [
+            "entity",
+            "metadata"
+          ],
+          "returnType": "PresentedEntity",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "sortPresented",
+          "params": [
+            "a",
+            "b"
+          ],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "sortSections",
+          "params": [
+            "a",
+            "b"
+          ],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "isDiagnostic",
+          "params": [
+            "entity"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "normalize",
+          "params": [
+            "value"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "knownSettingsSection",
+          "params": [
+            "value"
+          ],
+          "returnType": "DeviceSettingsSectionId | null",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "inferDeviceSettingsSection",
+          "params": [
+            "group"
+          ],
+          "returnType": "DeviceSettingsSectionId",
+          "exported": false,
+          "lineCount": 14
+        },
+        {
+          "name": "deviceEntities",
+          "params": [
+            "snapshot",
+            "device"
+          ],
+          "returnType": "EntityConfig[]",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "fallbackMetrics",
+          "params": [
+            "entities"
+          ],
+          "returnType": "PresentedEntity[]",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "dashboardPresentation",
+          "params": [
+            "snapshot",
+            "device"
+          ],
+          "returnType": "DashboardPresentation",
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "groupSectionsByPanel",
+          "params": [
+            "sections"
+          ],
+          "returnType": "DeviceSettingsPanel[]",
+          "exported": false,
+          "lineCount": 10
+        },
+        {
+          "name": "fallbackSettingsPresentation",
+          "params": [
+            "entities"
+          ],
+          "returnType": "DeviceSettingsPanel[]",
+          "exported": false,
+          "lineCount": 39
+        },
+        {
+          "name": "deviceSettingsPresentation",
+          "params": [
+            "snapshot",
+            "device"
+          ],
+          "returnType": "DeviceSettingsPanel[]",
+          "exported": true,
+          "lineCount": 73
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "DeviceSnapshot",
+            "DeviceUiConfig",
+            "DeviceUiEntity",
+            "DeviceUiGroup",
+            "EntityConfig",
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "DEVICE_SETTINGS_SECTIONS",
+        "dashboardPresentation",
+        "deviceSettingsPresentation"
+      ],
+      "totalLines": 272,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/EntityRow.svelte": {
+      "filePath": "src/lib/EntityRow.svelte",
+      "contentHash": "a6d79311c8c04a6bd3ee86a01b82892934f876a5c65d748922f7d7914bdd93a0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 206,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/firmware.ts": {
+      "filePath": "src/lib/firmware.ts",
+      "contentHash": "b8e5e33d33b330b9c3be776550039c6171d83b5f1c7148db5dc28441ba56beea",
+      "functions": [
+        {
+          "name": "text",
+          "params": [
+            "value"
+          ],
+          "returnType": "string | null",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "parseProjectVersion",
+          "params": [
+            "swVersion"
+          ],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "parseFirmwareUpdateState",
+          "params": [
+            "payloadText"
+          ],
+          "returnType": "FirmwareUpdateState",
+          "exported": true,
+          "lineCount": 22
+        },
+        {
+          "name": "emptyUpdateState",
+          "params": [],
+          "returnType": "FirmwareUpdateState",
+          "exported": false,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "parseProjectVersion",
+        "parseFirmwareUpdateState"
+      ],
+      "totalLines": 55,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/FirmwareUpdatesPanel.svelte": {
+      "filePath": "src/lib/FirmwareUpdatesPanel.svelte",
+      "contentHash": "acb0ae83ce5ce2d8053a75a1da477c91433902afa41ac2eafb05f8953ad97cc5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 532,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/live-snapshot.svelte.ts": {
+      "filePath": "src/lib/live-snapshot.svelte.ts",
+      "contentHash": "43ca6d3ab7a18334869f2d2cf2c60eafad0ad20da7b781de3f4803cb886e6a6a",
+      "functions": [
+        {
+          "name": "isRecord",
+          "params": [
+            "value"
+          ],
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "clonePlain",
+          "params": [
+            "value"
+          ],
+          "returnType": "T",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "recordOr",
+          "params": [
+            "value",
+            "fallback"
+          ],
+          "returnType": "Record<string, T>",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "brokerOr",
+          "params": [
+            "value",
+            "fallback"
+          ],
+          "returnType": "BrokerSnapshot",
+          "exported": false,
+          "lineCount": 21
+        },
+        {
+          "name": "firmwareOr",
+          "params": [
+            "value",
+            "fallback"
+          ],
+          "returnType": "FirmwareSnapshot",
+          "exported": false,
+          "lineCount": 14
+        },
+        {
+          "name": "normalizeSnapshot",
+          "params": [
+            "value",
+            "fallback"
+          ],
+          "returnType": "Snapshot",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "createLiveSnapshot",
+          "params": [
+            "initialSnapshot"
+          ],
+          "exported": true,
+          "lineCount": 113
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "BrokerSnapshot",
+            "EntityConfig",
+            "EntityState",
+            "FirmwareSnapshot",
+            "Snapshot",
+            "SnapshotEvent"
+          ]
+        },
+        {
+          "source": "$lib/state-format",
+          "specifiers": [
+            "formatEntityState"
+          ]
+        }
+      ],
+      "exports": [
+        "normalizeSnapshot",
+        "createLiveSnapshot"
+      ],
+      "totalLines": 182,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/firmware/access.ts": {
+      "filePath": "src/lib/server/firmware/access.ts",
+      "contentHash": "1d0e2135e596e16029c12e00fb076561d8ce376053417f43a1582dec93c45b37",
+      "functions": [
+        {
+          "name": "env",
+          "params": [
+            "name"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "secretEnv",
+          "params": [
+            "name"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "constantTimeEquals",
+          "params": [
+            "a",
+            "b"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "requireFirmwareUpdateToken",
+          "params": [
+            "url"
+          ],
+          "returnType": "{ token: string } | Response",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:crypto",
+          "specifiers": [
+            "timingSafeEqual"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync"
+          ]
+        },
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        }
+      ],
+      "exports": [
+        "requireFirmwareUpdateToken"
+      ],
+      "totalLines": 40,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/firmware/http.ts": {
+      "filePath": "src/lib/server/firmware/http.ts",
+      "contentHash": "7415a7985d539ee8fd0dd6b9185079b6be97af64d34e641367bdfe97a40bc5d6",
+      "functions": [
+        {
+          "name": "firmwareError",
+          "params": [
+            "error",
+            "fallbackStatus"
+          ],
+          "returnType": "Response",
+          "exported": true,
+          "lineCount": 9
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        }
+      ],
+      "exports": [
+        "firmwareError"
+      ],
+      "totalLines": 12,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/firmware/metadata.ts": {
+      "filePath": "src/lib/server/firmware/metadata.ts",
+      "contentHash": "978fde9a831f8081366bbf38fcc68481a948d9f1945c7cc04bf3d6f989b651d9",
+      "functions": [
+        {
+          "name": "text",
+          "params": [
+            "value"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "firmwareDeviceTopic",
+          "params": [
+            "topic",
+            "topicPrefix"
+          ],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "firmwareChannelTopic",
+          "params": [
+            "topic",
+            "topicPrefix"
+          ],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "parseFirmwareDevicePayload",
+          "params": [
+            "topic",
+            "payloadText",
+            "topicPrefix"
+          ],
+          "returnType": "FirmwareDevicePayload | null",
+          "exported": true,
+          "lineCount": 42
+        },
+        {
+          "name": "parseFirmwareChannelPayload",
+          "params": [
+            "topic",
+            "payloadText",
+            "topicPrefix"
+          ],
+          "returnType": "FirmwareChannelPayload | null",
+          "exported": true,
+          "lineCount": 31
+        },
+        {
+          "name": "isFirmwareChannel",
+          "params": [
+            "value"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "buildFirmwareChannelConfig",
+          "params": [
+            "nodeId",
+            "channel",
+            "updatedAt"
+          ],
+          "exported": true,
+          "lineCount": 8
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "FirmwareChannel",
+            "FirmwareChannelConfig",
+            "FirmwareDeviceConfig"
+          ]
+        }
+      ],
+      "exports": [
+        "parseProjectVersion",
+        "firmwareDeviceTopic",
+        "firmwareChannelTopic",
+        "parseFirmwareDevicePayload",
+        "parseFirmwareChannelPayload",
+        "isFirmwareChannel",
+        "buildFirmwareChannelConfig"
+      ],
+      "totalLines": 121,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/firmware/packages.ts": {
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "contentHash": "c13f0f7c79924c6e4a05254e2c25a12a1246bd537cf874766e22944be65441fd",
+      "functions": [
+        {
+          "name": "env",
+          "params": [
+            "name"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "secretEnv",
+          "params": [
+            "name"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "getFirmwarePackageSource",
+          "params": [],
+          "returnType": "FirmwarePackageSource",
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "stableVersionKey",
+          "params": [
+            "version"
+          ],
+          "returnType": "[number, number, number] | null",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "compareStableDescending",
+          "params": [
+            "a",
+            "b"
+          ],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "edgeTimestamp",
+          "params": [
+            "version"
+          ],
+          "returnType": "string | null",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "compareEdgeDescending",
+          "params": [
+            "a",
+            "b"
+          ],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "parseEdgeFallback",
+          "params": [
+            "version"
+          ],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "packageApiBase",
+          "params": [
+            "baseUrl"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "normalizeFetchOptions",
+          "params": [
+            "options"
+          ],
+          "returnType": "PackageFetchOptions",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "authHeaders",
+          "params": [
+            "auth"
+          ],
+          "returnType": "HeadersInit | undefined",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "packageFetch",
+          "params": [
+            "fetchImpl",
+            "url",
+            "options"
+          ],
+          "returnType": "Promise<Response>",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "packageDownloadUrl",
+          "params": [
+            "owner",
+            "packageName",
+            "version",
+            "filename",
+            "baseUrl"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "listCodebergPackages",
+          "params": [
+            "owner",
+            "packageName",
+            "fetchImpl",
+            "options"
+          ],
+          "returnType": "Promise<CodebergPackage[]>",
+          "exported": true,
+          "lineCount": 42
+        },
+        {
+          "name": "selectPackageVersion",
+          "params": [
+            "packages",
+            "channel"
+          ],
+          "returnType": "CodebergPackage | null",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "downloadPackageManifest",
+          "params": [
+            "device",
+            "version",
+            "fetchImpl",
+            "source"
+          ],
+          "returnType": "Promise<FirmwarePackageManifest>",
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "resolveFirmwarePackage",
+          "params": [
+            "device",
+            "channel",
+            "fetchImpl",
+            "source"
+          ],
+          "returnType": "Promise<ResolvedFirmwarePackage | null>",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "toEspHomeManifest",
+          "params": [
+            "manifest",
+            "nodeId",
+            "token"
+          ],
+          "returnType": "EspHomeUpdateManifest",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "downloadAndValidateBinary",
+          "params": [
+            "manifest",
+            "filename",
+            "fetchImpl",
+            "sourceOrOptions"
+          ],
+          "returnType": "Promise<Uint8Array>",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "validateBinaryChecksums",
+          "params": [
+            "manifest",
+            "filename",
+            "bytes"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "parseCodebergPackage",
+          "params": [
+            "item"
+          ],
+          "returnType": "CodebergPackage | null",
+          "exported": false,
+          "lineCount": 11
+        },
+        {
+          "name": "hasNextPage",
+          "params": [
+            "linkHeader"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "parsePackageManifest",
+          "params": [
+            "payload"
+          ],
+          "returnType": "FirmwarePackageManifest",
+          "exported": true,
+          "lineCount": 39
+        },
+        {
+          "name": "isStringRecord",
+          "params": [
+            "value"
+          ],
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "assertPackageManifestMatchesDevice",
+          "params": [
+            "manifest",
+            "device",
+            "channel",
+            "expectedPackageOwner"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "otaArtifactFilename",
+          "params": [
+            "manifest"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:crypto",
+          "specifiers": [
+            "createHash"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "FirmwareChannel",
+            "FirmwareDeviceConfig"
+          ]
+        }
+      ],
+      "exports": [
+        "getFirmwarePackageSource",
+        "packageDownloadUrl",
+        "listCodebergPackages",
+        "selectPackageVersion",
+        "downloadPackageManifest",
+        "resolveFirmwarePackage",
+        "toEspHomeManifest",
+        "downloadAndValidateBinary",
+        "validateBinaryChecksums",
+        "parsePackageManifest",
+        "assertPackageManifestMatchesDevice"
+      ],
+      "totalLines": 379,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/firmware/update-state.ts": {
+      "filePath": "src/lib/server/firmware/update-state.ts",
+      "contentHash": "86212696728957fc0691f9c8254e0d8d02edafd1292cff9aa4a8366c8c4dbfc7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "parseFirmwareUpdateState",
+        "FirmwareUpdateState"
+      ],
+      "totalLines": 3,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/mqtt/config.ts": {
+      "filePath": "src/lib/server/mqtt/config.ts",
+      "contentHash": "5db34286f21acba2055b0c56d8c577f9ad136456c46ec23b18a75fc662ac9567",
+      "functions": [
+        {
+          "name": "env",
+          "params": [
+            "name"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "secretEnv",
+          "params": [
+            "name"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "getSiteMqttConfig",
+          "params": [],
+          "returnType": "SiteMqttConfig",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync"
+          ]
+        }
+      ],
+      "exports": [
+        "getSiteMqttConfig"
+      ],
+      "totalLines": 40,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/mqtt/discovery.ts": {
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "contentHash": "62faf6454b4774a64e10fb0355d4f36af25e35199d2785ac3141d14ed072005d",
+      "functions": [
+        {
+          "name": "text",
+          "params": [
+            "value"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "numberValue",
+          "params": [
+            "value"
+          ],
+          "returnType": "number | undefined",
+          "exported": false,
+          "lineCount": 8
+        },
+        {
+          "name": "getString",
+          "params": [
+            "payload",
+            "keys"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "getNumber",
+          "params": [
+            "payload",
+            "keys"
+          ],
+          "returnType": "number | undefined",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "resolveTopic",
+          "params": [
+            "topic",
+            "baseTopic"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "normalizeDiscoveryId",
+          "params": [
+            "value"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "parseDevice",
+          "params": [
+            "payload",
+            "fallbackName"
+          ],
+          "returnType": "DiscoveryDevice",
+          "exported": false,
+          "lineCount": 18
+        },
+        {
+          "name": "parseOptions",
+          "params": [
+            "value"
+          ],
+          "returnType": "string[] | undefined",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "parseDiscoveryTopic",
+          "params": [
+            "topic",
+            "discoveryPrefix"
+          ],
+          "returnType": "DiscoveryTopicParts | null",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "parseDiscoveryPayload",
+          "params": [
+            "topic",
+            "payloadText",
+            "discoveryPrefix"
+          ],
+          "returnType": "EntityConfig | null",
+          "exported": true,
+          "lineCount": 61
+        },
+        {
+          "name": "isDangerousEntity",
+          "params": [
+            "component",
+            "name",
+            "objectId"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "buildCommandPublish",
+          "params": [
+            "entity",
+            "request"
+          ],
+          "returnType": "CommandPublish",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "commandPayload",
+          "params": [
+            "entity",
+            "value"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 31
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./types",
+          "specifiers": [
+            "CommandPublish",
+            "CommandRequest",
+            "DiscoveryDevice",
+            "EntityConfig"
+          ]
+        }
+      ],
+      "exports": [
+        "normalizeDiscoveryId",
+        "parseDiscoveryTopic",
+        "parseDiscoveryPayload",
+        "isDangerousEntity",
+        "buildCommandPublish"
+      ],
+      "totalLines": 239,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/mqtt/service.ts": {
+      "filePath": "src/lib/server/mqtt/service.ts",
+      "contentHash": "e5ba0a128c9025d71e4335c8ea487f15ab38edd441b385d4540533974f6d3171",
+      "functions": [
+        {
+          "name": "getSiteMqttService",
+          "params": [],
+          "returnType": "SiteMqttService",
+          "exported": true,
+          "lineCount": 7
+        }
+      ],
+      "classes": [
+        {
+          "name": "SiteMqttService",
+          "methods": [
+            "constructor",
+            "start",
+            "snapshot",
+            "subscribe",
+            "publishCommand",
+            "firmwareDevice",
+            "selectedFirmwareChannel",
+            "firmwareUpdateEntity",
+            "firmwareCheckButton",
+            "entityState",
+            "setFirmwareChannel",
+            "triggerFirmwareCheck",
+            "applyFirmwareUpdate",
+            "handleMessage",
+            "upsertEntity",
+            "scopedEntity",
+            "samePhysicalEntity",
+            "devices",
+            "firmwareSnapshot",
+            "deviceEntity",
+            "publishRaw",
+            "emitFirmware",
+            "emit"
+          ],
+          "properties": [
+            "client",
+            "started",
+            "entities",
+            "stateByEntity",
+            "availabilityByDevice",
+            "topicToEntity",
+            "availabilityTopicToEntity",
+            "uiByNodeId",
+            "firmwareByNodeId",
+            "firmwareChannelByNodeId",
+            "retainedByTopic",
+            "emitter",
+            "broker"
+          ],
+          "exported": true,
+          "lineCount": 350
+        }
+      ],
+      "imports": [
+        {
+          "source": "mqtt",
+          "specifiers": [
+            "mqtt",
+            "MqttClient"
+          ]
+        },
+        {
+          "source": "node:events",
+          "specifiers": [
+            "EventEmitter"
+          ]
+        },
+        {
+          "source": "./discovery",
+          "specifiers": [
+            "buildCommandPublish",
+            "normalizeDiscoveryId",
+            "parseDiscoveryPayload"
+          ]
+        },
+        {
+          "source": "./config",
+          "specifiers": [
+            "getSiteMqttConfig",
+            "SiteMqttConfig"
+          ]
+        },
+        {
+          "source": "./ui-metadata",
+          "specifiers": [
+            "parseUiConfigPayload"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/metadata",
+          "specifiers": [
+            "buildFirmwareChannelConfig",
+            "parseFirmwareChannelPayload",
+            "parseFirmwareDevicePayload"
+          ]
+        },
+        {
+          "source": "./types",
+          "specifiers": [
+            "AvailabilityState",
+            "BrokerSnapshot",
+            "CommandRequest",
+            "DeviceSnapshot",
+            "DeviceUiConfig",
+            "EntityConfig",
+            "EntityState",
+            "FirmwareChannel",
+            "FirmwareChannelConfig",
+            "FirmwareDeviceConfig",
+            "FirmwareSnapshot",
+            "Snapshot",
+            "SnapshotEvent"
+          ]
+        }
+      ],
+      "exports": [
+        "SiteMqttService",
+        "getSiteMqttService"
+      ],
+      "totalLines": 389,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/mqtt/types.ts": {
+      "filePath": "src/lib/server/mqtt/types.ts",
+      "contentHash": "822decac38bf52a75bb44250158745b7ced150e8192500d38c6ea67e4b464f1c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 167,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/mqtt/ui-metadata.ts": {
+      "filePath": "src/lib/server/mqtt/ui-metadata.ts",
+      "contentHash": "c90762e0e37e39eb1a705f44e546c44e7aed2d44a2a0e3bb83f57b847cfe7691",
+      "functions": [
+        {
+          "name": "stringValue",
+          "params": [
+            "value"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "numberValue",
+          "params": [
+            "value",
+            "fallback"
+          ],
+          "returnType": "number",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "parseGroup",
+          "params": [
+            "value"
+          ],
+          "returnType": "DeviceUiGroup | null",
+          "exported": false,
+          "lineCount": 17
+        },
+        {
+          "name": "parseEntity",
+          "params": [
+            "value"
+          ],
+          "returnType": "DeviceUiEntity | null",
+          "exported": false,
+          "lineCount": 17
+        },
+        {
+          "name": "parseUiConfigTopic",
+          "params": [
+            "topic",
+            "topicPrefix"
+          ],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "parseUiConfigPayload",
+          "params": [
+            "topic",
+            "payloadText",
+            "topicPrefix"
+          ],
+          "returnType": "ParsedUiConfig | null",
+          "exported": true,
+          "lineCount": 34
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./types",
+          "specifiers": [
+            "DeviceUiConfig",
+            "DeviceUiEntity",
+            "DeviceUiGroup"
+          ]
+        }
+      ],
+      "exports": [
+        "parseUiConfigTopic",
+        "parseUiConfigPayload"
+      ],
+      "totalLines": 92,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/state-format.ts": {
+      "filePath": "src/lib/state-format.ts",
+      "contentHash": "41c539266c973631a91d4d19bd090c390e8a0aa1a9024bd9ecfc97fd0110c1c6",
+      "functions": [
+        {
+          "name": "formattedNumericValue",
+          "params": [
+            "value",
+            "precision"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 11
+        },
+        {
+          "name": "formatEntityState",
+          "params": [
+            "entity",
+            "state"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "EntityConfig",
+            "EntityState"
+          ]
+        }
+      ],
+      "exports": [
+        "formatEntityState"
+      ],
+      "totalLines": 21,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/+page.svelte": {
+      "filePath": "src/routes/+page.svelte",
+      "contentHash": "529453beba27242faf74691f49d9a44537f5f7c770bda0532bbd76eb089cec16",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 366,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/+page.ts": {
+      "filePath": "src/routes/+page.ts",
+      "contentHash": "88cd382de2bf68d9f96ce4b249df5562d5e15b9f5d6b7df4b34aeaf5d57eda03",
+      "functions": [
+        {
+          "name": "load",
+          "params": [
+            "{ fetch }"
+          ],
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "ssr",
+        "load"
+      ],
+      "totalLines": 11,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/entities/[entityId]/command/+server.ts": {
+      "filePath": "src/routes/api/entities/[entityId]/command/+server.ts",
+      "contentHash": "5c9b1686d231e0f9dc2badf89911da301d9e46bf2cfd412922603c6067462eb3",
+      "functions": [
+        {
+          "name": "POST",
+          "params": [
+            "{ params, request }"
+          ],
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "CommandRequest"
+          ]
+        }
+      ],
+      "exports": [
+        "POST"
+      ],
+      "totalLines": 22,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/events/+server.ts": {
+      "filePath": "src/routes/api/events/+server.ts",
+      "contentHash": "ec108b649150fb464f8233f2657eccf70ac7ae3789a5a71cb055ec2f5435df3b",
+      "functions": [
+        {
+          "name": "encode",
+          "params": [
+            "event",
+            "data"
+          ],
+          "returnType": "Uint8Array",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "GET",
+          "params": [],
+          "exported": true,
+          "lineCount": 31
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 40,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/firmware/devices/[nodeId]/apply/+server.ts": {
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "contentHash": "3b0c79d99ba9bb697d985df79bcc76ea30d9a25ec02dfdeb24d17d30ff074d79",
+      "functions": [
+        {
+          "name": "POST",
+          "params": [
+            "{ params, request }"
+          ],
+          "exported": true,
+          "lineCount": 45
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/http",
+          "specifiers": [
+            "firmwareError"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/packages",
+          "specifiers": [
+            "resolveFirmwarePackage"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/update-state",
+          "specifiers": [
+            "parseFirmwareUpdateState"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "POST"
+      ],
+      "totalLines": 52,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts": {
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "contentHash": "4110a126581192377eb0bd650b495b59e8feb22f6ecdee8fded23eac5ca2958e",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [
+            "{ params, url }"
+          ],
+          "exported": true,
+          "lineCount": 32
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/access",
+          "specifiers": [
+            "requireFirmwareUpdateToken"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/http",
+          "specifiers": [
+            "firmwareError"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/packages",
+          "specifiers": [
+            "assertPackageManifestMatchesDevice",
+            "downloadAndValidateBinary",
+            "downloadPackageManifest",
+            "getFirmwarePackageSource"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/firmware/devices/[nodeId]/channel/+server.ts": {
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "contentHash": "df9603ba46fb34fc6b3cd4e7f84366a65eb7158eade73ca89e29115ef6d0dcc8",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [
+            "{ params }"
+          ],
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "PUT",
+          "params": [
+            "{ params, request }"
+          ],
+          "exported": true,
+          "lineCount": 20
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/http",
+          "specifiers": [
+            "firmwareError"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/metadata",
+          "specifiers": [
+            "isFirmwareChannel"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "GET",
+        "PUT"
+      ],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/firmware/devices/[nodeId]/check/+server.ts": {
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "contentHash": "65edab4fcb817df886ce3db2ee59168a754ca9e1ea7066d5446b6cdb07ed2f4f",
+      "functions": [
+        {
+          "name": "POST",
+          "params": [
+            "{ params }"
+          ],
+          "exported": true,
+          "lineCount": 45
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/http",
+          "specifiers": [
+            "firmwareError"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/packages",
+          "specifiers": [
+            "resolveFirmwarePackage"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "POST"
+      ],
+      "totalLines": 51,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts": {
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "contentHash": "1d93b7d667c3bc8aa109aa213f83ef00a93a40ad95b91ce7b4195754dbe24737",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [
+            "{ params, url }"
+          ],
+          "exported": true,
+          "lineCount": 25
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/access",
+          "specifiers": [
+            "requireFirmwareUpdateToken"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/http",
+          "specifiers": [
+            "firmwareError"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/packages",
+          "specifiers": [
+            "resolveFirmwarePackage",
+            "toEspHomeManifest"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/firmware/devices/[nodeId]/package/+server.ts": {
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "contentHash": "b17af92d183fb02922f04cd273e3349faa11b0a41fdd76782f8fc9903a1c7952",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [
+            "{ params, url }"
+          ],
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/http",
+          "specifiers": [
+            "firmwareError"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/metadata",
+          "specifiers": [
+            "isFirmwareChannel"
+          ]
+        },
+        {
+          "source": "$lib/server/firmware/packages",
+          "specifiers": [
+            "resolveFirmwarePackage"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 24,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/snapshot/+server.ts": {
+      "filePath": "src/routes/api/snapshot/+server.ts",
+      "contentHash": "30e024d76472797b82e9ff0507cfbc92ad5f259bd56a17cd117a9f2bb51acd40",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [],
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 7,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/device-settings/+page.svelte": {
+      "filePath": "src/routes/device-settings/+page.svelte",
+      "contentHash": "de88645356640737e5948119f44d39f929356013739e5bf7e8bbe018e9b562c9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 412,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/device-settings/+page.ts": {
+      "filePath": "src/routes/device-settings/+page.ts",
+      "contentHash": "3654662ebc8d63ca806d7321f4e2e3c6e113ff8bda9ac3ef5ef788e80d2d782d",
+      "functions": [
+        {
+          "name": "load",
+          "params": [
+            "{ fetch, url }"
+          ],
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "ssr",
+        "load"
+      ],
+      "totalLines": 15,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/health/+server.ts": {
+      "filePath": "src/routes/health/+server.ts",
+      "contentHash": "704abc20d2bbd8927d37158cf50d79d09c01ce7630b2d37933d9251f49970a46",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [],
+          "exported": true,
+          "lineCount": 15
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 19,
+      "hasStructuralAnalysis": true
+    },
+    "svelte.config.js": {
+      "filePath": "svelte.config.js",
+      "contentHash": "375f23179051d1d2a74b3fca8709f3d2158c0bdd45e46cf07c8e0a2b5890d38e",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/adapter-node",
+          "specifiers": [
+            "adapter"
+          ]
+        },
+        {
+          "source": "@sveltejs/vite-plugin-svelte",
+          "specifiers": [
+            "vitePreprocess"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 16,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/discovery.test.ts": {
+      "filePath": "tests/unit/discovery.test.ts",
+      "contentHash": "89e85926224ec4ea329deae36e212d7d8dfcba06a845830fa68b3dd50ff8b16b",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/mqtt/discovery",
+          "specifiers": [
+            "buildCommandPublish",
+            "parseDiscoveryPayload",
+            "parseDiscoveryTopic"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/mqtt/service",
+          "specifiers": [
+            "SiteMqttService"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/mqtt/ui-metadata",
+          "specifiers": [
+            "parseUiConfigPayload",
+            "parseUiConfigTopic"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 325,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/firmware.test.ts": {
+      "filePath": "tests/unit/firmware.test.ts",
+      "contentHash": "9aa3e0d4ee04cee59e2c2d8f15222cd04a5c947f432a9397e79ee12ea9590ed1",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "afterEach",
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/firmware/metadata",
+          "specifiers": [
+            "buildFirmwareChannelConfig",
+            "parseFirmwareChannelPayload",
+            "parseFirmwareDevicePayload",
+            "parseProjectVersion"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/firmware/access",
+          "specifiers": [
+            "requireFirmwareUpdateToken"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/firmware/packages",
+          "specifiers": [
+            "downloadAndValidateBinary",
+            "listCodebergPackages",
+            "parsePackageManifest",
+            "resolveFirmwarePackage",
+            "selectPackageVersion",
+            "toEspHomeManifest",
+            "validateBinaryChecksums",
+            "CodebergPackage",
+            "FirmwarePackageManifest"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/firmware/update-state",
+          "specifiers": [
+            "parseFirmwareUpdateState"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 270,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/live-snapshot.test.ts": {
+      "filePath": "tests/unit/live-snapshot.test.ts",
+      "contentHash": "db6f0f9f19c20da90461b5776215ef99513a5c93024372d75a787b18ca88b183",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../../src/lib/live-snapshot.svelte",
+          "specifiers": [
+            "normalizeSnapshot"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/mqtt/types",
+          "specifiers": [
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 83,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/state-format.test.ts": {
+      "filePath": "tests/unit/state-format.test.ts",
+      "contentHash": "105873845c5221f4aab7f8be19c50b5ce59e974b363c6eea25f5883b1d66b9bd",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../../src/lib/state-format",
+          "specifiers": [
+            "formatEntityState"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/mqtt/types",
+          "specifiers": [
+            "EntityConfig"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 43,
+      "hasStructuralAnalysis": true
+    },
+    "tsconfig.json": {
+      "filePath": "tsconfig.json",
+      "contentHash": "0374d911148fdc6cd5eaf484a277ef6d685e71f1aec6d2812c412c97cf960e94",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 15,
+      "hasStructuralAnalysis": true
+    },
+    "vite.config.ts": {
+      "filePath": "vite.config.ts",
+      "contentHash": "4831377e337e48ac5c285ad768be82ac53a7e1f7594cbe1d4276d84ead33e892",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit/vite",
+          "specifiers": [
+            "sveltekit"
+          ]
+        },
+        {
+          "source": "vitest/config",
+          "specifiers": [
+            "defineConfig"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    }
+  }
+}
