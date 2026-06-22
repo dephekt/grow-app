@@ -1,0 +1,3675 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "grow-app",
+    "languages": [
+      "typescript",
+      "svelte",
+      "json",
+      "yaml",
+      "markdown",
+      "dockerfile",
+      "html",
+      "javascript"
+    ],
+    "frameworks": [
+      "SvelteKit",
+      "Svelte",
+      "Vite",
+      "Vitest",
+      "Playwright",
+      "MQTT.js",
+      "Docker"
+    ],
+    "description": "SvelteKit/Svelte 5 (runes mode) site-mode HMI for a local grow broker. A single server-side MQTT session derives an entity model from retained discovery, caches retained/current state, streams snapshots/updates to browsers over SSE, mediates commands, and orchestrates channel-aware firmware OTA.",
+    "analyzedAt": "2026-06-21T23:55:01Z",
+    "gitCommitHash": "0bc7c82eab0c2d7267f12b15188883a21bc3f02a"
+  },
+  "nodes": [
+    {
+      "id": "file:src/lib/server/mqtt/config.ts",
+      "type": "file",
+      "name": "config.ts",
+      "filePath": "src/lib/server/mqtt/config.ts",
+      "summary": "Reads site MQTT broker connection settings (host, port, credentials, topic/discovery prefixes) from environment variables, supporting Docker-style _FILE secret indirection.",
+      "tags": [
+        "config",
+        "mqtt",
+        "environment",
+        "secrets"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Supports the convention of reading secrets from a *_FILE path so credentials can be mounted as files rather than inline env vars."
+    },
+    {
+      "id": "function:src/lib/server/mqtt/config.ts:getSiteMqttConfig",
+      "type": "function",
+      "name": "getSiteMqttConfig",
+      "filePath": "src/lib/server/mqtt/config.ts",
+      "lineRange": [
+        27,
+        39
+      ],
+      "summary": "Assembles the SiteMqttConfig object from environment variables, resolving the broker URL, auth credentials, and topic prefixes used by the MQTT service.",
+      "tags": [
+        "config",
+        "factory",
+        "mqtt",
+        "environment"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/lib/server/mqtt/discovery.ts",
+      "type": "file",
+      "name": "discovery.ts",
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "summary": "Parses ESPHome/Home-Assistant-style MQTT discovery topics and payloads into normalized EntityConfig objects, and builds outgoing command publishes for writable entities.",
+      "tags": [
+        "mqtt",
+        "parsing",
+        "discovery",
+        "serialization",
+        "validation",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Resolves the '~' base-topic abbreviation and expands Home Assistant short field aliases (e.g. uniq_id, stat_t) into full EntityConfig fields."
+    },
+    {
+      "id": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryTopic",
+      "type": "function",
+      "name": "parseDiscoveryTopic",
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "lineRange": [
+        106,
+        121
+      ],
+      "summary": "Splits an MQTT discovery topic against the discovery prefix into its component, optional node id, and object id parts.",
+      "tags": [
+        "parsing",
+        "mqtt",
+        "discovery",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryPayload",
+      "type": "function",
+      "name": "parseDiscoveryPayload",
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "lineRange": [
+        123,
+        183
+      ],
+      "summary": "Parses a discovery topic plus JSON payload into a fully resolved EntityConfig, expanding abbreviated keys, resolving base topics, marking dangerous/writable flags, and returning null for invalid payloads.",
+      "tags": [
+        "parsing",
+        "mqtt",
+        "discovery",
+        "serialization",
+        "validation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/discovery.ts:buildCommandPublish",
+      "type": "function",
+      "name": "buildCommandPublish",
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "lineRange": [
+        191,
+        206
+      ],
+      "summary": "Builds the topic and serialized payload for a command publish against a writable entity, returning null when the entity has no command topic or the request is rejected.",
+      "tags": [
+        "mqtt",
+        "serialization",
+        "command",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/discovery.ts:normalizeDiscoveryId",
+      "type": "function",
+      "name": "normalizeDiscoveryId",
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "lineRange": [
+        74,
+        80
+      ],
+      "summary": "Normalizes an arbitrary discovery identifier into a lowercase, underscore-delimited slug suitable for use as a stable entity/device id.",
+      "tags": [
+        "utility",
+        "normalization",
+        "discovery",
+        "mqtt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/discovery.ts:isDangerousEntity",
+      "type": "function",
+      "name": "isDangerousEntity",
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "lineRange": [
+        185,
+        189
+      ],
+      "summary": "Flags an entity as dangerous (requiring confirmation) by matching its component, name, and object id against a list of risky keywords like reboot or factory reset.",
+      "tags": [
+        "validation",
+        "safety",
+        "mqtt",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/discovery.ts:parseDevice",
+      "type": "function",
+      "name": "parseDevice",
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "lineRange": [
+        82,
+        99
+      ],
+      "summary": "Extracts a DiscoveryDevice (identifiers, name, manufacturer, model, software version) from a discovery payload's device block, falling back to a provided name.",
+      "tags": [
+        "parsing",
+        "mqtt",
+        "discovery",
+        "data-model"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/discovery.ts:commandPayload",
+      "type": "function",
+      "name": "commandPayload",
+      "filePath": "src/lib/server/mqtt/discovery.ts",
+      "lineRange": [
+        208,
+        238
+      ],
+      "summary": "Coerces a requested value into the correct MQTT command payload string for a given entity component (switch on/off, number, select option, button press), validating against the entity's constraints.",
+      "tags": [
+        "serialization",
+        "validation",
+        "mqtt",
+        "command"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/lib/server/mqtt/service.ts",
+      "type": "file",
+      "name": "service.ts",
+      "filePath": "src/lib/server/mqtt/service.ts",
+      "summary": "Server-side MQTT service singleton that holds the broker connection, caches retained/current entity state, parses discovery and UI/firmware config, and streams snapshot events to subscribers (SSE consumers).",
+      "tags": [
+        "service",
+        "mqtt",
+        "singleton",
+        "state",
+        "event-handler",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Maintains multiple inverse indexes (topic-to-entity, availability-topic-to-entity) and an event emitter so browser SSE streams receive incremental snapshot/state/firmware updates."
+    },
+    {
+      "id": "class:src/lib/server/mqtt/service.ts:SiteMqttService",
+      "type": "class",
+      "name": "SiteMqttService",
+      "filePath": "src/lib/server/mqtt/service.ts",
+      "lineRange": [
+        29,
+        378
+      ],
+      "summary": "Owns the MQTT client lifecycle, ingests discovery/state/availability/UI/firmware messages, maintains the cached snapshot and topic indexes, and exposes subscribe, publishCommand, and firmware-management operations.",
+      "tags": [
+        "service",
+        "mqtt",
+        "state",
+        "event-handler",
+        "singleton"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/service.ts:getSiteMqttService",
+      "type": "function",
+      "name": "getSiteMqttService",
+      "filePath": "src/lib/server/mqtt/service.ts",
+      "lineRange": [
+        382,
+        388
+      ],
+      "summary": "Lazily constructs and starts the process-wide SiteMqttService singleton from the resolved site MQTT config.",
+      "tags": [
+        "factory",
+        "singleton",
+        "mqtt",
+        "service"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/lib/server/mqtt/types.ts",
+      "type": "file",
+      "name": "types.ts",
+      "filePath": "src/lib/server/mqtt/types.ts",
+      "summary": "Central TypeScript type definitions for the MQTT layer: entity/device discovery configs, UI and firmware schemas, broker and entity state, and the snapshot/event shapes streamed to clients.",
+      "tags": [
+        "type-definition",
+        "mqtt",
+        "data-model",
+        "schema-definition"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Pure type/interface module with no runtime code; uses literal-typed schema discriminators (e.g. 'grow-ui.v1') to version payload shapes."
+    },
+    {
+      "id": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "type": "file",
+      "name": "ui-metadata.ts",
+      "filePath": "src/lib/server/mqtt/ui-metadata.ts",
+      "summary": "Parses grow-ui.v1 device UI configuration topics and payloads into DeviceUiConfig objects describing dashboard groups and entity layout metadata.",
+      "tags": [
+        "mqtt",
+        "parsing",
+        "ui",
+        "serialization",
+        "validation",
+        "tested"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigPayload",
+      "type": "function",
+      "name": "parseUiConfigPayload",
+      "filePath": "src/lib/server/mqtt/ui-metadata.ts",
+      "lineRange": [
+        58,
+        91
+      ],
+      "summary": "Parses a UI config topic plus JSON payload into a validated DeviceUiConfig, extracting groups and entities and returning null when the schema or node id is invalid.",
+      "tags": [
+        "parsing",
+        "ui",
+        "serialization",
+        "validation",
+        "mqtt"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigTopic",
+      "type": "function",
+      "name": "parseUiConfigTopic",
+      "filePath": "src/lib/server/mqtt/ui-metadata.ts",
+      "lineRange": [
+        52,
+        56
+      ],
+      "summary": "Extracts the device node id from a UI config topic by stripping the configured topic prefix and trailing config segment.",
+      "tags": [
+        "parsing",
+        "ui",
+        "utility",
+        "mqtt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/ui-metadata.ts:parseGroup",
+      "type": "function",
+      "name": "parseGroup",
+      "filePath": "src/lib/server/mqtt/ui-metadata.ts",
+      "lineRange": [
+        16,
+        32
+      ],
+      "summary": "Validates and normalizes a single UI group entry (id, title, order, variant, surface) into a DeviceUiGroup, returning null for entries missing required fields.",
+      "tags": [
+        "parsing",
+        "ui",
+        "validation",
+        "data-model"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/mqtt/ui-metadata.ts:parseEntity",
+      "type": "function",
+      "name": "parseEntity",
+      "filePath": "src/lib/server/mqtt/ui-metadata.ts",
+      "lineRange": [
+        34,
+        50
+      ],
+      "summary": "Validates and normalizes a single UI entity entry (component, object id, group, role, order, label) into a DeviceUiEntity, returning null for invalid entries.",
+      "tags": [
+        "parsing",
+        "ui",
+        "validation",
+        "data-model"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/unit/discovery.test.ts",
+      "type": "file",
+      "name": "discovery.test.ts",
+      "filePath": "tests/unit/discovery.test.ts",
+      "summary": "Vitest unit tests covering MQTT discovery topic/payload parsing, command publish building, UI config parsing, and SiteMqttService snapshot behavior.",
+      "tags": [
+        "test",
+        "mqtt",
+        "discovery",
+        "unit-test"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:src/lib/server/firmware/access.ts",
+      "type": "file",
+      "name": "access.ts",
+      "filePath": "src/lib/server/firmware/access.ts",
+      "summary": "Server-only authorization guard for the firmware OTA update endpoints, validating a shared bearer/query token against a secret read from env or a Docker secret file using a constant-time comparison.",
+      "tags": [
+        "security",
+        "validation",
+        "middleware",
+        "firmware",
+        "server-only",
+        "tested"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Uses Node crypto timingSafeEqual for timing-attack-resistant token comparison and supports the *_FILE Docker-secret convention."
+    },
+    {
+      "id": "file:src/lib/server/firmware/metadata.ts",
+      "type": "file",
+      "name": "metadata.ts",
+      "filePath": "src/lib/server/firmware/metadata.ts",
+      "summary": "Parses and serializes firmware device and channel MQTT topic payloads, mapping retained broker messages to typed firmware metadata and building channel-config messages for the OTA workflow.",
+      "tags": [
+        "firmware",
+        "serialization",
+        "mqtt",
+        "data-model",
+        "parsing",
+        "tested"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Topic-prefix-aware parsing with defensive JSON handling and a string coercion helper to normalize untyped broker payloads."
+    },
+    {
+      "id": "file:src/lib/server/firmware/packages.ts",
+      "type": "file",
+      "name": "packages.ts",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "summary": "Core firmware OTA package resolution layer: lists and selects versions from a Codeberg package registry, downloads and validates package manifests and binaries (SHA-256/MD5), and produces ESPHome-compatible manifests for device OTA.",
+      "tags": [
+        "firmware",
+        "service",
+        "api-handler",
+        "validation",
+        "serialization",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Injectable fetch implementation for testability; paginated registry listing via Link-header parsing; separate stable vs. edge version ordering strategies."
+    },
+    {
+      "id": "file:src/lib/server/firmware/update-state.ts",
+      "type": "file",
+      "name": "update-state.ts",
+      "filePath": "src/lib/server/firmware/update-state.ts",
+      "summary": "Thin server-side re-export barrel exposing the shared firmware update-state parser and its type from $lib/firmware to server modules.",
+      "tags": [
+        "barrel",
+        "firmware",
+        "type-definition",
+        "server-only",
+        "tested"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Re-exports both a value and a TypeScript type alias from the shared firmware library."
+    },
+    {
+      "id": "file:tests/unit/firmware.test.ts",
+      "type": "file",
+      "name": "firmware.test.ts",
+      "filePath": "tests/unit/firmware.test.ts",
+      "summary": "Vitest unit suite covering the firmware modules: topic-payload parsing, OTA token authorization, registry version selection, manifest/binary validation, and ESPHome manifest generation using a stubbed fetch.",
+      "tags": [
+        "test",
+        "firmware",
+        "validation",
+        "unit-test"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Uses an injected fetch stub recording requests and auth headers to exercise the package resolution path without network access."
+    },
+    {
+      "id": "function:src/lib/server/firmware/access.ts:requireFirmwareUpdateToken",
+      "type": "function",
+      "name": "requireFirmwareUpdateToken",
+      "filePath": "src/lib/server/firmware/access.ts",
+      "lineRange": [
+        27,
+        39
+      ],
+      "summary": "Authorizes a firmware update request by extracting the token from the URL query and comparing it in constant time against the configured firmware update secret, throwing on missing config or mismatch.",
+      "tags": [
+        "security",
+        "validation",
+        "firmware",
+        "authorization"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/metadata.ts:firmwareDeviceTopic",
+      "type": "function",
+      "name": "firmwareDeviceTopic",
+      "filePath": "src/lib/server/firmware/metadata.ts",
+      "lineRange": [
+        18,
+        24
+      ],
+      "summary": "Extracts the device node id from a firmware device MQTT topic given the configured topic prefix, returning null for non-matching or malformed topics.",
+      "tags": [
+        "firmware",
+        "mqtt",
+        "parsing",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/metadata.ts:firmwareChannelTopic",
+      "type": "function",
+      "name": "firmwareChannelTopic",
+      "filePath": "src/lib/server/firmware/metadata.ts",
+      "lineRange": [
+        26,
+        32
+      ],
+      "summary": "Extracts the node id from a firmware channel MQTT topic given the configured topic prefix, returning null for non-matching or malformed topics.",
+      "tags": [
+        "firmware",
+        "mqtt",
+        "parsing",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/metadata.ts:parseFirmwareDevicePayload",
+      "type": "function",
+      "name": "parseFirmwareDevicePayload",
+      "filePath": "src/lib/server/firmware/metadata.ts",
+      "lineRange": [
+        34,
+        75
+      ],
+      "summary": "Parses a firmware device MQTT payload into typed device metadata, validating the topic against the prefix and defensively coercing JSON fields to strings.",
+      "tags": [
+        "firmware",
+        "serialization",
+        "mqtt",
+        "validation",
+        "data-model"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/firmware/metadata.ts:parseFirmwareChannelPayload",
+      "type": "function",
+      "name": "parseFirmwareChannelPayload",
+      "filePath": "src/lib/server/firmware/metadata.ts",
+      "lineRange": [
+        77,
+        107
+      ],
+      "summary": "Parses a firmware channel MQTT payload into typed channel metadata, validating the channel value and topic and falling back to a zero timestamp when absent.",
+      "tags": [
+        "firmware",
+        "serialization",
+        "mqtt",
+        "validation",
+        "data-model"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/firmware/metadata.ts:buildFirmwareChannelConfig",
+      "type": "function",
+      "name": "buildFirmwareChannelConfig",
+      "filePath": "src/lib/server/firmware/metadata.ts",
+      "lineRange": [
+        113,
+        120
+      ],
+      "summary": "Constructs a firmware channel configuration message for a node, channel, and timestamp to be published back to the broker.",
+      "tags": [
+        "firmware",
+        "serialization",
+        "factory",
+        "mqtt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:getFirmwarePackageSource",
+      "type": "function",
+      "name": "getFirmwarePackageSource",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        93,
+        103
+      ],
+      "summary": "Resolves the firmware package registry source configuration (base URL, owner, auth) from environment variables and Docker secret files.",
+      "tags": [
+        "firmware",
+        "config",
+        "factory",
+        "server-only"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:packageDownloadUrl",
+      "type": "function",
+      "name": "packageDownloadUrl",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        156,
+        165
+      ],
+      "summary": "Builds the Codeberg generic-package download URL for a given owner, package, version, and filename, URL-encoding each path segment.",
+      "tags": [
+        "firmware",
+        "utility",
+        "url",
+        "registry"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:listCodebergPackages",
+      "type": "function",
+      "name": "listCodebergPackages",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        167,
+        208
+      ],
+      "summary": "Lists all generic packages for an owner/package from the Codeberg registry, paginating via the Link header and parsing each entry into a typed package descriptor.",
+      "tags": [
+        "firmware",
+        "api-handler",
+        "registry",
+        "pagination"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:selectPackageVersion",
+      "type": "function",
+      "name": "selectPackageVersion",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        210,
+        215
+      ],
+      "summary": "Selects the newest package version for a channel, applying stable semantic ordering for the stable channel and timestamp ordering for the edge channel.",
+      "tags": [
+        "firmware",
+        "utility",
+        "versioning",
+        "registry"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:downloadPackageManifest",
+      "type": "function",
+      "name": "downloadPackageManifest",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        217,
+        227
+      ],
+      "summary": "Downloads and parses the firmware package manifest JSON for a device and version from the registry using the configured source.",
+      "tags": [
+        "firmware",
+        "api-handler",
+        "serialization",
+        "registry"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:resolveFirmwarePackage",
+      "type": "function",
+      "name": "resolveFirmwarePackage",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        229,
+        242
+      ],
+      "summary": "End-to-end resolver that lists registry packages, selects the channel version, downloads the manifest, and asserts it matches the requested device.",
+      "tags": [
+        "firmware",
+        "service",
+        "registry",
+        "orchestration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:toEspHomeManifest",
+      "type": "function",
+      "name": "toEspHomeManifest",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        244,
+        263
+      ],
+      "summary": "Transforms a resolved firmware package manifest into an ESPHome-compatible OTA manifest, embedding the proxied download URL with the node id and token.",
+      "tags": [
+        "firmware",
+        "serialization",
+        "esphome",
+        "ota"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:downloadAndValidateBinary",
+      "type": "function",
+      "name": "downloadAndValidateBinary",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        265,
+        280
+      ],
+      "summary": "Downloads an OTA binary artifact from the registry, verifying it is a known artifact and validating its checksums before returning the bytes.",
+      "tags": [
+        "firmware",
+        "validation",
+        "ota",
+        "registry"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:validateBinaryChecksums",
+      "type": "function",
+      "name": "validateBinaryChecksums",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        282,
+        291
+      ],
+      "summary": "Validates a downloaded firmware binary against the manifest's expected SHA-256 and MD5 checksums, throwing on mismatch.",
+      "tags": [
+        "firmware",
+        "validation",
+        "security",
+        "ota"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:parsePackageManifest",
+      "type": "function",
+      "name": "parsePackageManifest",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        312,
+        350
+      ],
+      "summary": "Validates and parses an untyped JSON payload into a typed firmware package manifest, checking required fields, artifact lists, and checksum record shapes.",
+      "tags": [
+        "firmware",
+        "validation",
+        "serialization",
+        "data-model"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/firmware/packages.ts:assertPackageManifestMatchesDevice",
+      "type": "function",
+      "name": "assertPackageManifestMatchesDevice",
+      "filePath": "src/lib/server/firmware/packages.ts",
+      "lineRange": [
+        357,
+        371
+      ],
+      "summary": "Asserts that a parsed package manifest matches the requested device, channel, and expected package owner, throwing on any mismatch.",
+      "tags": [
+        "firmware",
+        "validation",
+        "security",
+        "guard"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:e2e/dashboard.spec.ts",
+      "type": "file",
+      "name": "dashboard.spec.ts",
+      "filePath": "e2e/dashboard.spec.ts",
+      "summary": "Playwright e2e suite for the grow HMI dashboard and device-settings pages, mocking the /api/snapshot, /api/events SSE, and firmware endpoints to assert scan-focused rendering, live metric updates, and firmware update gating logic.",
+      "tags": [
+        "test",
+        "e2e",
+        "playwright",
+        "firmware",
+        "dashboard"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Uses page.route mocks and an injected MockEventSource (via addInitScript) to simulate the server-sent-events stream so the dashboard can be tested without a live MQTT broker."
+    },
+    {
+      "id": "file:e2e/design-screenshots.spec.ts",
+      "type": "file",
+      "name": "design-screenshots.spec.ts",
+      "filePath": "e2e/design-screenshots.spec.ts",
+      "summary": "Playwright spec that captures full-page screenshots of the dashboard and device-settings views (with snapshot data mocked) for export into Penpot design tooling.",
+      "tags": [
+        "test",
+        "e2e",
+        "playwright",
+        "screenshot",
+        "design"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:e2e/fixtures/dashboard-snapshot.ts",
+      "type": "file",
+      "name": "dashboard-snapshot.ts",
+      "filePath": "e2e/fixtures/dashboard-snapshot.ts",
+      "summary": "Static test fixture exporting a representative dashboard Snapshot (site, broker status, devices, and entity states) used by the e2e specs to mock the /api/snapshot response.",
+      "tags": [
+        "test",
+        "fixture",
+        "test-data",
+        "snapshot",
+        "mock"
+      ],
+      "complexity": "complex",
+      "languageNotes": "A large const literal typed against the server Snapshot interface, giving the fixture compile-time guarantees that it matches the real API shape."
+    },
+    {
+      "id": "function:e2e/dashboard.spec.ts:installMockEventSource",
+      "type": "function",
+      "name": "installMockEventSource",
+      "filePath": "e2e/dashboard.spec.ts",
+      "lineRange": [
+        54,
+        91
+      ],
+      "summary": "Injects a MockEventSource class into the page before load so tests can drive the dashboard's SSE-backed live updates deterministically via a window.__emitEventSource helper.",
+      "tags": [
+        "test-helper",
+        "mock",
+        "sse",
+        "event-source",
+        "playwright"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "service:Dockerfile",
+      "type": "service",
+      "name": "Dockerfile",
+      "filePath": "Dockerfile",
+      "summary": "Four-stage Docker build (base, deps, build, runtime) that installs pnpm via corepack, installs frozen dependencies, runs the SvelteKit build, and produces a minimal Node.js production image serving the adapter-node output on port 3000 as the non-root node user.",
+      "tags": [
+        "containerization",
+        "infrastructure",
+        "deployment",
+        "sveltekit",
+        "multi-stage-build"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Multi-stage build separates dependency install (deps), build tooling (build), and a slim runtime stage that only copies package.json, the SvelteKit build output, and pruned production node_modules, keeping the final image small and dropping to USER node for least privilege."
+    },
+    {
+      "id": "service:Dockerfile:base",
+      "type": "service",
+      "name": "base",
+      "summary": "Base stage built on node:24-bookworm-slim that sets up the pnpm home and PATH and activates pnpm 11.5.3 through corepack, shared by the deps and build stages.",
+      "tags": [
+        "containerization",
+        "infrastructure",
+        "base-image",
+        "pnpm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "service:Dockerfile:deps",
+      "type": "service",
+      "name": "deps",
+      "summary": "Dependency stage that copies the pnpm manifest and lockfiles and runs a frozen-lockfile install to produce a reproducible node_modules layer.",
+      "tags": [
+        "containerization",
+        "infrastructure",
+        "dependencies",
+        "pnpm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "service:Dockerfile:build",
+      "type": "service",
+      "name": "build",
+      "summary": "Build stage that copies the full source, runs svelte-kit sync, builds the SvelteKit app with pnpm, then prunes dev dependencies to leave only production node_modules.",
+      "tags": [
+        "containerization",
+        "infrastructure",
+        "build-system",
+        "sveltekit"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "service:Dockerfile:runtime",
+      "type": "service",
+      "name": "runtime",
+      "summary": "Final runtime stage on a fresh node:24-bookworm-slim image that sets production env vars, copies the build output and pruned dependencies from the build stage, exposes port 3000, and runs the app as the node user via node build.",
+      "tags": [
+        "containerization",
+        "infrastructure",
+        "deployment",
+        "runtime"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.dockerignore",
+      "type": "config",
+      "name": ".dockerignore",
+      "filePath": ".dockerignore",
+      "summary": "Docker build context filter that excludes build artifacts, dependency and pnpm caches, test reports, environment files, and VCS metadata so the COPY . . step in the build stage stays small and free of secrets.",
+      "tags": [
+        "configuration",
+        "containerization",
+        "infrastructure",
+        "build-context"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:AGENTS.md",
+      "type": "document",
+      "name": "AGENTS.md",
+      "filePath": "AGENTS.md",
+      "summary": "Agent guardrails for the grow-app codebase, mandating Svelte 5 runes-mode idioms over Svelte 4 patterns and defining Phase 1 scope boundaries (site-mode only, HTTP/SSE browser clients, MQTT server-side).",
+      "tags": [
+        "documentation",
+        "conventions",
+        "svelte5",
+        "guardrails"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Includes a Svelte 4-vs-5 idiom comparison table to steer LLM agents away from deprecated reactivity syntax."
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Project overview and operations guide covering local development, environment variables, the production container image, and the deploy-to-LAN workflow via the media-stack Docker Compose project.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "overview",
+        "deployment"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:package.json",
+      "type": "config",
+      "name": "package.json",
+      "filePath": "package.json",
+      "summary": "Root package manifest for the grow-app SvelteKit project, pinning Svelte 5, Vite 7, the Node adapter, and the mqtt client, with scripts for dev, build, type-check, unit tests (vitest), and Playwright e2e.",
+      "tags": [
+        "configuration",
+        "build-system",
+        "dependencies",
+        "svelte5"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Enforces Node >=24 and a pinned pnpm@11.5.3 via the engines and packageManager fields for reproducible builds."
+    },
+    {
+      "id": "config:pnpm-workspace.yaml",
+      "type": "config",
+      "name": "pnpm-workspace.yaml",
+      "filePath": "pnpm-workspace.yaml",
+      "summary": "pnpm workspace definition declaring the repository root as the single package and allow-listing esbuild's build script for installation.",
+      "tags": [
+        "configuration",
+        "build-system",
+        "pnpm",
+        "workspace"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:tsconfig.json",
+      "type": "config",
+      "name": "tsconfig.json",
+      "filePath": "tsconfig.json",
+      "summary": "TypeScript compiler configuration extending SvelteKit's generated tsconfig and enabling strict mode, JS checking, and bundler module resolution for the project.",
+      "tags": [
+        "configuration",
+        "typescript",
+        "build-system",
+        "strict-mode"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Extends ./.svelte-kit/tsconfig.json so SvelteKit-generated path aliases and settings are inherited rather than duplicated."
+    },
+    {
+      "id": "config:.forgejo/workflows/build.yaml",
+      "type": "pipeline",
+      "name": "build.yaml",
+      "filePath": ".forgejo/workflows/build.yaml",
+      "summary": "Forgejo Actions CI/CD workflow that builds the grow-app Docker image, derives tags from the upstream Node version, and pushes to the Codeberg container registry on pushes to main and version tags.",
+      "tags": [
+        "ci-cd",
+        "deployment",
+        "containerization",
+        "infrastructure"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Uses docker/metadata-action to compose semver/edge/sha tags suffixed with the upstream node base-image version extracted from the Dockerfile."
+    },
+    {
+      "id": "file:.npmrc",
+      "type": "config",
+      "name": ".npmrc",
+      "filePath": ".npmrc",
+      "summary": "npm/pnpm configuration enabling engine-strict so installs fail when the Node/pnpm engine constraints in package.json are not satisfied.",
+      "tags": [
+        "configuration",
+        "build-system",
+        "package-manager"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:.understand-anything/.understandignore",
+      "type": "config",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Ignore-list controlling which files and directories the Understand-Anything analysis tooling skips when scanning this repository.",
+      "tags": [
+        "configuration",
+        "tooling",
+        "ignore-list"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.understand-anything/config.json",
+      "type": "config",
+      "name": "config.json",
+      "filePath": ".understand-anything/config.json",
+      "summary": "Understand-Anything project configuration setting the analysis output language to English.",
+      "tags": [
+        "configuration",
+        "tooling"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:playwright.config.ts",
+      "type": "config",
+      "name": "playwright.config.ts",
+      "filePath": "playwright.config.ts",
+      "summary": "Playwright end-to-end test configuration that builds and previews the SvelteKit app, then runs the e2e suite across desktop, tablet, and phone viewport profiles.",
+      "tags": [
+        "configuration",
+        "test",
+        "e2e",
+        "build-system"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Defines three device projects (Desktop Chrome, a 1280x720 tab5 viewport, Pixel 7) to validate the responsive HMI layout."
+    },
+    {
+      "id": "file:src/app.d.ts",
+      "type": "file",
+      "name": "app.d.ts",
+      "filePath": "src/app.d.ts",
+      "summary": "SvelteKit ambient type declarations defining the global App namespace; currently an empty placeholder for Locals/PageData augmentation.",
+      "tags": [
+        "type-definition",
+        "configuration",
+        "sveltekit"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/app.html",
+      "type": "file",
+      "name": "app.html",
+      "filePath": "src/app.html",
+      "summary": "SvelteKit HTML document shell with head/body placeholders, favicon links, and hover-based data preloading for the rendered application.",
+      "tags": [
+        "markup",
+        "sveltekit",
+        "entry-point",
+        "template"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/hooks.server.ts",
+      "type": "file",
+      "name": "hooks.server.ts",
+      "filePath": "src/hooks.server.ts",
+      "summary": "SvelteKit server hook that eagerly instantiates the singleton site MQTT service at startup so the broker connection and snapshot are warm before the first request.",
+      "tags": [
+        "entry-point",
+        "sveltekit",
+        "singleton",
+        "server"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/lib/device-presentation.ts",
+      "type": "file",
+      "name": "device-presentation.ts",
+      "filePath": "src/lib/device-presentation.ts",
+      "summary": "Transforms raw device/entity snapshots into presentation models for the dashboard and device-settings surfaces, grouping entities into metrics, quick controls, and ordered settings sections.",
+      "tags": [
+        "presentation",
+        "data-model",
+        "utility",
+        "ui-logic"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Heavy use of TypeScript type guards and `satisfies` to keep the presented section/entity shapes well-typed through map/filter/sort pipelines."
+    },
+    {
+      "id": "file:src/lib/EntityRow.svelte",
+      "type": "file",
+      "name": "EntityRow.svelte",
+      "filePath": "src/lib/EntityRow.svelte",
+      "summary": "Reusable Svelte 5 component rendering a single entity row, switching between toggle, number, select, button, and free-form controls for writable entities and emitting commands via an onCommand callback.",
+      "tags": [
+        "component",
+        "ui",
+        "event-handler",
+        "svelte"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Svelte 5 runes ($props, $derived) with conditional control templates keyed off the entity component type."
+    },
+    {
+      "id": "file:src/lib/firmware.ts",
+      "type": "file",
+      "name": "firmware.ts",
+      "filePath": "src/lib/firmware.ts",
+      "summary": "Client-side firmware helpers that parse the ESPHome update entity's JSON payload into a typed FirmwareUpdateState and extract a project version from a software-version string.",
+      "tags": [
+        "utility",
+        "firmware",
+        "serialization",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/lib/FirmwareUpdatesPanel.svelte",
+      "type": "file",
+      "name": "FirmwareUpdatesPanel.svelte",
+      "filePath": "src/lib/FirmwareUpdatesPanel.svelte",
+      "summary": "Large Svelte 5 panel managing per-device firmware updates: resolves package manifests, displays installed/latest versions and changelog, lets the operator switch channels, run checks, and apply updates via the firmware API routes.",
+      "tags": [
+        "component",
+        "firmware",
+        "api-handler",
+        "ui"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Extensive $state/$derived reactivity drives an async lookup lifecycle (pending/complete/error) keyed by node id and channel, with request-id guarding against stale responses."
+    },
+    {
+      "id": "file:src/lib/live-snapshot.svelte.ts",
+      "type": "file",
+      "name": "live-snapshot.svelte.ts",
+      "filePath": "src/lib/live-snapshot.svelte.ts",
+      "summary": "Svelte 5 runes-based client store that normalizes the initial snapshot, subscribes to the SSE event stream, applies incremental entity/state/device/firmware updates, and exposes command-sending with pending/error tracking.",
+      "tags": [
+        "store",
+        "state-management",
+        "real-time",
+        "svelte",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "A `.svelte.ts` module using $state runes outside a component; defensive normalization guards every snapshot field, and structuredClone over $state.snapshot detaches reactive proxies before cloning."
+    },
+    {
+      "id": "file:src/lib/server/firmware/http.ts",
+      "type": "file",
+      "name": "http.ts",
+      "filePath": "src/lib/server/firmware/http.ts",
+      "summary": "Server helper that maps firmware error messages to appropriate HTTP status codes (409/404/fallback) and returns a standardized JSON error response.",
+      "tags": [
+        "utility",
+        "firmware",
+        "error-handling",
+        "server"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/lib/state-format.ts",
+      "type": "file",
+      "name": "state-format.ts",
+      "filePath": "src/lib/state-format.ts",
+      "summary": "Formats an entity's current state value for display, applying numeric precision/rounding and appending the unit of measurement when present.",
+      "tags": [
+        "utility",
+        "formatting",
+        "presentation",
+        "tested"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/routes/+page.svelte",
+      "type": "file",
+      "name": "+page.svelte",
+      "filePath": "src/routes/+page.svelte",
+      "summary": "Dashboard route component rendering site/broker status, per-device cards with key metrics and quick controls, wired to the live snapshot store for real-time updates and command dispatch.",
+      "tags": [
+        "component",
+        "entry-point",
+        "dashboard",
+        "ui"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Svelte 5 runes ($props/$derived/$effect) bind the live store; $effect(() => live.connect()) opens the SSE stream and returns the disconnect cleanup."
+    },
+    {
+      "id": "file:src/routes/+page.ts",
+      "type": "file",
+      "name": "+page.ts",
+      "filePath": "src/routes/+page.ts",
+      "summary": "Client-only (ssr=false) load function for the dashboard route that fetches the initial snapshot from /api/snapshot and passes it to the page component.",
+      "tags": [
+        "sveltekit",
+        "data-loading",
+        "entry-point"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/routes/api/entities/[entityId]/command/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/entities/[entityId]/command/+server.ts",
+      "summary": "SvelteKit POST endpoint that publishes a command to an entity through the site MQTT service, returning JSON success or a mapped error.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "mqtt",
+        "server"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/routes/api/events/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/events/+server.ts",
+      "summary": "SvelteKit GET endpoint streaming server-sent events: emits an initial snapshot, forwards live MQTT updates to subscribers, sends periodic keepalives, and cleans up on cancel.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "server-sent-events",
+        "real-time"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Builds a ReadableStream with start/cancel handlers; encodes SSE frames via a TextEncoder and drives them from the MQTT service subscription."
+    },
+    {
+      "id": "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "summary": "SvelteKit POST endpoint that validates the selected firmware package against the device's discovered update state and installed version, then triggers the update via the MQTT service.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware",
+        "server"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "summary": "SvelteKit GET endpoint that authenticates a firmware update token, downloads and validates the requested firmware binary against the package manifest, and streams it back as an octet-stream.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware",
+        "security"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "summary": "SvelteKit GET/PUT endpoint that reads and updates the firmware release channel (stable/beta) selected for a device via the site MQTT service.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware",
+        "server"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "summary": "SvelteKit POST endpoint that resolves the firmware package for the selected channel and triggers a device-side firmware update check through the MQTT service.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware",
+        "server"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "summary": "SvelteKit GET endpoint that authenticates a firmware token and returns the resolved firmware package converted into an ESPHome-compatible OTA manifest.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware",
+        "security"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "summary": "SvelteKit GET endpoint that resolves and returns the firmware package manifest for a device on the requested or selected channel.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware",
+        "server"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/device-presentation.ts:dashboardPresentation",
+      "type": "function",
+      "name": "dashboardPresentation",
+      "filePath": "src/lib/device-presentation.ts",
+      "lineRange": [
+        119,
+        146
+      ],
+      "summary": "Builds the dashboard view model for a device, selecting metric entities and writable quick-control entities (falling back to inferred metrics when no UI config exists).",
+      "tags": [
+        "presentation",
+        "utility",
+        "dashboard"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/device-presentation.ts:deviceSettingsPresentation",
+      "type": "function",
+      "name": "deviceSettingsPresentation",
+      "filePath": "src/lib/device-presentation.ts",
+      "lineRange": [
+        199,
+        271
+      ],
+      "summary": "Builds the device-settings view model, grouping entities into ordered, sectioned panels from UI config (with a fallback grouping) and routing leftovers into diagnostics/other sections.",
+      "tags": [
+        "presentation",
+        "utility",
+        "settings"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/lib/device-presentation.ts:inferDeviceSettingsSection",
+      "type": "function",
+      "name": "inferDeviceSettingsSection",
+      "filePath": "src/lib/device-presentation.ts",
+      "lineRange": [
+        89,
+        102
+      ],
+      "summary": "Infers which device-settings section a group belongs to by normalizing and pattern-matching the group id/title against known section keywords.",
+      "tags": [
+        "utility",
+        "classification",
+        "presentation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/device-presentation.ts:fallbackSettingsPresentation",
+      "type": "function",
+      "name": "fallbackSettingsPresentation",
+      "filePath": "src/lib/device-presentation.ts",
+      "lineRange": [
+        159,
+        197
+      ],
+      "summary": "Produces a default controls/maintenance/diagnostics settings layout when a device has no explicit UI configuration.",
+      "tags": [
+        "utility",
+        "fallback",
+        "presentation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/firmware.ts:parseFirmwareUpdateState",
+      "type": "function",
+      "name": "parseFirmwareUpdateState",
+      "filePath": "src/lib/firmware.ts",
+      "lineRange": [
+        21,
+        42
+      ],
+      "summary": "Parses the ESPHome update entity JSON payload into a typed FirmwareUpdateState, returning an empty state on missing or malformed input.",
+      "tags": [
+        "serialization",
+        "validation",
+        "firmware"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/firmware.ts:parseProjectVersion",
+      "type": "function",
+      "name": "parseProjectVersion",
+      "filePath": "src/lib/firmware.ts",
+      "lineRange": [
+        15,
+        19
+      ],
+      "summary": "Extracts a project version substring from a device software-version string via regex match.",
+      "tags": [
+        "utility",
+        "parsing",
+        "firmware"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/live-snapshot.svelte.ts:createLiveSnapshot",
+      "type": "function",
+      "name": "createLiveSnapshot",
+      "filePath": "src/lib/live-snapshot.svelte.ts",
+      "lineRange": [
+        69,
+        181
+      ],
+      "summary": "Factory returning a reactive live-snapshot store: manages SSE connect/disconnect, applies snapshot/entities/states/devices/firmware events, and exposes formatState, stateFor, and sendCommand with pending/error state.",
+      "tags": [
+        "store",
+        "factory",
+        "real-time",
+        "state-management"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/lib/live-snapshot.svelte.ts:normalizeSnapshot",
+      "type": "function",
+      "name": "normalizeSnapshot",
+      "filePath": "src/lib/live-snapshot.svelte.ts",
+      "lineRange": [
+        53,
+        67
+      ],
+      "summary": "Defensively normalizes an unknown value into a complete Snapshot, filling each field from the value or a provided fallback with type checks.",
+      "tags": [
+        "utility",
+        "validation",
+        "serialization"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "function",
+      "name": "firmwareError",
+      "filePath": "src/lib/server/firmware/http.ts",
+      "lineRange": [
+        3,
+        11
+      ],
+      "summary": "Maps a firmware error to an HTTP status (409 for discovery/bootstrap, 404 for not-found/unknown, else fallback) and returns a JSON error response.",
+      "tags": [
+        "utility",
+        "error-handling",
+        "firmware"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/state-format.ts:formatEntityState",
+      "type": "function",
+      "name": "formatEntityState",
+      "filePath": "src/lib/state-format.ts",
+      "lineRange": [
+        15,
+        20
+      ],
+      "summary": "Formats an entity state value with numeric precision and appends the entity's unit of measurement for display.",
+      "tags": [
+        "utility",
+        "formatting",
+        "presentation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/lib/state-format.ts:formattedNumericValue",
+      "type": "function",
+      "name": "formattedNumericValue",
+      "filePath": "src/lib/state-format.ts",
+      "lineRange": [
+        3,
+        13
+      ],
+      "summary": "Rounds/truncates a numeric string to the given precision, returning the original string when it is not finite.",
+      "tags": [
+        "utility",
+        "formatting",
+        "number"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/routes/+page.ts:load",
+      "type": "function",
+      "name": "load",
+      "filePath": "src/routes/+page.ts",
+      "summary": "Client-side load that fetches the initial snapshot from /api/snapshot and returns it to the dashboard page.",
+      "tags": [
+        "data-loading",
+        "sveltekit"
+      ],
+      "complexity": "simple",
+      "lineRange": [
+        5,
+        10
+      ]
+    },
+    {
+      "id": "function:src/routes/api/entities/[entityId]/command/+server.ts:POST",
+      "type": "function",
+      "name": "POST",
+      "filePath": "src/routes/api/entities/[entityId]/command/+server.ts",
+      "lineRange": [
+        5,
+        21
+      ],
+      "summary": "Handles entity command POSTs by publishing the requested value to the entity via the site MQTT service.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "mqtt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/routes/api/events/+server.ts:GET",
+      "type": "function",
+      "name": "GET",
+      "filePath": "src/routes/api/events/+server.ts",
+      "lineRange": [
+        9,
+        39
+      ],
+      "summary": "Returns an SSE ReadableStream that pushes the initial snapshot, forwards MQTT subscription updates, and emits periodic keepalive comments.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "server-sent-events"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts:POST",
+      "type": "function",
+      "name": "POST",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "lineRange": [
+        7,
+        51
+      ],
+      "summary": "Validates the resolved firmware package against the device's update state and installed version, then triggers the update via the MQTT service.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts:GET",
+      "type": "function",
+      "name": "GET",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "lineRange": [
+        12,
+        43
+      ],
+      "summary": "Authenticates a firmware token, downloads and validates the firmware binary against the package manifest, and streams it as an octet-stream response.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware",
+        "security"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts:GET",
+      "type": "function",
+      "name": "GET",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "lineRange": [
+        6,
+        17
+      ],
+      "summary": "Returns the firmware channel selected for a device along with the current firmware snapshot.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts:PUT",
+      "type": "function",
+      "name": "PUT",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "lineRange": [
+        19,
+        38
+      ],
+      "summary": "Validates and sets a device's firmware release channel through the site MQTT service.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/routes/api/firmware/devices/[nodeId]/check/+server.ts:POST",
+      "type": "function",
+      "name": "POST",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "lineRange": [
+        6,
+        50
+      ],
+      "summary": "Resolves the firmware package for the selected channel and triggers a device-side firmware check via the MQTT service.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts:GET",
+      "type": "function",
+      "name": "GET",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "lineRange": [
+        7,
+        31
+      ],
+      "summary": "Authenticates a firmware token and returns the resolved package converted to an ESPHome OTA manifest.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware",
+        "security"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/routes/api/firmware/devices/[nodeId]/package/+server.ts:GET",
+      "type": "function",
+      "name": "GET",
+      "filePath": "src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "lineRange": [
+        7,
+        23
+      ],
+      "summary": "Resolves and returns the firmware package manifest for a device on the requested or selected channel.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "firmware"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/routes/api/snapshot/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/api/snapshot/+server.ts",
+      "summary": "SvelteKit endpoint that serializes the current site MQTT snapshot to JSON, backing the client-side snapshot fetch and live updates.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "mqtt",
+        "serialization"
+      ],
+      "complexity": "simple",
+      "languageNotes": "SvelteKit +server.ts route exporting a GET request handler."
+    },
+    {
+      "id": "function:src/routes/api/snapshot/+server.ts:GET",
+      "type": "function",
+      "name": "GET",
+      "filePath": "src/routes/api/snapshot/+server.ts",
+      "lineRange": [
+        4,
+        6
+      ],
+      "summary": "Returns the full site MQTT snapshot as a JSON response by delegating to the singleton site MQTT service.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "mqtt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/routes/device-settings/+page.svelte",
+      "type": "file",
+      "name": "+page.svelte",
+      "filePath": "src/routes/device-settings/+page.svelte",
+      "summary": "Device-settings HMI page that renders per-device navigation, settings panels, firmware updates, and entity rows driven by a live MQTT snapshot.",
+      "tags": [
+        "component",
+        "page",
+        "hmi",
+        "device-settings",
+        "live-data"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Svelte 5 runes component using $props, $derived, and $effect to bind a reactive live snapshot to the rendered device settings UI."
+    },
+    {
+      "id": "file:src/routes/device-settings/+page.ts",
+      "type": "file",
+      "name": "+page.ts",
+      "filePath": "src/routes/device-settings/+page.ts",
+      "summary": "Client-side load function for the device-settings page that fetches the snapshot and parses selected device/section from the URL query string.",
+      "tags": [
+        "data-loader",
+        "page",
+        "client-side",
+        "routing"
+      ],
+      "complexity": "simple",
+      "languageNotes": "SvelteKit page module disabling SSR (ssr = false) and exposing a load function."
+    },
+    {
+      "id": "function:src/routes/device-settings/+page.ts:load",
+      "type": "function",
+      "name": "load",
+      "filePath": "src/routes/device-settings/+page.ts",
+      "lineRange": [
+        5,
+        14
+      ],
+      "summary": "Fetches the snapshot from /api/snapshot and returns it alongside the selected device and section ids read from URL search params.",
+      "tags": [
+        "data-loader",
+        "client-side",
+        "routing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/routes/health/+server.ts",
+      "type": "file",
+      "name": "+server.ts",
+      "filePath": "src/routes/health/+server.ts",
+      "summary": "Health-check endpoint reporting broker connectivity, site name, and entity/device counts with a 200/503 status based on broker state.",
+      "tags": [
+        "api-handler",
+        "endpoint",
+        "health-check",
+        "monitoring"
+      ],
+      "complexity": "simple",
+      "languageNotes": "SvelteKit +server.ts route returning a JSON body with an explicit HTTP status derived from broker connection state."
+    },
+    {
+      "id": "function:src/routes/health/+server.ts:GET",
+      "type": "function",
+      "name": "GET",
+      "filePath": "src/routes/health/+server.ts",
+      "lineRange": [
+        4,
+        18
+      ],
+      "summary": "Builds a health payload from the MQTT snapshot and returns HTTP 200 when the broker is connected, otherwise 503.",
+      "tags": [
+        "api-handler",
+        "health-check",
+        "monitoring"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:svelte.config.js",
+      "type": "file",
+      "name": "svelte.config.js",
+      "filePath": "svelte.config.js",
+      "summary": "SvelteKit configuration enabling the Node adapter, Vite preprocessing, and Svelte 5 runes compilation for the app.",
+      "tags": [
+        "config",
+        "build-system",
+        "sveltekit"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Uses @sveltejs/adapter-node and enables runes via compilerOptions."
+    },
+    {
+      "id": "file:tests/unit/live-snapshot.test.ts",
+      "type": "file",
+      "name": "live-snapshot.test.ts",
+      "filePath": "tests/unit/live-snapshot.test.ts",
+      "summary": "Vitest unit tests for snapshot normalization, asserting that array/map fields stay defined for partial events and default to empty collections without a fallback.",
+      "tags": [
+        "test",
+        "unit-test",
+        "live-data",
+        "validation"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Vitest suite building a satisfies Snapshot fixture to exercise normalizeSnapshot."
+    },
+    {
+      "id": "file:tests/unit/state-format.test.ts",
+      "type": "file",
+      "name": "state-format.test.ts",
+      "filePath": "tests/unit/state-format.test.ts",
+      "summary": "Vitest unit tests for entity state formatting, verifying numeric precision from discovery metadata, passthrough of nonnumeric values, and unit appending.",
+      "tags": [
+        "test",
+        "unit-test",
+        "formatting",
+        "validation"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Vitest suite using a satisfies EntityConfig fixture to exercise formatEntityState."
+    },
+    {
+      "id": "file:vite.config.ts",
+      "type": "file",
+      "name": "vite.config.ts",
+      "filePath": "vite.config.ts",
+      "summary": "Vite/Vitest configuration wiring the SvelteKit plugin and scoping the unit test runner to tests/unit.",
+      "tags": [
+        "config",
+        "build-system",
+        "test"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Uses defineConfig from vitest/config so Vite and Vitest share one config."
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:src/lib/server/mqtt/config.ts",
+      "target": "function:src/lib/server/mqtt/config.ts:getSiteMqttConfig",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/config.ts",
+      "target": "function:src/lib/server/mqtt/config.ts:getSiteMqttConfig",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryTopic",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryPayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:buildCommandPublish",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:normalizeDiscoveryId",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:isDangerousEntity",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:parseDevice",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:commandPayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryTopic",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryPayload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:buildCommandPublish",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:normalizeDiscoveryId",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "function:src/lib/server/mqtt/discovery.ts:isDangerousEntity",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/discovery.ts:buildCommandPublish",
+      "target": "function:src/lib/server/mqtt/discovery.ts:commandPayload",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryPayload",
+      "target": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryTopic",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryPayload",
+      "target": "function:src/lib/server/mqtt/discovery.ts:parseDevice",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryPayload",
+      "target": "function:src/lib/server/mqtt/discovery.ts:isDangerousEntity",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryPayload",
+      "target": "function:src/lib/server/mqtt/discovery.ts:normalizeDiscoveryId",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "file:src/lib/server/mqtt/config.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "file:src/lib/server/mqtt/discovery.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "class:src/lib/server/mqtt/service.ts:SiteMqttService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "function:src/lib/server/mqtt/service.ts:getSiteMqttService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "class:src/lib/server/mqtt/service.ts:SiteMqttService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "function:src/lib/server/mqtt/service.ts:getSiteMqttService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/service.ts:getSiteMqttService",
+      "target": "function:src/lib/server/mqtt/config.ts:getSiteMqttConfig",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:src/lib/server/mqtt/service.ts:SiteMqttService",
+      "target": "function:src/lib/server/mqtt/discovery.ts:parseDiscoveryPayload",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:src/lib/server/mqtt/service.ts:SiteMqttService",
+      "target": "function:src/lib/server/mqtt/discovery.ts:buildCommandPublish",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:src/lib/server/mqtt/service.ts:SiteMqttService",
+      "target": "function:src/lib/server/mqtt/discovery.ts:normalizeDiscoveryId",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:src/lib/server/mqtt/service.ts:SiteMqttService",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigPayload",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigPayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigTopic",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseGroup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseEntity",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigPayload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigTopic",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigPayload",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigTopic",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigPayload",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseGroup",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/mqtt/ui-metadata.ts:parseUiConfigPayload",
+      "target": "function:src/lib/server/mqtt/ui-metadata.ts:parseEntity",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/unit/discovery.test.ts",
+      "target": "file:src/lib/server/mqtt/discovery.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/discovery.test.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/discovery.test.ts",
+      "target": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/server/mqtt/discovery.ts",
+      "target": "file:tests/unit/discovery.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/lib/server/mqtt/service.ts",
+      "target": "file:tests/unit/discovery.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/lib/server/mqtt/ui-metadata.ts",
+      "target": "file:tests/unit/discovery.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/lib/server/firmware/access.ts",
+      "target": "function:src/lib/server/firmware/access.ts:requireFirmwareUpdateToken",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/access.ts",
+      "target": "function:src/lib/server/firmware/access.ts:requireFirmwareUpdateToken",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:firmwareDeviceTopic",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:firmwareDeviceTopic",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:firmwareChannelTopic",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:firmwareChannelTopic",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:parseFirmwareDevicePayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:parseFirmwareDevicePayload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:parseFirmwareChannelPayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:parseFirmwareChannelPayload",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:buildFirmwareChannelConfig",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "function:src/lib/server/firmware/metadata.ts:buildFirmwareChannelConfig",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:getFirmwarePackageSource",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:getFirmwarePackageSource",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:packageDownloadUrl",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:packageDownloadUrl",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:listCodebergPackages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:listCodebergPackages",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:selectPackageVersion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:selectPackageVersion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:downloadPackageManifest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:downloadPackageManifest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:resolveFirmwarePackage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:resolveFirmwarePackage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:toEspHomeManifest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:toEspHomeManifest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:downloadAndValidateBinary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:downloadAndValidateBinary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:validateBinaryChecksums",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:validateBinaryChecksums",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:parsePackageManifest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:parsePackageManifest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:assertPackageManifestMatchesDevice",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "function:src/lib/server/firmware/packages.ts:assertPackageManifestMatchesDevice",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/firmware/packages.ts:resolveFirmwarePackage",
+      "target": "function:src/lib/server/firmware/packages.ts:listCodebergPackages",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/firmware/packages.ts:resolveFirmwarePackage",
+      "target": "function:src/lib/server/firmware/packages.ts:selectPackageVersion",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/firmware/packages.ts:resolveFirmwarePackage",
+      "target": "function:src/lib/server/firmware/packages.ts:downloadPackageManifest",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/firmware/packages.ts:resolveFirmwarePackage",
+      "target": "function:src/lib/server/firmware/packages.ts:assertPackageManifestMatchesDevice",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/firmware/packages.ts:downloadAndValidateBinary",
+      "target": "function:src/lib/server/firmware/packages.ts:packageDownloadUrl",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/firmware/packages.ts:downloadAndValidateBinary",
+      "target": "function:src/lib/server/firmware/packages.ts:validateBinaryChecksums",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/firmware/packages.ts:downloadPackageManifest",
+      "target": "function:src/lib/server/firmware/packages.ts:packageDownloadUrl",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/lib/server/firmware/packages.ts:downloadPackageManifest",
+      "target": "function:src/lib/server/firmware/packages.ts:parsePackageManifest",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/unit/firmware.test.ts",
+      "target": "file:src/lib/server/firmware/access.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/firmware.test.ts",
+      "target": "file:src/lib/server/firmware/metadata.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/firmware.test.ts",
+      "target": "file:src/lib/server/firmware/packages.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/firmware.test.ts",
+      "target": "file:src/lib/server/firmware/update-state.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/server/firmware/access.ts",
+      "target": "file:tests/unit/firmware.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/lib/server/firmware/metadata.ts",
+      "target": "file:tests/unit/firmware.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/lib/server/firmware/packages.ts",
+      "target": "file:tests/unit/firmware.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/lib/server/firmware/update-state.ts",
+      "target": "file:tests/unit/firmware.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:e2e/dashboard.spec.ts",
+      "target": "file:e2e/fixtures/dashboard-snapshot.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:e2e/design-screenshots.spec.ts",
+      "target": "file:e2e/fixtures/dashboard-snapshot.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:e2e/fixtures/dashboard-snapshot.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:e2e/dashboard.spec.ts",
+      "target": "function:e2e/dashboard.spec.ts:installMockEventSource",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "service:Dockerfile:base",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "service:Dockerfile:deps",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "service:Dockerfile:build",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "service:Dockerfile:runtime",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "config:package.json",
+      "type": "deploys",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "file:svelte.config.js",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:.dockerignore",
+      "target": "service:Dockerfile",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:README.md",
+      "target": "config:package.json",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:AGENTS.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "config:.forgejo/workflows/build.yaml",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:AGENTS.md",
+      "target": "config:package.json",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:tsconfig.json",
+      "target": "config:package.json",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:pnpm-workspace.yaml",
+      "target": "config:package.json",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:.forgejo/workflows/build.yaml",
+      "target": "service:Dockerfile",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:src/routes/+page.svelte",
+      "target": "file:src/lib/EntityRow.svelte",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/+page.svelte",
+      "target": "file:src/lib/device-presentation.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/+page.svelte",
+      "target": "file:src/lib/live-snapshot.svelte.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/+page.svelte",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/+page.svelte",
+      "target": "file:src/lib/EntityRow.svelte",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/EntityRow.svelte",
+      "target": "file:src/lib/device-presentation.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/EntityRow.svelte",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/EntityRow.svelte",
+      "target": "file:src/lib/state-format.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/EntityRow.svelte",
+      "target": "function:src/lib/state-format.ts:formatEntityState",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/FirmwareUpdatesPanel.svelte",
+      "target": "file:src/lib/firmware.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/FirmwareUpdatesPanel.svelte",
+      "target": "file:src/lib/server/firmware/packages.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/FirmwareUpdatesPanel.svelte",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/FirmwareUpdatesPanel.svelte",
+      "target": "function:src/lib/firmware.ts:parseFirmwareUpdateState",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/FirmwareUpdatesPanel.svelte",
+      "target": "function:src/lib/firmware.ts:parseProjectVersion",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/live-snapshot.svelte.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/live-snapshot.svelte.ts",
+      "target": "file:src/lib/state-format.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/live-snapshot.svelte.ts",
+      "target": "function:src/lib/state-format.ts:formatEntityState",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/live-snapshot.svelte.ts",
+      "target": "function:src/lib/live-snapshot.svelte.ts:createLiveSnapshot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/live-snapshot.svelte.ts",
+      "target": "function:src/lib/live-snapshot.svelte.ts:normalizeSnapshot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/live-snapshot.svelte.ts",
+      "target": "function:src/lib/live-snapshot.svelte.ts:createLiveSnapshot",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/live-snapshot.svelte.ts",
+      "target": "function:src/lib/live-snapshot.svelte.ts:normalizeSnapshot",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/live-snapshot.svelte.ts",
+      "target": "file:tests/unit/live-snapshot.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/lib/device-presentation.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/device-presentation.ts",
+      "target": "function:src/lib/device-presentation.ts:dashboardPresentation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/device-presentation.ts",
+      "target": "function:src/lib/device-presentation.ts:deviceSettingsPresentation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/device-presentation.ts",
+      "target": "function:src/lib/device-presentation.ts:inferDeviceSettingsSection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/device-presentation.ts",
+      "target": "function:src/lib/device-presentation.ts:fallbackSettingsPresentation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/device-presentation.ts",
+      "target": "function:src/lib/device-presentation.ts:dashboardPresentation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/device-presentation.ts",
+      "target": "function:src/lib/device-presentation.ts:deviceSettingsPresentation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/firmware.ts",
+      "target": "function:src/lib/firmware.ts:parseFirmwareUpdateState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/firmware.ts",
+      "target": "function:src/lib/firmware.ts:parseProjectVersion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/firmware.ts",
+      "target": "function:src/lib/firmware.ts:parseFirmwareUpdateState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/firmware.ts",
+      "target": "function:src/lib/firmware.ts:parseProjectVersion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/state-format.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib/state-format.ts",
+      "target": "function:src/lib/state-format.ts:formatEntityState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/state-format.ts",
+      "target": "function:src/lib/state-format.ts:formattedNumericValue",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/state-format.ts",
+      "target": "function:src/lib/state-format.ts:formatEntityState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/lib/state-format.ts",
+      "target": "file:tests/unit/state-format.test.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/lib/server/firmware/http.ts",
+      "target": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/lib/server/firmware/http.ts",
+      "target": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/+page.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/+page.ts",
+      "target": "function:src/routes/+page.ts:load",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/+page.ts",
+      "target": "function:src/routes/+page.ts:load",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/hooks.server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/entities/[entityId]/command/+server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/entities/[entityId]/command/+server.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/entities/[entityId]/command/+server.ts",
+      "target": "function:src/routes/api/entities/[entityId]/command/+server.ts:POST",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/entities/[entityId]/command/+server.ts",
+      "target": "function:src/routes/api/entities/[entityId]/command/+server.ts:POST",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/events/+server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/events/+server.ts",
+      "target": "function:src/routes/api/events/+server.ts:GET",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/events/+server.ts",
+      "target": "function:src/routes/api/events/+server.ts:GET",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "target": "file:src/lib/server/firmware/http.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "target": "file:src/lib/server/firmware/packages.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "target": "file:src/lib/server/firmware/update-state.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "target": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts:POST",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts:POST",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "target": "file:src/lib/server/firmware/access.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "target": "file:src/lib/server/firmware/http.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "target": "file:src/lib/server/firmware/packages.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "target": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts:GET",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts:GET",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "target": "file:src/lib/server/firmware/http.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "target": "file:src/lib/server/firmware/metadata.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "target": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts:GET",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts:PUT",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts:GET",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts:PUT",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "target": "file:src/lib/server/firmware/http.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "target": "file:src/lib/server/firmware/packages.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "target": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/check/+server.ts:POST",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/check/+server.ts:POST",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "target": "file:src/lib/server/firmware/access.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "target": "file:src/lib/server/firmware/http.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "target": "file:src/lib/server/firmware/packages.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "target": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts:GET",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts:GET",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "target": "file:src/lib/server/firmware/http.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "target": "file:src/lib/server/firmware/metadata.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "target": "file:src/lib/server/firmware/packages.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "target": "file:src/lib/server/mqtt/service.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "target": "function:src/lib/server/firmware/http.ts:firmwareError",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/package/+server.ts:GET",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+      "target": "function:src/routes/api/firmware/devices/[nodeId]/package/+server.ts:GET",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/api/snapshot/+server.ts",
+      "target": "function:src/routes/api/snapshot/+server.ts:GET",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/api/snapshot/+server.ts",
+      "target": "function:src/routes/api/snapshot/+server.ts:GET",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/device-settings/+page.ts",
+      "target": "function:src/routes/device-settings/+page.ts:load",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/device-settings/+page.ts",
+      "target": "function:src/routes/device-settings/+page.ts:load",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/routes/device-settings/+page.ts:load",
+      "target": "function:src/routes/api/snapshot/+server.ts:GET",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/health/+server.ts",
+      "target": "function:src/routes/health/+server.ts:GET",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/routes/health/+server.ts",
+      "target": "function:src/routes/health/+server.ts:GET",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/routes/device-settings/+page.svelte",
+      "target": "file:src/routes/device-settings/+page.ts",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:tests/unit/live-snapshot.test.ts",
+      "target": "file:src/lib/live-snapshot.svelte.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/live-snapshot.test.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/state-format.test.ts",
+      "target": "file:src/lib/server/mqtt/types.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/state-format.test.ts",
+      "target": "file:src/lib/state-format.ts",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/live-snapshot.test.ts",
+      "target": "function:src/lib/live-snapshot.svelte.ts:normalizeSnapshot",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/unit/state-format.test.ts",
+      "target": "function:src/lib/state-format.ts:formatEntityState",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:mqtt-state-core",
+      "name": "MQTT & State Core",
+      "description": "Server-side MQTT session, discovery/UI-metadata parsing, and the SiteMqttService singleton that derives the entity model, caches retained/current state, and streams snapshot events; warmed at startup by the SvelteKit server hook.",
+      "nodeIds": [
+        "file:src/lib/server/mqtt/config.ts",
+        "file:src/lib/server/mqtt/discovery.ts",
+        "file:src/lib/server/mqtt/service.ts",
+        "file:src/lib/server/mqtt/types.ts",
+        "file:src/lib/server/mqtt/ui-metadata.ts",
+        "file:src/hooks.server.ts"
+      ]
+    },
+    {
+      "id": "layer:firmware-ota",
+      "name": "Firmware OTA Server",
+      "description": "Server-only firmware OTA module: token authorization, MQTT firmware/channel metadata parsing, Codeberg package resolution with manifest/binary checksum validation, ESPHome manifest generation, and HTTP error mapping.",
+      "nodeIds": [
+        "file:src/lib/server/firmware/access.ts",
+        "file:src/lib/server/firmware/metadata.ts",
+        "file:src/lib/server/firmware/packages.ts",
+        "file:src/lib/server/firmware/update-state.ts",
+        "file:src/lib/server/firmware/http.ts"
+      ]
+    },
+    {
+      "id": "layer:client-presentation",
+      "name": "Client Presentation & State",
+      "description": "Shared browser-side lib: the runes-based live-snapshot SSE store, device/entity presentation models, state/firmware formatting helpers, and the EntityRow and FirmwareUpdatesPanel Svelte components.",
+      "nodeIds": [
+        "file:src/lib/device-presentation.ts",
+        "file:src/lib/EntityRow.svelte",
+        "file:src/lib/firmware.ts",
+        "file:src/lib/FirmwareUpdatesPanel.svelte",
+        "file:src/lib/live-snapshot.svelte.ts",
+        "file:src/lib/state-format.ts"
+      ]
+    },
+    {
+      "id": "layer:routes-bff",
+      "name": "Routes & API Surface (BFF)",
+      "description": "SvelteKit page routes and API endpoints that mediate browser access to the server core: dashboard and device-settings pages, the snapshot/SSE-events streams, entity command and firmware OTA endpoints, health check, plus the app HTML shell and ambient types.",
+      "nodeIds": [
+        "file:src/routes/+page.svelte",
+        "file:src/routes/+page.ts",
+        "file:src/routes/api/entities/[entityId]/command/+server.ts",
+        "file:src/routes/api/events/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/channel/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/package/+server.ts",
+        "file:src/routes/api/snapshot/+server.ts",
+        "file:src/routes/device-settings/+page.svelte",
+        "file:src/routes/device-settings/+page.ts",
+        "file:src/routes/health/+server.ts",
+        "file:src/app.html",
+        "file:src/app.d.ts"
+      ]
+    },
+    {
+      "id": "layer:test",
+      "name": "Test Suites",
+      "description": "Vitest unit tests for discovery, firmware, live-snapshot, and state-format logic, and Playwright e2e specs (with the dashboard-snapshot fixture) that mock the snapshot/SSE/firmware APIs to verify the HMI.",
+      "nodeIds": [
+        "file:tests/unit/discovery.test.ts",
+        "file:tests/unit/firmware.test.ts",
+        "file:tests/unit/live-snapshot.test.ts",
+        "file:tests/unit/state-format.test.ts",
+        "file:e2e/dashboard.spec.ts",
+        "file:e2e/design-screenshots.spec.ts",
+        "file:e2e/fixtures/dashboard-snapshot.ts"
+      ]
+    },
+    {
+      "id": "layer:build-infra-docs",
+      "name": "Build, Infrastructure & Docs",
+      "description": "Project scaffolding for building and shipping the app: SvelteKit/Vite/Playwright and package/TypeScript config, the multi-stage Dockerfile and dockerignore, the Forgejo CI workflow, and the README/AGENTS documentation.",
+      "nodeIds": [
+        "service:Dockerfile",
+        "config:.dockerignore",
+        "document:AGENTS.md",
+        "document:README.md",
+        "config:package.json",
+        "config:pnpm-workspace.yaml",
+        "config:tsconfig.json",
+        "file:.npmrc",
+        "file:playwright.config.ts",
+        "file:svelte.config.js",
+        "file:vite.config.ts",
+        "config:.forgejo/workflows/build.yaml",
+        "file:.understand-anything/.understandignore",
+        "config:.understand-anything/config.json",
+        "service:Dockerfile:base",
+        "service:Dockerfile:deps",
+        "service:Dockerfile:build",
+        "service:Dockerfile:runtime"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "Project Purpose & Guardrails",
+      "description": "Start with the README and AGENTS.md to understand what grow-app is and the single invariant that shapes its entire architecture: the browser NEVER talks to MQTT directly. The SvelteKit server holds one MQTT session, derives entities from retained discovery, caches state, streams to browsers over SSE, and mediates every command. AGENTS.md adds the engineering guardrail that all UI code must use Svelte 5 runes-mode idioms (not the deprecated Svelte 4 reactivity), and scopes Phase 1 to site-mode only.",
+      "nodeIds": [
+        "document:README.md",
+        "document:AGENTS.md"
+      ]
+    },
+    {
+      "order": 2,
+      "title": "Server Boot & MQTT Config",
+      "description": "hooks.server.ts is the SvelteKit startup hook that eagerly instantiates the singleton site MQTT service so the broker connection and snapshot are warm before the first browser request. It reads its connection settings from config.ts, which assembles host, port, credentials, and topic/discovery prefixes from environment variables, supporting the Docker *_FILE secret indirection so credentials can be mounted as files. Together these two files answer 'how does the app come alive and connect to the broker?'",
+      "nodeIds": [
+        "file:src/hooks.server.ts",
+        "file:src/lib/server/mqtt/config.ts"
+      ],
+      "languageLesson": "A `.server.ts` suffix marks a SvelteKit module that runs ONLY on the server and is never bundled to the browser — the mechanism that enforces the 'browser never touches MQTT' invariant at build time."
+    },
+    {
+      "order": 3,
+      "title": "The MQTT Core Vocabulary: Types",
+      "description": "types.ts is the most depended-upon file in the codebase (14 incoming references): it defines the entity/device discovery configs, the UI and firmware schemas, broker and entity state, and the snapshot/event shapes streamed to clients. Because nearly every layer — server, presentation, routes, and tests — imports these types, understanding this vocabulary is the key that unlocks the rest of the tour. Note the literal-typed discriminators (like the 'grow-ui.v1' schema marker) used to version payload shapes.",
+      "nodeIds": [
+        "file:src/lib/server/mqtt/types.ts"
+      ],
+      "languageLesson": "TypeScript literal types (e.g. `schema: 'grow-ui.v1'`) act as discriminators: the compiler can narrow a union by checking that one field, giving you versioned, type-safe payload parsing with zero runtime cost."
+    },
+    {
+      "order": 4,
+      "title": "Discovery & UI Metadata Parsing",
+      "description": "Building on the types from Step 3, these two parsers turn raw retained MQTT messages into the typed model the rest of the app consumes. discovery.ts parses ESPHome/Home-Assistant-style discovery topics and payloads into normalized EntityConfig objects (resolving the '~' base-topic abbreviation, expanding short aliases like uniq_id/stat_t, and flagging dangerous/writable entities) and also builds outgoing command publishes. ui-metadata.ts parses the project's own grow-ui.v1 scheme into DeviceUiConfig objects that describe dashboard groups and entity layout — this is how a device tells the HMI how it wants to be presented.",
+      "nodeIds": [
+        "file:src/lib/server/mqtt/discovery.ts",
+        "file:src/lib/server/mqtt/ui-metadata.ts"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "The SiteMqttService Singleton",
+      "description": "This is the heart of the server core and the second-most depended-upon file. SiteMqttService owns the single MQTT client lifecycle, ingests discovery/state/availability/UI/firmware messages via the parsers from Step 4, and maintains the cached snapshot plus inverse indexes (topic-to-entity, availability-topic-to-entity). It exposes subscribe (for SSE consumers), publishCommand (for mediated writes), and firmware operations, and emits incremental snapshot/state/firmware events so browser streams stay live. Everything the browser sees ultimately originates from this one cached, server-held session.",
+      "nodeIds": [
+        "file:src/lib/server/mqtt/service.ts"
+      ],
+      "languageLesson": "A module-level singleton (lazily constructed in getSiteMqttService) gives the whole Node process exactly one broker connection — essential here, since the design depends on a single shared MQTT session rather than one per request or per browser."
+    },
+    {
+      "order": 6,
+      "title": "Browser Data Pipeline: Snapshot + SSE",
+      "description": "These three endpoints are the only bridge between the server core and the browser. /api/snapshot serializes the current cached snapshot to JSON for the initial page load. /api/events opens a Server-Sent-Events stream: it emits the initial snapshot, forwards live MQTT updates from the service's subscription, sends periodic keepalives, and cleans up on cancel. +page.ts is the client-only load function that fetches that first snapshot before the dashboard renders. This is the 'derive once, push many' half of the invariant.",
+      "nodeIds": [
+        "file:src/routes/api/snapshot/+server.ts",
+        "file:src/routes/api/events/+server.ts",
+        "file:src/routes/+page.ts"
+      ],
+      "languageLesson": "SSE (Server-Sent Events) is a one-way server→browser stream over a long-lived HTTP response (a ReadableStream of `data:` frames). It is simpler than WebSockets and ideal here: browsers only ever receive state, while commands flow back over ordinary POST requests."
+    },
+    {
+      "order": 7,
+      "title": "The Live Snapshot Store",
+      "description": "live-snapshot.svelte.ts is the client-side counterpart to Step 6: a Svelte 5 runes-based store that normalizes the initial snapshot, subscribes to the SSE stream, applies incremental entity/state/device/firmware updates in place, and exposes sendCommand with pending/error tracking. Every page reads from this single reactive store, so when an MQTT update arrives the whole UI updates automatically. This is where the server's pushed events become reactive browser state.",
+      "nodeIds": [
+        "file:src/lib/live-snapshot.svelte.ts"
+      ],
+      "languageLesson": "A `.svelte.ts` file lets you use runes ($state) OUTSIDE a component to build shared reactive stores. Note the use of structuredClone over $state.snapshot — you must detach the reactive proxy before cloning, or structuredClone will throw on the proxy."
+    },
+    {
+      "order": 8,
+      "title": "Presentation Models & Formatting",
+      "description": "Raw snapshot data is not directly renderable, so device-presentation.ts transforms devices/entities into view models for two distinct surfaces: a dashboard view (key metric entities plus writable quick-control entities) and a device-settings view (entities grouped into ordered, collapsible sections, with diagnostics/other fallbacks when a device has no UI config). state-format.ts is the small shared helper that rounds numeric values to the discovered precision and appends the unit of measurement. These pure functions keep all presentation logic out of the components.",
+      "nodeIds": [
+        "file:src/lib/device-presentation.ts",
+        "file:src/lib/state-format.ts"
+      ],
+      "languageLesson": "TypeScript type guards plus the `satisfies` operator let device-presentation.ts run map/filter/sort pipelines while keeping the section/entity shapes provably well-typed end to end, instead of falling back to `any`."
+    },
+    {
+      "order": 9,
+      "title": "Rendering: Dashboard & Entity Rows",
+      "description": "Now the pieces come together visually. +page.svelte is the dashboard route (the project's narrative entry point): it renders site/broker status and per-device cards of metrics and quick controls, binding the live store from Step 7 and the presentation models from Step 8, and using $effect to open the SSE connection on mount and disconnect on teardown. EntityRow.svelte is the reusable building block: it switches between toggle, number, select, button, and free-form controls based on the entity component type and emits commands via an onCommand callback. The device-settings page reuses the same row component inside its collapsible sections.",
+      "nodeIds": [
+        "file:src/routes/+page.svelte",
+        "file:src/lib/EntityRow.svelte",
+        "file:src/routes/device-settings/+page.svelte"
+      ],
+      "languageLesson": "Svelte 5 runes: $props() declares component inputs, $derived computes reactive values, and $effect(() => live.connect()) runs side effects on mount — returning a cleanup function (the disconnect) that Svelte calls automatically on unmount."
+    },
+    {
+      "order": 10,
+      "title": "Command Mediation",
+      "description": "Commands close the loop and complete the invariant: the browser never publishes to MQTT, it POSTs intent. This endpoint receives a command for an entity id, hands it to SiteMqttService.publishCommand (Step 5), which validates and coerces the value via discovery.ts's command builders before publishing to the broker, and returns JSON success or a mapped error. The live store's sendCommand (Step 7) is what calls this route, and the resulting state change flows back to the browser through the SSE stream — a complete round trip.",
+      "nodeIds": [
+        "file:src/routes/api/entities/[entityId]/command/+server.ts"
+      ]
+    },
+    {
+      "order": 11,
+      "title": "Firmware OTA Server Core",
+      "description": "Firmware over-the-air updates are a self-contained server-only subsystem. access.ts guards the update endpoints with a shared token compared in constant time (timing-attack resistant) and supports the *_FILE secret convention. metadata.ts parses firmware device/channel MQTT payloads into typed metadata and builds channel-config messages. packages.ts is the complex core: it lists and selects versions from a Codeberg package registry (paginating via Link headers, with separate stable vs. edge ordering), downloads and validates manifests and binaries against SHA-256/MD5 checksums, and produces ESPHome-compatible OTA manifests.",
+      "nodeIds": [
+        "file:src/lib/server/firmware/access.ts",
+        "file:src/lib/server/firmware/metadata.ts",
+        "file:src/lib/server/firmware/packages.ts"
+      ],
+      "languageLesson": "packages.ts takes an injectable fetch implementation rather than calling global fetch directly — a dependency-injection pattern that lets the unit tests stub network responses (and record auth headers) without touching the real registry."
+    },
+    {
+      "order": 12,
+      "title": "Firmware API Routes & Panel",
+      "description": "These routes expose the Step 11 core to devices and the operator. check resolves the package and triggers a device-side update check; apply validates the selected package against the device's discovered update state and installed version before triggering the update; manifest returns the token-authenticated ESPHome manifest; binary streams the token-authenticated, checksum-validated firmware bytes as an octet-stream; channel and package read/select the release channel and resolve manifests. FirmwareUpdatesPanel.svelte is the operator-facing UI that drives this whole lifecycle — showing installed/latest versions and changelog, switching channels, and applying updates — with request-id guarding against stale async responses.",
+      "nodeIds": [
+        "file:src/routes/api/firmware/devices/[nodeId]/check/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/apply/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts",
+        "file:src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
+        "file:src/lib/FirmwareUpdatesPanel.svelte"
+      ]
+    },
+    {
+      "order": 13,
+      "title": "Build, Ship & CI",
+      "description": "The capstone: how grow-app becomes a running container. The Dockerfile is a four-stage build (base → deps → build → runtime): a shared base activates pnpm via corepack, deps installs from a frozen lockfile for reproducibility, build compiles the SvelteKit app and prunes dev dependencies, and a fresh runtime stage copies only the build output and production node_modules, exposes port 3000, and drops to the non-root node user. package.json pins the toolchain (Svelte 5, Vite 7, Node adapter, the mqtt client; Node >=24 and a fixed pnpm). The Forgejo CI workflow builds that image, derives tags from the upstream Node version, and pushes to the Codeberg registry on main and version tags.",
+      "nodeIds": [
+        "service:Dockerfile",
+        "config:package.json",
+        "config:.forgejo/workflows/build.yaml"
+      ],
+      "languageLesson": "Multi-stage Docker builds use several FROM stages so the final image carries only runtime artifacts — not the compiler, dev dependencies, or source. Combined with `USER node`, this yields a smaller, least-privilege production image."
+    }
+  ]
+}
