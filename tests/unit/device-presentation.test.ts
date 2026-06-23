@@ -147,6 +147,22 @@ describe('deviceSettingsPresentation with camera entity', () => {
     expect(allEntryIds).not.toContain(cameraEntity.id);
   });
 
+  it('camera does not appear in settings when grow-ui assigns it to a settings group', () => {
+    const snapshot = makeSnapshot({
+      'atoms3u-sensor-rig': {
+        schema: 'grow-ui.v1',
+        nodeId: 'atoms3u-sensor-rig',
+        groups: [{ id: 'thermal_view', title: 'Thermal Camera', order: 15, variant: 'camera', surface: 'device-settings', defaultOpen: true }],
+        entities: [{ component: 'camera', objectId: 'thermal_camera', group: 'thermal_view', role: 'camera', order: 10 }]
+      }
+    });
+
+    const panels = deviceSettingsPresentation(snapshot, device);
+    const allEntryIds = panels.flatMap((panel) => panel.groups.flatMap((group) => group.entries.map((e) => e.entity.id)));
+
+    expect(allEntryIds).not.toContain(cameraEntity.id);
+  });
+
   it('camera does not appear in any settings panel — fallback (no ui config)', () => {
     const snapshot = makeSnapshot();
 
