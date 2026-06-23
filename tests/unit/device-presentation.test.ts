@@ -18,6 +18,21 @@ const cameraEntity = {
   raw: {}
 } satisfies EntityConfig;
 
+const cameraWithoutFrameSource = {
+  id: 'atoms3u_sensor_rig_generic_camera',
+  component: 'camera',
+  name: 'Generic Camera',
+  uniqueId: 'atoms3u-sensor-rig_generic_camera',
+  objectId: 'generic_camera',
+  nodeId: 'atoms3u-sensor-rig',
+  device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+  payloadAvailable: 'online',
+  payloadNotAvailable: 'offline',
+  dangerous: false,
+  writable: false,
+  raw: {}
+} satisfies EntityConfig;
+
 const temperatureEntity = {
   id: 'atoms3u_temperature',
   component: 'sensor',
@@ -93,6 +108,19 @@ describe('dashboardPresentation with camera entity', () => {
     expect(presentation.cameras).toHaveLength(1);
     expect(presentation.cameras[0].entity.id).toBe(cameraEntity.id);
     expect(presentation.metrics.map((e) => e.entity.id)).not.toContain(cameraEntity.id);
+  });
+
+  it('omits camera entities that do not expose a frame source', () => {
+    const snapshot = {
+      ...makeSnapshot(),
+      devices: [{ ...device, entityIds: [cameraWithoutFrameSource.id, temperatureEntity.id] }],
+      entities: [cameraWithoutFrameSource, temperatureEntity]
+    } satisfies Snapshot;
+
+    const presentation = dashboardPresentation(snapshot, snapshot.devices[0]);
+
+    expect(presentation.cameras).toHaveLength(0);
+    expect(presentation.metrics.map((e) => e.entity.id)).not.toContain(cameraWithoutFrameSource.id);
   });
 });
 

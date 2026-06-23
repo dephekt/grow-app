@@ -110,9 +110,13 @@ function deviceEntities(snapshot: Snapshot, device: DeviceSnapshot): EntityConfi
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function hasCameraFrameSource(entity: EntityConfig): boolean {
+  return Boolean(entity.imageUrl || entity.imagePath);
+}
+
 function selectCameras(entities: EntityConfig[], entityMetadata?: Map<string, DeviceUiEntity>): PresentedEntity[] {
   return entities
-    .filter((entity) => entity.component === 'camera')
+    .filter((entity) => entity.component === 'camera' && hasCameraFrameSource(entity))
     .map((entity) => toPresentedEntity(entity, entityMetadata?.get(entityMatchKey(entity))))
     .sort(sortPresented);
 }
