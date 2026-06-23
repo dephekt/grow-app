@@ -211,8 +211,9 @@ function fallbackSettingsPresentation(entities: EntityConfig[]): DeviceSettingsP
 
 export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSnapshot): DeviceSettingsPanel[] {
   const entities = deviceEntities(snapshot, device);
+  const settingsEntities = entities.filter((entity) => entity.component !== 'camera');
   const config = snapshot.uiConfigs[device.nodeId];
-  if (!config) return fallbackSettingsPresentation(entities);
+  if (!config) return fallbackSettingsPresentation(settingsEntities);
 
   const entityMetadata = metadataByEntity(config);
   const groups = groupById(config);
@@ -223,7 +224,7 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
     .filter((group) => group.surface !== 'dashboard')
     .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
     .map((group) => {
-      const entries = entities
+      const entries = settingsEntities
         .map((entity) => {
           const metadata = entityMetadata.get(entityMatchKey(entity));
           return metadata?.group === group.id ? toPresentedEntity(entity, metadata) : null;
@@ -245,7 +246,7 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
     .filter((section) => section.entries.length > 0);
 
   const metricEntityIds = new Set(
-    entities
+    settingsEntities
       .map((entity) => {
         const metadata = entityMetadata.get(entityMatchKey(entity));
         const group = metadata ? groups.get(metadata.group) : undefined;
@@ -254,7 +255,7 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
       .filter((id): id is string => Boolean(id))
   );
 
-  const remaining = entities.filter((entity) => !consumed.has(entity.id) && !metricEntityIds.has(entity.id) && entity.component !== 'camera');
+  const remaining = settingsEntities.filter((entity) => !consumed.has(entity.id) && !metricEntityIds.has(entity.id));
   const diagnostics = remaining.filter(isDiagnostic).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
   const other = remaining.filter((entity) => !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
 
