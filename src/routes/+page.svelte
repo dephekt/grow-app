@@ -101,8 +101,16 @@
 
           {#if presentation.cameras.length > 0}
             <section class="camera-tiles" aria-label={`${device.name} cameras`}>
-              {#each presentation.cameras as entry (entry.entity.id)}
-                <CameraImageTile {entry} available={device.availability !== 'offline'} />
+              {#each presentation.cameras as camera (camera.entry.entity.id)}
+                <CameraImageTile
+                  entry={camera.entry}
+                  controls={camera.quickControls}
+                  states={live.snapshot.states}
+                  commandPending={live.commandPending}
+                  commandErrors={live.commandErrors}
+                  onCommand={live.sendCommand}
+                  available={device.availability !== 'offline'}
+                />
               {/each}
             </section>
           {/if}

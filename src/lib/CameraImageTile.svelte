@@ -1,11 +1,27 @@
 <script lang="ts">
+  import ThermalCameraControls from '$lib/ThermalCameraControls.svelte';
   import type { PresentedEntity } from '$lib/device-presentation';
+  import type { EntityConfig, EntityState } from '$lib/server/mqtt/types';
 
   let {
     entry,
+    controls = [],
+    states = {},
+    commandPending = {},
+    commandErrors = {},
+    onCommand = () => {},
     available = true,
     intervalMs = 2000
-  } = $props<{ entry: PresentedEntity; available?: boolean; intervalMs?: number }>();
+  } = $props<{
+    entry: PresentedEntity;
+    controls?: PresentedEntity[];
+    states?: Record<string, EntityState>;
+    commandPending?: Record<string, boolean>;
+    commandErrors?: Record<string, string>;
+    onCommand?: (entity: EntityConfig, value?: unknown) => void;
+    available?: boolean;
+    intervalMs?: number;
+  }>();
 
   let tick = $state(0);
   let failed = $state(false);
@@ -48,6 +64,10 @@
   </div>
 
   <p class="caption">{entry.entity.name}</p>
+
+  {#if controls.length > 0}
+    <ThermalCameraControls {controls} {states} {commandPending} {commandErrors} {onCommand} />
+  {/if}
 </div>
 
 <style>

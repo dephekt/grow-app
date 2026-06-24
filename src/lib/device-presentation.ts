@@ -31,7 +31,12 @@ export interface PresentedSection {
 export interface DashboardPresentation {
   metrics: PresentedEntity[];
   quickControls: PresentedEntity[];
-  cameras: PresentedEntity[];
+  cameras: PresentedCamera[];
+}
+
+export interface PresentedCamera {
+  entry: PresentedEntity;
+  quickControls: PresentedEntity[];
 }
 
 export interface DeviceSettingsPanel {
@@ -131,10 +136,18 @@ function fallbackMetrics(entities: EntityConfig[]): PresentedEntity[] {
 export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot): DashboardPresentation {
   const entities = deviceEntities(snapshot, device);
   const config = snapshot.uiConfigs[device.nodeId];
-  if (!config) return { metrics: fallbackMetrics(entities), quickControls: [], cameras: selectCameras(entities) };
+  if (!config) {
+    return {
+      metrics: fallbackMetrics(entities),
+      quickControls: [],
+      cameras: selectCameras(entities).map((entry) => ({ entry, quickControls: [] }))
+    };
+  }
 
   const entityMetadata = metadataByEntity(config);
   const groups = groupById(config);
+  const cameraEntries = selectCameras(entities, entityMetadata);
+  const cameraGroupIds = new Set(cameraEntries.map((entry) => entry.groupId).filter((id): id is string => Boolean(id)));
 
   const metrics = entities
     .map((entity) => {
@@ -149,12 +162,32 @@ export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot
   const quickControls = entities
     .map((entity) => {
       const metadata = entityMetadata.get(entityMatchKey(entity));
-      return entity.writable && metadata?.role === 'quick-control' ? toPresentedEntity(entity, metadata) : null;
+      const attachedToCamera = Boolean(metadata?.group && cameraGroupIds.has(metadata.group));
+      return entity.writable && metadata?.role === 'quick-control' && !attachedToCamera ? toPresentedEntity(entity, metadata) : null;
     })
     .filter((entry): entry is PresentedEntity => Boolean(entry))
     .sort(sortPresented);
 
-  const cameras = selectCameras(entities, entityMetadata);
+  const cameraControls = entities
+    .map((entity) => {
+      const metadata = entityMetadata.get(entityMatchKey(entity));
+      return entity.writable && metadata?.role === 'quick-control' && metadata.group && cameraGroupIds.has(metadata.group)
+        ? toPresentedEntity(entity, metadata)
+        : null;
+    })
+    .filter((entry): entry is PresentedEntity => Boolean(entry))
+    .sort(sortPresented);
+
+  const controlsByGroup = new Map<string, PresentedEntity[]>();
+  for (const control of cameraControls) {
+    const groupId = control.groupId ?? '';
+    controlsByGroup.set(groupId, [...(controlsByGroup.get(groupId) ?? []), control]);
+  }
+  const cameras = cameraEntries.map((entry) => ({
+    entry,
+    quickControls: controlsByGroup.get(entry.groupId ?? '') ?? []
+  }));
+
   return { metrics, quickControls, cameras };
 }
 
@@ -218,6 +251,15 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
   const entityMetadata = metadataByEntity(config);
   const groups = groupById(config);
   const consumed = new Set<string>();
+  const dashboardEntityIds = new Set(
+    settingsEntities
+      .map((entity) => {
+        const metadata = entityMetadata.get(entityMatchKey(entity));
+        const group = metadata ? groups.get(metadata.group) : undefined;
+        return group?.surface === 'dashboard' ? entity.id : null;
+      })
+      .filter((id): id is string => Boolean(id))
+  );
 
   const sections = [...groups.values()]
     .filter((group) => group.variant !== 'metrics')
@@ -255,7 +297,9 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
       .filter((id): id is string => Boolean(id))
   );
 
-  const remaining = settingsEntities.filter((entity) => !consumed.has(entity.id) && !metricEntityIds.has(entity.id));
+  const remaining = settingsEntities.filter(
+    (entity) => !consumed.has(entity.id) && !metricEntityIds.has(entity.id) && !dashboardEntityIds.has(entity.id)
+  );
   const diagnostics = remaining.filter(isDiagnostic).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
   const other = remaining.filter((entity) => !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
 
