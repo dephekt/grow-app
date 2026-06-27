@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
     const source = getFirmwarePackageSource();
     const manifest = await downloadPackageManifest(device, version, fetch, source);
-    assertPackageManifestMatchesDevice(manifest, device, undefined, source.owner);
+    assertPackageManifestMatchesDevice(manifest, device, undefined, source.provider === 'ghcr-oci' ? device.packageOwner : source.owner);
     const bytes = await downloadAndValidateBinary(manifest, filename, fetch, source);
     const body = new ArrayBuffer(bytes.byteLength);
     new Uint8Array(body).set(bytes);

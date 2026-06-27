@@ -382,7 +382,7 @@ export const dashboardSnapshot = {
         installed_version: 'v0.1.0',
         latest_version: 'v0.2.0',
         release_summary: 'Two firmware changes',
-        release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
+        release_url: 'https://github.com/dephekt/grow-fleet/commit/0123456789abcdef'
       }),
       updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
     }
