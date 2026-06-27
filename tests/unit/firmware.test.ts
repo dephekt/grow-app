@@ -9,6 +9,7 @@ import { requireFirmwareUpdateToken } from '../../src/lib/server/firmware/access
 import {
   downloadAndValidateBinary,
   listCodebergPackages,
+  listOciFirmwarePackages,
   parsePackageManifest,
   resolveFirmwarePackage,
   selectPackageVersion,
@@ -44,7 +45,7 @@ const manifest = {
     'atoms3u-sensor-rig.factory.bin': 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
   },
   release_summary: 'Two commits since firmware/atoms3u-sensor-rig/v1.2.2',
-  release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
+  release_url: 'https://github.com/dephekt/grow-fleet/commit/0123456789abcdef'
 } satisfies FirmwarePackageManifest;
 
 describe('firmware metadata parsing', () => {
@@ -138,6 +139,46 @@ describe('firmware package selection and manifests', () => {
     expect(authHeaders).toEqual(['Basic c3RhY2tkcmlmdDpzZWNyZXQ=', 'Basic c3RhY2tkcmlmdDpzZWNyZXQ=']);
   });
 
+  it('lists OCI firmware tags through a registry auth challenge', async () => {
+    const requests: string[] = [];
+    const authHeaders: Array<string | null> = [];
+    const fetchImpl = async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      requests.push(url);
+      authHeaders.push(new Headers(init?.headers).get('authorization'));
+      if (url.includes('/token')) {
+        expect(new Headers(init?.headers).get('authorization')).toBe('Basic ZGVwaGVrdDpnZ2dn');
+        return Response.json({ token: 'registry-token' });
+      }
+      if (new Headers(init?.headers).get('authorization') === 'Bearer registry-token') {
+        return Response.json({ tags: ['v1.2.3', 'edge-20260620T190102Z-bbbbbbbbbbbb'] });
+      }
+      return new Response(null, {
+        status: 401,
+        headers: {
+          'www-authenticate':
+            'Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:dephekt/grow-fleet-firmware-atoms3u-sensor-rig:pull"'
+        }
+      });
+    };
+
+    await expect(
+      listOciFirmwarePackages('atoms3u-sensor-rig', fetchImpl as typeof fetch, {
+        provider: 'ghcr-oci',
+        baseUrl: 'https://ghcr.io',
+        registry: 'ghcr.io',
+        owner: 'dephekt',
+        packagePrefix: 'grow-fleet-firmware',
+        auth: { authUser: 'dephekt', token: 'gggg', scheme: 'basic' }
+      })
+    ).resolves.toEqual([
+      { name: 'atoms3u-sensor-rig', version: 'v1.2.3', type: 'oci', createdAt: null },
+      { name: 'atoms3u-sensor-rig', version: 'edge-20260620T190102Z-bbbbbbbbbbbb', type: 'oci', createdAt: null }
+    ]);
+    expect(requests[0]).toBe('https://ghcr.io/v2/dephekt/grow-fleet-firmware-atoms3u-sensor-rig/tags/list?n=1000');
+    expect(authHeaders).toEqual([null, 'Basic ZGVwaGVrdDpnZ2dn', 'Bearer registry-token']);
+  });
+
   it('translates package manifests into ESPHome update manifests', () => {
     expect(toEspHomeManifest(manifest, 'atoms3u-sensor-rig', 'download-token')).toEqual({
       name: 'stackdrift.atoms3u-sensor-rig',
@@ -149,7 +190,7 @@ describe('firmware package selection and manifests', () => {
             path: '/api/firmware/devices/atoms3u-sensor-rig/binary/atoms3u-sensor-rig.ota.bin?version=v1.2.3&token=download-token',
             md5: '4a3b8aa1363813d51abb788cfd4c294e',
             summary: 'Two commits since firmware/atoms3u-sensor-rig/v1.2.2',
-            release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
+            release_url: 'https://github.com/dephekt/grow-fleet/commit/0123456789abcdef'
           }
         }
       ]
@@ -173,6 +214,41 @@ describe('firmware package selection and manifests', () => {
 
     const bad = new TextEncoder().encode('bad');
     expect(() => validateBinaryChecksums(manifest, 'atoms3u-sensor-rig.ota.bin', bad)).toThrow('SHA256 mismatch');
+  });
+
+  it('downloads OCI artifact layers by filename before proxying', async () => {
+    const bytes = new TextEncoder().encode('grow firmware\n');
+    const fetchImpl = async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith('/manifests/v1.2.3')) {
+        return Response.json({
+          layers: [
+            {
+              digest: 'sha256:manifest',
+              annotations: { 'org.opencontainers.image.title': 'atoms3u-sensor-rig.manifest.json' }
+            },
+            {
+              digest: 'sha256:ota',
+              annotations: { 'org.opencontainers.image.title': 'atoms3u-sensor-rig.ota.bin' }
+            }
+          ]
+        });
+      }
+      if (url.endsWith('/blobs/sha256:ota')) {
+        return new Response(bytes);
+      }
+      return new Response(null, { status: 404 });
+    };
+
+    await expect(
+      downloadAndValidateBinary(manifest, 'atoms3u-sensor-rig.ota.bin', fetchImpl as typeof fetch, {
+        provider: 'ghcr-oci',
+        baseUrl: 'https://ghcr.io',
+        registry: 'ghcr.io',
+        owner: 'dephekt',
+        packagePrefix: 'grow-fleet-firmware'
+      })
+    ).resolves.toEqual(bytes);
   });
 
   it('rejects package manifests without the firmware schema', () => {

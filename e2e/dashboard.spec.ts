@@ -16,7 +16,7 @@ const firmwarePackage = {
   md5: { 'atlas-hydro-kit.ota.bin': '4a3b8aa1363813d51abb788cfd4c294e' },
   sha256: { 'atlas-hydro-kit.ota.bin': '7711f755d25874261ba889d6c343474b3952fd5f90d8918833d2e375bf8468c2' },
   release_summary: 'Two firmware changes',
-  release_url: 'https://codeberg.org/stackdrift/grow-fleet/src/commit/0123456789abcdef'
+  release_url: 'https://github.com/dephekt/grow-fleet/commit/0123456789abcdef'
 };
 
 test.beforeEach(async ({ page }) => {

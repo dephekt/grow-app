@@ -33,7 +33,7 @@ and publishes commands only through discovered command topics.
 
 ## Production container
 
-The app publishes as `codeberg.org/stackdrift/grow-app`. The container
+The app publishes as `ghcr.io/dephekt/grow-app`. The container
 listens on `PORT` with `HOST=0.0.0.0` by default:
 
 ```bash
@@ -41,7 +41,7 @@ docker run --rm -p 3080:3000 \
   -e MQTT_URL=mqtt://mosquitto-site:1883 \
   -e MQTT_USERNAME=grow-app-site-daniel-home \
   -e MQTT_PASSWORD_FILE=/run/secrets/MQTT_GROW_APP_SITE_PASSWORD \
-  codeberg.org/stackdrift/grow-app:edge-node24-bookworm-slim
+  ghcr.io/dephekt/grow-app:edge-node24-bookworm-slim
 ```
 
 `MQTT_PASSWORD` is useful for local shells. `MQTT_PASSWORD_FILE` is preferred in
@@ -54,13 +54,19 @@ git checkout. It runs from the `media-stack` Docker Compose project:
 
 - Compose file: `/home/daniel/dev/media-stack/grow/docker-compose.yml`
 - Service: `grow-app-site`
-- Published image: `codeberg.org/stackdrift/grow-app:edge-node24-bookworm-slim`
+- Published image: `ghcr.io/dephekt/grow-app:edge-node24-bookworm-slim`
 - Port mapping: `3080:3000`
 
-Pushing to `main` in this repo triggers the Forgejo workflow in
-`.forgejo/workflows/build.yaml`. That workflow builds and publishes the
+Pushing to `main` in this repo triggers the GitHub Actions workflow in
+`.github/workflows/build.yaml`. That workflow builds and publishes the
 `edge-node24-bookworm-slim` image tag. After the workflow finishes, the media
 server still needs to pull the refreshed mutable tag and recreate the container.
+
+Firmware packages default to the legacy Codeberg provider for compatibility.
+Set `FIRMWARE_PACKAGE_PROVIDER=ghcr-oci`, `FIRMWARE_OCI_OWNER=dephekt`,
+`FIRMWARE_OCI_PACKAGE_PREFIX=grow-fleet-firmware`, and
+`FIRMWARE_OCI_TOKEN_FILE=/run/secrets/FIRMWARE_OCI_TOKEN` to fetch private
+GHCR OCI firmware artifacts server-side.
 
 From `/home/daniel/dev/media-stack`:
 
