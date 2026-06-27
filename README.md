@@ -64,7 +64,7 @@ server still needs to pull the refreshed mutable tag and recreate the container.
 
 Firmware packages default to the legacy Codeberg provider for compatibility.
 Set `FIRMWARE_PACKAGE_PROVIDER=ghcr-oci`, `FIRMWARE_OCI_OWNER=dephekt`,
-`FIRMWARE_OCI_PACKAGE_PREFIX=grow-fleet-firmware`, and
+`FIRMWARE_OCI_PACKAGE_PREFIX=grow-fleet`, and
 `FIRMWARE_OCI_TOKEN_FILE=/run/secrets/FIRMWARE_OCI_TOKEN` to fetch private
 GHCR OCI firmware artifacts server-side.
 

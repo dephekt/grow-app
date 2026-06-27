@@ -157,7 +157,7 @@ describe('firmware package selection and manifests', () => {
         status: 401,
         headers: {
           'www-authenticate':
-            'Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:dephekt/grow-fleet-firmware-atoms3u-sensor-rig:pull"'
+            'Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:dephekt/grow-fleet-atoms3u-sensor-rig:pull"'
         }
       });
     };
@@ -168,14 +168,14 @@ describe('firmware package selection and manifests', () => {
         baseUrl: 'https://ghcr.io',
         registry: 'ghcr.io',
         owner: 'dephekt',
-        packagePrefix: 'grow-fleet-firmware',
+        packagePrefix: 'grow-fleet',
         auth: { authUser: 'dephekt', token: 'gggg', scheme: 'basic' }
       })
     ).resolves.toEqual([
       { name: 'atoms3u-sensor-rig', version: 'v1.2.3', type: 'oci', createdAt: null },
       { name: 'atoms3u-sensor-rig', version: 'edge-20260620T190102Z-bbbbbbbbbbbb', type: 'oci', createdAt: null }
     ]);
-    expect(requests[0]).toBe('https://ghcr.io/v2/dephekt/grow-fleet-firmware-atoms3u-sensor-rig/tags/list?n=1000');
+    expect(requests[0]).toBe('https://ghcr.io/v2/dephekt/grow-fleet-atoms3u-sensor-rig/tags/list?n=1000');
     expect(authHeaders).toEqual([null, 'Basic ZGVwaGVrdDpnZ2dn', 'Bearer registry-token']);
   });
 
@@ -246,7 +246,7 @@ describe('firmware package selection and manifests', () => {
         baseUrl: 'https://ghcr.io',
         registry: 'ghcr.io',
         owner: 'dephekt',
-        packagePrefix: 'grow-fleet-firmware'
+        packagePrefix: 'grow-fleet'
       })
     ).resolves.toEqual(bytes);
   });
