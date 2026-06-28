@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; }
+    @keyframes mc-blink { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+  </style>
+</helmet>
+
+<div data-screen-label="Mission Control" style="--bg:#0a0b0d; --panel:#101216; --panel2:#15181d; --line:rgba(255,255,255,.08); --text:#e6e8ec; --muted:#8a9099; --faint:#565c66; --amber:#ffb000; --cyan:#38d6c8; --ok:#3fb950; --alert:#f0563a; font-family:'IBM Plex Sans',ui-sans-serif,sans-serif; background:var(--bg); color:var(--text); width:1280px; box-sizing:border-box; padding:0 0 40px; -webkit-font-smoothing:antialiased;">
+
+  <!-- Command bar (persistent) -->
+  <div style="border-bottom:1px solid var(--amber); background:linear-gradient(180deg, rgba(255,176,0,.05), transparent); padding:15px 36px; display:flex; justify-content:space-between; align-items:center; gap:24px;">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <span style="width:14px; height:14px; background:var(--amber);"></span>
+      <span style="font-family:'IBM Plex Mono'; font-weight:700; font-size:19px; letter-spacing:.08em;">DANIEL-HOME</span>
+      <span style="font-family:'IBM Plex Mono'; font-size:12px; color:var(--faint); letter-spacing:.1em; border-left:1px solid var(--line); padding-left:16px;">SITE MODE · LOCAL BROKER</span>
+      <div style="display:flex; gap:2px; border-left:1px solid var(--line); padding-left:16px;">
+        <button onClick="{{ onDashboard }}" style="{{ navDashStyle }}">DASHBOARD</button>
+        <button onClick="{{ onSettings }}" style="{{ navSetStyle }}">SETTINGS<sc-if value="{{ hasUpdates }}" hint-placeholder-val="{{ true }}"><span style="width:6px; height:6px; border-radius:50%; background:var(--amber); display:inline-block; margin-left:7px; vertical-align:middle;"></span></sc-if></button>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:18px; font-family:'IBM Plex Mono'; font-size:12px;">
+      <span style="display:inline-flex; align-items:center; gap:7px; color:var(--ok);"><span style="width:8px; height:8px; border-radius:50%; background:var(--ok); animation:mc-blink 1.8s steps(1) infinite;"></span>BROKER ONLINE</span>
+      <span style="color:var(--muted);">DEV <b style="color:var(--text);">5</b></span>
+      <span style="color:var(--muted);">ENT <b style="color:var(--text);">130</b></span>
+      <span style="color:var(--amber); letter-spacing:.08em;">12:14:51</span>
+    </div>
+  </div>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+  <div style="padding:24px 36px 0;">
+    <div style="display:grid; grid-template-columns:repeat(12,1fr); gap:14px;">
+
+      <!-- Trends wall -->
+      <div style="grid-column:span 8; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:16px;">
+            <span style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--muted);">// TRENDS</span>
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-family:'IBM Plex Mono';"><span style="width:12px; height:2px; background:var(--amber);"></span>pH</span>
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-family:'IBM Plex Mono';"><span style="width:12px; height:2px; background:var(--cyan);"></span>AIR°C</span>
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-family:'IBM Plex Mono';"><span style="width:12px; height:2px; background:#5b6470;"></span>CO₂</span>
+          </div>
+          <div style="display:flex; gap:0; border:1px solid var(--line); border-radius:5px; overflow:hidden;">
+            <sc-for list="{{ rangePills }}" as="r" hint-placeholder-count="5">
+              <sc-if value="{{ r.on }}"><button onClick="{{ r.onClick }}" style="padding:6px 12px; border:0; border-right:1px solid var(--line); font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; cursor:pointer; background:var(--amber); color:#0a0b0d;">{{ r.label }}</button></sc-if>
+              <sc-if value="{{ r.off }}" hint-placeholder-val="{{ true }}"><button onClick="{{ r.onClick }}" style="padding:6px 12px; border:0; border-right:1px solid var(--line); font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; cursor:pointer; background:transparent; color:var(--muted);">{{ r.label }}</button></sc-if>
+            </sc-for>
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <svg viewBox="0 0 700 210" preserveAspectRatio="none" style="width:100%; height:250px; display:block;">
+            <line x1="14" y1="40" x2="686" y2="40" stroke="rgba(255,255,255,.05)"></line>
+            <line x1="14" y1="85" x2="686" y2="85" stroke="rgba(255,255,255,.05)"></line>
+            <line x1="14" y1="130" x2="686" y2="130" stroke="rgba(255,255,255,.05)"></line>
+            <line x1="14" y1="175" x2="686" y2="175" stroke="rgba(255,255,255,.05)"></line>
+            <path d="{{ coPath }}" fill="none" stroke="#5b6470" stroke-width="1.4" stroke-linejoin="round"></path>
+            <path d="{{ tpPath }}" fill="none" stroke="var(--cyan)" stroke-width="1.6" stroke-linejoin="round" opacity=".85"></path>
+            <path d="{{ phPath }}" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linejoin="round"></path>
+          </svg>
+          <div style="display:flex; justify-content:space-between; color:var(--faint); font-size:11px; margin-top:4px; font-family:'IBM Plex Mono';"><span>{{ axisStart }}</span><span>NOW</span></div>
+        </div>
+      </div>
+
+      <!-- Circuits + Thermal -->
+      <div style="grid-column:span 4; display:grid; gap:14px; align-content:start;">
+        <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px;">
+          <div style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--muted); margin-bottom:14px;">// CIRCUITS</div>
+          <div style="display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding-bottom:13px; border-bottom:1px solid var(--line);">
+            <span style="width:9px; height:9px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px var(--ok); animation:mc-blink 1.4s steps(1) infinite;"></span>
+            <div><div style="font-weight:600; font-size:14px;">Irrigation Pump</div><div style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--ok); margin-top:2px;">RUNNING · 3:12 · 42W</div></div>
+            <span style="font-family:'IBM Plex Mono'; font-size:11px; font-weight:600; color:var(--bg); background:var(--ok); padding:3px 8px; border-radius:3px;">ON</span>
+          </div>
+          <div style="display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding-top:13px;">
+            <span style="width:9px; height:9px; border-radius:50%; background:var(--faint);"></span>
+            <div><div style="font-weight:600; font-size:14px;">Runoff Pump</div><div style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--faint); margin-top:2px;">IDLE · LAST 11:50 · 45s</div></div>
+            <span style="font-family:'IBM Plex Mono'; font-size:11px; font-weight:600; color:var(--muted); border:1px solid var(--line); padding:2px 8px; border-radius:3px;">OFF</span>
+          </div>
+        </div>
+
+        <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--muted);">// THERMAL</span>
+            <span style="font-family:'IBM Plex Mono'; font-size:10px; color:var(--faint);">MLX90640</span>
+          </div>
+          <div style="position:relative; border-radius:4px; overflow:hidden; aspect-ratio:2/1; background:radial-gradient(circle at 38% 60%, #fff7e6 0%, #f2c14e 12%, #e8722c 26%, #c2342f 40%, #7a2f86 60%, #2e4ea8 78%, #14306e 100%);">
+            <div style="position:absolute; top:8px; right:10px; color:#fff; font-family:'IBM Plex Mono'; font-size:10px; font-weight:600; text-shadow:0 1px 2px rgba(0,0,0,.7);">28.7/31.3/30.1°C</div>
+            <div style="position:absolute; left:35%; top:55%; width:36px; height:36px; transform:translate(-50%,-50%); border:2px solid var(--cyan); border-radius:3px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Water -->
+      <div style="grid-column:span 4; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--muted);">// WATER</span><span style="font-family:'IBM Plex Mono'; font-size:10px; color:var(--faint);">atlas-hydro-kit</span></div>
+        <div style="display:grid; grid-template-columns:1fr auto auto; gap:10px 14px; align-items:center; font-family:'IBM Plex Mono'; font-size:13px; padding-top:8px;">
+          <span style="color:var(--muted);">TEMP</span><span style="text-align:right; font-weight:600; font-variant-numeric:tabular-nums;">24.7 °C</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">PH</span><span style="text-align:right; font-weight:600; border-top:1px solid var(--line); padding-top:10px;">6.18</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">EC</span><span style="text-align:right; font-weight:600; border-top:1px solid var(--line); padding-top:10px;">1.8 mS/cm</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">TDS</span><span style="text-align:right; font-weight:600; border-top:1px solid var(--line); padding-top:10px;">560 ppm</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">ORP</span><span style="text-align:right; font-weight:600; color:var(--amber); border-top:1px solid var(--line); padding-top:10px;">146 mV</span><span style="width:8px; height:8px; border-radius:50%; background:var(--amber);"></span>
+        </div>
+      </div>
+
+      <!-- Climate -->
+      <div style="grid-column:span 4; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--muted);">// CLIMATE</span><span style="font-family:'IBM Plex Mono'; font-size:10px; color:var(--faint);">atoms3u-sensor-rig</span></div>
+        <div style="display:grid; grid-template-columns:1fr auto auto; gap:10px 14px; align-items:center; font-family:'IBM Plex Mono'; font-size:13px; padding-top:8px;">
+          <span style="color:var(--muted);">CO₂</span><span style="text-align:right; font-weight:600; font-variant-numeric:tabular-nums;">1359 ppm</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">TEMP</span><span style="text-align:right; font-weight:600; border-top:1px solid var(--line); padding-top:10px;">24.8 °C</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">RH</span><span style="text-align:right; font-weight:600; border-top:1px solid var(--line); padding-top:10px;">59.7 %</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">VPD</span><span style="text-align:right; font-weight:600; color:var(--amber); border-top:1px solid var(--line); padding-top:10px;">1.26 kPa</span><span style="width:8px; height:8px; border-radius:50%; background:var(--amber);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">PRESS</span><span style="text-align:right; font-weight:600; border-top:1px solid var(--line); padding-top:10px;">1006 hPa</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+        </div>
+      </div>
+
+      <!-- Substrate (planned) -->
+      <div style="grid-column:span 4; background:var(--panel); border:1px dashed var(--line); border-radius:6px; padding:18px 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--muted);">// SUBSTRATE</span><span style="font-family:'IBM Plex Mono'; font-size:9px; font-weight:600; letter-spacing:.1em; color:var(--amber); border:1px solid rgba(255,176,0,.4); border-radius:3px; padding:2px 6px;">PLANNED</span></div>
+        <div style="display:grid; grid-template-columns:1fr auto auto; gap:10px 14px; align-items:center; font-family:'IBM Plex Mono'; font-size:13px; padding-top:8px; opacity:.82;">
+          <span style="color:var(--muted);">VWC</span><span style="text-align:right; font-weight:600; font-variant-numeric:tabular-nums;">42.3 %</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">pwEC</span><span style="text-align:right; font-weight:600; color:var(--amber); border-top:1px solid var(--line); padding-top:10px;">2.4 mS/cm</span><span style="width:8px; height:8px; border-radius:50%; background:var(--amber);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">BULK EC</span><span style="text-align:right; font-weight:600; border-top:1px solid var(--line); padding-top:10px;">1.1 mS/cm</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--muted); border-top:1px solid var(--line); padding-top:10px;">TEMP</span><span style="text-align:right; font-weight:600; border-top:1px solid var(--line); padding-top:10px;">23.6 °C</span><span style="width:8px; height:8px; border-radius:50%; background:var(--ok);"></span>
+          <span style="color:var(--faint); border-top:1px solid var(--line); padding-top:10px; font-size:11px;">awaiting probe</span><span style="text-align:right; color:var(--faint); border-top:1px solid var(--line); padding-top:10px; font-size:11px;">substrate-probe-01</span><span></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== SETTINGS ===================== -->
+  <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ true }}">
+  <div style="padding:22px 36px 0;">
+    <div style="margin-bottom:18px;">
+      <div style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--muted);">// DEVICE SETTINGS</div>
+      <div style="display:flex; align-items:baseline; gap:14px; margin-top:7px; flex-wrap:wrap;">
+        <span style="font-weight:700; font-size:24px; letter-spacing:-.01em;">{{ selName }}</span>
+        <span style="font-family:'IBM Plex Mono'; font-size:13px; color:var(--muted);">{{ selNode }}</span>
+        <span style="{{ selOnlineStyle }}">{{ selOnlineText }}</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:262px 1fr; gap:18px; align-items:start;">
+
+      <!-- device selector -->
+      <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px;">
+        <div style="font-family:'IBM Plex Mono'; font-size:11px; font-weight:600; letter-spacing:.14em; color:var(--muted); padding:2px 4px 12px;">// CONTROLLERS</div>
+        <sc-for list="{{ deviceList }}" as="d" hint-placeholder-count="5">
+          <sc-if value="{{ d.on }}"><button onClick="{{ d.onClick }}" style="display:flex; align-items:center; gap:11px; width:100%; padding:11px 12px; border-radius:5px; border:1px solid var(--amber); background:rgba(255,176,0,.1); cursor:pointer; margin-bottom:7px; color:var(--text);"><span style="{{ d.ledStyle }}"></span><div style="flex:1; min-width:0; text-align:left;"><div style="font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ d.name }}</div><div style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted); margin-top:1px;">{{ d.node }}</div></div><sc-if value="{{ d.update }}" hint-placeholder-val="{{ true }}"><span style="width:7px; height:7px; border-radius:50%; background:var(--amber); flex:0 0 auto;"></span></sc-if></button></sc-if>
+          <sc-if value="{{ d.off }}" hint-placeholder-val="{{ true }}"><button onClick="{{ d.onClick }}" style="display:flex; align-items:center; gap:11px; width:100%; padding:11px 12px; border-radius:5px; border:1px solid transparent; background:transparent; cursor:pointer; margin-bottom:7px; color:var(--text);"><span style="{{ d.ledStyle }}"></span><div style="flex:1; min-width:0; text-align:left;"><div style="font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ d.name }}</div><div style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted); margin-top:1px;">{{ d.node }}</div></div><sc-if value="{{ d.update }}" hint-placeholder-val="{{ true }}"><span style="width:7px; height:7px; border-radius:50%; background:var(--amber); flex:0 0 auto;"></span></sc-if></button></sc-if>
+        </sc-for>
+      </div>
+
+      <!-- content -->
+      <div style="display:grid; gap:14px;">
+        <div style="display:flex; gap:7px; flex-wrap:wrap;">
+          <sc-for list="{{ catTabs }}" as="t" hint-placeholder-count="6">
+            <sc-if value="{{ t.on }}"><button onClick="{{ t.onClick }}" style="display:inline-flex; align-items:center; padding:9px 15px; border-radius:5px; border:1px solid var(--amber); background:rgba(255,176,0,.1); font-family:'IBM Plex Sans'; font-size:13px; font-weight:600; cursor:pointer; color:var(--text);">{{ t.label }}<sc-if value="{{ t.count }}" hint-placeholder-val="{{ true }}"><span style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--faint); background:var(--bg); padding:1px 7px; border-radius:10px; margin-left:7px;">{{ t.count }}</span></sc-if><sc-if value="{{ t.update }}" hint-placeholder-val="{{ true }}"><span style="width:6px; height:6px; border-radius:50%; background:var(--amber); display:inline-block; margin-left:7px; vertical-align:middle;"></span></sc-if></button></sc-if>
+            <sc-if value="{{ t.off }}" hint-placeholder-val="{{ true }}"><button onClick="{{ t.onClick }}" style="display:inline-flex; align-items:center; padding:9px 15px; border-radius:5px; border:1px solid var(--line); background:transparent; font-family:'IBM Plex Sans'; font-size:13px; font-weight:600; cursor:pointer; color:var(--muted);">{{ t.label }}<sc-if value="{{ t.count }}" hint-placeholder-val="{{ true }}"><span style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--faint); background:var(--bg); padding:1px 7px; border-radius:10px; margin-left:7px;">{{ t.count }}</span></sc-if><sc-if value="{{ t.update }}" hint-placeholder-val="{{ true }}"><span style="width:6px; height:6px; border-radius:50%; background:var(--amber); display:inline-block; margin-left:7px; vertical-align:middle;"></span></sc-if></button></sc-if>
+          </sc-for>
+        </div>
+
+        <!-- UPDATES tab -->
+        <sc-if value="{{ isUpdates }}" hint-placeholder-val="{{ true }}">
+        <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px 22px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:600; font-size:16px;">Firmware</div>
+              <div style="font-family:'IBM Plex Mono'; font-size:12px; color:var(--muted); margin-top:3px;">{{ selProject }}</div>
+            </div>
+            <div style="display:inline-flex; border:1px solid var(--line); border-radius:4px; overflow:hidden;">
+              <span onClick="{{ onStable }}" style="{{ chStableStyle }}">STABLE</span>
+              <span onClick="{{ onEdge }}" style="{{ chEdgeStyle }}">EDGE</span>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:18px;">
+            <div style="border:1px solid var(--line); border-radius:5px; padding:11px 13px;"><div style="font-family:'IBM Plex Mono'; font-size:10px; color:var(--faint); letter-spacing:.1em;">INSTALLED</div><div style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; margin-top:5px;">{{ selInstalled }}</div></div>
+            <div style="border:1px solid var(--line); border-radius:5px; padding:11px 13px;"><div style="font-family:'IBM Plex Mono'; font-size:10px; color:var(--faint); letter-spacing:.1em;">LATEST</div><div style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; margin-top:5px;">{{ selLatest }}</div></div>
+            <div style="border:1px solid var(--line); border-radius:5px; padding:11px 13px;"><div style="font-family:'IBM Plex Mono'; font-size:10px; color:var(--faint); letter-spacing:.1em;">STATE</div><div style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; margin-top:5px;"><span style="{{ selStateStyle }}">{{ selState }}</span></div></div>
+            <div style="border:1px solid var(--line); border-radius:5px; padding:11px 13px;"><div style="font-family:'IBM Plex Mono'; font-size:10px; color:var(--faint); letter-spacing:.1em;">SHA</div><div style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; margin-top:5px;">{{ selSha }}</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; margin-top:18px;">
+            <button style="min-height:36px; padding:0 18px; border:1px solid var(--amber); border-radius:5px; background:var(--amber); color:var(--bg); font-family:'IBM Plex Mono'; font-weight:600; font-size:12px; cursor:pointer;">CHECK</button>
+            <button onClick="{{ onApply }}" style="{{ applyStyle }}">APPLY</button>
+            <span style="color:var(--muted); font-family:'IBM Plex Mono'; font-size:11px;">{{ statusText }}</span>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- curated alerts (rich UI when the alert shape is recognized) -->
+        <sc-if value="{{ isAlertsCurated }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:2px 2px 2px;"><span style="font-family:'IBM Plex Mono'; font-size:11px; font-weight:600; letter-spacing:.12em; color:var(--muted);">// THRESHOLD ALERTS · GROUPED BY METRIC</span><span style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--faint);">curated view</span></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <sc-for list="{{ curatedAlerts }}" as="a" hint-placeholder-count="4">
+            <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
+                <div><span style="font-weight:600; font-size:16px;">{{ a.name }}</span> <span style="color:var(--muted); font-family:'IBM Plex Mono'; font-size:12px;">{{ a.unit }}</span></div>
+                <span style="{{ a.chipStyle }}">{{ a.chipText }}</span>
+              </div>
+              <div style="display:flex; align-items:baseline; gap:6px; margin-top:12px;">
+                <span style="font-family:'IBM Plex Mono'; font-weight:600; font-size:22px;">{{ a.cur }}</span>
+                <span style="color:var(--faint); font-family:'IBM Plex Mono'; font-size:11px;">{{ a.unit }} now</span>
+              </div>
+              <div style="position:relative; height:8px; border-radius:4px; background:var(--bg); margin:18px 0 8px;">
+                <div style="{{ a.okZoneStyle }}"></div>
+                <div style="{{ a.lowTickStyle }}"></div>
+                <div style="{{ a.highTickStyle }}"></div>
+                <div style="{{ a.markerStyle }}"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted);"><span>LOW {{ a.low }}</span><span>HIGH {{ a.high }}</span></div>
+              <div style="display:flex; gap:9px; margin-top:15px; padding-top:13px; border-top:1px solid var(--line);">
+                <span style="{{ a.highChipStyle }}">HIGH · {{ a.highAlert }}</span>
+                <span style="{{ a.lowChipStyle }}">LOW · {{ a.lowAlert }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <!-- curated calibration (guided, live-stabilization flow) -->
+        <sc-if value="{{ isCalCurated }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:2px;"><span style="font-family:'IBM Plex Mono'; font-size:11px; font-weight:600; letter-spacing:.12em; color:var(--muted);">// GUIDED CALIBRATION</span><span style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--faint);">curated view</span></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <sc-for list="{{ calView.probeTabs }}" as="p" hint-placeholder-count="4">
+            <sc-if value="{{ p.on }}"><button onClick="{{ p.onClick }}" style="display:inline-flex; align-items:center; gap:9px; padding:9px 15px; border-radius:5px; border:1px solid var(--amber); background:rgba(255,176,0,.1); font-family:'IBM Plex Sans'; font-size:13px; font-weight:600; cursor:pointer; color:var(--text);"><span>{{ p.name }}</span><span style="font-family:'IBM Plex Mono'; font-size:10px; font-weight:600; padding:2px 8px; border-radius:999px; color:var(--amber); border:1px solid var(--amber);">{{ p.statusText }}</span></button></sc-if>
+            <sc-if value="{{ p.off }}" hint-placeholder-val="{{ true }}"><button onClick="{{ p.onClick }}" style="display:inline-flex; align-items:center; gap:9px; padding:9px 15px; border-radius:5px; border:1px solid var(--line); background:transparent; font-family:'IBM Plex Sans'; font-size:13px; font-weight:600; cursor:pointer; color:var(--muted);"><span>{{ p.name }}</span><span style="font-family:'IBM Plex Mono'; font-size:10px; font-weight:600; padding:2px 8px; border-radius:999px; color:var(--faint); border:1px solid var(--faint);">{{ p.statusText }}</span></button></sc-if>
+          </sc-for>
+        </div>
+        <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:14px; align-items:start;">
+          <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px 22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+              <span style="font-family:'IBM Plex Mono'; font-size:12px; letter-spacing:.08em; color:var(--amber);">{{ calView.stepIndexText }}</span>
+              <span style="{{ calView.statusStyle }}">{{ calView.statusText }}</span>
+            </div>
+            <div style="font-weight:600; font-size:20px; margin-top:9px;">{{ calView.stepLabel }} <span style="color:var(--muted); font-family:'IBM Plex Mono'; font-size:13px; font-weight:400;">{{ calView.stepSolution }}</span></div>
+            <div style="color:var(--muted); font-size:13px; line-height:1.55; margin-top:8px;">{{ calView.instruction }}</div>
+            <div style="margin-top:18px; padding:18px 20px; border:1px solid var(--line); border-radius:6px; background:var(--bg);">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:.1em; color:var(--faint);">LIVE READING</span>
+                <span style="{{ calView.stabilityStyle }}"><span style="{{ calView.dotPulse }}"></span>{{ calView.stabilityText }}</span>
+              </div>
+              <div style="display:flex; align-items:baseline; gap:8px; margin-top:8px;">
+                <span style="font-family:'IBM Plex Mono'; font-weight:700; font-size:40px; line-height:1;">{{ calView.liveText }}</span>
+                <span style="color:var(--muted); font-family:'IBM Plex Mono'; font-size:14px;">{{ calView.unit }}</span>
+              </div>
+              <svg viewBox="0 0 220 46" preserveAspectRatio="none" style="width:100%; height:46px; display:block; margin-top:10px;">
+                <path d="{{ calView.sparkFill }}" fill="rgba(255,176,0,.12)"></path>
+                <path d="{{ calView.sparkPath }}" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"></path>
+              </svg>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; margin-top:18px;">
+              <button onClick="{{ calView.onCalibrate }}" style="{{ calView.calBtnStyle }}">{{ calView.calBtnText }}</button>
+              <button onClick="{{ calView.onClear }}" style="min-height:40px; padding:0 16px; border:1px solid var(--line); border-radius:5px; background:transparent; color:var(--muted); font-family:'IBM Plex Mono'; font-weight:600; font-size:12px; cursor:pointer;">CLEAR</button>
+            </div>
+          </div>
+          <div style="display:grid; gap:14px;">
+            <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px;">
+              <div style="font-family:'IBM Plex Mono'; font-size:11px; font-weight:600; letter-spacing:.12em; color:var(--muted); margin-bottom:14px;">// STEPS · IN ORDER</div>
+              <sc-for list="{{ calView.setup }}" as="su" hint-placeholder-count="1">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px dashed var(--line); border-radius:5px; margin-bottom:8px;"><span style="font-size:13px; color:var(--muted);">{{ su.label }}</span><span style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600;">{{ su.value }}</span></div>
+              </sc-for>
+              <sc-for list="{{ calView.steps }}" as="s" hint-placeholder-count="3">
+                <sc-if value="{{ s.active }}"><button onClick="{{ s.onClick }}" style="display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px; border-radius:5px; cursor:pointer; margin-bottom:8px; text-align:left; border:1px solid var(--amber); background:rgba(255,176,0,.08);"><span style="width:10px; height:10px; border-radius:50%; flex:0 0 auto; background:var(--amber); box-shadow:0 0 8px var(--amber);"></span><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600;">{{ s.label }}</div><div style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted); margin-top:2px;">{{ s.sol }}</div></div><span style="font-family:'IBM Plex Mono'; font-size:10px; font-weight:600; color:var(--amber);">ACTIVE</span></button></sc-if>
+                <sc-if value="{{ s.done }}"><button onClick="{{ s.onClick }}" style="display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px; border-radius:5px; cursor:pointer; margin-bottom:8px; text-align:left; border:1px solid var(--line); background:transparent;"><span style="width:10px; height:10px; border-radius:50%; flex:0 0 auto; background:var(--ok);"></span><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600;">{{ s.label }}</div><div style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted); margin-top:2px;">{{ s.sol }}</div></div><span style="font-family:'IBM Plex Mono'; font-size:10px; font-weight:600; color:var(--ok);">DONE</span></button></sc-if>
+                <sc-if value="{{ s.pending }}" hint-placeholder-val="{{ true }}"><button onClick="{{ s.onClick }}" style="display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px; border-radius:5px; cursor:pointer; margin-bottom:8px; text-align:left; border:1px solid var(--line); background:transparent;"><span style="width:10px; height:10px; border-radius:50%; flex:0 0 auto; background:transparent; border:1px solid var(--faint);"></span><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600;">{{ s.label }}</div><div style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted); margin-top:2px;">{{ s.sol }}</div></div><span style="font-family:'IBM Plex Mono'; font-size:10px; font-weight:600; color:var(--faint);">PENDING</span></button></sc-if>
+              </sc-for>
+            </div>
+            <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px;">
+              <div style="font-family:'IBM Plex Mono'; font-size:11px; font-weight:600; letter-spacing:.12em; color:var(--muted); margin-bottom:6px;">// PROBE HEALTH</div>
+              <sc-for list="{{ calView.health }}" as="h" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--line);"><span style="font-size:13px; color:var(--muted);">{{ h.label }}</span><span style="font-family:'IBM Plex Mono'; font-size:13px; font-weight:600;">{{ h.value }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- entity sections -->
+        <sc-if value="{{ showSections }}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{ activeSections }}" as="s" hint-placeholder-count="2">
+          <div style="background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden;">
+            <button onClick="{{ s.onToggle }}" style="display:flex; align-items:center; gap:13px; width:100%; padding:15px 18px; background:transparent; border:0; cursor:pointer; text-align:left;">
+              <span style="width:20px; height:20px; border-radius:50%; border:1px solid var(--line); display:inline-flex; align-items:center; justify-content:center; color:var(--muted); font-family:'IBM Plex Mono'; font-size:14px; flex:0 0 auto;">{{ s.sign }}</span>
+              <span style="font-weight:600; font-size:15px; flex:1; color:var(--text);">{{ s.title }}</span>
+              <span style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--faint); background:var(--bg); padding:2px 9px; border-radius:10px;">{{ s.count }}</span>
+            </button>
+            <sc-if value="{{ s.open }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ s.rows }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 18px; border-top:1px solid var(--line);">
+                <div style="min-width:0;"><div style="font-size:14px;">{{ r.label }}</div><div style="font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted); margin-top:2px;">{{ r.type }}</div></div>
+                <span style="{{ r.ctrlStyle }}">{{ r.ctrlText }}</span>
+              </div>
+            </sc-for>
+            </sc-if>
+          </div>
+        </sc-for>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1120}}">
+class Component extends DCLogic {
+  state = { screen: 'dashboard', range: '6h', node: 'atlas-hydro-kit', tab: 'controls', ch: {}, requested: {}, open: {}, calProbe: 'ph', calDone: {}, calLive: null, calBuf: [], calStable: false };
+
+  componentDidMount() {
+    this._buf = [];
+    this._activeKey = null;
+    this._startedAt = 0;
+    this._timer = setInterval(() => this.calTick(), 650);
+  }
+
+  componentWillUnmount() { clearInterval(this._timer); }
+
+  curProbe() {
+    const list = this.calProbes[this.state.node];
+    if (!list) return null;
+    return list.find(p => p.id === this.state.calProbe) || list[0];
+  }
+
+  stepDone(probe, step) {
+    const k = probe.id + ':' + step.key;
+    return (k in this.state.calDone) ? this.state.calDone[k] : step.done;
+  }
+
+  activeStep(probe) {
+    return probe.steps.find(s => !this.stepDone(probe, s)) || null;
+  }
+
+  calTick() {
+    if (this.state.screen !== 'settings' || this.state.tab !== 'calibration') return;
+    const probe = this.curProbe();
+    if (!probe) return;
+    const step = this.activeStep(probe);
+    const key = probe.id + ':' + (step ? step.key : 'done');
+    if (key !== this._activeKey) { this._activeKey = key; this._buf = []; this._startedAt = Date.now(); }
+    const elapsed = (Date.now() - this._startedAt) / 1000;
+    let reading;
+    if (!step) reading = probe.live;
+    else if (step.dry) reading = Math.max(0, (Math.random() - 0.5) * 0.6 * Math.max(0.12, Math.exp(-elapsed / 2.2)));
+    else {
+      const amp = Math.abs(step.target) * 0.12 * Math.exp(-elapsed / 2.4) + Math.abs(step.target) * 0.0025 + (probe.id === 'ph' ? 0.012 : 0.2);
+      reading = step.target + (Math.random() - 0.5) * 2 * amp;
+    }
+    this._buf.push(reading);
+    if (this._buf.length > 16) this._buf.shift();
+    const recent = this._buf.slice(-6);
+    const spread = recent.length >= 5 ? Math.max(...recent) - Math.min(...recent) : Infinity;
+    const tol = step ? (step.dry ? 0.06 : Math.max(0.02, Math.abs(step.target) * 0.008)) : 0;
+    const stable = step ? (spread <= tol && elapsed > 2.6) : true;
+    this.setState({ calLive: reading, calBuf: this._buf.slice(), calStable: stable });
+  }
+
+  calProbes = {
+    'atlas-hydro-kit': [
+      { id: 'ph', name: 'pH', unit: 'pH', prec: 2, status: 'Single Point', live: 6.18,
+        health: [{ label: 'Acid slope', value: '100.6 %' }, { label: 'Alkaline slope', value: '96.4 %' }, { label: 'Asymmetry', value: '\u221213.69 mV' }],
+        steps: [
+          { key: 'mid', label: 'Mid point', target: 7.00, sol: 'pH 7.00 buffer', done: true },
+          { key: 'low', label: 'Low point', target: 4.00, sol: 'pH 4.00 buffer', done: false },
+          { key: 'high', label: 'High point', target: 10.00, sol: 'pH 10.00 buffer', done: false }
+        ] },
+      { id: 'ec', name: 'EC', unit: '\u00b5S/cm', prec: 0, status: 'Two Point', live: 1413,
+        setup: [{ label: 'Probe K-type', value: 'K 1.0' }],
+        health: [{ label: 'Status', value: 'Two Point' }, { label: 'Probe K-type', value: 'K 1.0' }],
+        steps: [
+          { key: 'dry', label: 'Dry calibration', dry: true, sol: 'Dry probe \u2014 not in solution', done: true },
+          { key: 'low', label: 'Low point', target: 1413, sol: '1413 \u00b5S/cm', done: true },
+          { key: 'high', label: 'High point', target: 5000, sol: '5000 \u00b5S/cm', done: false }
+        ] },
+      { id: 'rtd', name: 'RTD', unit: '\u00b0C', prec: 1, status: 'Factory', live: 24.7,
+        note: 'Rarely needed \u2014 the factory calibration is usually fine.',
+        health: [{ label: 'Status', value: 'Factory' }],
+        steps: [{ key: 'single', label: 'Single point', target: 25.0, sol: 'Known reference temp', done: false }] },
+      { id: 'orp', name: 'ORP', unit: 'mV', prec: 0, status: 'User Calibrated', live: 146,
+        health: [{ label: 'Status', value: 'User Calibrated' }],
+        steps: [{ key: 'single', label: 'Single point', target: 400, sol: '400 mV solution', done: true }] }
+    ]
+  };
+
+  fleet = [
+    { node: 'atlas-hydro-kit', name: 'Atlas Hydro Monitor', online: true, channel: 'edge', installed: 'edge-20260627T1638 · 033a9273', latest: 'edge-20260627T1638 · 033a9273', state: 'Current', sha: '033a9273cb7f', update: false },
+    { node: 'atoms3u-sensor-rig', name: 'AtomS3U Sensor Rig', online: true, channel: 'stable', installed: 'stable-20260618T0445 · 9f12a0c4', latest: 'stable-20260627T1203 · be77d215', state: 'Update ready', sha: 'be77d215a3e1', update: true },
+    { node: 'pump-relay-01', name: 'Pump Relay Board', online: true, channel: 'stable', installed: 'stable-20260618T0445 · 9f12a0c4', latest: 'stable-20260618T0445 · 9f12a0c4', state: 'Current', sha: '9f12a0c4d5b2', update: false },
+    { node: 'canopy-led-01', name: 'Canopy LED Controller', online: true, channel: 'edge', installed: 'edge-20260626T2101 · 1a2b3c4d', latest: 'edge-20260626T2101 · 1a2b3c4d', state: 'Current', sha: '1a2b3c4d5e6f', update: false },
+    { node: 'res-doser-01', name: 'Reservoir Doser', online: false, channel: 'stable', installed: 'stable-20260601T0912 · 77aa88bb', latest: 'stable-20260627T1203 · be77d215', state: 'Offline', sha: '—', update: true }
+  ];
+
+  cats = {
+    'atlas-hydro-kit': {
+      tabs: [{ id: 'controls', label: 'Controls', count: 11 }, { id: 'updates', label: 'Updates' }, { id: 'calibration', label: 'Calibration', count: 21 }, { id: 'maintenance', label: 'Maintenance', count: 6 }, { id: 'diagnostics', label: 'Diagnostics', count: 10 }, { id: 'other', label: 'Other', count: 29 }],
+      sections: {
+        controls: [
+          { id: 'circuit', title: 'Circuit Controls', count: 7, defOpen: false, rows: [
+            { label: 'pH Circuit Enabled', type: 'switch', kind: 'switch-on', value: 'ON' },
+            { label: 'EC Circuit Enabled', type: 'switch', kind: 'switch-on', value: 'ON' },
+            { label: 'ORP Circuit Enabled', type: 'switch', kind: 'switch-on', value: 'ON' },
+            { label: 'RTD Circuit Enabled', type: 'switch', kind: 'switch-on', value: 'ON' },
+            { label: 'Continuous Read', type: 'switch', kind: 'switch-off', value: 'OFF' },
+            { label: 'Find Mode', type: 'button', kind: 'button', value: 'RUN' },
+            { label: 'Sleep Circuits', type: 'button', kind: 'button', value: 'RUN' }
+          ] },
+          { id: 'tempcomp', title: 'Temperature Compensation', count: 4, defOpen: true, rows: [
+            { label: 'pH Compensation Enabled', type: 'switch', kind: 'switch-on', value: 'ON' },
+            { label: 'pH Compensation Temp', type: 'sensor · temperature', kind: 'sensor', value: '24.79 °C' },
+            { label: 'EC Compensation Enabled', type: 'switch', kind: 'switch-on', value: 'ON' },
+            { label: 'EC Compensation Temp', type: 'sensor · temperature', kind: 'sensor', value: '24.79 °C' }
+          ] }
+        ],
+        calibration: [
+          { id: 'phcal', title: 'pH Calibration', count: 7, defOpen: false, rows: [
+            { label: 'pH Cal Mid (7.00)', type: 'button', kind: 'button', value: 'RUN' },
+            { label: 'pH Cal Low (4.00)', type: 'button', kind: 'button', value: 'RUN' },
+            { label: 'pH Cal High (10.00)', type: 'button', kind: 'button', value: 'RUN' },
+            { label: 'pH Slope Acid', type: 'sensor', kind: 'sensor', value: '99.2 %' },
+            { label: 'pH Slope Base', type: 'sensor', kind: 'sensor', value: '98.1 %' }
+          ] },
+          { id: 'eccal', title: 'EC Calibration', count: 8, defOpen: false, rows: [
+            { label: 'EC Cal Dry', type: 'button', kind: 'button', value: 'RUN' },
+            { label: 'EC Cal Single (1413)', type: 'button', kind: 'button', value: 'RUN' },
+            { label: 'EC Probe K', type: 'number', kind: 'number', value: '1.0' }
+          ] },
+          { id: 'orpcal', title: 'ORP / RTD Calibration', count: 6, defOpen: false, rows: [
+            { label: 'ORP Cal (225 mV)', type: 'button', kind: 'button', value: 'RUN' },
+            { label: 'RTD Cal (100 °C)', type: 'button', kind: 'button', value: 'RUN' }
+          ] }
+        ],
+        maintenance: [
+          { id: 'maint', title: 'Maintenance', count: 6, defOpen: false, rows: [
+            { label: 'Restart Device', type: 'button', kind: 'button-danger', value: 'RUN' },
+            { label: 'Factory Reset', type: 'button', kind: 'button-danger', value: 'RUN' },
+            { label: 'Clear Calibration', type: 'button', kind: 'button-danger', value: 'RUN' },
+            { label: 'Identify (blink)', type: 'button', kind: 'button', value: 'RUN' }
+          ] }
+        ],
+        diagnostics: [
+          { id: 'diag', title: 'Diagnostics', count: 10, defOpen: false, rows: [
+            { label: 'WiFi Signal', type: 'sensor · signal_strength', kind: 'sensor', value: '−54 dBm' },
+            { label: 'Uptime', type: 'sensor · duration', kind: 'sensor', value: '4d 2h' },
+            { label: 'Free Heap', type: 'sensor', kind: 'sensor', value: '184 kB' },
+            { label: 'MQTT Connected', type: 'binary_sensor', kind: 'binary-on', value: 'ON' }
+          ] }
+        ],
+        other: [
+          { id: 'other', title: 'Other', count: 29, defOpen: false, rows: [
+            { label: 'Device Name', type: 'text', kind: 'sensor', value: 'atlas-hydro-kit' },
+            { label: 'Sample Interval', type: 'number', kind: 'number', value: '5' }
+          ] }
+        ]
+      }
+    },
+    'atoms3u-sensor-rig': {
+      tabs: [{ id: 'controls', label: 'Controls', count: 7 }, { id: 'updates', label: 'Updates' }, { id: 'alerts', label: 'Alerts', count: 16 }, { id: 'maintenance', label: 'Maintenance', count: 1 }, { id: 'diagnostics', label: 'Diagnostics', count: 4 }, { id: 'other', label: 'Other', count: 7 }],
+      alertRules: [
+        { name: 'CO₂', unit: 'ppm', min: 400, max: 2000, low: 800, high: 1500, cur: 1359 },
+        { name: 'Temperature', unit: '°C', min: 10, max: 40, low: 18, high: 30, cur: 24.8 },
+        { name: 'Humidity', unit: '%', min: 20, max: 90, low: 40, high: 70, cur: 59.7 },
+        { name: 'VPD', unit: 'kPa', min: 0, max: 2, low: 0.4, high: 1.5, cur: 1.26 }
+      ],
+      sections: {
+        controls: [
+          { id: 'thermal', title: 'Thermal Camera', count: 7, defOpen: true, rows: [
+            { label: 'MLX90640 Min temp', type: 'sensor · temperature', kind: 'sensor', value: '29.7 °C' },
+            { label: 'MLX90640 Mean temp', type: 'sensor · temperature', kind: 'sensor', value: '30.9 °C' },
+            { label: 'MLX90640 Max temp', type: 'sensor · temperature', kind: 'sensor', value: '31.7 °C' },
+            { label: 'MLX90640 ROI Min temp', type: 'sensor · temperature', kind: 'sensor', value: '30.8 °C' },
+            { label: 'MLX90640 ROI Mean temp', type: 'sensor · temperature', kind: 'sensor', value: '30.9 °C' },
+            { label: 'MLX90640 ROI Max temp', type: 'sensor · temperature', kind: 'sensor', value: '31.1 °C' },
+            { label: 'Thermal Update Interval', type: 'number', kind: 'number', value: '2000' }
+          ] }
+        ],
+        alerts: [
+          { id: 'thresh', title: 'Thresholds & Alerts', count: 16, defOpen: true, rows: [
+            { label: 'CO2 High Threshold', type: 'number', kind: 'number', value: '1500' },
+            { label: 'CO2 Low Threshold', type: 'number', kind: 'number', value: '800' },
+            { label: 'CO2 High Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'CO2 Low Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'Temperature High Threshold', type: 'number', kind: 'number', value: '30' },
+            { label: 'Temperature Low Threshold', type: 'number', kind: 'number', value: '18' },
+            { label: 'Temperature High Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'Temperature Low Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'Humidity High Threshold', type: 'number', kind: 'number', value: '70' },
+            { label: 'Humidity Low Threshold', type: 'number', kind: 'number', value: '40' },
+            { label: 'Humidity High Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'Humidity Low Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'VPD High Threshold', type: 'number', kind: 'number', value: '1.5' },
+            { label: 'VPD Low Threshold', type: 'number', kind: 'number', value: '0.4' },
+            { label: 'VPD High Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'VPD Low Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' }
+          ] }
+        ],
+        maintenance: [
+          { id: 'maint', title: 'Maintenance', count: 1, defOpen: false, rows: [
+            { label: 'Restart Device', type: 'button', kind: 'button-danger', value: 'RUN' }
+          ] }
+        ],
+        diagnostics: [
+          { id: 'diag', title: 'Diagnostics', count: 4, defOpen: false, rows: [
+            { label: 'WiFi Signal', type: 'sensor · signal_strength', kind: 'sensor', value: '−61 dBm' },
+            { label: 'Uptime', type: 'sensor · duration', kind: 'sensor', value: '2d 19h' },
+            { label: 'Free Heap', type: 'sensor', kind: 'sensor', value: '142 kB' },
+            { label: 'MQTT Connected', type: 'binary_sensor', kind: 'binary-on', value: 'ON' }
+          ] }
+        ],
+        other: [
+          { id: 'other', title: 'Other', count: 7, defOpen: false, rows: [
+            { label: 'Device Name', type: 'text', kind: 'sensor', value: 'atoms3u-sensor-rig' },
+            { label: 'Sample Interval', type: 'number', kind: 'number', value: '2' }
+          ] }
+        ]
+      }
+    },
+    'pump-relay-01': {
+      tabs: [{ id: 'controls', label: 'Controls', count: 4 }, { id: 'updates', label: 'Updates' }, { id: 'alerts', label: 'Alerts', count: 4 }, { id: 'diagnostics', label: 'Diagnostics', count: 4 }, { id: 'other', label: 'Other', count: 3 }],
+      sections: {
+        alerts: [
+          { id: 'palerts', title: 'Pump Alerts', count: 4, defOpen: true, rows: [
+            { label: 'Overcurrent Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'Leak Detected', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'Pump Stall Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' },
+            { label: 'Dry-Run Alert', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' }
+          ] }
+        ],
+        controls: [
+          { id: 'relays', title: 'Relay Controls', count: 4, defOpen: true, rows: [
+            { label: 'Irrigation Pump', type: 'switch', kind: 'switch-on', value: 'ON' },
+            { label: 'Runoff Pump', type: 'switch', kind: 'switch-off', value: 'OFF' },
+            { label: 'Irrigation Interval (min)', type: 'number', kind: 'number', value: '180' },
+            { label: 'Runoff Duration (s)', type: 'number', kind: 'number', value: '45' }
+          ] }
+        ],
+        diagnostics: [
+          { id: 'diag', title: 'Diagnostics', count: 4, defOpen: false, rows: [
+            { label: 'WiFi Signal', type: 'sensor · signal_strength', kind: 'sensor', value: '−49 dBm' },
+            { label: 'Uptime', type: 'sensor · duration', kind: 'sensor', value: '11d 4h' },
+            { label: 'MQTT Connected', type: 'binary_sensor', kind: 'binary-on', value: 'ON' }
+          ] }
+        ],
+        other: [
+          { id: 'other', title: 'Other', count: 3, defOpen: false, rows: [
+            { label: 'Device Name', type: 'text', kind: 'sensor', value: 'pump-relay-01' }
+          ] }
+        ]
+      }
+    },
+    'canopy-led-01': {
+      tabs: [{ id: 'controls', label: 'Controls', count: 3 }, { id: 'updates', label: 'Updates' }, { id: 'diagnostics', label: 'Diagnostics', count: 4 }, { id: 'other', label: 'Other', count: 3 }],
+      sections: {
+        controls: [
+          { id: 'light', title: 'Lighting', count: 3, defOpen: true, rows: [
+            { label: 'Canopy Light', type: 'light', kind: 'switch-on', value: 'ON' },
+            { label: 'Brightness (%)', type: 'number', kind: 'number', value: '85' },
+            { label: 'Photoperiod (h)', type: 'number', kind: 'number', value: '18' }
+          ] }
+        ],
+        diagnostics: [
+          { id: 'diag', title: 'Diagnostics', count: 4, defOpen: false, rows: [
+            { label: 'WiFi Signal', type: 'sensor · signal_strength', kind: 'sensor', value: '−57 dBm' },
+            { label: 'Uptime', type: 'sensor · duration', kind: 'sensor', value: '6d 8h' },
+            { label: 'MQTT Connected', type: 'binary_sensor', kind: 'binary-on', value: 'ON' }
+          ] }
+        ],
+        other: [
+          { id: 'other', title: 'Other', count: 3, defOpen: false, rows: [
+            { label: 'Device Name', type: 'text', kind: 'sensor', value: 'canopy-led-01' }
+          ] }
+        ]
+      }
+    },
+    'res-doser-01': {
+      tabs: [{ id: 'controls', label: 'Controls', count: 3 }, { id: 'updates', label: 'Updates' }, { id: 'diagnostics', label: 'Diagnostics', count: 4 }, { id: 'other', label: 'Other', count: 3 }],
+      sections: {
+        controls: [
+          { id: 'dose', title: 'Dosing', count: 3, defOpen: true, rows: [
+            { label: 'pH Down Pump', type: 'switch', kind: 'switch-off', value: 'OFF' },
+            { label: 'Nutrient A Pump', type: 'switch', kind: 'switch-off', value: 'OFF' },
+            { label: 'Dose Volume (mL)', type: 'number', kind: 'number', value: '5' }
+          ] }
+        ],
+        diagnostics: [
+          { id: 'diag', title: 'Diagnostics', count: 4, defOpen: false, rows: [
+            { label: 'WiFi Signal', type: 'sensor · signal_strength', kind: 'sensor', value: 'offline' },
+            { label: 'Uptime', type: 'sensor · duration', kind: 'sensor', value: '—' },
+            { label: 'MQTT Connected', type: 'binary_sensor', kind: 'binary-off', value: 'OFF' }
+          ] }
+        ],
+        other: [
+          { id: 'other', title: 'Other', count: 3, defOpen: false, rows: [
+            { label: 'Device Name', type: 'text', kind: 'sensor', value: 'res-doser-01' }
+          ] }
+        ]
+      }
+    }
+  };
+
+  ctrl(kind, value) {
+    const mono = 'font-family:IBM Plex Mono,monospace;font-size:12px;font-weight:600;';
+    if (kind === 'switch-on') return { text: 'ON', style: 'padding:5px 14px;border-radius:4px;background:var(--ok);color:#0a0b0d;' + mono };
+    if (kind === 'switch-off') return { text: 'OFF', style: 'padding:5px 14px;border-radius:4px;border:1px solid var(--line);color:var(--muted);background:transparent;' + mono };
+    if (kind === 'number') return { text: value, style: 'padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--text);' + mono };
+    if (kind === 'binary-off') return { text: 'OFF', style: 'color:var(--faint);' + mono };
+    if (kind === 'binary-on') return { text: 'ON', style: 'color:var(--ok);' + mono };
+    if (kind === 'button') return { text: 'RUN', style: 'padding:5px 14px;border-radius:4px;border:1px solid var(--amber);color:var(--amber);background:transparent;' + mono };
+    if (kind === 'button-danger') return { text: 'RUN', style: 'padding:5px 14px;border-radius:4px;border:1px solid var(--alert);color:var(--alert);background:transparent;' + mono };
+    return { text: value, style: 'color:var(--text);' + mono };
+  }
+
+  buildRule(r) {
+    const range = (r.max - r.min) || 1;
+    const pct = v => Math.max(0, Math.min(100, ((v - r.min) / range) * 100));
+    const lp = pct(r.low), hp = pct(r.high), cp = pct(r.cur);
+    const status = r.cur > r.high ? 'HIGH' : (r.cur < r.low ? 'LOW' : 'OK');
+    const col = status === 'OK' ? 'var(--ok)' : (status === 'HIGH' ? 'var(--alert)' : 'var(--amber)');
+    const cmono = 'font-family:IBM Plex Mono,monospace;font-size:11px;font-weight:600;';
+    const chip = c => 'padding:3px 10px;border-radius:999px;' + cmono + 'color:' + c + ';border:1px solid ' + c + ';background:transparent;';
+    const hi = r.cur > r.high ? 'ON' : 'OFF';
+    const lo = r.cur < r.low ? 'ON' : 'OFF';
+    return {
+      name: r.name, unit: r.unit, low: String(r.low), high: String(r.high), cur: String(r.cur),
+      chipText: status === 'OK' ? 'ARMED' : status + ' ALERT',
+      chipStyle: 'padding:4px 11px;border-radius:999px;' + cmono + 'color:' + col + ';border:1px solid ' + col + ';background:transparent;',
+      okZoneStyle: 'position:absolute;left:' + lp.toFixed(1) + '%;width:' + (hp - lp).toFixed(1) + '%;top:0;bottom:0;background:rgba(63,185,80,.22);border-radius:4px;',
+      lowTickStyle: 'position:absolute;left:' + lp.toFixed(1) + '%;top:-4px;bottom:-4px;width:2px;background:var(--muted);',
+      highTickStyle: 'position:absolute;left:' + hp.toFixed(1) + '%;top:-4px;bottom:-4px;width:2px;background:var(--muted);',
+      markerStyle: 'position:absolute;left:' + cp.toFixed(1) + '%;top:50%;width:12px;height:12px;border-radius:50%;background:' + col + ';transform:translate(-50%,-50%);box-shadow:0 0 8px ' + col + ';border:2px solid var(--panel);',
+      highAlert: hi, lowAlert: lo,
+      highChipStyle: chip(hi === 'ON' ? 'var(--alert)' : 'var(--faint)'),
+      lowChipStyle: chip(lo === 'ON' ? 'var(--amber)' : 'var(--faint)')
+    };
+  }
+
+  rng(seed) {
+    let t = seed >>> 0;
+    return () => {
+      t = (t + 0x6D2B79F5) >>> 0;
+      let x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  series(seed, base, amp, noise) {
+    const r = this.rng(seed);
+    const ph0 = ((seed % 9) / 9) * Math.PI * 2;
+    const N = 144;
+    const out = [];
+    for (let i = 0; i < N; i++) {
+      const d = Math.sin((i / N) * Math.PI * 2 - Math.PI / 2 + ph0) * amp;
+      out.push(base + d + (r() - 0.5) * noise);
+    }
+    return out;
+  }
+
+  win() {
+    const map = { '1h': 6, '3h': 18, '6h': 36, '12h': 72, '24h': 144 };
+    return map[this.state.range] || 36;
+  }
+
+  slice(arr) { return arr.slice(arr.length - this.win()); }
+
+  path(arr, w, h, p) {
+    if (!arr.length) return '';
+    const mn = Math.min(...arr), mx = Math.max(...arr), sp = (mx - mn) || 1, n = arr.length;
+    return arr.map((v, i) => {
+      const x = p + (i / (n - 1)) * (w - 2 * p);
+      const y = h - p - ((v - mn) / sp) * (h - 2 * p);
+      return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }).join(' ');
+  }
+
+  buildCalView(list) {
+    const probe = list.find(p => p.id === this.state.calProbe) || list[0];
+    const step = this.activeStep(probe);
+    const complete = !step;
+    const idx = step ? probe.steps.indexOf(step) : probe.steps.length;
+    const total = probe.steps.length;
+    const fmt = v => (v == null ? '\u2014' : Number(v).toFixed(probe.prec));
+    const stable = this.state.calStable;
+    const liveText = this.state.calLive == null ? '\u2014' : fmt(this.state.calLive);
+
+    const buf = this.state.calBuf || [];
+    let sparkPath = '', sparkFill = '';
+    if (buf.length >= 2) {
+      const mn = Math.min(...buf), mx = Math.max(...buf), sp = (mx - mn) || 1, W = 220, H = 46, P = 4;
+      const pts = buf.map((v, i) => [P + (i / (buf.length - 1)) * (W - 2 * P), H - P - ((v - mn) / sp) * (H - 2 * P)]);
+      sparkPath = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+      sparkFill = sparkPath + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + (H - P) + ' L ' + pts[0][0].toFixed(1) + ' ' + (H - P) + ' Z';
+    }
+
+    const tabBase = 'display:inline-flex;align-items:center;gap:9px;padding:9px 15px;border-radius:5px;border:1px solid var(--line);background:transparent;font-family:IBM Plex Sans,sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .12s;';
+    const chip = (txt, c) => 'font-family:IBM Plex Mono,monospace;font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;color:' + c + ';border:1px solid ' + c + ';';
+
+    const steps = probe.steps.map(s => {
+      const done = this.stepDone(probe, s), isActive = s === step;
+      return {
+        label: s.label, sol: s.sol,
+        active: isActive,
+        done: done && !isActive,
+        pending: !done && !isActive,
+        onClick: () => this.setState(prev => ({ calDone: { ...prev.calDone, [probe.id + ':' + s.key]: false } }))
+      };
+    });
+
+    const calEnabled = !complete && stable;
+    return {
+      probeTabs: list.map(p => ({
+        name: p.name,
+        onClick: () => this.setState({ calProbe: p.id }),
+        statusText: p.status,
+        on: p.id === probe.id,
+        off: p.id !== probe.id
+      })),
+      probeName: probe.name, unit: probe.unit,
+      statusText: probe.status, statusStyle: chip(probe.status, 'var(--muted)'),
+      stepIndexText: complete ? 'ALL POINTS CALIBRATED' : ('STEP ' + (idx + 1) + ' / ' + total),
+      stepLabel: complete ? 'Calibration complete' : step.label,
+      stepSolution: complete ? '' : step.sol,
+      instruction: complete
+        ? 'This probe is fully calibrated. Re-arm a point on the right to recalibrate it.'
+        : (step.dry
+          ? 'Make sure the probe is clean and completely dry \u2014 do not place it in solution \u2014 then run the dry calibration.'
+          : 'Rinse the probe and place it in ' + step.sol + '. Watch the reading below; calibrate once it holds steady.'),
+      liveText,
+      stabilityText: complete ? 'CALIBRATED' : (stable ? 'STABLE \u00b7 READY' : 'STABILIZING\u2026'),
+      stabilityStyle: 'display:inline-flex;align-items:center;gap:7px;font-family:IBM Plex Mono,monospace;font-size:12px;font-weight:600;color:' + (stable || complete ? 'var(--ok)' : 'var(--amber)') + ';',
+      dotPulse: 'width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + (stable || complete ? 'var(--ok)' : 'var(--amber)') + ';' + (stable || complete ? 'box-shadow:0 0 8px var(--ok);' : 'animation:mc-blink 0.85s steps(2) infinite;'),
+      sparkPath, sparkFill,
+      calBtnText: complete ? 'CALIBRATED' : ('CALIBRATE ' + step.label.toUpperCase()),
+      calBtnStyle: 'min-height:40px;padding:0 20px;border-radius:5px;font-family:IBM Plex Mono,monospace;font-weight:600;font-size:13px;' + (calEnabled ? 'border:1px solid var(--amber);background:var(--amber);color:#0a0b0d;cursor:pointer;' : 'border:1px solid var(--line);background:transparent;color:var(--faint);cursor:not-allowed;'),
+      onCalibrate: calEnabled ? (() => this.setState(prev => ({ calDone: { ...prev.calDone, [probe.id + ':' + step.key]: true } }))) : null,
+      onClear: () => { const cd = { ...this.state.calDone }; probe.steps.forEach(s => { cd[probe.id + ':' + s.key] = false; }); this.setState({ calDone: cd }); },
+      setup: probe.setup || [],
+      note: probe.note || '',
+      steps,
+      health: probe.health || []
+    };
+  }
+
+  renderVals() {
+    const screen = this.state.screen;
+    const navBase = 'font-family:IBM Plex Mono,monospace;font-size:12px;font-weight:600;letter-spacing:.06em;padding:6px 10px;border:0;background:transparent;cursor:pointer;border-bottom:2px solid transparent;';
+    const navOn = 'color:var(--amber);border-bottom-color:var(--amber);';
+    const navOff = 'color:var(--muted);';
+
+    // dashboard trends
+    const W = 700, H = 210, P = 14;
+    const ph = this.slice(this.series(11, 6.05, 0.16, 0.05));
+    const tp = this.slice(this.series(22, 24.6, 1.3, 0.4));
+    const co = this.slice(this.series(33, 1300, 240, 90));
+    const ranges = ['1h', '3h', '6h', '12h', '24h'];
+    const pillBase = 'padding:6px 12px;border:0;border-right:1px solid var(--line);font-family:IBM Plex Mono,monospace;font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;';
+    const axisMap = { '1h': 'T-1H', '3h': 'T-3H', '6h': 'T-6H', '12h': 'T-12H', '24h': 'T-24H' };
+
+    // settings
+    const f = this.fleet;
+    const sel = f.find(d => d.node === this.state.node) || f[0];
+    const dev = this.cats[sel.node] || { tabs: [{ id: 'controls', label: 'Controls' }, { id: 'updates', label: 'Updates' }], sections: {} };
+    const effTab = dev.tabs.some(t => t.id === this.state.tab) ? this.state.tab : 'controls';
+    const isUpdates = effTab === 'updates';
+    const isAlerts = effTab === 'alerts';
+    const alertRules = dev.alertRules;
+    const isAlertsCurated = isAlerts && Array.isArray(alertRules);
+    const calList = this.calProbes[sel.node];
+    const isCalCurated = effTab === 'calibration' && Array.isArray(calList);
+    const calView = isCalCurated ? this.buildCalView(calList) : null;
+    const ch = this.state.ch[sel.node] || sel.channel;
+    const requested = !!this.state.requested[sel.node];
+    const applyEnabled = sel.update && sel.online && !requested;
+    const stateColors = { 'Current': 'var(--ok)', 'Update ready': 'var(--amber)', 'Offline': 'var(--alert)' };
+    const chB = 'padding:7px 15px;font-family:IBM Plex Mono,monospace;font-size:12px;font-weight:600;cursor:pointer;';
+    let statusText = 'No update available';
+    if (requested) statusText = 'Install requested · device will reboot';
+    else if (sel.state === 'Update ready') statusText = 'Update ready · ' + sel.sha.slice(0, 8);
+    else if (sel.state === 'Offline') statusText = 'Controller offline · last seen 09:12';
+
+    const devBase = 'display:flex;align-items:center;gap:11px;width:100%;padding:11px 12px;border-radius:5px;border:1px solid transparent;background:transparent;cursor:pointer;margin-bottom:7px;transition:all .12s;color:var(--text);';
+    const catBase = 'display:inline-flex;align-items:center;padding:9px 15px;border-radius:5px;border:1px solid var(--line);background:transparent;font-family:IBM Plex Sans,sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .12s;';
+    const led = on => 'width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:' + (on ? 'var(--ok)' : 'var(--faint)') + (on ? ';box-shadow:0 0 6px var(--ok);' : ';');
+
+    const activeSections = (dev.sections[effTab] || []).map(s => {
+      const key = sel.node + ':' + effTab + ':' + s.id;
+      const defOpen = s.defOpen;
+      const open = (key in this.state.open) ? this.state.open[key] : defOpen;
+      return {
+        title: s.title, count: s.count, open, sign: open ? '\u2212' : '+',
+        onToggle: () => this.setState(st => { const cur = (key in st.open) ? st.open[key] : defOpen; return { open: { ...st.open, [key]: !cur } }; }),
+        rows: (s.rows || []).map(r => { const c = this.ctrl(r.kind, r.value); return { label: r.label, type: r.type, ctrlText: c.text, ctrlStyle: c.style }; })
+      };
+    });
+
+    return {
+      isDashboard: screen === 'dashboard',
+      isSettings: screen === 'settings',
+      hasUpdates: f.some(d => d.update),
+      onDashboard: () => this.setState({ screen: 'dashboard' }),
+      onSettings: () => this.setState({ screen: 'settings' }),
+      navDashStyle: navBase + (screen === 'dashboard' ? navOn : navOff),
+      navSetStyle: navBase + (screen === 'settings' ? navOn : navOff),
+
+      axisStart: axisMap[this.state.range],
+      rangePills: ranges.map(r => ({ label: r, onClick: () => this.setState({ range: r }), on: r === this.state.range, off: r !== this.state.range })),
+      phPath: this.path(ph, W, H, P),
+      tpPath: this.path(tp, W, H, P),
+      coPath: this.path(co, W, H, P),
+
+      selName: sel.name,
+      selNode: sel.node,
+      selProject: 'stackdrift.' + sel.node,
+      selOnlineText: sel.online ? 'ONLINE' : 'OFFLINE',
+      selOnlineStyle: 'font-family:IBM Plex Mono,monospace;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid ' + (sel.online ? 'rgba(63,185,80,.4);color:var(--ok);' : 'var(--line);color:var(--faint);'),
+      deviceList: f.map(d => ({
+        name: d.name, node: d.node, update: d.update,
+        onClick: () => this.setState({ node: d.node, tab: 'controls' }),
+        ledStyle: led(d.online),
+        on: d.node === sel.node,
+        off: d.node !== sel.node
+      })),
+      catTabs: dev.tabs.map(t => ({
+        label: t.label, count: t.count, update: t.id === 'updates' && sel.update,
+        onClick: () => this.setState({ tab: t.id }),
+        on: t.id === effTab,
+        off: t.id !== effTab
+      })),
+      isUpdates,
+      isAlertsCurated,
+      curatedAlerts: isAlertsCurated ? alertRules.map(r => this.buildRule(r)) : [],
+      isCalCurated,
+      calView,
+      showSections: !isUpdates && !isAlertsCurated && !isCalCurated,
+      activeSections,
+      selInstalled: sel.installed,
+      selLatest: sel.latest,
+      selState: sel.state,
+      selStateStyle: 'color:' + (stateColors[sel.state] || 'var(--text)') + ';',
+      selSha: sel.sha,
+      statusText,
+      chStableStyle: chB + (ch === 'stable' ? 'background:var(--amber);color:#0a0b0d;' : 'background:transparent;color:var(--muted);'),
+      chEdgeStyle: chB + (ch === 'edge' ? 'background:var(--amber);color:#0a0b0d;' : 'background:transparent;color:var(--muted);'),
+      onStable: () => this.setState(s => ({ ch: { ...s.ch, [sel.node]: 'stable' } })),
+      onEdge: () => this.setState(s => ({ ch: { ...s.ch, [sel.node]: 'edge' } })),
+      applyStyle: 'min-height:36px;padding:0 18px;border-radius:5px;font-family:IBM Plex Mono,monospace;font-weight:600;font-size:12px;' + (applyEnabled ? 'border:1px solid var(--amber);background:var(--amber);color:#0a0b0d;cursor:pointer;' : 'border:1px solid var(--line);background:transparent;color:var(--faint);cursor:not-allowed;'),
+      onApply: applyEnabled ? (() => this.setState(s => ({ requested: { ...s.requested, [sel.node]: true } }))) : null
+    };
+  }
+}
+</script>
+</body>
+</html>
