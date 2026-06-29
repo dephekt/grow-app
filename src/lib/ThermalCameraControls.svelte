@@ -278,8 +278,8 @@
     display: grid;
     gap: 12px;
     padding: 12px 16px 14px;
-    border-top: 1px solid #e5ebe7;
-    background: #fbfcfb;
+    border-top: 1px solid var(--line);
+    background: var(--panel-2);
   }
 
   .control-grid {
@@ -293,7 +293,7 @@
     grid-template-rows: minmax(2.35em, auto) 44px;
     gap: 6px;
     min-width: 0;
-    color: #26342e;
+    color: var(--text);
     font-size: 0.78rem;
     font-weight: 700;
   }
@@ -309,7 +309,7 @@
     height: 44px;
     min-height: 44px;
     box-sizing: border-box;
-    border-radius: 6px;
+    border-radius: var(--r-control);
     font: inherit;
   }
 
@@ -317,15 +317,15 @@
   input {
     width: 100%;
     min-width: 0;
-    border: 1px solid #cbd6cf;
-    background: #ffffff;
-    color: #17211d;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
   }
 
   button {
-    border: 1px solid #1f6f54;
-    background: #1f6f54;
-    color: #ffffff;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
     cursor: pointer;
     font-weight: 800;
   }
@@ -339,13 +339,15 @@
 
   .toggle {
     width: 100%;
-    border-color: #7c8795;
-    background: #7c8795;
+    border-color: var(--line);
+    background: var(--panel-2);
+    color: var(--muted);
   }
 
   .toggle.on {
-    border-color: #1f6f54;
-    background: #1f6f54;
+    border-color: var(--amber);
+    background: var(--amber-dim);
+    color: var(--amber);
   }
 
   .position-control {
@@ -360,13 +362,13 @@
     display: grid;
     gap: 3px;
     min-width: 0;
-    color: #26342e;
+    color: var(--text);
     font-size: 0.78rem;
     font-weight: 800;
   }
 
   .position-heading small {
-    color: #66736e;
+    color: var(--muted);
     font-size: 0.74rem;
     font-weight: 600;
   }
@@ -386,15 +388,15 @@
 
   .command-error {
     margin: 0;
-    color: #a62b24;
+    color: var(--alert);
     font-size: 0.82rem;
   }
 
   .fallback-controls {
     overflow: hidden;
-    border: 1px solid #edf1ee;
-    border-radius: 6px;
-    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    background: var(--panel-2);
   }
 
   @media (max-width: 820px) {
