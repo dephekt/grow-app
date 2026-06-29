@@ -100,7 +100,7 @@
     gap: 10px;
     align-items: center;
     padding: 12px 16px;
-    border-top: 1px solid #edf1ee;
+    border-top: 1px solid var(--line);
   }
 
   .entity-meta {
@@ -116,7 +116,7 @@
 
   small,
   .secondary {
-    color: #66736e;
+    color: var(--muted);
   }
 
   .entity-control {
@@ -135,18 +135,18 @@
     width: min(180px, 38vw);
     min-height: 36px;
     box-sizing: border-box;
-    border: 1px solid #cbd6cf;
-    border-radius: 6px;
-    background: #ffffff;
-    color: #17211d;
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    background: var(--panel-2);
+    color: var(--text);
   }
 
   button {
     min-height: 36px;
-    border: 1px solid #1f6f54;
-    border-radius: 6px;
-    background: #1f6f54;
-    color: #ffffff;
+    border: 1px solid var(--amber);
+    border-radius: var(--r-control);
+    background: var(--amber-dim);
+    color: var(--amber);
     cursor: pointer;
     font-weight: 700;
   }
@@ -160,18 +160,21 @@
 
   .toggle {
     min-width: 72px;
-    border-color: #7c8795;
-    background: #7c8795;
+    border-color: var(--faint);
+    background: var(--panel-2);
+    color: var(--muted);
   }
 
   .toggle.on {
-    border-color: #1f6f54;
-    background: #1f6f54;
+    border-color: var(--amber);
+    background: var(--amber-dim);
+    color: var(--amber);
   }
 
   .danger {
-    border-color: #a62b24;
-    background: #a62b24;
+    border-color: var(--alert);
+    background: var(--panel-2);
+    color: var(--alert);
   }
 
   .value.secondary {
@@ -182,7 +185,7 @@
   .command-error {
     grid-column: 1 / -1;
     margin: 0;
-    color: #a62b24;
+    color: var(--alert);
     font-size: 0.82rem;
   }
 

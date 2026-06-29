@@ -32,11 +32,11 @@
   </div>
 
   {#if camera}
-    <!-- Compact dashboard tile: image only. The ROI/palette quick controls live
-         on the device-settings Thermal surface, not the glanceable dashboard. -->
+    <!-- Curated thermal shape: tile + its quick controls (palette / overlay / ROI),
+         which are dashboard-surface entities. -->
     <CameraImageTile
       entry={camera.entry}
-      controls={[]}
+      controls={camera.quickControls}
       states={live.snapshot.states}
       commandPending={live.commandPending}
       commandErrors={live.commandErrors}

@@ -1,9 +1,10 @@
 import type { DeviceSnapshot, DeviceUiConfig, DeviceUiEntity, DeviceUiGroup, EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
-export type DeviceSettingsSectionId = 'controls' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other';
+export type DeviceSettingsSectionId = 'controls' | 'updates' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other';
 
 export const DEVICE_SETTINGS_SECTIONS: Array<{ id: DeviceSettingsSectionId; title: string }> = [
   { id: 'controls', title: 'Controls' },
+  { id: 'updates', title: 'Updates' },
   { id: 'alerts', title: 'Alerts' },
   { id: 'calibration', title: 'Calibration' },
   { id: 'maintenance', title: 'Maintenance' },
