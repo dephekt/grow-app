@@ -13,7 +13,15 @@ import { Point } from '@influxdata/influxdb-client';
 import { getInfluxConfig, getInfluxDB } from '$lib/server/influx/client';
 import { READING_MEASUREMENT } from '$lib/server/influx/query';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
-import type { EntityConfig, EntityState } from '$lib/server/mqtt/types';
+import type { EntityConfig, EntityState, Snapshot } from '$lib/server/mqtt/types';
+
+// Default to a recorder-specific MQTT client id so we never collide with the web
+// app even if compose forgets to set MQTT_CLIENT_ID — both run as PID 1 in their
+// own container, so the PID-derived fallback would otherwise be identical.
+// Compose may still override this for an explicit id.
+if (!process.env.MQTT_CLIENT_ID) {
+  process.env.MQTT_CLIENT_ID = `grow-history-recorder-${process.env.GROW_SITE ?? 'daniel-home'}`;
+}
 
 function isRecordable(entity: EntityConfig): boolean {
   if (entity.entityCategory === 'diagnostic') return false;
@@ -50,23 +58,25 @@ function main(): void {
   });
 
   const service = getSiteMqttService();
-  const site = service.snapshot().site;
+  const snap = service.snapshot();
+  const site = snap.site;
   const entities = new Map<string, EntityConfig>();
-  for (const entity of service.snapshot().entities) entities.set(entity.id, entity);
 
+  // Dedup by entityId -> last recorded updatedAt. Retained values that arrive
+  // bundled with discovery surface via 'snapshot' (not 'state'), so we record
+  // from snapshots too; the dedup keeps that idempotent and avoids re-writing
+  // the same point on every snapshot emit.
+  const lastRecorded = new Map<string, string>();
   let written = 0;
-  const unsubscribe = service.subscribe((event) => {
-    if (event.type === 'entity' && event.entity) {
-      entities.set(event.entity.id, event.entity);
-      return;
-    }
-    if (event.type !== 'state' || !event.entityId || !event.state) return;
 
-    const entity = entities.get(event.entityId);
-    if (!entity || !isRecordable(entity)) return;
-
-    const value = numericValue(entity, event.state);
+  function record(entity: EntityConfig | undefined, state: EntityState | undefined): void {
+    if (!entity || !state || !isRecordable(entity)) return;
+    const value = numericValue(entity, state);
     if (value === null) return;
+
+    const stamp = state.updatedAt ?? '';
+    if (lastRecorded.get(entity.id) === stamp) return;
+    lastRecorded.set(entity.id, stamp);
 
     const point = new Point(READING_MEASUREMENT)
       .tag('site', site)
@@ -75,10 +85,34 @@ function main(): void {
       .tag('component', entity.component)
       .floatField('value', value);
     if (entity.unit) point.tag('unit', entity.unit);
-    if (event.state.updatedAt) point.timestamp(new Date(event.state.updatedAt));
+    if (state.updatedAt) point.timestamp(new Date(state.updatedAt));
 
     writeApi.writePoint(point);
     written += 1;
+  }
+
+  function recordSnapshot(s: Snapshot): void {
+    for (const entity of s.entities) {
+      entities.set(entity.id, entity);
+      record(entity, s.states[entity.id]);
+    }
+  }
+
+  // Capture anything already retained at startup.
+  recordSnapshot(snap);
+
+  const unsubscribe = service.subscribe((event) => {
+    if (event.type === 'snapshot' && event.snapshot) {
+      recordSnapshot(event.snapshot);
+      return;
+    }
+    if (event.type === 'entity' && event.entity) {
+      entities.set(event.entity.id, event.entity);
+      return;
+    }
+    if (event.type === 'state' && event.entityId && event.state) {
+      record(entities.get(event.entityId), event.state);
+    }
   });
 
   setInterval(() => {
