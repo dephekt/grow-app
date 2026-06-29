@@ -66,7 +66,7 @@ export function normalizeSnapshot(value: unknown, fallback?: Snapshot): Snapshot
   };
 }
 
-export function createLiveSnapshot(initialSnapshot: Snapshot) {
+export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined) {
   let snapshot = $state<Snapshot>(normalizeSnapshot(initialSnapshot));
   let error = $state<string | null>(null);
   let commandPending = $state<Record<string, boolean>>({});
@@ -146,18 +146,22 @@ export function createLiveSnapshot(initialSnapshot: Snapshot) {
     commandPending = { ...commandPending, [entity.id]: true };
     commandErrors = { ...commandErrors, [entity.id]: '' };
 
-    const response = await fetch(`/api/entities/${entity.id}/command`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ value, confirm: entity.dangerous })
-    });
+    try {
+      const response = await fetch(`/api/entities/${entity.id}/command`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ value, confirm: entity.dangerous })
+      });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      commandErrors = { ...commandErrors, [entity.id]: body.error ?? 'Command failed' };
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        commandErrors = { ...commandErrors, [entity.id]: body.error ?? 'Command failed' };
+      }
+    } catch {
+      commandErrors = { ...commandErrors, [entity.id]: 'Command failed' };
+    } finally {
+      commandPending = { ...commandPending, [entity.id]: false };
     }
-
-    commandPending = { ...commandPending, [entity.id]: false };
   }
 
   return {

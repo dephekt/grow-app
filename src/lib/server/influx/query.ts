@@ -75,13 +75,17 @@ export async function queryHistory(series: HistorySeriesRequest[], range: Histor
   }
 
   const queryApi = db.getQueryApi(config.org);
-  for await (const { values, tableMeta } of queryApi.iterateRows(flux)) {
-    const row = tableMeta.toObject(values) as Record<string, unknown>;
-    const key = keyByTag.get(`${String(row.node ?? '')}|${String(row.entity ?? '')}`);
-    if (!key) continue;
-    const v = Number(row._value);
-    if (!Number.isFinite(v)) continue;
-    byKey.get(key)?.points.push({ t: String(row._time), v });
+  try {
+    for await (const { values, tableMeta } of queryApi.iterateRows(flux)) {
+      const row = tableMeta.toObject(values) as Record<string, unknown>;
+      const key = keyByTag.get(`${String(row.node ?? '')}|${String(row.entity ?? '')}`);
+      if (!key) continue;
+      const v = Number(row._value);
+      if (!Number.isFinite(v)) continue;
+      byKey.get(key)?.points.push({ t: String(row._time), v });
+    }
+  } catch (err) {
+    console.warn('[influx] queryHistory error:', err);
   }
 
   // Preserve request order; drop series with no stored history yet.
