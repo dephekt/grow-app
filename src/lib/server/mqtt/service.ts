@@ -1,5 +1,6 @@
 import mqtt, { type MqttClient } from 'mqtt';
 import { EventEmitter } from 'node:events';
+import { randomBytes } from 'node:crypto';
 import { buildCommandPublish, normalizeDiscoveryId, parseDiscoveryPayload } from './discovery';
 import { getSiteMqttConfig, type SiteMqttConfig } from './config';
 import { parseUiConfigPayload } from './ui-metadata';
@@ -59,7 +60,7 @@ export class SiteMqttService {
     this.client = mqtt.connect(this.config.mqttUrl, {
       username: this.config.username,
       password: this.config.password,
-      clientId: this.config.clientId ?? `grow-app-site-${this.config.site}-${process.pid}`,
+      clientId: this.config.clientId ?? `grow-app-site-${this.config.site}-${process.pid}-${randomBytes(3).toString('hex')}`,
       clean: true,
       reconnectPeriod: 5000,
       keepalive: 30

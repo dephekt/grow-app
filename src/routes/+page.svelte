@@ -26,7 +26,14 @@
   let climateRows = $derived.by(() => {
     const rows: Array<{ label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' }> =
       [];
-    const tempE = findEntity('temperature', 'atoms3u-sensor-rig');
+    // Resolve ambient temperature generically: first non-water temperature sensor
+    const tempE = live.snapshot.entities.find(
+      (e) =>
+        e.component === 'sensor' &&
+        (e.deviceClass === 'temperature' || e.unit === '°C' || /temp/i.test(e.objectId ?? '')) &&
+        !/water/i.test(e.objectId ?? '') &&
+        !/water/i.test(e.name)
+    );
     if (tempE) rows.push({ label: 'TEMP', value: live.formatState(tempE), status: 'ok' });
     return rows;
   });
@@ -36,19 +43,28 @@
     value: string;
     status?: 'ok' | 'warn' | 'alert' | 'none';
   }> = [
-    { label: 'VWC', value: 'NaN %', status: 'none' },
-    { label: 'pwEC', value: 'NaN mS/cm', status: 'none' },
-    { label: 'BULK EC', value: 'NaN mS/cm', status: 'none' },
-    { label: 'TEMP', value: 'NaN °C', status: 'none' }
+    { label: 'VWC', value: '—', status: 'none' },
+    { label: 'pwEC', value: '—', status: 'none' },
+    { label: 'BULK EC', value: '—', status: 'none' },
+    { label: 'TEMP', value: '—', status: 'none' }
   ];
 
-  let waterDeviceId = $derived(
-    live.snapshot.devices.find((d) => d.id === 'atlas-hydro-monitor')?.nodeId ?? undefined
-  );
+  let waterDeviceId = $derived.by(() => {
+    const phE = findEntity('water_ph');
+    const tempE = findEntity('water_temperature');
+    return phE?.nodeId ?? tempE?.nodeId ?? undefined;
+  });
 
-  let climateDeviceId = $derived(
-    live.snapshot.devices.find((d) => d.id === 'atoms3u-sensor-rig')?.nodeId ?? undefined
-  );
+  let climateDeviceId = $derived.by(() => {
+    const tempE = live.snapshot.entities.find(
+      (e) =>
+        e.component === 'sensor' &&
+        (e.deviceClass === 'temperature' || e.unit === '°C' || /temp/i.test(e.objectId ?? '')) &&
+        !/water/i.test(e.objectId ?? '') &&
+        !/water/i.test(e.name)
+    );
+    return tempE?.nodeId ?? undefined;
+  });
 </script>
 
 <svelte:head>

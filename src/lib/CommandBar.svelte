@@ -11,6 +11,7 @@
   const brokerLabel = $derived(broker.connected ? 'ONLINE' : broker.connecting ? 'CONNECTING' : 'OFFLINE');
   const brokerClass = $derived(broker.connected ? 'ok pulse' : broker.connecting ? 'warn' : 'alert');
   const site = $derived((snapshot.site || 'grow').toUpperCase());
+  const sseDown = $derived(Boolean(live.error));
 
   function updateAvailable(entity: EntityConfig, value: string | null): boolean {
     if (entity.component !== 'update' || !value) return false;
@@ -50,9 +51,9 @@
   </nav>
 
   <div class="status">
-    <span class="broker">
-      <span class="dot {brokerClass}"></span>
-      <span class="mono">{brokerLabel}</span>
+    <span class="broker" title={sseDown ? live.error ?? undefined : undefined}>
+      <span class="dot {sseDown ? 'warn' : brokerClass}"></span>
+      <span class="mono">{sseDown ? 'STALE' : brokerLabel}</span>
     </span>
     <span class="counts mono">{snapshot.devices.length} DEV · {snapshot.entities.length} ENT</span>
     <span class="clock mono">{clock}</span>

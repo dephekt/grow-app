@@ -20,7 +20,11 @@ function secretEnv(name: string): string | undefined {
   const file = env(`${name}_FILE`);
   if (!file) return undefined;
 
-  return readFileSync(file, 'utf8').replace(/\r?\n$/, '');
+  try {
+    return readFileSync(file, 'utf8').trim();
+  } catch {
+    return undefined;
+  }
 }
 
 /**
