@@ -349,9 +349,9 @@
     display: grid;
     gap: 14px;
     padding: 16px;
-    border: 1px solid #d7ded9;
-    border-radius: 8px;
-    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--panel);
   }
 
   .updates-header {
@@ -374,32 +374,32 @@
   .updates-header p,
   dt,
   small {
-    color: #66736e;
+    color: var(--muted);
   }
 
   .channel-control {
     display: grid;
     grid-template-columns: repeat(2, minmax(74px, 1fr));
     min-width: 160px;
-    border: 1px solid #cad4ce;
-    border-radius: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
     overflow: hidden;
   }
 
   .channel-control button {
     border: 0;
     border-radius: 0;
-    background: #f8faf9;
-    color: #26342e;
+    background: var(--panel-2);
+    color: var(--text);
   }
 
   .channel-control button + button {
-    border-left: 1px solid #cad4ce;
+    border-left: 1px solid var(--line);
   }
 
   .channel-control button.active {
-    background: #1f6f54;
-    color: #ffffff;
+    background: var(--amber-dim);
+    color: var(--amber);
   }
 
   .version-grid {
@@ -411,9 +411,9 @@
   .version-grid div {
     min-width: 0;
     padding: 10px;
-    border: 1px solid #e0e7e2;
-    border-radius: 8px;
-    background: #f9fbfa;
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    background: var(--panel-2);
   }
 
   dt {
@@ -434,9 +434,9 @@
   .summary,
   .status {
     padding: 10px 12px;
-    border-radius: 8px;
-    background: #f3f7f5;
-    color: #33443c;
+    border-radius: var(--r-control);
+    background: var(--panel-2);
+    color: var(--text);
   }
 
   .changelog {
@@ -453,9 +453,9 @@
     gap: 10px;
     align-items: baseline;
     padding: 8px 10px;
-    border: 1px solid #e0e7e2;
-    border-radius: 8px;
-    background: #f9fbfa;
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    background: var(--panel-2);
   }
 
   .changelog span {
@@ -464,20 +464,21 @@
   }
 
   .changelog code {
-    color: #66736e;
+    color: var(--muted);
     font: inherit;
     font-size: 0.78rem;
   }
 
   .status.warn {
-    border: 1px solid #e7d49a;
-    background: #fff9e6;
+    border: 1px solid var(--amber);
+    background: var(--amber-dim);
+    color: var(--amber);
   }
 
   .status.error {
-    border: 1px solid #e8c5c0;
-    background: #fff7f5;
-    color: #a62b24;
+    border: 1px solid var(--alert);
+    background: var(--panel-2);
+    color: var(--alert);
   }
 
   .actions {
@@ -490,18 +491,19 @@
   button {
     min-height: 36px;
     padding: 0 12px;
-    border: 1px solid #1f6f54;
-    border-radius: 6px;
-    background: #1f6f54;
-    color: #ffffff;
+    border: 1px solid var(--amber);
+    border-radius: var(--r-control);
+    background: var(--amber-dim);
+    color: var(--amber);
     cursor: pointer;
     font: inherit;
     font-weight: 700;
   }
 
   button.apply {
-    border-color: #2454a6;
-    background: #2454a6;
+    border-color: var(--cyan);
+    background: var(--panel-2);
+    color: var(--cyan);
   }
 
   button:disabled {
