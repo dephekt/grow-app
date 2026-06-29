@@ -43,7 +43,7 @@
       {/each}
     </div>
   </div>
-  <TrendsChart {series} height={230} />
+  <TrendsChart {series} height={300} />
 </div>
 
 <style>

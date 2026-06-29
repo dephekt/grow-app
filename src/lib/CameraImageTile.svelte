@@ -11,7 +11,8 @@
     commandErrors = {},
     onCommand = () => {},
     available = true,
-    intervalMs = 2000
+    intervalMs = 2000,
+    controlsCollapsible = false
   } = $props<{
     entry: PresentedEntity;
     controls?: PresentedEntity[];
@@ -21,8 +22,11 @@
     onCommand?: (entity: EntityConfig, value?: unknown) => void;
     available?: boolean;
     intervalMs?: number;
+    /** Tuck the controls behind a drawer, closed by default (dashboard tile). */
+    controlsCollapsible?: boolean;
   }>();
 
+  let controlsOpen = $state(false);
   let tick = $state(0);
   let failed = $state(false);
   let updatedAt = $state<Date | null>(null);
@@ -66,7 +70,24 @@
   <p class="caption">{entry.entity.name}</p>
 
   {#if controls.length > 0}
-    <ThermalCameraControls {controls} {states} {commandPending} {commandErrors} {onCommand} />
+    {#if controlsCollapsible}
+      <div class="controls-drawer">
+        <button
+          type="button"
+          class="drawer-toggle"
+          aria-expanded={controlsOpen}
+          onclick={() => (controlsOpen = !controlsOpen)}
+        >
+          <span>Controls</span>
+          <span class="chev" class:open={controlsOpen} aria-hidden="true">▸</span>
+        </button>
+        {#if controlsOpen}
+          <ThermalCameraControls {controls} {states} {commandPending} {commandErrors} {onCommand} />
+        {/if}
+      </div>
+    {:else}
+      <ThermalCameraControls {controls} {states} {commandPending} {commandErrors} {onCommand} />
+    {/if}
   {/if}
 </div>
 
@@ -130,5 +151,40 @@
     color: var(--muted);
     font-size: 0.78rem;
     border-top: 1px solid var(--line);
+  }
+
+  .controls-drawer {
+    border-top: 1px solid var(--line);
+  }
+
+  .drawer-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 16px;
+    min-height: var(--tap);
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .drawer-toggle:hover {
+    color: var(--text);
+  }
+
+  .chev {
+    transition: transform 0.12s ease;
+    color: var(--faint);
+  }
+  .chev.open {
+    transform: rotate(90deg);
+    color: var(--amber);
   }
 </style>

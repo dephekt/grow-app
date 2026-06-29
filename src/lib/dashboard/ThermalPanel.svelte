@@ -37,6 +37,7 @@
     <CameraImageTile
       entry={camera.entry}
       controls={camera.quickControls}
+      controlsCollapsible={true}
       states={live.snapshot.states}
       commandPending={live.commandPending}
       commandErrors={live.commandErrors}

@@ -18,16 +18,21 @@ export function isWaterPh(e: EntityConfig): boolean {
 }
 
 /**
- * Ambient (non-water) temperature. ESPHome often leaves deviceClass unset, so fall
- * back to unit / objectId; exclude the water probe, which is its own reading.
+ * Ambient (room/air) temperature — the reading that represents the grow space,
+ * not the water probe, a board/sensor-internal temp (BPS, MLX thermal array, …),
+ * or a derived aggregate (daily min/max, moving average). Requires a real
+ * temperature signal (deviceClass or °C unit) so it can't fall through to an
+ * unrelated sensor that merely has "temp" in its id.
  */
 export function isAmbientTemperature(e: EntityConfig): boolean {
-  return (
-    isNumericSensor(e) &&
-    (e.deviceClass === 'temperature' || e.unit === '°C' || /temp/i.test(e.objectId ?? '')) &&
-    !/water/i.test(e.objectId ?? '') &&
-    !/water/i.test(e.name)
-  );
+  if (!isNumericSensor(e)) return false;
+  if (e.deviceClass !== 'temperature' && e.unit !== '°C') return false;
+  const oid = (e.objectId ?? '').toLowerCase();
+  const name = e.name.toLowerCase();
+  if (/water/.test(oid) || /water/.test(name)) return false;
+  if (/(bps|mlx|board|cpu|die|chip|internal)/.test(oid)) return false;
+  if (/(daily|moving|average|avg|_min|_max|min_|max_)/.test(oid)) return false;
+  return true;
 }
 
 export function isCo2(e: EntityConfig): boolean {

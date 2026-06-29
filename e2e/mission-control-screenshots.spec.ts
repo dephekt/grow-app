@@ -1,11 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { test } from '@playwright/test';
-import { dashboardSnapshot } from './fixtures/dashboard-snapshot';
+import { liveSnapshot } from './fixtures/live-snapshot';
 
-// 1x1 transparent PNG for the camera tile route.
-const PIXEL_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-  'base64'
-);
+// Real thermal frame captured from the live site (see scripts/capture-fixture.sh).
+const THERMAL_JPG = readFileSync('e2e/fixtures/thermal.jpg');
 
 function makeSeries(key: string, label: string, color: string, base: number, n = 80) {
   const start = Date.now() - n * 5 * 60 * 1000;
@@ -17,7 +15,8 @@ function makeSeries(key: string, label: string, color: string, base: number, n =
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/snapshot', (route) => route.fulfill({ json: dashboardSnapshot }));
+  // The captured live snapshot (~130 real entities, both devices).
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: liveSnapshot }));
   await page.route('**/api/events', (route) => route.abort('failed'));
   await page.route('**/api/history**', (route) =>
     route.fulfill({
@@ -25,16 +24,17 @@ test.beforeEach(async ({ page }) => {
         configured: true,
         range: '6h',
         series: [
-          makeSeries('ph', 'pH', 'amber', 6.4),
-          makeSeries('air_temp', 'Air °C', 'cyan', 24.8),
-          makeSeries('co2', 'CO₂', 'muted', 900)
+          makeSeries('ph', 'pH', 'amber', 6.2),
+          makeSeries('air_temp', 'Air °C', 'cyan', 23.8),
+          makeSeries('co2', 'CO₂', 'muted', 760)
         ]
       }
     })
   );
   await page.route('**/api/entities/**/image**', (route) =>
-    route.fulfill({ status: 200, contentType: 'image/png', body: PIXEL_PNG })
+    route.fulfill({ status: 200, contentType: 'image/jpeg', body: THERMAL_JPG })
   );
+  await page.route('**/api/firmware/devices/**/package**', (route) => route.fulfill({ json: { package: null } }));
 });
 
 test('dashboard', async ({ page }, testInfo) => {
@@ -44,9 +44,6 @@ test('dashboard', async ({ page }, testInfo) => {
 });
 
 test('device-settings-calibration', async ({ page }, testInfo) => {
-  await page.route('**/api/firmware/devices/**/package**', (route) =>
-    route.fulfill({ json: { package: null } })
-  );
   await page.goto('/device-settings?device=atlas-hydro-monitor&section=calibration');
   await page.waitForTimeout(900);
   await page.screenshot({
@@ -56,9 +53,6 @@ test('device-settings-calibration', async ({ page }, testInfo) => {
 });
 
 test('device-settings-alerts', async ({ page }, testInfo) => {
-  await page.route('**/api/firmware/devices/**/package**', (route) =>
-    route.fulfill({ json: { package: null } })
-  );
   await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
   await page.waitForTimeout(900);
   await page.screenshot({
@@ -68,7 +62,6 @@ test('device-settings-alerts', async ({ page }, testInfo) => {
 });
 
 test('device-settings-controls', async ({ page }, testInfo) => {
-  await page.route('**/api/firmware/devices/**/package**', (route) => route.fulfill({ json: { package: null } }));
   await page.goto('/device-settings?device=atlas-hydro-monitor&section=controls');
   await page.waitForTimeout(900);
   await page.screenshot({
@@ -78,7 +71,6 @@ test('device-settings-controls', async ({ page }, testInfo) => {
 });
 
 test('device-settings-updates', async ({ page }, testInfo) => {
-  await page.route('**/api/firmware/devices/**/package**', (route) => route.fulfill({ json: { package: null } }));
   await page.goto('/device-settings?device=atlas-hydro-monitor&section=updates');
   await page.waitForTimeout(900);
   await page.screenshot({
