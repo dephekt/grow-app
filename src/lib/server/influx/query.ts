@@ -38,8 +38,9 @@ const RANGE_HOURS: Record<HistoryRange, number> = {
   '24h': 24
 };
 
-/** ~200 points/series keeps the SVG chart crisp without overfetching. */
-const TARGET_POINTS = 200;
+/** ~600 points/series — enough resolution to drag-zoom into within uPlot without
+ *  re-fetching, while still bounding the Influx response. */
+const TARGET_POINTS = 600;
 
 export function isHistoryRange(value: string | null | undefined): value is HistoryRange {
   return typeof value === 'string' && (HISTORY_RANGES as string[]).includes(value);

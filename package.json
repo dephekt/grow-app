@@ -27,6 +27,7 @@
     "@sveltejs/kit": "^2.22.5",
     "mqtt": "^5.14.1",
     "svelte": "^5.34.3",
+    "uplot": "^1.6.32",
     "vite": "^7.0.0"
   },
   "devDependencies": {
