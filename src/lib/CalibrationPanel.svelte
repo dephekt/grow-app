@@ -136,11 +136,14 @@
     return null;
   }
 
-  const PROBE_READING: Record<ProbeType, { objectId: string; deviceClass?: string; units: string[] }> = {
-    ph: { objectId: 'water_ph', deviceClass: 'ph', units: ['ph'] },
-    ec: { objectId: 'water_ec', deviceClass: 'conductivity', units: ['µs/cm', 'ms/cm', 'us/cm'] },
-    rtd: { objectId: 'water_temperature', deviceClass: 'temperature', units: ['°c'] },
-    orp: { objectId: 'water_orp', units: ['mv'] }
+  const PROBE_READING: Record<
+    ProbeType,
+    { objectId: string; deviceClass?: string; units: string[]; hint: string }
+  > = {
+    ph: { objectId: 'water_ph', deviceClass: 'ph', units: ['ph'], hint: 'ph' },
+    ec: { objectId: 'water_ec', deviceClass: 'conductivity', units: ['µs/cm', 'ms/cm', 'us/cm'], hint: 'ec' },
+    rtd: { objectId: 'water_temperature', deviceClass: 'temperature', units: ['°c'], hint: 'temp' },
+    orp: { objectId: 'water_orp', deviceClass: 'voltage', units: ['mv'], hint: 'orp' }
   };
 
   // Reject the probe's *sub*-readings — raw electrode voltage, slope/asymmetry
@@ -159,13 +162,17 @@
     // 1) the probe's canonical primary reading
     const exact = sensors.find((s) => (s.objectId ?? '').toLowerCase() === want.objectId);
     if (exact) return exact;
-    // 2) fall back to deviceClass / unit (sub-readings already excluded above)
+    // 2) fall back to deviceClass / unit, but only among sensors whose id still names
+    //    the probe (`hint`) — so a renamed reading can't latch onto an unrelated mV/°C
+    //    sensor (e.g. ORP binding to some other millivolt reading).
     return (
-      sensors.find(
-        (s) =>
+      sensors.find((s) => {
+        if (!(s.objectId ?? '').toLowerCase().includes(want.hint)) return false;
+        return (
           (want.deviceClass !== undefined && (s.deviceClass ?? '').toLowerCase() === want.deviceClass) ||
           want.units.includes((s.unit ?? '').toLowerCase())
-      ) ?? null
+        );
+      }) ?? null
     );
   }
 

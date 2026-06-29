@@ -1,33 +1,28 @@
 <script lang="ts">
   import TrendsChart from '$lib/TrendsChart.svelte';
-
-  type Pt = { t: string; v: number };
-  type Series = { key: string; label: string; unit: string; points: Pt[] };
-
-  const DOMAINS = [
-    { key: 'water', label: 'Water' },
-    { key: 'climate', label: 'Climate' },
-    { key: 'thermal', label: 'Thermal' },
-    { key: 'substrate', label: 'Substrate' }
-  ] as const;
-  type Domain = (typeof DOMAINS)[number]['key'];
+  import { DEFAULT_TREND_DOMAIN, TREND_DOMAINS, type TrendDomain, type TrendSeries } from '$lib/trends';
 
   const RANGES = ['1h', '3h', '6h', '12h', '24h'] as const;
   type Range = (typeof RANGES)[number];
 
-  let domain = $state<Domain>('water');
+  let domain = $state<TrendDomain>(DEFAULT_TREND_DOMAIN);
   let range = $state<Range>('6h');
-  let series = $state<Series[]>([]);
+  let series = $state<TrendSeries[]>([]);
 
   // Refetch on domain or range change, race-guarded so a slow earlier request can't
-  // clobber the latest selection's result.
+  // clobber the latest selection. Substrate is a static placeholder (never charts), so
+  // short-circuit it without hitting the history API.
   $effect(() => {
     const d = domain;
     const r = range;
+    if (d === 'substrate') {
+      series = [];
+      return;
+    }
     let cancelled = false;
     fetch(`/api/history?domain=${d}&range=${r}`)
       .then((res) => (res.ok ? res.json() : { configured: false, series: [] }))
-      .then((data: { configured: boolean; series: Series[] }) => {
+      .then((data: { configured: boolean; series: TrendSeries[] }) => {
         if (!cancelled) series = data.configured ? data.series : [];
       })
       .catch(() => {
@@ -44,7 +39,7 @@
 <div class="panel trends-panel">
   <div class="panel-head">
     <div class="domain-tabs">
-      {#each DOMAINS as d (d.key)}
+      {#each TREND_DOMAINS as d (d.key)}
         <button type="button" class:active={d.key === domain} onclick={() => (domain = d.key)}>{d.label}</button>
       {/each}
     </div>

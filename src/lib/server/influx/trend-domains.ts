@@ -1,26 +1,19 @@
 import { dashboardPresentation } from '$lib/device-presentation';
-import { isCo2, isNumericSensor, isWaterPh } from '$lib/entity-match';
-import type { DeviceSnapshot, EntityConfig, Snapshot } from '$lib/server/mqtt/types';
+import { isNumericSensor, resolveClimateDevice, resolveWaterDevice } from '$lib/entity-match';
+import { type TrendDomain } from '$lib/trends';
+import type { DeviceSnapshot, Snapshot } from '$lib/server/mqtt/types';
+
+export { DEFAULT_TREND_DOMAIN, isTrendDomain } from '$lib/trends';
+export type { TrendDomain } from '$lib/trends';
 
 /**
- * Trend domains keep like with like — plotting pH against air CO₂ is meaningless,
- * so each domain charts only its own device's readings. Water/Climate come from the
- * device's firmware-declared dashboard metrics; Thermal is the MLX90640 array temps.
+ * Resolves a trend domain to the concrete (node, entity) series to query from Influx.
+ * Keeps like with like — plotting pH against air CO₂ is meaningless, so each domain
+ * charts only its own device's readings. Water/Climate come from the device's
+ * firmware-declared dashboard metrics; Thermal is the MLX90640 array temps. The
+ * device resolvers are shared with the dashboard panels (`$lib/entity-match`) so the
+ * readout and the trend chart always plot the same device.
  */
-export type TrendDomain = 'water' | 'climate' | 'thermal' | 'substrate';
-
-export const TREND_DOMAINS: Array<{ key: TrendDomain; label: string }> = [
-  { key: 'water', label: 'Water' },
-  { key: 'climate', label: 'Climate' },
-  { key: 'thermal', label: 'Thermal' },
-  { key: 'substrate', label: 'Substrate' }
-];
-
-export const DEFAULT_TREND_DOMAIN: TrendDomain = 'water';
-
-export function isTrendDomain(value: string | null | undefined): value is TrendDomain {
-  return TREND_DOMAINS.some((d) => d.key === value);
-}
 
 export interface DomainSeriesSpec {
   /** Unique series id (the entity objectId) — also the Influx `entity` tag. */
@@ -31,15 +24,11 @@ export interface DomainSeriesSpec {
   entity: string;
 }
 
-function deviceOwning(snapshot: Snapshot, pred: (e: EntityConfig) => boolean): DeviceSnapshot | undefined {
-  const e = snapshot.entities.find(pred);
-  return e?.nodeId ? snapshot.devices.find((d) => d.nodeId === e.nodeId) : undefined;
-}
-
 function metricSpecs(snapshot: Snapshot, device: DeviceSnapshot | undefined, stripPrefix = ''): DomainSeriesSpec[] {
   if (!device) return [];
   return dashboardPresentation(snapshot, device)
-    .metrics.map((m) => {
+    .metrics.filter((m) => isNumericSensor(m.entity))
+    .map((m) => {
       const label = stripPrefix && m.label.startsWith(stripPrefix) ? m.label.slice(stripPrefix.length) : m.label;
       return {
         key: m.entity.objectId ?? m.entity.id,
@@ -61,14 +50,10 @@ function thermalLabel(objectId: string): string {
 
 export function resolveDomainSeries(snapshot: Snapshot, domain: TrendDomain): DomainSeriesSpec[] {
   if (domain === 'water') {
-    return metricSpecs(snapshot, deviceOwning(snapshot, isWaterPh), 'Water ');
+    return metricSpecs(snapshot, resolveWaterDevice(snapshot), 'Water ');
   }
   if (domain === 'climate') {
-    const dev = deviceOwning(
-      snapshot,
-      (e) => isCo2(e) || (e.component === 'sensor' && e.deviceClass === 'humidity')
-    );
-    return metricSpecs(snapshot, dev);
+    return metricSpecs(snapshot, resolveClimateDevice(snapshot));
   }
   if (domain === 'thermal') {
     return snapshot.entities
