@@ -2,11 +2,9 @@
   import { onMount, untrack } from 'svelte';
   import uPlot from 'uplot';
   import 'uplot/dist/uPlot.min.css';
+  import type { TrendSeries } from '$lib/trends';
 
-  type Pt = { t: string; v: number };
-  type Series = { key: string; label: string; unit: string; points: Pt[] };
-
-  let { series = [], height = 320 } = $props<{ series?: Series[]; height?: number }>();
+  let { series = [], height = 320 } = $props<{ series?: TrendSeries[]; height?: number }>();
 
   let el: HTMLDivElement;
   let plot: uPlot | null = null;
@@ -34,7 +32,7 @@
     return Math.floor(new Date(t).getTime() / 1000);
   }
 
-  function buildData(s: Series[]): uPlot.AlignedData {
+  function buildData(s: TrendSeries[]): uPlot.AlignedData {
     const times = new Set<number>();
     for (const ser of s) for (const p of ser.points) times.add(secs(p.t));
     const xs = [...times].sort((a, b) => a - b);
@@ -50,15 +48,16 @@
     return [xs, ...ys] as uPlot.AlignedData;
   }
 
-  function buildOpts(s: Series[], width: number): uPlot.Options {
+  function buildOpts(s: TrendSeries[], width: number): uPlot.Options {
     const colors = palette();
     const axisColor = cssVar('--muted', '#8a9099');
     const grid = 'rgba(255,255,255,0.06)';
     const units = new Set(s.map((x) => x.unit).filter(Boolean));
     // Same-unit series share a scale (directly comparable); disparate units each get
     // their own auto-ranged scale so every line stays visible. Only show y-axis tick
-    // values when the whole domain shares one unit, else they'd imply a false scale.
-    const singleUnit = units.size === 1;
+    // values when *every* series shares one real unit, else they'd imply a false scale
+    // (a unitless series sits on its own hidden scale).
+    const singleUnit = units.size === 1 && s.every((x) => x.unit);
     const yScale = s[0]?.unit || s[0]?.key || 'y';
     const mono = '11px "IBM Plex Mono", ui-monospace, monospace';
 
@@ -93,7 +92,7 @@
     };
   }
 
-  function render(s: Series[]) {
+  function render(s: TrendSeries[]) {
     if (!el) return;
     const data = buildData(s);
     const haveData = (data[0] as number[]).length > 0;
@@ -130,24 +129,29 @@
     untrack(() => render(s));
   });
 
-  let isEmpty = $derived(series.length === 0 || series.every((x: Series) => x.points.length === 0));
+  let isEmpty = $derived(series.length === 0 || series.every((x: TrendSeries) => x.points.length === 0));
 </script>
 
-<div class="trends-chart">
-  <div bind:this={el} class="uplot-host" style="min-height:{height}px"></div>
+<div class="trends-chart" style="min-height:{height}px">
+  <div bind:this={el} class="uplot-host"></div>
   {#if isEmpty}
-    <div class="empty-state" style="height:{height}px">No history yet</div>
+    <div class="empty-state">No history yet</div>
   {/if}
 </div>
 
 <style>
+  /* The empty-state overlays the (collapsed) chart host rather than stacking under it,
+     so a no-data domain stays one `height` tall, not two. */
   .trends-chart {
     width: 100%;
+    position: relative;
   }
   .uplot-host {
     width: 100%;
   }
   .empty-state {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
