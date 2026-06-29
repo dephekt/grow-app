@@ -27,6 +27,20 @@ Default site-mode broker settings:
 | `MQTT_TOPIC_PREFIX` | `grow/daniel-home` |
 | `MQTT_DISCOVERY_PREFIX` | `grow/daniel-home/_discovery` |
 
+Time-series history (optional — the app degrades gracefully without it):
+
+| Variable | Default |
+|---|---|
+| `INFLUX_URL` | empty (history disabled) |
+| `INFLUX_TOKEN` / `INFLUX_TOKEN_FILE` | empty |
+| `INFLUX_ORG` | `grow` |
+| `INFLUX_BUCKET` | `GROW_SITE` value, else `daniel-home` |
+
+When `INFLUX_URL` + token are set, `/api/history` serves trend series and the
+`grow-history-recorder` sidecar (`node build-recorder/recorder.js`, same image)
+writes numeric/binary readings from MQTT into InfluxDB. The browser never
+connects directly to InfluxDB — history is queried server-side, same as MQTT.
+
 The browser never connects directly to Mosquitto. The SvelteKit server keeps the
 MQTT session, caches retained/current state, streams browser updates over SSE,
 and publishes commands only through discovered command topics.
