@@ -59,7 +59,7 @@ export class SiteMqttService {
     this.client = mqtt.connect(this.config.mqttUrl, {
       username: this.config.username,
       password: this.config.password,
-      clientId: `grow-app-site-${this.config.site}-${process.pid}`,
+      clientId: this.config.clientId ?? `grow-app-site-${this.config.site}-${process.pid}`,
       clean: true,
       reconnectPeriod: 5000,
       keepalive: 30
