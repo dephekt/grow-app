@@ -6,11 +6,13 @@
  */
 export type TrendDomain = 'water' | 'climate' | 'thermal' | 'substrate';
 
-export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string }> = [
+export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string; planned?: boolean }> = [
   { key: 'water', label: 'Water' },
   { key: 'climate', label: 'Climate' },
   { key: 'thermal', label: 'Thermal' },
-  { key: 'substrate', label: 'Substrate' }
+  // `planned` domains render the NOT-CONNECTED placeholder and skip the history fetch —
+  // a future domain just sets the flag instead of being special-cased by name.
+  { key: 'substrate', label: 'Substrate', planned: true }
 ];
 
 export const DEFAULT_TREND_DOMAIN: TrendDomain = 'water';

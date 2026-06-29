@@ -1,5 +1,5 @@
-import { dashboardPresentation } from '$lib/device-presentation';
-import { isNumericSensor, resolveClimateDevice, resolveWaterDevice } from '$lib/entity-match';
+import { presentedNumericMetrics } from '$lib/device-presentation';
+import { isThermalArrayTemp, resolveClimateDevice, resolveThermalDevice, resolveWaterDevice } from '$lib/entity-match';
 import { type TrendDomain } from '$lib/trends';
 import type { DeviceSnapshot, Snapshot } from '$lib/server/mqtt/types';
 
@@ -26,18 +26,14 @@ export interface DomainSeriesSpec {
 
 function metricSpecs(snapshot: Snapshot, device: DeviceSnapshot | undefined, stripPrefix = ''): DomainSeriesSpec[] {
   if (!device) return [];
-  return dashboardPresentation(snapshot, device)
-    .metrics.filter((m) => isNumericSensor(m.entity))
-    .map((m) => {
-      const label = stripPrefix && m.label.startsWith(stripPrefix) ? m.label.slice(stripPrefix.length) : m.label;
-      return {
-        key: m.entity.objectId ?? m.entity.id,
-        label,
-        unit: m.entity.unit ?? '',
-        node: m.entity.nodeId ?? '',
-        entity: m.entity.objectId ?? ''
-      };
-    })
+  return presentedNumericMetrics(snapshot, device, stripPrefix)
+    .map((m) => ({
+      key: m.entity.objectId ?? m.entity.id,
+      label: m.label,
+      unit: m.entity.unit ?? '',
+      node: m.entity.nodeId ?? '',
+      entity: m.entity.objectId ?? ''
+    }))
     .filter((s) => s.node && s.entity);
 }
 
@@ -56,8 +52,12 @@ export function resolveDomainSeries(snapshot: Snapshot, domain: TrendDomain): Do
     return metricSpecs(snapshot, resolveClimateDevice(snapshot));
   }
   if (domain === 'thermal') {
+    // Scope to the thermal device (like water/climate) so a second rig publishing
+    // mlx90640_* entities can't collide on `key` (objectId) and drop a series.
+    const dev = resolveThermalDevice(snapshot);
+    if (!dev) return [];
     return snapshot.entities
-      .filter((e) => isNumericSensor(e) && /mlx90640_(min|mean|max)_temp$/.test(e.objectId ?? ''))
+      .filter((e) => e.nodeId === dev.nodeId && isThermalArrayTemp(e))
       .map((e) => ({
         key: e.objectId ?? e.id,
         label: thermalLabel(e.objectId ?? ''),
