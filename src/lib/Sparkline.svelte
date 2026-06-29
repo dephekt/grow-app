@@ -23,7 +23,7 @@
     const range = maxV - minV || 1;
     const padV = range * PAD;
     const lo = minV - padV;
-    const hi = maxV + padV + padV;
+    const hi = maxV + padV;
     const span = hi - lo || 1;
 
     const toX = (i: number) => (n === 1 ? width / 2 : (i / (n - 1)) * width);

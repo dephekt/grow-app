@@ -293,7 +293,10 @@
 
   let tolerance = $derived.by(() => {
     if (!activeStep) return 0.06;
-    if (activeStep.isDry) return 0.06;
+    if (activeStep.isDry) {
+      const maxTarget = Math.max(0, ...(activeProbe?.steps.map((s) => (s.target != null ? Math.abs(s.target) : 0)) ?? [0]));
+      return Math.max(0.06, maxTarget * 0.005);
+    }
     if (activeStep.target == null) return 0.06;
     return Math.max(0.02, Math.abs(activeStep.target) * 0.008);
   });
@@ -327,10 +330,16 @@
   let liveUnit = $derived(activeProbe?.liveEntity?.unit ?? '');
 
   // ── Commands ─────────────────────────────────────────────────────────────────
-  function calibrateStep(step: CalStep) {
+  async function calibrateStep(step: CalStep) {
     if (!step.entity || !isStable) return;
-    live.sendCommand(step.entity);
-    doneMap = { ...doneMap, [step.entity.id]: true };
+    try {
+      await live.sendCommand(step.entity);
+      if (!live.commandErrors[step.entity.id]) {
+        doneMap = { ...doneMap, [step.entity.id]: true };
+      }
+    } catch {
+      // error already recorded in live.commandErrors by sendCommand
+    }
   }
 
   function clearCalibration() {

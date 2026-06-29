@@ -60,13 +60,12 @@
       const objectId = (e.objectId ?? e.id).toLowerCase();
 
       if (e.component === 'number') {
-        const isThreshold = objectId.includes('threshold') || objectId.includes('high') || objectId.includes('low') ||
-                            objectId.includes('limit') || objectId.includes('max') || objectId.includes('min');
+        const isThreshold = objectId.includes('threshold') || /(^|_)(high|low|min|max)(_|$)/.test(objectId);
         if (isThreshold) {
           const prefix = extractMetricPrefix(objectId);
           const existing = thresholdMap.get(prefix) ?? { low: null, high: null };
-          const isHigh = objectId.includes('high') || objectId.includes('max');
-          const isLow = objectId.includes('low') || objectId.includes('min');
+          const isHigh = /(^|_)(high|max)(_|$)/.test(objectId);
+          const isLow = !isHigh && /(^|_)(low|min)(_|$)/.test(objectId);
           thresholdMap.set(prefix, {
             low: isLow ? e : existing.low,
             high: isHigh ? e : existing.high
@@ -195,8 +194,17 @@
     }
 
     // Use a synthetic range if only one bound exists
-    const effectiveLow = hasLow ? lowVal : highVal * 0.5;
-    const effectiveHigh = hasHigh ? highVal : lowVal * 1.5;
+    let effectiveLow = hasLow ? lowVal : highVal * 0.5;
+    let effectiveHigh = hasHigh ? highVal : lowVal * 1.5;
+
+    // Guard degenerate span (single threshold, equal values, or non-finite)
+    const span = effectiveHigh - effectiveLow;
+    if (!isFinite(span) || span <= 0) {
+      const threshold = hasHigh ? highVal : lowVal;
+      const safeSpan = Math.max(Math.abs(threshold), 1);
+      effectiveLow = threshold - safeSpan;
+      effectiveHigh = threshold + safeSpan;
+    }
 
     const lowTick = hasLow ? bandPct(lowVal, effectiveLow, effectiveHigh) * BAND_W : null;
     const highTick = hasHigh ? bandPct(highVal, effectiveLow, effectiveHigh) * BAND_W : null;
@@ -305,6 +313,9 @@
                 onblur={(ev) => live.sendCommand(e, ev.currentTarget.value)}
               />
             </label>
+            {#if live.commandErrors[e.id]}
+              <p class="threshold-error">{live.commandErrors[e.id]}</p>
+            {/if}
           {/if}
           {#if rule.highEntity}
             {@const e = rule.highEntity}
@@ -322,6 +333,9 @@
                 onblur={(ev) => live.sendCommand(e, ev.currentTarget.value)}
               />
             </label>
+            {#if live.commandErrors[e.id]}
+              <p class="threshold-error">{live.commandErrors[e.id]}</p>
+            {/if}
           {/if}
         </div>
       </div>
@@ -475,6 +489,12 @@
 
   .threshold-row input:disabled {
     opacity: 0.5;
+  }
+
+  .threshold-error {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--alert);
   }
 
   .fallback-section {

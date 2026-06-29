@@ -90,7 +90,7 @@
   });
 
   let activeTabId = $derived<DeviceSettingsSectionId | null>(
-    activeSectionId ?? allTabs[0]?.id ?? null
+    allTabs.find((t) => t.id === activeSectionId)?.id ?? allTabs[0]?.id ?? null
   );
 
   let activeEntityPanel = $derived(entityPanels.find((p) => p.id === activeTabId) ?? null);

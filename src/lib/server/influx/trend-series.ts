@@ -50,7 +50,11 @@ export const TREND_SERIES: TrendSeriesDef[] = [
     key: 'co2',
     label: 'CO₂',
     color: 'muted',
-    match: (e) => isNumericSensor(e) && (e.deviceClass === 'carbon_dioxide' || e.objectId === 'co2' || e.unit === 'ppm')
+    match: (e) =>
+      isNumericSensor(e) &&
+      (e.deviceClass === 'carbon_dioxide' ||
+        /(^|_)co2(_|$)/i.test(e.objectId ?? '') ||
+        /co2|carbon diox/i.test(e.name))
   }
 ];
 
