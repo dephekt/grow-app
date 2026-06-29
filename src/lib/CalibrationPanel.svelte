@@ -333,8 +333,10 @@
   async function calibrateStep(step: CalStep) {
     if (!step.entity || !isStable) return;
     try {
-      await live.sendCommand(step.entity);
-      if (!live.commandErrors[step.entity.id]) {
+      // Gate on the published result, not the absence of an error — a cancelled
+      // dangerous-confirm records no error but also publishes nothing.
+      const ok = await live.sendCommand(step.entity);
+      if (ok) {
         doneMap = { ...doneMap, [step.entity.id]: true };
       }
     } catch {
