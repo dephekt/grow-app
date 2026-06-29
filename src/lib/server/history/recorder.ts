@@ -63,10 +63,13 @@ function main(): void {
   const entities = new Map<string, EntityConfig>();
 
   // Dedup by entityId -> last recorded updatedAt. Retained values that arrive
-  // bundled with discovery surface via 'snapshot' (not 'state'), so we record
-  // from snapshots too; the dedup keeps that idempotent and avoids re-writing
-  // the same point on every snapshot emit.
+  // bundled with discovery surface via 'snapshot' (not 'state'), so we backfill
+  // from snapshots too; the dedup keeps that idempotent.
   const lastRecorded = new Map<string, string>();
+  // Entities whose initial retained reading has been backfilled. Ongoing values
+  // come via 'state' events, so a snapshot need only look at entities not yet
+  // backfilled — avoids re-scanning every entity on every snapshot emit.
+  const backfilled = new Set<string>();
   let written = 0;
 
   function record(entity: EntityConfig | undefined, state: EntityState | undefined): void {
@@ -93,8 +96,13 @@ function main(): void {
 
   function recordSnapshot(s: Snapshot): void {
     for (const entity of s.entities) {
+      if (backfilled.has(entity.id)) continue;
       entities.set(entity.id, entity);
-      record(entity, s.states[entity.id]);
+      const state = s.states[entity.id];
+      if (state && state.value != null) {
+        record(entity, state);
+        backfilled.add(entity.id);
+      }
     }
   }
 

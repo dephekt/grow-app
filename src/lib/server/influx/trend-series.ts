@@ -1,3 +1,4 @@
+import { isAmbientTemperature, isCo2, isWaterPh } from '$lib/entity-match';
 import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
 /** Token name the dashboard chart maps to a stroke colour. */
@@ -19,43 +20,15 @@ export interface ResolvedTrendSeries {
   entity: string;
 }
 
-function isNumericSensor(entity: EntityConfig): boolean {
-  return entity.component === 'sensor' && entity.entityCategory !== 'diagnostic';
-}
-
 /**
  * Curated dashboard trend series. Resolved against real discovery — a site that
- * lacks a given probe simply omits that line rather than inventing data.
+ * lacks a given probe simply omits that line rather than inventing data. The
+ * recognisers are shared with the dashboard panels via `$lib/entity-match`.
  */
 export const TREND_SERIES: TrendSeriesDef[] = [
-  {
-    key: 'ph',
-    label: 'pH',
-    color: 'amber',
-    match: (e) => isNumericSensor(e) && (e.deviceClass === 'ph' || e.objectId === 'water_ph' || e.unit === 'pH')
-  },
-  {
-    key: 'air_temp',
-    label: 'Air °C',
-    color: 'cyan',
-    // Ambient temperature: deviceClass is often unset on ESPHome sensors, so fall
-    // back to unit/name. Exclude the water probe, which is its own reading.
-    match: (e) =>
-      isNumericSensor(e) &&
-      (e.deviceClass === 'temperature' || e.unit === '°C' || /temp/i.test(e.objectId ?? '')) &&
-      !/water/i.test(e.objectId ?? '') &&
-      !/water/i.test(e.name)
-  },
-  {
-    key: 'co2',
-    label: 'CO₂',
-    color: 'muted',
-    match: (e) =>
-      isNumericSensor(e) &&
-      (e.deviceClass === 'carbon_dioxide' ||
-        /(^|_)co2(_|$)/i.test(e.objectId ?? '') ||
-        /co2|carbon diox/i.test(e.name))
-  }
+  { key: 'ph', label: 'pH', color: 'amber', match: isWaterPh },
+  { key: 'air_temp', label: 'Air °C', color: 'cyan', match: isAmbientTemperature },
+  { key: 'co2', label: 'CO₂', color: 'muted', match: isCo2 }
 ];
 
 export function resolveTrendSeries(snapshot: Snapshot): ResolvedTrendSeries[] {

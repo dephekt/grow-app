@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
+  import { isAmbientTemperature } from '$lib/entity-match';
   import TrendsPanel from '$lib/dashboard/TrendsPanel.svelte';
   import CircuitsPanel from '$lib/dashboard/CircuitsPanel.svelte';
   import ThermalPanel from '$lib/dashboard/ThermalPanel.svelte';
@@ -12,6 +13,11 @@
       (e) => e.objectId === objectId && (nodeId == null || e.nodeId === nodeId)
     );
   }
+
+  // The ambient (non-water) temperature sensor feeds both the CLIMATE TEMP row and
+  // the panel's device subtitle — resolve it once. Shares the recogniser with the
+  // trend-series air_temp line.
+  let ambientTempEntity = $derived(live.snapshot.entities.find(isAmbientTemperature));
 
   let waterRows = $derived.by(() => {
     const rows: Array<{ label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' }> =
@@ -26,15 +32,7 @@
   let climateRows = $derived.by(() => {
     const rows: Array<{ label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' }> =
       [];
-    // Resolve ambient temperature generically: first non-water temperature sensor
-    const tempE = live.snapshot.entities.find(
-      (e) =>
-        e.component === 'sensor' &&
-        (e.deviceClass === 'temperature' || e.unit === '°C' || /temp/i.test(e.objectId ?? '')) &&
-        !/water/i.test(e.objectId ?? '') &&
-        !/water/i.test(e.name)
-    );
-    if (tempE) rows.push({ label: 'TEMP', value: live.formatState(tempE), status: 'ok' });
+    if (ambientTempEntity) rows.push({ label: 'TEMP', value: live.formatState(ambientTempEntity), status: 'ok' });
     return rows;
   });
 
@@ -55,16 +53,7 @@
     return phE?.nodeId ?? tempE?.nodeId ?? undefined;
   });
 
-  let climateDeviceId = $derived.by(() => {
-    const tempE = live.snapshot.entities.find(
-      (e) =>
-        e.component === 'sensor' &&
-        (e.deviceClass === 'temperature' || e.unit === '°C' || /temp/i.test(e.objectId ?? '')) &&
-        !/water/i.test(e.objectId ?? '') &&
-        !/water/i.test(e.name)
-    );
-    return tempE?.nodeId ?? undefined;
-  });
+  let climateDeviceId = $derived(ambientTempEntity?.nodeId ?? undefined);
 </script>
 
 <svelte:head>
