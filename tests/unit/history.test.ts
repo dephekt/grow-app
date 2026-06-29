@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { dashboardSnapshot } from '../../e2e/fixtures/dashboard-snapshot';
+import { liveSnapshot } from '../../e2e/fixtures/live-snapshot';
 import { isHistoryRange } from '../../src/lib/server/influx/query';
-import { resolveTrendSeries } from '../../src/lib/server/influx/trend-series';
+import { isTrendDomain, resolveDomainSeries } from '../../src/lib/server/influx/trend-domains';
 
 describe('isHistoryRange', () => {
   it('accepts the known ranges', () => {
@@ -17,20 +17,49 @@ describe('isHistoryRange', () => {
   });
 });
 
-describe('resolveTrendSeries', () => {
-  const resolved = resolveTrendSeries(dashboardSnapshot);
+describe('isTrendDomain', () => {
+  it('accepts the domains', () => {
+    for (const d of ['water', 'climate', 'thermal', 'substrate']) expect(isTrendDomain(d)).toBe(true);
+  });
+  it('rejects anything else', () => {
+    expect(isTrendDomain('air')).toBe(false);
+    expect(isTrendDomain(null)).toBe(false);
+  });
+});
 
-  it('resolves pH from the Atlas water_ph sensor', () => {
-    const ph = resolved.find((s) => s.key === 'ph');
-    expect(ph).toMatchObject({ node: 'atlas-hydro-monitor', entity: 'water_ph' });
+describe('resolveDomainSeries (live snapshot)', () => {
+  const water = resolveDomainSeries(liveSnapshot, 'water');
+  const climate = resolveDomainSeries(liveSnapshot, 'climate');
+  const thermal = resolveDomainSeries(liveSnapshot, 'thermal');
+
+  it('water = the five Atlas readings, all on the hydro device', () => {
+    expect(water.map((s) => s.entity).sort()).toEqual([
+      'water_ec',
+      'water_orp',
+      'water_ph',
+      'water_tds',
+      'water_temperature'
+    ]);
+    expect(water.every((s) => s.node === 'atlas-hydro-monitor')).toBe(true);
   });
 
-  it('resolves air temperature from the AtomS3U sensor, not the water probe', () => {
-    const air = resolved.find((s) => s.key === 'air_temp');
-    expect(air).toMatchObject({ node: 'atoms3u-sensor-rig', entity: 'temperature' });
+  it('climate includes co2 / temperature / humidity from the AtomS3U rig', () => {
+    const entities = climate.map((s) => s.entity);
+    expect(entities).toContain('co2');
+    expect(entities).toContain('temperature');
+    expect(entities).toContain('humidity');
+    expect(climate.every((s) => s.node === 'atoms3u-sensor-rig')).toBe(true);
   });
 
-  it('omits CO2 when the site has no CO2 sensor discovered', () => {
-    expect(resolved.find((s) => s.key === 'co2')).toBeUndefined();
+  it('thermal = the MLX90640 min/mean/max array temps', () => {
+    expect(thermal.map((s) => s.entity).sort()).toEqual([
+      'mlx90640_max_temp',
+      'mlx90640_mean_temp',
+      'mlx90640_min_temp'
+    ]);
+  });
+
+  it('substrate is empty (no probe deployed yet)', () => {
+    expect(resolveDomainSeries(liveSnapshot, 'substrate')).toEqual([]);
   });
 });

@@ -1,186 +1,176 @@
 <script lang="ts">
-  const VW = 700;
-  const MARGIN = { top: 14, right: 46, bottom: 18, left: 12 };
+  import { onMount, untrack } from 'svelte';
+  import uPlot from 'uplot';
+  import 'uplot/dist/uPlot.min.css';
 
-  const COLOR_MAP: Record<string, string> = {
-    amber: 'var(--amber)',
-    cyan: 'var(--cyan)',
-    muted: 'var(--muted)'
-  };
-  const STROKE_MAP: Record<string, number> = { amber: 2, cyan: 1.6, muted: 1.3 };
+  type Pt = { t: string; v: number };
+  type Series = { key: string; label: string; unit: string; points: Pt[] };
 
-  type HistoryPoint = { t: string; v: number };
-  type HistorySeries = {
-    key: string;
-    label: string;
-    color: 'amber' | 'cyan' | 'muted';
-    points: HistoryPoint[];
-  };
+  let { series = [], height = 320 } = $props<{ series?: Series[]; height?: number }>();
 
-  let { series = [], height = 240 } = $props<{
-    series?: HistorySeries[];
-    height?: number;
-  }>();
+  let el: HTMLDivElement;
+  let plot: uPlot | null = null;
+  let structureSig = '';
 
-  let isEmpty = $derived(
-    series.length === 0 || series.every((s: HistorySeries) => s.points.length === 0)
-  );
-
-  let chartW = $derived(VW - MARGIN.left - MARGIN.right);
-  let chartH = $derived(height - MARGIN.top - MARGIN.bottom);
-
-  // Only the time axis is shared. Each series is normalised to its OWN value range
-  // (below) so metrics with very different units — pH ~6, air ~25, CO₂ ~900 — are
-  // all legible as trend shapes in a single plot rather than three flat lines.
-  let timeScale = $derived.by(() => {
-    const times = series.flatMap((s: HistorySeries) =>
-      s.points.map((p: HistoryPoint) => new Date(p.t).getTime())
-    );
-    if (times.length === 0) return null;
-    const tMin = Math.min(...times);
-    const tMax = Math.max(...times);
-    return { tMin, tSpan: tMax - tMin || 1 };
-  });
-
-  type SeriesPath = {
-    key: string;
-    color: string;
-    stroke: number;
-    pts: string;
-    latest: number | null;
-    label: string;
-  };
-
-  let paths = $derived.by((): SeriesPath[] => {
-    const ts = timeScale;
-    if (!ts) return [];
-    const cH = chartH;
-    const cW = chartW;
-
-    return series.map((s: HistorySeries) => {
-      const color = COLOR_MAP[s.color] ?? 'var(--muted)';
-      const stroke = STROKE_MAP[s.color] ?? 1.5;
-      if (s.points.length === 0) {
-        return { key: s.key, color, stroke, pts: '', latest: null, label: s.label };
-      }
-
-      const vals = s.points.map((p: HistoryPoint) => p.v);
-      const vMin = Math.min(...vals);
-      const vMax = Math.max(...vals);
-      const pad = (vMax - vMin || 1) * 0.08;
-      const lo = vMin - pad;
-      const range = vMax + pad - lo || 1;
-
-      const pts = s.points
-        .map((p: HistoryPoint) => {
-          const x = ((new Date(p.t).getTime() - ts.tMin) / ts.tSpan) * cW;
-          const y = cH - ((p.v - lo) / range) * cH;
-          return `${x.toFixed(1)},${y.toFixed(1)}`;
-        })
-        .join(' ');
-
-      return { key: s.key, color, stroke, pts, latest: s.points.at(-1)?.v ?? null, label: s.label };
-    });
-  });
-
-  // Evenly spaced reference lines (no value labels — the y-axis is multi-scale).
-  let gridLines = $derived.by(() => {
-    if (!timeScale) return [];
-    return [0.25, 0.5, 0.75].map((frac) => (chartH - frac * chartH).toFixed(1));
-  });
-
-  function fmt(v: number | null): string {
-    if (v === null) return '—';
-    return Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2);
+  function cssVar(name: string, fallback: string): string {
+    if (typeof document === 'undefined') return fallback;
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
   }
+
+  function palette(): string[] {
+    return [
+      cssVar('--amber', '#ffb000'),
+      cssVar('--cyan', '#38d6c8'),
+      cssVar('--ok', '#3fb950'),
+      cssVar('--alert', '#f0563a'),
+      '#a06bff',
+      '#e4c441',
+      '#ff8a5c',
+      '#6bb3ff'
+    ];
+  }
+
+  function secs(t: string): number {
+    return Math.floor(new Date(t).getTime() / 1000);
+  }
+
+  function buildData(s: Series[]): uPlot.AlignedData {
+    const times = new Set<number>();
+    for (const ser of s) for (const p of ser.points) times.add(secs(p.t));
+    const xs = [...times].sort((a, b) => a - b);
+    const idx = new Map(xs.map((t, i) => [t, i]));
+    const ys = s.map((ser) => {
+      const arr = new Array<number | null>(xs.length).fill(null);
+      for (const p of ser.points) {
+        const i = idx.get(secs(p.t));
+        if (i != null) arr[i] = p.v;
+      }
+      return arr;
+    });
+    return [xs, ...ys] as uPlot.AlignedData;
+  }
+
+  function buildOpts(s: Series[], width: number): uPlot.Options {
+    const colors = palette();
+    const axisColor = cssVar('--muted', '#8a9099');
+    const grid = 'rgba(255,255,255,0.06)';
+    const units = new Set(s.map((x) => x.unit).filter(Boolean));
+    // Same-unit series share a scale (directly comparable); disparate units each get
+    // their own auto-ranged scale so every line stays visible. Only show y-axis tick
+    // values when the whole domain shares one unit, else they'd imply a false scale.
+    const singleUnit = units.size === 1;
+    const yScale = s[0]?.unit || s[0]?.key || 'y';
+    const mono = '11px "IBM Plex Mono", ui-monospace, monospace';
+
+    return {
+      width,
+      height,
+      cursor: { drag: { x: true, y: false }, points: { size: 6 } },
+      legend: { live: true },
+      series: [
+        {},
+        ...s.map((ser, i) => ({
+          label: ser.unit ? `${ser.label} (${ser.unit})` : ser.label,
+          scale: ser.unit || ser.key,
+          stroke: colors[i % colors.length],
+          width: 1.5,
+          points: { show: false },
+          spanGaps: true
+        }))
+      ],
+      axes: [
+        { stroke: axisColor, grid: { stroke: grid, width: 1 }, ticks: { stroke: grid, width: 1 }, font: mono },
+        {
+          scale: yScale,
+          stroke: axisColor,
+          grid: { stroke: grid, width: 1 },
+          ticks: { show: false },
+          size: singleUnit ? 48 : 10,
+          values: singleUnit ? undefined : () => [],
+          font: mono
+        }
+      ]
+    };
+  }
+
+  function render(s: Series[]) {
+    if (!el) return;
+    const data = buildData(s);
+    const haveData = (data[0] as number[]).length > 0;
+    const sig = s.map((x) => `${x.key}:${x.unit}`).join(',');
+    if (!s.length || !haveData) {
+      plot?.destroy();
+      plot = null;
+      structureSig = '';
+      return;
+    }
+    if (!plot || sig !== structureSig) {
+      plot?.destroy();
+      plot = new uPlot(buildOpts(s, el.clientWidth || 600), data, el);
+      structureSig = sig;
+    } else {
+      plot.setData(data);
+    }
+  }
+
+  onMount(() => {
+    const ro = new ResizeObserver(() => {
+      if (plot && el) plot.setSize({ width: el.clientWidth, height });
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      plot?.destroy();
+      plot = null;
+    };
+  });
+
+  $effect(() => {
+    const s = series;
+    untrack(() => render(s));
+  });
+
+  let isEmpty = $derived(series.length === 0 || series.every((x: Series) => x.points.length === 0));
 </script>
 
-{#if isEmpty}
-  <div class="empty-state">No history yet</div>
-{:else}
-  <div class="chart-wrap">
-    <svg viewBox="0 0 {VW} {height}" style="width:100%;height:{height}px;display:block;" aria-label="Trends chart">
-      <g transform="translate({MARGIN.left},{MARGIN.top})">
-        {#each gridLines as y (y)}
-          <line x1="0" y1={y} x2={chartW} y2={y} stroke="rgba(255,255,255,0.05)" stroke-width="1" />
-        {/each}
-
-        {#each paths as path (path.key)}
-          {#if path.pts}
-            <polyline
-              points={path.pts}
-              fill="none"
-              stroke={path.color}
-              stroke-width={path.stroke}
-              stroke-linejoin="round"
-              stroke-linecap="round"
-            />
-          {/if}
-        {/each}
-
-        <text
-          x={chartW + 4}
-          y="0"
-          text-anchor="start"
-          dominant-baseline="hanging"
-          fill="var(--faint)"
-          font-size="10"
-          font-family="var(--font-mono)">NOW</text>
-      </g>
-    </svg>
-
-    <div class="legend">
-      {#each series as s, i (s.key)}
-        {@const path = paths[i]}
-        <div class="legend-item">
-          <svg width="20" height="3" aria-hidden="true" style="flex:none;">
-            <rect width="20" height="2" y="0" fill={COLOR_MAP[s.color] ?? 'var(--muted)'} rx="1" />
-          </svg>
-          <span class="legend-label">{s.label}</span>
-          <span class="mono legend-value" style="color:{COLOR_MAP[s.color] ?? 'var(--muted)'}">{fmt(path?.latest ?? null)}</span>
-        </div>
-      {/each}
-    </div>
-  </div>
-{/if}
+<div class="trends-chart">
+  <div bind:this={el} class="uplot-host" style="min-height:{height}px"></div>
+  {#if isEmpty}
+    <div class="empty-state" style="height:{height}px">No history yet</div>
+  {/if}
+</div>
 
 <style>
-  .chart-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  .trends-chart {
+    width: 100%;
   }
-
+  .uplot-host {
+    width: 100%;
+  }
   .empty-state {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 200px;
     color: var(--faint);
     font-size: 0.85rem;
     font-family: var(--font-mono);
   }
 
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 18px;
-    padding: 0 4px;
-  }
-
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.78rem;
+  /* Dark-theme uPlot's HTML legend (click a series to toggle it). */
+  :global(.trends-chart .u-legend) {
     color: var(--muted);
+    font-size: 0.74rem;
+    margin-top: 8px;
   }
-
-  .legend-label {
+  :global(.trends-chart .u-legend .u-value) {
     color: var(--text);
+    font-family: var(--font-mono);
   }
-
-  .legend-value {
-    font-size: 0.78rem;
+  :global(.trends-chart .u-legend .u-series.u-off) {
+    opacity: 0.4;
+  }
+  :global(.trends-chart .u-legend .u-series th) {
+    cursor: pointer;
+    font-weight: 500;
   }
 </style>
