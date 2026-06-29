@@ -42,3 +42,47 @@ test('dashboard', async ({ page }, testInfo) => {
   await page.waitForTimeout(900);
   await page.screenshot({ path: testInfo.outputPath(`dashboard-${testInfo.project.name}.png`), fullPage: true });
 });
+
+test('device-settings-calibration', async ({ page }, testInfo) => {
+  await page.route('**/api/firmware/devices/**/package**', (route) =>
+    route.fulfill({ json: { package: null } })
+  );
+  await page.goto('/device-settings?device=atlas-hydro-monitor&section=calibration');
+  await page.waitForTimeout(900);
+  await page.screenshot({
+    path: testInfo.outputPath(`device-settings-calibration-${testInfo.project.name}.png`),
+    fullPage: true
+  });
+});
+
+test('device-settings-alerts', async ({ page }, testInfo) => {
+  await page.route('**/api/firmware/devices/**/package**', (route) =>
+    route.fulfill({ json: { package: null } })
+  );
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
+  await page.waitForTimeout(900);
+  await page.screenshot({
+    path: testInfo.outputPath(`device-settings-alerts-${testInfo.project.name}.png`),
+    fullPage: true
+  });
+});
+
+test('device-settings-controls', async ({ page }, testInfo) => {
+  await page.route('**/api/firmware/devices/**/package**', (route) => route.fulfill({ json: { package: null } }));
+  await page.goto('/device-settings?device=atlas-hydro-monitor&section=controls');
+  await page.waitForTimeout(900);
+  await page.screenshot({
+    path: testInfo.outputPath(`device-settings-controls-${testInfo.project.name}.png`),
+    fullPage: true
+  });
+});
+
+test('device-settings-updates', async ({ page }, testInfo) => {
+  await page.route('**/api/firmware/devices/**/package**', (route) => route.fulfill({ json: { package: null } }));
+  await page.goto('/device-settings?device=atlas-hydro-monitor&section=updates');
+  await page.waitForTimeout(900);
+  await page.screenshot({
+    path: testInfo.outputPath(`device-settings-updates-${testInfo.project.name}.png`),
+    fullPage: true
+  });
+});
