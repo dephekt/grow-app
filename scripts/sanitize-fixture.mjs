@@ -19,9 +19,12 @@ for (const [id, state] of Object.entries(snap.states ?? {})) {
 for (const e of snap.entities) e.raw = {};
 
 let json = JSON.stringify(snap, null, 2);
-// LAN IPs -> RFC5737 TEST-NET-1 (keep last octet for shape).
-json = json.replace(/192\.168\.\d+\.(\d+)/g, '192.0.2.$1');
-// Known device MACs (no-colon identifiers and colon forms) -> placeholders.
+// Private (RFC1918) LAN IPs -> RFC5737 TEST-NET-1 (keep last octet for shape).
+json = json
+  .replace(/\b10\.\d{1,3}\.\d{1,3}\.(\d{1,3})\b/g, '192.0.2.$1')
+  .replace(/\b172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.(\d{1,3})\b/g, '192.0.2.$1')
+  .replace(/\b192\.168\.\d{1,3}\.(\d{1,3})\b/g, '192.0.2.$1');
+// Known device MACs (no-colon identifiers and colon forms) -> distinct placeholders.
 const macMap = {
   '30eda0c8f338': '0123456789ab',
   f024f9e85d04: 'fedcba987654',
@@ -29,8 +32,11 @@ const macMap = {
   'F0:24:F9:E8:5D:04': '02:00:00:00:00:0b'
 };
 for (const [k, v] of Object.entries(macMap)) json = json.split(k).join(v);
-// Catch any remaining colon-MACs.
-json = json.replace(/\b([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b/g, '02:00:00:00:00:ff');
+// Catch any *other* colon-MAC, but never the distinct placeholders just assigned
+// (else the two devices' MACs would collapse to one).
+json = json.replace(/\b([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b/g, (m) =>
+  /^02:00:00:00:00:0[ab]$/i.test(m) ? m : '02:00:00:00:00:ff'
+);
 
 const header = `import type { Snapshot } from '../../src/lib/server/mqtt/types';
 

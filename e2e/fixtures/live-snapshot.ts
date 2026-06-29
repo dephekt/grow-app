@@ -11,13 +11,13 @@ export const liveSnapshot = {
   "site": "daniel-home",
   "topicPrefix": "grow/daniel-home",
   "discoveryPrefix": "grow/daniel-home/_discovery",
-  "generatedAt": "2026-06-29T07:31:19.393Z",
+  "generatedAt": "2026-06-29T10:05:27.283Z",
   "broker": {
     "connected": true,
     "connecting": false,
     "error": null,
-    "lastConnectedAt": "2026-06-29T07:13:40.550Z",
-    "lastMessageAt": "2026-06-29T07:31:19.387Z"
+    "lastConnectedAt": "2026-06-29T08:55:35.095Z",
+    "lastMessageAt": "2026-06-29T10:05:26.725Z"
   },
   "devices": [
     {
@@ -3985,435 +3985,435 @@ export const liveSnapshot = {
   "states": {
     "espnumberthermal_update_interval": {
       "value": "2000.000000",
-      "updatedAt": "2026-06-29T07:13:40.560Z"
+      "updatedAt": "2026-06-29T08:55:35.103Z"
     },
     "espnumberroi_center_row": {
       "value": "15.000000",
-      "updatedAt": "2026-06-29T07:13:40.560Z"
+      "updatedAt": "2026-06-29T08:55:35.103Z"
     },
     "espnumberroi_center_column": {
       "value": "11.000000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.111Z"
     },
     "espnumberroi_size": {
       "value": "1.000000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumberco2_high_threshold": {
       "value": "1500.000000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumberco2_low_threshold": {
       "value": "800.000000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumbertemperature_high_threshold": {
       "value": "30.000000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumbertemperature_low_threshold": {
       "value": "18.000000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumberhumidity_high_threshold": {
       "value": "70.000000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumberhumidity_low_threshold": {
       "value": "40.000000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumbervpd_high_threshold": {
       "value": "1.500000",
-      "updatedAt": "2026-06-29T07:13:40.576Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumbervpd_low_threshold": {
       "value": "0.400000",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espnumberec_tds_conversion_factor": {
       "value": "0.500000",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espselectthermal_color_palette": {
       "value": "rainbow",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.112Z"
     },
     "espselectec_cell_constant": {
       "value": "1.0",
-      "updatedAt": "2026-06-29T07:31:07.008Z"
+      "updatedAt": "2026-06-29T10:05:17.037Z"
     },
     "espswitchroi_enabled": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:22:20.347Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchthermal_overlay_enable": {
       "value": "ON",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchenable_ph_circuit": {
       "value": "ON",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchenable_ec_circuit": {
       "value": "ON",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchenable_aux_circuit": {
       "value": "ON",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchenable_rtd_circuit": {
       "value": "ON",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchph_temperature_compensation": {
       "value": "ON",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchec_temperature_compensation": {
       "value": "ON",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchph_calibration_mode": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchec_calibration_mode": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.577Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espswitchorp_extended_scale": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.578Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espsensormlx90640_min_temp": {
-      "value": "22.1",
-      "updatedAt": "2026-06-29T07:31:19.372Z"
+      "value": "22.6",
+      "updatedAt": "2026-06-29T10:05:26.701Z"
     },
     "espsensormlx90640_max_temp": {
-      "value": "31.6",
-      "updatedAt": "2026-06-29T07:31:19.381Z"
+      "value": "32.2",
+      "updatedAt": "2026-06-29T10:05:26.704Z"
     },
     "espsensormlx90640_mean_temp": {
-      "value": "24.3",
-      "updatedAt": "2026-06-29T07:31:19.381Z"
+      "value": "25.2",
+      "updatedAt": "2026-06-29T10:05:26.704Z"
     },
     "espsensormlx90640_roi_min_temp": {
       "value": "23.0",
-      "updatedAt": "2026-06-29T07:22:19.070Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espsensormlx90640_roi_max_temp": {
       "value": "23.8",
-      "updatedAt": "2026-06-29T07:22:19.070Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espsensormlx90640_roi_mean_temp": {
       "value": "23.5",
-      "updatedAt": "2026-06-29T07:22:19.070Z"
+      "updatedAt": "2026-06-29T08:55:35.113Z"
     },
     "espsensorco2": {
-      "value": "750",
-      "updatedAt": "2026-06-29T07:31:05.388Z"
+      "value": "827",
+      "updatedAt": "2026-06-29T10:04:44.518Z"
     },
     "espsensortemperature": {
-      "value": "24.47",
-      "updatedAt": "2026-06-29T07:31:05.390Z"
+      "value": "25.63",
+      "updatedAt": "2026-06-29T10:04:44.530Z"
     },
     "espsensorhumidity": {
-      "value": "59.24",
-      "updatedAt": "2026-06-29T07:31:05.391Z"
+      "value": "61.43",
+      "updatedAt": "2026-06-29T10:04:44.531Z"
     },
     "espsensorbps_temperature": {
-      "value": "23.8",
-      "updatedAt": "2026-06-29T07:31:07.414Z"
+      "value": "25.1",
+      "updatedAt": "2026-06-29T10:04:46.558Z"
     },
     "espsensorbarometric_pressure": {
-      "value": "990.0",
-      "updatedAt": "2026-06-29T07:31:07.414Z"
+      "value": "991.4",
+      "updatedAt": "2026-06-29T10:04:46.561Z"
     },
     "espsensorilluminance": {
-      "value": "52.2",
-      "updatedAt": "2026-06-29T07:31:06.098Z"
+      "value": "41.3",
+      "updatedAt": "2026-06-29T10:05:15.373Z"
     },
     "espsensoruptime": {
-      "value": "84842",
-      "updatedAt": "2026-06-29T07:31:05.355Z"
+      "value": "94061",
+      "updatedAt": "2026-06-29T10:04:44.511Z"
     },
     "espsensorwifi_signal": {
-      "value": "-41",
-      "updatedAt": "2026-06-29T07:31:05.358Z"
+      "value": "-38",
+      "updatedAt": "2026-06-29T10:04:44.515Z"
     },
     "espsensorvpd": {
-      "value": "1.26",
-      "updatedAt": "2026-06-29T07:31:03.308Z"
+      "value": "1.27",
+      "updatedAt": "2026-06-29T10:05:12.652Z"
     },
     "espsensordaily_max_co2": {
       "value": "1098",
-      "updatedAt": "2026-06-29T07:31:03.315Z"
+      "updatedAt": "2026-06-29T10:05:12.656Z"
     },
     "espsensordaily_min_temperature": {
       "value": "23",
-      "updatedAt": "2026-06-29T07:31:03.316Z"
+      "updatedAt": "2026-06-29T10:05:12.657Z"
     },
     "espsensordaily_max_temperature": {
-      "value": "25",
-      "updatedAt": "2026-06-29T07:31:03.316Z"
+      "value": "26",
+      "updatedAt": "2026-06-29T10:05:12.657Z"
     },
     "espsensorco2_moving_average": {
-      "value": "754",
-      "updatedAt": "2026-06-29T07:31:19.385Z"
+      "value": "827",
+      "updatedAt": "2026-06-29T10:05:23.664Z"
     },
     "espsensortemperature_moving_average": {
-      "value": "24",
-      "updatedAt": "2026-06-29T07:31:19.387Z"
+      "value": "26",
+      "updatedAt": "2026-06-29T10:05:23.668Z"
     },
     "espsensorip_address": {
       "value": "redacted",
-      "updatedAt": "2026-06-29T07:13:40.579Z"
+      "updatedAt": "2026-06-29T08:55:35.114Z"
     },
     "espsensoresp_version": {
       "value": "2026.5.3 (config hash 0x9a4631a1)",
-      "updatedAt": "2026-06-29T07:13:40.579Z"
+      "updatedAt": "2026-06-29T08:55:35.114Z"
     },
     "espsensorconnected_ssid": {
       "value": "redacted",
-      "updatedAt": "2026-06-29T07:13:40.579Z"
+      "updatedAt": "2026-06-29T08:55:35.114Z"
     },
     "espsensorconnected_bssid": {
       "value": "redacted",
-      "updatedAt": "2026-06-29T07:13:40.579Z"
+      "updatedAt": "2026-06-29T08:55:35.114Z"
     },
     "espsensormac_address": {
       "value": "redacted",
-      "updatedAt": "2026-06-29T07:13:40.579Z"
+      "updatedAt": "2026-06-29T08:55:35.115Z"
     },
     "espsensordns_address": {
       "value": "192.0.2.1 0.0.0.0",
-      "updatedAt": "2026-06-29T07:13:40.579Z"
+      "updatedAt": "2026-06-29T08:55:35.115Z"
     },
     "atlas_hydro_monitor_espsensorip_address": {
       "value": "redacted",
-      "updatedAt": "2026-06-29T07:13:40.579Z"
+      "updatedAt": "2026-06-29T08:55:35.115Z"
     },
     "espsensorwater_ph": {
-      "value": "6.149",
-      "updatedAt": "2026-06-29T07:31:15.206Z"
+      "value": "6.214",
+      "updatedAt": "2026-06-29T10:05:25.267Z"
     },
     "espsensorph_voltage": {
       "value": "3.860",
-      "updatedAt": "2026-06-29T07:31:15.550Z"
+      "updatedAt": "2026-06-29T10:05:25.601Z"
     },
     "espsensorph_reset_reason": {
       "value": "Powered off",
-      "updatedAt": "2026-06-29T07:31:15.546Z"
+      "updatedAt": "2026-06-29T10:05:25.599Z"
     },
     "espsensorph_firmware_version": {
       "value": "2.17",
-      "updatedAt": "2026-06-29T07:13:40.579Z"
+      "updatedAt": "2026-06-29T08:55:35.115Z"
     },
     "espsensorph_calibration_status": {
       "value": "Three Point",
-      "updatedAt": "2026-06-29T07:30:41.208Z"
+      "updatedAt": "2026-06-29T10:04:26.610Z"
     },
     "espsensorph_current_command": {
-      "value": "RT,24.69 (READ)",
-      "updatedAt": "2026-06-29T07:31:19.325Z"
+      "value": "(empty)",
+      "updatedAt": "2026-06-29T10:05:25.941Z"
     },
     "espsensorph_next_command": {
-      "value": "STATUS (CUSTOM)",
-      "updatedAt": "2026-06-29T07:31:19.325Z"
+      "value": "(none)",
+      "updatedAt": "2026-06-29T10:05:25.602Z"
     },
     "espsensorph_last_command": {
       "value": "T,?",
-      "updatedAt": "2026-06-29T07:31:15.879Z"
+      "updatedAt": "2026-06-29T10:05:25.941Z"
     },
     "espsensorph_queue_size": {
-      "value": "3",
-      "updatedAt": "2026-06-29T07:31:19.325Z"
+      "value": "0",
+      "updatedAt": "2026-06-29T10:05:25.940Z"
     },
     "espsensorph_temperature_compensation": {
-      "value": "24.69",
-      "updatedAt": "2026-06-29T07:31:15.873Z"
+      "value": "24.91",
+      "updatedAt": "2026-06-29T10:05:25.935Z"
     },
     "espsensorwater_ec": {
-      "value": "1",
-      "updatedAt": "2026-06-29T07:31:16.002Z"
+      "value": "0",
+      "updatedAt": "2026-06-29T10:05:26.078Z"
     },
     "espsensorec_voltage": {
       "value": "3.880",
-      "updatedAt": "2026-06-29T07:31:16.322Z"
+      "updatedAt": "2026-06-29T10:05:26.384Z"
     },
     "espsensorec_reset_reason": {
       "value": "Powered off",
-      "updatedAt": "2026-06-29T07:31:16.320Z"
+      "updatedAt": "2026-06-29T10:05:26.382Z"
     },
     "espsensorec_firmware_version": {
       "value": "2.17",
-      "updatedAt": "2026-06-29T07:13:40.581Z"
+      "updatedAt": "2026-06-29T08:55:35.116Z"
     },
     "espsensorec_calibration_status": {
       "value": "Three Point",
-      "updatedAt": "2026-06-29T07:30:42.012Z"
+      "updatedAt": "2026-06-29T10:04:27.403Z"
     },
     "espsensorec_current_command": {
       "value": "(empty)",
-      "updatedAt": "2026-06-29T07:31:16.664Z"
+      "updatedAt": "2026-06-29T10:05:26.725Z"
     },
     "espsensorec_next_command": {
       "value": "(none)",
-      "updatedAt": "2026-06-29T07:31:16.331Z"
+      "updatedAt": "2026-06-29T10:05:26.390Z"
     },
     "espsensorec_last_command": {
       "value": "T,?",
-      "updatedAt": "2026-06-29T07:31:16.664Z"
+      "updatedAt": "2026-06-29T10:05:26.725Z"
     },
     "espsensorec_queue_size": {
       "value": "0",
-      "updatedAt": "2026-06-29T07:31:16.662Z"
+      "updatedAt": "2026-06-29T10:05:26.723Z"
     },
     "espsensorec_temperature_compensation": {
-      "value": "24.69",
-      "updatedAt": "2026-06-29T07:31:16.659Z"
+      "value": "24.91",
+      "updatedAt": "2026-06-29T10:05:26.720Z"
     },
     "espsensorwater_temperature": {
-      "value": "24.696",
-      "updatedAt": "2026-06-29T07:31:16.162Z"
+      "value": "24.912",
+      "updatedAt": "2026-06-29T10:05:26.226Z"
     },
     "espsensorrtd_voltage": {
-      "value": "5.020",
-      "updatedAt": "2026-06-29T07:31:16.501Z"
+      "value": "5.010",
+      "updatedAt": "2026-06-29T10:05:26.565Z"
     },
     "espsensorrtd_reset_reason": {
       "value": "Powered off",
-      "updatedAt": "2026-06-29T07:31:16.499Z"
+      "updatedAt": "2026-06-29T10:05:26.561Z"
     },
     "espsensorrtd_firmware_version": {
       "value": "2.14",
-      "updatedAt": "2026-06-29T07:30:56.832Z"
+      "updatedAt": "2026-06-29T10:05:06.898Z"
     },
     "espsensorrtd_calibration_status": {
       "value": "Factory",
-      "updatedAt": "2026-06-29T07:30:41.840Z"
+      "updatedAt": "2026-06-29T10:04:26.878Z"
     },
     "espsensorrtd_current_command": {
       "value": "(empty)",
-      "updatedAt": "2026-06-29T07:31:16.504Z"
+      "updatedAt": "2026-06-29T10:05:26.567Z"
     },
     "espsensorrtd_next_command": {
       "value": "(none)",
-      "updatedAt": "2026-06-29T07:31:16.169Z"
+      "updatedAt": "2026-06-29T10:05:26.228Z"
     },
     "espsensorrtd_last_command": {
       "value": "STATUS",
-      "updatedAt": "2026-06-29T07:31:16.508Z"
+      "updatedAt": "2026-06-29T10:05:26.567Z"
     },
     "espsensorrtd_queue_size": {
       "value": "0",
-      "updatedAt": "2026-06-29T07:31:16.504Z"
+      "updatedAt": "2026-06-29T10:05:26.567Z"
     },
     "espsensorwater_orp": {
-      "value": "153",
-      "updatedAt": "2026-06-29T07:31:15.636Z"
+      "value": "156",
+      "updatedAt": "2026-06-29T10:05:25.707Z"
     },
     "espsensororp_voltage": {
       "value": "3.770",
-      "updatedAt": "2026-06-29T07:31:15.970Z"
+      "updatedAt": "2026-06-29T10:05:26.078Z"
     },
     "espsensororp_reset_reason": {
       "value": "Powered off",
-      "updatedAt": "2026-06-29T07:31:15.966Z"
+      "updatedAt": "2026-06-29T10:05:26.035Z"
     },
     "espsensororp_firmware_version": {
       "value": "2.14",
-      "updatedAt": "2026-06-29T07:31:11.352Z"
+      "updatedAt": "2026-06-29T10:05:21.405Z"
     },
     "espsensororp_calibration_status": {
       "value": "User Calibrated",
-      "updatedAt": "2026-06-29T07:30:41.343Z"
+      "updatedAt": "2026-06-29T10:04:26.402Z"
     },
     "espsensororp_current_command": {
       "value": "(empty)",
-      "updatedAt": "2026-06-29T07:31:15.973Z"
+      "updatedAt": "2026-06-29T10:05:26.078Z"
     },
     "espsensororp_next_command": {
       "value": "(none)",
-      "updatedAt": "2026-06-29T07:31:15.642Z"
+      "updatedAt": "2026-06-29T10:05:25.710Z"
     },
     "espsensororp_last_command": {
       "value": "STATUS",
-      "updatedAt": "2026-06-29T07:31:15.973Z"
+      "updatedAt": "2026-06-29T10:05:26.078Z"
     },
     "espsensororp_queue_size": {
       "value": "0",
-      "updatedAt": "2026-06-29T07:31:15.972Z"
+      "updatedAt": "2026-06-29T10:05:26.078Z"
     },
     "atlas_hydro_monitor_espsensorwifi_signal": {
-      "value": "-62",
-      "updatedAt": "2026-06-29T07:31:02.081Z"
+      "value": "-64",
+      "updatedAt": "2026-06-29T10:05:02.138Z"
     },
     "atlas_hydro_monitor_espsensoruptime": {
-      "value": "114244",
-      "updatedAt": "2026-06-29T07:31:02.117Z"
+      "value": "123484",
+      "updatedAt": "2026-06-29T10:05:02.181Z"
     },
     "espsensorph_acid_slope_quality": {
       "value": "100.6",
-      "updatedAt": "2026-06-29T07:31:06.206Z"
+      "updatedAt": "2026-06-29T10:05:16.264Z"
     },
     "espsensorph_alkaline_slope_quality": {
       "value": "96.4",
-      "updatedAt": "2026-06-29T07:31:06.208Z"
+      "updatedAt": "2026-06-29T10:05:16.266Z"
     },
     "espsensorph_asymmetry_potential": {
       "value": "-13.69",
-      "updatedAt": "2026-06-29T07:31:06.211Z"
+      "updatedAt": "2026-06-29T10:05:16.266Z"
     },
     "espsensorwater_tds": {
       "value": "0",
-      "updatedAt": "2026-06-29T07:31:16.007Z"
+      "updatedAt": "2026-06-29T10:05:26.078Z"
     },
     "espbinary_sensorco2_high_alert": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "updatedAt": "2026-06-29T08:55:35.118Z"
     },
     "espbinary_sensorco2_low_alert": {
-      "value": "ON",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "value": "OFF",
+      "updatedAt": "2026-06-29T08:55:35.118Z"
     },
     "espbinary_sensortemperature_high_alert": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "updatedAt": "2026-06-29T08:55:35.119Z"
     },
     "espbinary_sensortemperature_low_alert": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "updatedAt": "2026-06-29T08:55:35.119Z"
     },
     "espbinary_sensorhumidity_high_alert": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "updatedAt": "2026-06-29T08:55:35.119Z"
     },
     "espbinary_sensorhumidity_low_alert": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "updatedAt": "2026-06-29T08:55:35.119Z"
     },
     "espbinary_sensorvpd_high_alert": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "updatedAt": "2026-06-29T08:55:35.119Z"
     },
     "espbinary_sensorvpd_low_alert": {
       "value": "OFF",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "updatedAt": "2026-06-29T08:55:35.119Z"
     },
     "espbinary_sensorhome_assistant_api_status": {
       "value": "online",
-      "updatedAt": "2026-06-29T07:13:40.583Z"
+      "updatedAt": "2026-06-29T08:55:35.119Z"
     },
     "espupdatefirmware_update": {
       "value": "{\"installed_version\":\"dev\",\"latest_version\":\"edge-20260628T112454Z-0f89e3686b5f\",\"title\":\"stackdrift.atoms3u-sensor-rig\",\"release_summary\":\"3 commits since edge-20260627T163826Z-033a9273cb7f\",\"release_url\":\"https://github.com/dephekt/grow-fleet/commit/0f89e3686b5f4f5a4c8f258d3f14e7f5d4a73186\"}",
-      "updatedAt": "2026-06-29T07:13:40.585Z"
+      "updatedAt": "2026-06-29T08:55:35.121Z"
     },
     "atlas_hydro_monitor_espupdatefirmware_update": {
       "value": "{\"installed_version\":\"edge-20260627T163826Z-033a9273cb7f\",\"latest_version\":\"edge-20260627T163826Z-033a9273cb7f\",\"title\":\"stackdrift.atlas-hydro-kit\",\"release_summary\":\"Initial edge firmware package for atlas-hydro-kit\",\"release_url\":\"https://github.com/dephekt/grow-fleet/commit/033a9273cb7f742b49067e22a9bfccbb750509e0\"}",
-      "updatedAt": "2026-06-29T07:13:40.585Z"
+      "updatedAt": "2026-06-29T08:55:35.121Z"
     }
   },
   "uiConfigs": {

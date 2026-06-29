@@ -1,8 +1,8 @@
 <script lang="ts">
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
-  import { isWaterPh, isCo2 } from '$lib/entity-match';
+  import { isNumericSensor, resolveClimateDevice, resolveWaterDevice } from '$lib/entity-match';
   import { dashboardPresentation } from '$lib/device-presentation';
-  import type { DeviceSnapshot, EntityConfig } from '$lib/server/mqtt/types';
+  import type { DeviceSnapshot } from '$lib/server/mqtt/types';
   import TrendsPanel from '$lib/dashboard/TrendsPanel.svelte';
   import ThermalPanel from '$lib/dashboard/ThermalPanel.svelte';
   import ReadoutPanel from '$lib/dashboard/ReadoutPanel.svelte';
@@ -11,26 +11,22 @@
 
   type Row = { label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' };
 
-  function deviceOwning(pred: (e: EntityConfig) => boolean): DeviceSnapshot | undefined {
-    const e = live.snapshot.entities.find(pred);
-    return e?.nodeId ? live.snapshot.devices.find((d) => d.nodeId === e.nodeId) : undefined;
-  }
-
-  // The hydro controller (owns the pH probe) feeds WATER; the air/climate rig (CO2,
-  // else humidity) feeds CLIMATE. Both readout sets come straight from each device's
-  // firmware-declared dashboard metrics (role:metric in its overview group) — no
-  // hardcoded entity ids, so every probe the firmware exposes shows up.
-  let waterDevice = $derived(deviceOwning(isWaterPh));
-  let climateDevice = $derived(
-    deviceOwning(isCo2) ?? deviceOwning((e) => e.component === 'sensor' && e.deviceClass === 'humidity')
-  );
+  // The hydro controller (pH, else the water-temp probe) feeds WATER; the air rig
+  // (CO₂, else humidity, else a bare ambient temp) feeds CLIMATE. The resolvers are
+  // shared with the trend charts (`$lib/entity-match`) so readout and trends always
+  // agree on the device. Readout rows come straight from each device's firmware-
+  // declared dashboard metrics (role:metric in its overview group) — no hardcoded ids.
+  let waterDevice = $derived(resolveWaterDevice(live.snapshot));
+  let climateDevice = $derived(resolveClimateDevice(live.snapshot));
 
   function metricRows(device: DeviceSnapshot | undefined, stripPrefix = ''): Row[] {
     if (!device) return [];
-    return dashboardPresentation(live.snapshot, device).metrics.map((m) => {
-      const label = stripPrefix && m.label.startsWith(stripPrefix) ? m.label.slice(stripPrefix.length) : m.label;
-      return { label, value: live.formatState(m.entity), status: 'ok' };
-    });
+    return dashboardPresentation(live.snapshot, device)
+      .metrics.filter((m) => isNumericSensor(m.entity))
+      .map((m) => {
+        const label = stripPrefix && m.label.startsWith(stripPrefix) ? m.label.slice(stripPrefix.length) : m.label;
+        return { label, value: live.formatState(m.entity), status: 'ok' };
+      });
   }
 
   let waterRows = $derived(metricRows(waterDevice, 'Water '));

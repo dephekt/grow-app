@@ -18,7 +18,7 @@ echo "Capturing /api/snapshot from $CTX:grow-app-site …"
 docker --context "$CTX" exec grow-app-site sh -c \
   'node -e "fetch(\"http://127.0.0.1:3000/api/snapshot\").then(r=>r.text()).then(t=>process.stdout.write(t))"' > "$RAW"
 
-CAM="$(node -e "const s=require('$RAW'); const c=s.entities.find(e=>e.component==='camera'); process.stdout.write(c?c.id:'')")"
+CAM="$(node -e "const s=JSON.parse(require('fs').readFileSync('$RAW','utf8')); const c=s.entities.find(e=>e.component==='camera'); process.stdout.write(c?c.id:'')")"
 if [ -n "$CAM" ]; then
   echo "Capturing thermal frame ($CAM) …"
   docker --context "$CTX" exec grow-app-site sh -c \
