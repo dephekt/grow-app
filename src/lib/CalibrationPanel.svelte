@@ -136,18 +136,37 @@
     return null;
   }
 
+  const PROBE_READING: Record<ProbeType, { objectId: string; deviceClass?: string; units: string[] }> = {
+    ph: { objectId: 'water_ph', deviceClass: 'ph', units: ['ph'] },
+    ec: { objectId: 'water_ec', deviceClass: 'conductivity', units: ['µs/cm', 'ms/cm', 'us/cm'] },
+    rtd: { objectId: 'water_temperature', deviceClass: 'temperature', units: ['°c'] },
+    orp: { objectId: 'water_orp', units: ['mv'] }
+  };
+
+  // Reject the probe's *sub*-readings — raw electrode voltage, slope/asymmetry
+  // quality, temperature compensation, and queue/firmware/status diagnostics — so
+  // the live reading is the actual pH / EC / temp / ORP value, not e.g. a slope %.
+  function isProbeReading(e: EntityConfig): boolean {
+    const oid = (e.objectId ?? '').toLowerCase();
+    return !/(voltage|slope|asymmetry|queue|firmware|version|status|command|compensation|calibrat|reset|k_value|k_type)/.test(
+      oid
+    );
+  }
+
   function findLiveSensor(type: ProbeType, entities: EntityConfig[]): EntityConfig | null {
-    return entities.find((e) => {
-      if (e.component !== 'sensor') return false;
-      const oid = (e.objectId ?? e.id).toLowerCase();
-      const dc = (e.deviceClass ?? '').toLowerCase();
-      const nm = (e.name ?? '').toLowerCase();
-      if (type === 'ph') return dc === 'ph' || oid.includes('water_ph') || (oid.includes('ph') && !oid.includes('cal') && !oid.includes('threshold'));
-      if (type === 'ec') return dc === 'conductivity' || oid.includes('water_ec') || (oid.includes('_ec') && !oid.includes('cal'));
-      if (type === 'rtd') return dc === 'temperature' || oid.includes('water_temperature') || (nm.includes('temperature') && !oid.includes('cal'));
-      if (type === 'orp') return dc === 'voltage' || oid.includes('water_orp') || (oid.includes('orp') && !oid.includes('cal'));
-      return false;
-    }) ?? null;
+    const want = PROBE_READING[type];
+    const sensors = entities.filter((e) => e.component === 'sensor' && isProbeReading(e));
+    // 1) the probe's canonical primary reading
+    const exact = sensors.find((s) => (s.objectId ?? '').toLowerCase() === want.objectId);
+    if (exact) return exact;
+    // 2) fall back to deviceClass / unit (sub-readings already excluded above)
+    return (
+      sensors.find(
+        (s) =>
+          (want.deviceClass !== undefined && (s.deviceClass ?? '').toLowerCase() === want.deviceClass) ||
+          want.units.includes((s.unit ?? '').toLowerCase())
+      ) ?? null
+    );
   }
 
   function buildProbes(groups: PresentedSection[], deviceEntities: EntityConfig[]): ProbeConfig[] {
