@@ -72,9 +72,9 @@
 
 <style>
   .camera-tile {
-    border: 1px solid #d7ded9;
-    border-radius: 8px;
-    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: var(--r-panel);
+    background: var(--panel);
     overflow: hidden;
   }
 
@@ -93,7 +93,7 @@
   }
 
   .updated {
-    color: #66736e;
+    color: var(--muted);
     font-size: 0.75rem;
     font-weight: normal;
   }
@@ -101,7 +101,7 @@
   .image-area {
     width: 100%;
     aspect-ratio: 4 / 3;
-    background: #f0f4f1;
+    background: var(--panel-2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -120,15 +120,15 @@
   }
 
   .offline-placeholder {
-    color: #66736e;
+    color: var(--muted);
     font-size: 0.9rem;
   }
 
   .caption {
     margin: 0;
     padding: 8px 16px;
-    color: #66736e;
+    color: var(--muted);
     font-size: 0.78rem;
-    border-top: 1px solid #e5ebe7;
+    border-top: 1px solid var(--line);
   }
 </style>

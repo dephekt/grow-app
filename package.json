@@ -20,6 +20,8 @@
     "design:screenshots": "playwright test e2e/design-screenshots.spec.ts"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/ibm-plex-sans": "^5.2.8",
     "@influxdata/influxdb-client": "^1.35.0",
     "@sveltejs/adapter-node": "^5.2.12",
     "@sveltejs/kit": "^2.22.5",
