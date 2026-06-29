@@ -12,7 +12,8 @@
     onCommand = () => {},
     available = true,
     intervalMs = 2000,
-    controlsCollapsible = false
+    controlsCollapsible = false,
+    showLabel = true
   } = $props<{
     entry: PresentedEntity;
     controls?: PresentedEntity[];
@@ -24,6 +25,9 @@
     intervalMs?: number;
     /** Tuck the controls behind a drawer, closed by default (dashboard tile). */
     controlsCollapsible?: boolean;
+    /** Show the camera name (header + caption). Off when an enclosing panel already
+        titles it (e.g. the dashboard `// THERMAL` panel), to avoid repeating the name. */
+    showLabel?: boolean;
   }>();
 
   let controlsOpen = $state(false);
@@ -42,8 +46,10 @@
 </script>
 
 <div class="camera-tile">
-  <div class="tile-header">
-    <h3>{entry.label}</h3>
+  <div class="tile-header" class:meta-only={!showLabel}>
+    {#if showLabel}
+      <h3>{entry.label}</h3>
+    {/if}
     <span class="updated">updated {updatedAt ? updatedAt.toLocaleTimeString() : '—'}</span>
   </div>
 
@@ -67,7 +73,9 @@
     {/if}
   </div>
 
-  <p class="caption">{entry.entity.name}</p>
+  {#if showLabel}
+    <p class="caption">{entry.entity.name}</p>
+  {/if}
 
   {#if controls.length > 0}
     {#if controlsCollapsible}
@@ -105,6 +113,11 @@
     align-items: center;
     padding: 12px 16px;
     font-weight: bold;
+  }
+
+  /* Name suppressed (panel titles it) — keep just the freshness stamp, right-aligned. */
+  .tile-header.meta-only {
+    justify-content: flex-end;
   }
 
   .tile-header h3 {

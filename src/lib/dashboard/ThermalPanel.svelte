@@ -38,6 +38,7 @@
       entry={camera.entry}
       controls={camera.quickControls}
       controlsCollapsible={true}
+      showLabel={false}
       states={live.snapshot.states}
       commandPending={live.commandPending}
       commandErrors={live.commandErrors}
