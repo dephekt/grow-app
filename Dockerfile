@@ -19,6 +19,9 @@ FROM deps AS build
 COPY . .
 RUN pnpm exec svelte-kit sync
 RUN pnpm build
+# Bundle the standalone history-recorder sidecar (esbuild is a dev dep, so build
+# it before pruning). Runtime deps (mqtt, influxdb-client) stay external.
+RUN pnpm build:recorder
 RUN pnpm prune --prod
 
 FROM docker.io/node:24-bookworm-slim AS runtime
@@ -31,6 +34,7 @@ WORKDIR /app
 
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/build ./build
+COPY --from=build /app/build-recorder ./build-recorder
 COPY --from=build /app/node_modules ./node_modules
 
 EXPOSE 3000

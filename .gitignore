@@ -4,6 +4,7 @@ node_modules
 .pnpm-state
 .svelte-kit
 build
+build-recorder
 coverage
 playwright-report
 test-results
