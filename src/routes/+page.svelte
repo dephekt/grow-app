@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
-  import { isNumericSensor, resolveClimateDevice, resolveWaterDevice } from '$lib/entity-match';
-  import { dashboardPresentation } from '$lib/device-presentation';
+  import { resolveClimateDevice, resolveWaterDevice } from '$lib/entity-match';
+  import { presentedNumericMetrics } from '$lib/device-presentation';
   import type { DeviceSnapshot } from '$lib/server/mqtt/types';
   import TrendsPanel from '$lib/dashboard/TrendsPanel.svelte';
   import ThermalPanel from '$lib/dashboard/ThermalPanel.svelte';
@@ -21,12 +21,11 @@
 
   function metricRows(device: DeviceSnapshot | undefined, stripPrefix = ''): Row[] {
     if (!device) return [];
-    return dashboardPresentation(live.snapshot, device)
-      .metrics.filter((m) => isNumericSensor(m.entity))
-      .map((m) => {
-        const label = stripPrefix && m.label.startsWith(stripPrefix) ? m.label.slice(stripPrefix.length) : m.label;
-        return { label, value: live.formatState(m.entity), status: 'ok' };
-      });
+    return presentedNumericMetrics(live.snapshot, device, stripPrefix).map((m) => ({
+      label: m.label,
+      value: live.formatState(m.entity),
+      status: 'ok'
+    }));
   }
 
   let waterRows = $derived(metricRows(waterDevice, 'Water '));
