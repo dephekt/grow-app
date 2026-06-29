@@ -60,7 +60,7 @@
       const objectId = (e.objectId ?? e.id).toLowerCase();
 
       if (e.component === 'number') {
-        const isThreshold = objectId.includes('threshold') || /(^|_)(high|low|min|max)(_|$)/.test(objectId);
+        const isThreshold = objectId.includes('threshold') || /(^|_)(high|low|min|max|limit)(_|$)/.test(objectId);
         if (isThreshold) {
           const prefix = extractMetricPrefix(objectId);
           const existing = thresholdMap.get(prefix) ?? { low: null, high: null };

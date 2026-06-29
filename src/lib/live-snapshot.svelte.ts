@@ -140,8 +140,12 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     return formatEntityState(entity, stateFor(entity));
   }
 
-  async function sendCommand(entity: EntityConfig, value?: unknown) {
-    if (entity.dangerous && !confirm(`Publish command for ${entity.name}?`)) return;
+  /** Resolves true only when the command was actually published successfully —
+   *  false on a cancelled dangerous-confirm or any error. Callers that gate state
+   *  on success (e.g. calibration marking a step done) must use the return value,
+   *  not the absence of an error (the cancel path records no error). */
+  async function sendCommand(entity: EntityConfig, value?: unknown): Promise<boolean> {
+    if (entity.dangerous && !confirm(`Publish command for ${entity.name}?`)) return false;
 
     commandPending = { ...commandPending, [entity.id]: true };
     commandErrors = { ...commandErrors, [entity.id]: '' };
@@ -156,9 +160,12 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         commandErrors = { ...commandErrors, [entity.id]: body.error ?? 'Command failed' };
+        return false;
       }
+      return true;
     } catch {
       commandErrors = { ...commandErrors, [entity.id]: 'Command failed' };
+      return false;
     } finally {
       commandPending = { ...commandPending, [entity.id]: false };
     }
