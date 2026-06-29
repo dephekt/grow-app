@@ -1,3 +1,4 @@
+import { isNumericSensor } from '$lib/entity-match';
 import type { DeviceSnapshot, DeviceUiConfig, DeviceUiEntity, DeviceUiGroup, EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
 export type DeviceSettingsSectionId = 'controls' | 'updates' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other';
@@ -190,6 +191,24 @@ export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot
   }));
 
   return { metrics, quickControls, cameras };
+}
+
+/**
+ * The numeric dashboard metrics a device exposes (firmware `role:metric`), optionally
+ * with a label prefix stripped. Single source for both the WATER/CLIMATE readouts
+ * (`routes/+page.svelte`) and their trend series (`server/influx/trend-domains.ts`), so
+ * the chartable-metric rule can't drift between them.
+ */
+export function presentedNumericMetrics(
+  snapshot: Snapshot,
+  device: DeviceSnapshot,
+  stripPrefix = ''
+): PresentedEntity[] {
+  return dashboardPresentation(snapshot, device)
+    .metrics.filter((m) => isNumericSensor(m.entity))
+    .map((m) =>
+      stripPrefix && m.label.startsWith(stripPrefix) ? { ...m, label: m.label.slice(stripPrefix.length) } : m
+    );
 }
 
 function groupSectionsByPanel(sections: PresentedSection[]): DeviceSettingsPanel[] {

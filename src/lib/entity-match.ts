@@ -51,6 +51,11 @@ export function isAmbientTemperature(e: EntityConfig): boolean {
   return true;
 }
 
+/** An MLX90640 thermal-array aggregate temperature (min/mean/max) — the THERMAL trend metrics. */
+export function isThermalArrayTemp(e: EntityConfig): boolean {
+  return isNumericSensor(e) && /mlx90640_(min|mean|max)_temp$/.test(e.objectId ?? '');
+}
+
 export function isCo2(e: EntityConfig): boolean {
   return (
     isNumericSensor(e) &&
@@ -88,4 +93,9 @@ export function resolveClimateDevice(snapshot: Snapshot): DeviceSnapshot | undef
     deviceOwning(snapshot, isHumidity) ??
     deviceOwning(snapshot, isAmbientTemperature)
   );
+}
+
+/** THERMAL panel/trends device: the rig carrying the MLX90640 thermal array. */
+export function resolveThermalDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
+  return deviceOwning(snapshot, isThermalArrayTemp);
 }

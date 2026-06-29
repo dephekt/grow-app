@@ -9,13 +9,16 @@
   let range = $state<Range>('6h');
   let series = $state<TrendSeries[]>([]);
 
+  let activeDomain = $derived(TREND_DOMAINS.find((d) => d.key === domain));
+  let isPlanned = $derived(activeDomain?.planned ?? false);
+
   // Refetch on domain or range change, race-guarded so a slow earlier request can't
-  // clobber the latest selection. Substrate is a static placeholder (never charts), so
-  // short-circuit it without hitting the history API.
+  // clobber the latest selection. A `planned` domain (e.g. substrate) is a static
+  // placeholder that never charts, so short-circuit without hitting the history API.
   $effect(() => {
     const d = domain;
     const r = range;
-    if (d === 'substrate') {
+    if (TREND_DOMAINS.find((x) => x.key === d)?.planned) {
       series = [];
       return;
     }
@@ -32,8 +35,6 @@
       cancelled = true;
     };
   });
-
-  let isSubstrate = $derived(domain === 'substrate');
 </script>
 
 <div class="panel trends-panel">
@@ -50,10 +51,10 @@
     </div>
   </div>
 
-  {#if isSubstrate}
+  {#if isPlanned}
     <div class="planned">
       <span class="planned-badge mono">NOT CONNECTED</span>
-      <p>Substrate trends appear once the Pulse Grow probe is connected.</p>
+      <p>{activeDomain?.label} trends appear once its probe is connected.</p>
     </div>
   {:else}
     <TrendsChart {series} height={300} />

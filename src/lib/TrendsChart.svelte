@@ -28,6 +28,14 @@
     ];
   }
 
+  // The theme CSS vars are constant for the page lifetime — resolve them once instead
+  // of hitting getComputedStyle on every structural rebuild (domain switch).
+  let themeCache: { colors: string[]; axis: string } | null = null;
+  function theme() {
+    if (!themeCache) themeCache = { colors: palette(), axis: cssVar('--muted', '#8a9099') };
+    return themeCache;
+  }
+
   function secs(t: string): number {
     return Math.floor(new Date(t).getTime() / 1000);
   }
@@ -49,8 +57,7 @@
   }
 
   function buildOpts(s: TrendSeries[], width: number): uPlot.Options {
-    const colors = palette();
-    const axisColor = cssVar('--muted', '#8a9099');
+    const { colors, axis: axisColor } = theme();
     const grid = 'rgba(255,255,255,0.06)';
     const units = new Set(s.map((x) => x.unit).filter(Boolean));
     // Same-unit series share a scale (directly comparable); disparate units each get
@@ -94,15 +101,16 @@
 
   function render(s: TrendSeries[]) {
     if (!el) return;
-    const data = buildData(s);
-    const haveData = (data[0] as number[]).length > 0;
-    const sig = s.map((x) => `${x.key}:${x.unit}`).join(',');
-    if (!s.length || !haveData) {
+    // Cheap emptiness check first, so the empty/destroy path skips the full
+    // timestamp-union rebuild in buildData().
+    if (!s.length || !s.some((x) => x.points.length > 0)) {
       plot?.destroy();
       plot = null;
       structureSig = '';
       return;
     }
+    const data = buildData(s);
+    const sig = s.map((x) => `${x.key}:${x.unit}`).join(',');
     if (!plot || sig !== structureSig) {
       plot?.destroy();
       plot = new uPlot(buildOpts(s, el.clientWidth || 600), data, el);
