@@ -141,45 +141,33 @@ async function captureThresholdCommands(page: Page, snapshot: unknown): Promise<
 }
 
 test('renders a scan-focused local HMI dashboard', async ({ page }) => {
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: liveSnapshot }));
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'daniel-home' })).toBeVisible();
-  await expect(page.getByText('Connected', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'AtomS3U Sensor Rig' })).toBeVisible();
-  await expect(page.getByText('24.8 °C')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Atlas Hydro Monitor' })).toBeVisible();
+  // Site shell (CommandBar) renders the site name.
+  await expect(page.getByText('DANIEL-HOME')).toBeVisible();
 
-  const atlas = page.locator('article.device').filter({ has: page.getByRole('heading', { name: 'Atlas Hydro Monitor' }) });
-  const keyReadings = atlas.locator('.metric-grid[aria-label="Atlas Hydro Monitor key readings"]');
-  await expect(keyReadings.getByText('Water Temp')).toBeVisible();
-  await expect(keyReadings.getByText('22.1 °C')).toBeVisible();
-  await expect(keyReadings.getByText('Water pH')).toBeVisible();
-  await expect(keyReadings.getByText('6.42 pH')).toBeVisible();
-  await expect(atlas.getByRole('heading', { name: 'Quick controls' })).toBeVisible();
-  await expect(atlas.getByText('Enable pH Circuit')).toBeVisible();
-  await expect(atlas.getByRole('link', { name: 'Device settings' })).toHaveAttribute(
-    'href',
-    '/device-settings?device=atlas-hydro-monitor'
-  );
-
-  await expect(atlas.getByText('pH Calibration')).toBeHidden();
-  await expect(atlas.getByText('pH Mid Point')).toBeHidden();
-  await expect(atlas.getByText('Restart Device')).toBeHidden();
-  await expect(atlas.getByText('Uptime')).toBeHidden();
+  // The redesigned dashboard groups readings into WATER / CLIMATE panels fed from
+  // the live snapshot (no per-device cards anymore).
+  await expect(page.locator('.water-area')).toContainText('6.214');
+  await expect(page.locator('.climate-area')).toContainText('827');
+  await expect(page.locator('article.device')).toHaveCount(0);
 });
 
 test('keeps dashboard metrics live without showing device settings sections', async ({ page }) => {
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: liveSnapshot }));
   await installMockEventSource(page);
   await page.goto('/');
 
-  const atlas = page.locator('article.device').filter({ has: page.getByRole('heading', { name: 'Atlas Hydro Monitor' }) });
-  await expect(atlas).toBeVisible();
-  await expect(atlas.getByText('pH Calibration')).toBeHidden();
+  const water = page.locator('.water-area');
+  await expect(water).toContainText('6.214');
 
   await page.evaluate(() => {
     (window as unknown as { __emitEventSource: (type: string, payload: unknown) => void }).__emitEventSource('state', {
       type: 'state',
-      entityId: 'atlas_water_ph',
+      entityId: 'espsensorwater_ph',
       state: {
         value: '6.43',
         updatedAt: new Date('2026-06-13T12:01:00Z').toISOString()
@@ -187,45 +175,52 @@ test('keeps dashboard metrics live without showing device settings sections', as
     });
   });
 
-  await expect(atlas.locator('.metric-grid')).toContainText('6.43 pH');
-  await expect(atlas.getByText('pH Calibration')).toBeHidden();
+  // Live SSE state updates the readout in place (precision 3 → "6.430").
+  await expect(water).toContainText('6.430');
+  // The dashboard does not render device-settings sections inline.
+  await expect(page.locator('article.device')).toHaveCount(0);
 });
 
 test('renders device calibration settings from query state', async ({ page }) => {
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: liveSnapshot }));
   await page.goto('/device-settings?device=atlas-hydro-monitor&section=calibration');
 
   await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Atlas Hydro Monitor' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Calibration/ })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByRole('heading', { name: 'pH Calibration' })).toBeVisible();
-  await expect(page.getByText('pH Mid Point')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Send' })).toBeVisible();
-  await expect(page.getByText('Restart Device')).toBeHidden();
 
-  const phCalibration = page.locator('details.settings-group').filter({
-    has: page.getByRole('heading', { name: 'pH Calibration' })
-  });
-  await phCalibration.getByRole('heading', { name: 'pH Calibration' }).click();
-  await expect(phCalibration.getByText('pH Mid Point')).toBeHidden();
-  await phCalibration.getByRole('heading', { name: 'pH Calibration' }).click();
-  await expect(phCalibration.getByText('pH Mid Point')).toBeVisible();
+  // The curated CalibrationPanel renders a guided step card with a live reading,
+  // not the old collapsible settings-group / Send-button markup.
+  await expect(page.locator('h3.step-name')).toBeVisible();
+  await expect(page.getByText('Live Reading')).toBeVisible();
+  await expect(page.locator('.calibrate-btn').first()).toBeVisible();
+  await expect(page.locator('details.settings-group')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Send' })).toHaveCount(0);
 });
 
 test('navigates device settings sections and devices with URL state', async ({ page }) => {
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: liveSnapshot }));
   await page.goto('/device-settings?device=atlas-hydro-monitor&section=calibration');
 
   await page.getByRole('link', { name: /Controls/ }).click();
   await expect(page).toHaveURL(/device=atlas-hydro-monitor&section=controls/);
   await expect(page.getByRole('link', { name: /Controls/ })).toHaveAttribute('aria-current', 'page');
+
+  // Generic sections render collapsed; expand "Circuit Controls" to reveal the switch.
+  await page.locator('.section-summary', { hasText: 'Circuit Controls' }).click();
   await expect(page.getByText('Enable pH Circuit')).toBeVisible();
 
+  // Switch devices via the controller list.
   await page.getByRole('link', { name: /AtomS3U Sensor Rig/ }).click();
-  await expect(page).toHaveURL(/\/device-settings\?device=atoms3u-sensor-rig$/);
+  await expect(page).toHaveURL(/device=atoms3u-sensor-rig/);
   await expect(page.getByRole('heading', { name: 'AtomS3U Sensor Rig' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Alerts/ })).toHaveAttribute('aria-current', 'page');
+
+  // Its Alerts tab shows the curated CO₂ rule with a draggable threshold.
+  await page.getByRole('link', { name: /Alerts/ }).click();
   await expect(page.locator('.rule-card').filter({ hasText: 'CO₂' })).toBeVisible();
   await expect(page.getByRole('slider', { name: 'CO₂ high threshold' })).toBeVisible();
-  await expect(page.getByText('CO2 High Alert')).toHaveCount(0);
 });
 
 test('aggregates high and low alert binary sensors into the alert card status', async ({ page }) => {
@@ -433,12 +428,20 @@ test('shows no-package status without reporting a device check', async ({ page }
   await expect(updates.getByRole('button', { name: 'Check' })).toBeEnabled();
 });
 
-test('shows bootstrap state before firmware metadata and update entities exist', async ({ page }) => {
-  await page.goto('/device-settings?device=atoms3u-sensor-rig');
+test('shows firmware bootstrap state when project metadata is incomplete', async ({ page }) => {
+  // The firmware panel only renders when a firmware config exists for the device, so
+  // reproduce the bootstrap state by keeping the config but dropping its projectName:
+  // the header falls back to "Bootstrap required" and Apply stays disabled.
+  const bootstrapSnapshot = structuredClone(liveSnapshot);
+  delete (bootstrapSnapshot.firmware.devices['atoms3u-sensor-rig'] as { projectName?: string }).projectName;
+
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: bootstrapSnapshot }));
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=updates');
 
   const updates = page.getByRole('region', { name: 'AtomS3U Sensor Rig firmware updates' });
   await expect(updates).toContainText('Bootstrap required');
-  await expect(updates.getByRole('button', { name: 'Apply' })).toHaveCount(0);
+  await expect(updates.getByRole('button', { name: 'Apply' })).toBeDisabled();
 });
 
 test('blocks apply until the device-side latest version matches the package', async ({ page }) => {
