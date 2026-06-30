@@ -22,18 +22,16 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('renders camera image tile inside the AtomS3U device card', async ({ page }) => {
+test('renders the thermal camera image tile on the dashboard', async ({ page }) => {
   await page.goto('/');
 
-  const atomsCard = page.locator('article.device').filter({
-    has: page.getByRole('heading', { name: 'AtomS3U Sensor Rig' })
-  });
+  // The camera now lives in the dashboard THERMAL panel (CameraImageTile), not a
+  // per-device card. Its <img> src points at the binary image route for the camera
+  // entity id.
+  const tile = page.locator('.camera-tile');
+  await expect(tile).toBeVisible();
 
-  await expect(atomsCard).toBeVisible();
-
-  // The camera tile renders an <img> whose src points at the binary image route
-  // for the camera entity id.
-  const img = atomsCard.locator('img[src*="/api/entities/"]').first();
+  const img = tile.locator('img[src*="/api/entities/"]').first();
   await expect(img).toBeVisible({ timeout: 5000 });
   const imgSrc = await img.getAttribute('src');
   expect(imgSrc).toContain('/api/entities/');
@@ -52,16 +50,13 @@ test('renders thermal quick controls below the camera image and posts commands',
 
   await page.goto('/');
 
-  const atomsCard = page.locator('article.device').filter({
-    has: page.getByRole('heading', { name: 'AtomS3U Sensor Rig' })
-  });
-  const tile = atomsCard.locator('.camera-tile').filter({
-    has: page.getByRole('heading', { name: 'Thermal Camera' })
-  });
+  const tile = page.locator('.camera-tile');
   const img = tile.locator('img[src*="/api/entities/"]').first();
-  const controls = tile.locator('.camera-controls');
-
   await expect(img).toBeVisible({ timeout: 5000 });
+
+  // Quick controls live in a collapsible drawer below the image; expand it first.
+  await tile.getByRole('button', { name: 'Controls' }).click();
+  const controls = tile.locator('.camera-controls');
   await expect(controls).toBeVisible();
   const imageBox = await img.boundingBox();
   const controlsBox = await controls.boundingBox();
