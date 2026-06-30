@@ -39,7 +39,7 @@ test('captures device settings references for Penpot import', async ({ page }, t
 
   await expect(page.getByRole('heading', { name: 'AtomS3U Sensor Rig' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Alerts/ })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByText('CO2 High Threshold')).toBeVisible();
+  await expect(page.locator('.rule-card').filter({ hasText: 'CO₂' })).toBeVisible();
 
   await page.screenshot({
     path: testInfo.outputPath(`grow-app-device-settings-alerts-${testInfo.project.name}.png`),

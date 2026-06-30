@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dashboardSnapshot as snapshot } from './fixtures/dashboard-snapshot';
+import { liveSnapshot } from './fixtures/live-snapshot';
 
 const firmwarePackage = {
   schema: 'grow-firmware-package.v1',
@@ -90,6 +91,25 @@ async function installMockEventSource(page: Page): Promise<void> {
   });
 }
 
+async function dragSliderBy(page: Page, slider: Locator, deltaX: number, beforeRelease?: () => Promise<void>): Promise<void> {
+  const box = await slider.boundingBox();
+  if (!box) throw new Error('Expected slider to have a bounding box');
+
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + deltaX, startY, { steps: 6 });
+  await beforeRelease?.();
+  await page.mouse.up();
+}
+
+async function centerX(locator: Locator): Promise<number> {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Expected locator to have a bounding box');
+  return box.x + box.width / 2;
+}
+
 test('renders a scan-focused local HMI dashboard', async ({ page }) => {
   await page.goto('/');
 
@@ -173,8 +193,77 @@ test('navigates device settings sections and devices with URL state', async ({ p
   await expect(page).toHaveURL(/\/device-settings\?device=atoms3u-sensor-rig$/);
   await expect(page.getByRole('heading', { name: 'AtomS3U Sensor Rig' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Alerts/ })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByText('CO2 High Threshold')).toBeVisible();
-  await expect(page.getByText('CO2 High Alert')).toBeVisible();
+  await expect(page.locator('.rule-card').filter({ hasText: 'CO₂' })).toBeVisible();
+  await expect(page.getByRole('slider', { name: 'CO₂ high threshold' })).toBeVisible();
+  await expect(page.getByText('CO2 High Alert')).toHaveCount(0);
+});
+
+test('aggregates high and low alert binary sensors into the alert card status', async ({ page }) => {
+  const alertingSnapshot = structuredClone(liveSnapshot);
+  alertingSnapshot.states.espbinary_sensorco2_high_alert = {
+    value: 'ON',
+    updatedAt: new Date('2026-06-13T12:01:00Z').toISOString()
+  };
+  alertingSnapshot.states.espbinary_sensorco2_low_alert = {
+    value: 'OFF',
+    updatedAt: new Date('2026-06-13T12:01:00Z').toISOString()
+  };
+
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', async (route) => {
+    await route.fulfill({ json: alertingSnapshot });
+  });
+
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
+
+  const co2Card = page.locator('.rule-card').filter({ hasText: 'CO₂' });
+  await expect(co2Card).toBeVisible();
+  await expect(co2Card.locator('.status-chip')).toHaveText('HIGH');
+  await expect(page.getByText('Other Alerts')).toHaveCount(0);
+  await expect(page.getByText('CO2 High Alert')).toHaveCount(0);
+  await expect(page.getByText('CO2 Low Alert')).toHaveCount(0);
+  await expect(page.getByText('Temperature High Alert')).toHaveCount(0);
+  await expect(page.getByText('VPD High Alert')).toHaveCount(0);
+});
+
+test('drags alert threshold handles to publish number commands', async ({ page }) => {
+  const commands: Array<{ url: string; body: { value?: unknown; confirm?: unknown } }> = [];
+
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', async (route) => {
+    await route.fulfill({ json: liveSnapshot });
+  });
+  await page.route('**/api/entities/*/command', async (route) => {
+    commands.push({
+      url: route.request().url(),
+      body: route.request().postDataJSON() as { value?: unknown; confirm?: unknown }
+    });
+    await route.fulfill({ json: { ok: true } });
+  });
+
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
+
+  const co2Card = page.locator('.rule-card').filter({ hasText: 'CO₂' });
+  await expect(co2Card).toBeVisible();
+  await expect(co2Card.locator('input[type="number"]')).toHaveCount(0);
+  await expect(co2Card.getByRole('slider', { name: 'CO₂ low threshold' })).toBeVisible();
+
+  const highThreshold = co2Card.getByRole('slider', { name: 'CO₂ high threshold' });
+  const liveMarker = co2Card.locator('.live-marker');
+  const highBefore = await centerX(highThreshold);
+  const liveBefore = await centerX(liveMarker);
+
+  await dragSliderBy(page, highThreshold, -320, async () => {
+    expect(commands).toHaveLength(0);
+
+    await expect.poll(() => centerX(highThreshold)).toBeLessThan(highBefore - 20);
+    await expect.poll(() => centerX(liveMarker)).toBeGreaterThan(liveBefore - 2);
+    await expect.poll(() => centerX(liveMarker)).toBeLessThan(liveBefore + 2);
+  });
+
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0].url).toContain('/api/entities/espnumberco2_high_threshold/command');
+  expect(commands[0].body).toMatchObject({ value: 850, confirm: false });
 });
 
 test('shows stable firmware update status and applies only when device state matches', async ({ page }) => {

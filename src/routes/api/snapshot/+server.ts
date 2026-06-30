@@ -1,6 +1,8 @@
-import { json } from '@sveltejs/kit';
+import { json, type RequestHandler } from '@sveltejs/kit';
+import { loadDevSnapshot } from '$lib/server/dev-snapshot';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 
-export function GET() {
-  return json(getSiteMqttService().snapshot());
-}
+export const GET: RequestHandler = async ({ fetch }) => {
+  const devSnapshot = await loadDevSnapshot(undefined, fetch);
+  return json(devSnapshot ?? getSiteMqttService().snapshot());
+};
