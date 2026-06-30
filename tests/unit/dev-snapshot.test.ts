@@ -87,4 +87,46 @@ describe('dev snapshot simulation', () => {
       body: { ok: false, error: 'Value must be <= 2000' }
     });
   });
+
+  it('loadDevSnapshot returns null when HTTP response is not ok', async () => {
+    const loaded = await loadDevSnapshot(config, fetchSnapshot(snapshot, 500));
+    expect(loaded).toBeNull();
+  });
+
+  it('loadDevSnapshot returns null when fetch throws', async () => {
+    const throwingFetch = (async () => { throw new Error('network'); }) as typeof fetch;
+    const loaded = await loadDevSnapshot(config, throwingFetch);
+    expect(loaded).toBeNull();
+  });
+
+  it('loadDevSnapshot returns null when payload is not a valid Snapshot shape', async () => {
+    const loaded = await loadDevSnapshot(config, fetchSnapshot({ not: 'a snapshot' }));
+    expect(loaded).toBeNull();
+  });
+
+  it('loadDevSnapshot returns null when config.enabled is false', async () => {
+    const loaded = await loadDevSnapshot({ ...config, enabled: false }, fetchSnapshot(snapshot));
+    expect(loaded).toBeNull();
+  });
+
+  it('devSnapshotCommandResult returns 404 for an unknown entity', async () => {
+    const result = await devSnapshotCommandResult('does_not_exist', { value: 1000 }, config, fetchSnapshot(snapshot));
+    expect(result).toEqual({
+      status: 404,
+      body: { ok: false, error: 'Unknown entity' }
+    });
+  });
+
+  it('devSnapshotCommandResult returns 503 when snapshot cannot be loaded', async () => {
+    const result = await devSnapshotCommandResult('co2_high_threshold', { value: 1000 }, config, fetchSnapshot(snapshot, 500));
+    expect(result).toEqual({
+      status: 503,
+      body: { ok: false, error: 'Dev snapshot is unavailable' }
+    });
+  });
+
+  it('devSnapshotCommandResult returns null when config.commands is publish', async () => {
+    const result = await devSnapshotCommandResult('co2_high_threshold', { value: 1000 }, { ...config, commands: 'publish' }, fetchSnapshot(snapshot));
+    expect(result).toBeNull();
+  });
 });

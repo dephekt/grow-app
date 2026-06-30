@@ -101,7 +101,7 @@ export async function devSnapshotCommandResult(
 }
 
 async function fetchSnapshot(url: string, fetchImpl: FetchLike): Promise<unknown> {
-  const response = await fetchImpl(url, { cache: 'no-store' });
+  const response = await fetchImpl(url, { cache: 'no-store', signal: AbortSignal.timeout(3000) });
   if (!response.ok) return null;
   return response.json();
 }
