@@ -15,6 +15,19 @@ pnpm install
 pnpm dev
 ```
 
+For UI work without local broker credentials, run against a static snapshot from
+the deployed LAN site:
+
+```bash
+pnpm dev:live-snapshot
+```
+
+That sets `GROW_DEV_SNAPSHOT_URL` to `http://192.168.8.3:3080/api/snapshot`.
+The dev server returns that snapshot from `/api/snapshot`, seeds `/api/events`
+with the same snapshot, and validates entity commands without publishing them.
+Override the source with `GROW_DEV_SNAPSHOT_URL=... pnpm dev` or use a saved JSON
+snapshot with `GROW_DEV_SNAPSHOT_FILE=/path/to/snapshot.json pnpm dev`.
+
 Default site-mode broker settings:
 
 | Variable | Default |

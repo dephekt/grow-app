@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "vite dev --host 0.0.0.0",
+    "dev:live-snapshot": "GROW_DEV_SNAPSHOT_URL=${GROW_DEV_SNAPSHOT_URL:-http://192.168.8.3:3080/api/snapshot} pnpm dev",
     "build": "vite build",
     "build:recorder": "esbuild src/lib/server/history/recorder.ts --bundle --platform=node --format=esm --target=node24 --packages=external '--alias:$lib=./src/lib' --outfile=build-recorder/recorder.js",
     "start": "node build",
