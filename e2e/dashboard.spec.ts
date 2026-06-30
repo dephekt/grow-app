@@ -110,6 +110,36 @@ async function centerX(locator: Locator): Promise<number> {
   return box.x + box.width / 2;
 }
 
+async function dragSliderTo(page: Page, slider: Locator, targetX: number): Promise<void> {
+  const box = await slider.boundingBox();
+  if (!box) throw new Error('Expected slider to have a bounding box');
+
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(targetX, startY, { steps: 6 });
+  await page.mouse.up();
+}
+
+type CapturedCommand = { url: string; body: { value?: unknown; confirm?: unknown } };
+
+async function captureThresholdCommands(page: Page, snapshot: unknown): Promise<CapturedCommand[]> {
+  const commands: CapturedCommand[] = [];
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', async (route) => {
+    await route.fulfill({ json: snapshot });
+  });
+  await page.route('**/api/entities/*/command', async (route) => {
+    commands.push({
+      url: route.request().url(),
+      body: route.request().postDataJSON() as CapturedCommand['body']
+    });
+    await route.fulfill({ json: { ok: true } });
+  });
+  return commands;
+}
+
 test('renders a scan-focused local HMI dashboard', async ({ page }) => {
   await page.goto('/');
 
@@ -226,20 +256,8 @@ test('aggregates high and low alert binary sensors into the alert card status', 
   await expect(page.getByText('VPD High Alert')).toHaveCount(0);
 });
 
-test('drags alert threshold handles to publish number commands', async ({ page }) => {
-  const commands: Array<{ url: string; body: { value?: unknown; confirm?: unknown } }> = [];
-
-  await page.unroute('**/api/snapshot');
-  await page.route('**/api/snapshot', async (route) => {
-    await route.fulfill({ json: liveSnapshot });
-  });
-  await page.route('**/api/entities/*/command', async (route) => {
-    commands.push({
-      url: route.request().url(),
-      body: route.request().postDataJSON() as { value?: unknown; confirm?: unknown }
-    });
-    await route.fulfill({ json: { ok: true } });
-  });
+test('drags an alert threshold handle past its bound and publishes the clamped value', async ({ page }) => {
+  const commands = await captureThresholdCommands(page, liveSnapshot);
 
   await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
 
@@ -257,9 +275,60 @@ test('drags alert threshold handles to publish number commands', async ({ page }
     expect(commands).toHaveLength(0);
 
     await expect.poll(() => centerX(highThreshold)).toBeLessThan(highBefore - 20);
+    // The live marker must stay put while the handle drags (frozen band domain).
     await expect.poll(() => centerX(liveMarker)).toBeGreaterThan(liveBefore - 2);
     await expect.poll(() => centerX(liveMarker)).toBeLessThan(liveBefore + 2);
   });
+
+  // -320px overshoots the low end; the high handle clamps to its floor
+  // (max(min 500, low 800 + step 50) = 850).
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0].url).toContain('/api/entities/espnumberco2_high_threshold/command');
+  expect(commands[0].body).toMatchObject({ value: 850, confirm: false });
+});
+
+test('drags a threshold handle to a scaled mid-range value, not a clamp boundary', async ({ page }) => {
+  const commands = await captureThresholdCommands(page, liveSnapshot);
+
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
+
+  const co2Card = page.locator('.rule-card').filter({ hasText: 'CO₂' });
+  await expect(co2Card).toBeVisible();
+
+  const highThreshold = co2Card.getByRole('slider', { name: 'CO₂ high threshold' });
+  const band = co2Card.locator('.band-svg');
+  const bandBox = await band.boundingBox();
+  if (!bandBox) throw new Error('Expected band svg to have a bounding box');
+
+  // The SVG's horizontal centre always maps to band-unit 140 (centre of the 0..280
+  // viewBox) regardless of card width or preserveAspectRatio padding, i.e. the domain
+  // midpoint 400 + 0.5 * (2000 - 400) = 1200. A clamp-only bug would publish 850/2000;
+  // a broken pointer→value scale would publish something else. This exercises the
+  // actual pointerBandX / pointerThresholdValue mapping.
+  await dragSliderTo(page, highThreshold, bandBox.x + bandBox.width / 2);
+
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0].url).toContain('/api/entities/espnumberco2_high_threshold/command');
+  expect(commands[0].body).toMatchObject({ value: 1200, confirm: false });
+});
+
+test('renders a draggable handle for a writable threshold that has no current state', async ({ page }) => {
+  const noState = structuredClone(liveSnapshot);
+  // The high threshold never reported a value (e.g. non-retained / device offline at load).
+  delete (noState.states as Record<string, unknown>).espnumberco2_high_threshold;
+
+  const commands = await captureThresholdCommands(page, noState);
+
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
+
+  const co2Card = page.locator('.rule-card').filter({ hasText: 'CO₂' });
+  await expect(co2Card).toBeVisible();
+
+  // The handle is still present and settable even with no committed value.
+  const highThreshold = co2Card.getByRole('slider', { name: 'CO₂ high threshold' });
+  await expect(highThreshold).toBeVisible();
+
+  await dragSliderBy(page, highThreshold, -320);
 
   await expect.poll(() => commands.length).toBe(1);
   expect(commands[0].url).toContain('/api/entities/espnumberco2_high_threshold/command');
