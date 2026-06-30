@@ -8,6 +8,7 @@
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import { parseFirmwareUpdateState } from '$lib/firmware';
   import type { DeviceSnapshot, EntityConfig } from '$lib/server/mqtt/types';
+  import { isAlertEntity, isThresholdEntity } from '$lib/threshold-match';
   import { page } from '$app/state';
 
   let { data } = $props<{
@@ -108,14 +109,10 @@
   function isAlertsCurated(panel: typeof activeEntityPanel): boolean {
     if (!panel) return false;
     const allEntries = panel.groups.flatMap((g) => g.entries);
-    return allEntries.some((e) => {
-      const oid = (e.entity.objectId ?? e.entity.id).toLowerCase();
-      return (e.entity.component === 'number' && (oid.includes('threshold') || oid.includes('high') || oid.includes('low')));
-    }) && allEntries.some((e) => {
-      const oid = (e.entity.objectId ?? e.entity.id).toLowerCase();
-      const nm = (e.entity.name ?? '').toLowerCase();
-      return e.entity.component === 'binary_sensor' && (oid.includes('alert') || nm.includes('alert'));
-    });
+    return (
+      allEntries.some((e) => isThresholdEntity(e.entity)) &&
+      allEntries.some((e) => isAlertEntity(e.entity))
+    );
   }
 
   // Is the calibration tab showing curated content?
