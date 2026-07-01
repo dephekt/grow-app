@@ -43,12 +43,8 @@ jobs:
         run: pnpm test
 
   e2e:
-    name: Playwright e2e (non-blocking)
+    name: Playwright e2e
     runs-on: ubuntu-latest
-    # Non-blocking: the suite has known pre-existing failures, so a red run here
-    # must not fail the workflow or block merges. Results still surface via the
-    # GitHub annotations and the uploaded HTML report.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
