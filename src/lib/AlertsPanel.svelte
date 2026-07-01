@@ -2,8 +2,15 @@
   import type { PresentedSection } from '$lib/device-presentation';
   import type { EntityConfig, EntityState } from '$lib/server/mqtt/types';
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
-  import { entitySide, isAlertEntity, isThresholdEntity, metricPrefix } from '$lib/threshold-match';
-  import { isAmbientTemperature, isCo2, isHumidity, isWaterPh } from '$lib/entity-match';
+  import {
+    entitySide,
+    isAlarmTestButton,
+    isAlertEntity,
+    isBuzzerSwitch,
+    isThresholdEntity,
+    metricPrefix
+  } from '$lib/threshold-match';
+  import { isAmbientTemperature, isCo2, isHumidity, isThermalMeanTemp, isWaterPh } from '$lib/entity-match';
 
   let {
     groups,
@@ -29,6 +36,10 @@
     lowAlertEntity: EntityConfig | null;
     highAlertEntity: EntityConfig | null;
     genericAlertEntity: EntityConfig | null;
+    /** Single-band-alarm extras (e.g. the thermal camera): buzzer-mute switch and
+     *  sound-test button, attached by the alarm's family root; null for split alerts. */
+    buzzerEntity: EntityConfig | null;
+    alarmTestEntity: EntityConfig | null;
     liveEntity: EntityConfig | null;
   }
 
@@ -108,7 +119,8 @@
       temperature: 'Temperature',
       humidity: 'Humidity',
       vpd: 'VPD',
-      tds: 'TDS'
+      tds: 'TDS',
+      thermal_alarm: 'Thermal'
     };
     return map[metric] ?? metric.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
@@ -126,6 +138,8 @@
         return isAmbientTemperature;
       case 'ph':
         return isWaterPh;
+      case 'thermal_alarm':
+        return isThermalMeanTemp;
       default:
         return null;
     }
@@ -151,6 +165,17 @@
   }
 
   let allEntries = $derived(groups.flatMap((g: PresentedSection) => g.entries));
+
+  /** The first curated control matching `pred` whose object_id shares an alarm family
+   *  root (e.g. `thermal` for the `thermal_alarm` band), so a single-band alarm's
+   *  buzzer switch / test button attach to its card rather than the fallback list. */
+  function findControl(pred: (e: EntityConfig) => boolean, root: string): EntityConfig | null {
+    return (
+      allEntries
+        .map((entry: import('$lib/device-presentation').PresentedEntity) => entry.entity)
+        .find((e: EntityConfig) => pred(e) && (e.objectId ?? e.id).toLowerCase().startsWith(root)) ?? null
+    );
+  }
 
   let rules = $derived.by((): ThresholdRule[] => {
     const thresholdMap = new Map<string, PairedEntities>();
@@ -191,6 +216,15 @@
       // Find a live sensor for this metric (prefer the shared recogniser).
       const liveEntity = liveSensorFor(metric, deviceEntities);
 
+      // A single-band alarm (one generic alert, no split high/low — e.g. the thermal
+      // camera's `thermal_alarm`) may ship a buzzer-mute switch and a sound-test button
+      // that don't group by metric prefix. Attach them by the alarm's family root
+      // (metric `thermal_alarm` → `thermal`) so they render inside the card instead of
+      // dropping to the fallback list.
+      const familyRoot = alerts.generic ? metric.replace(/_?alarm$/, '') : '';
+      const buzzerEntity = familyRoot ? findControl(isBuzzerSwitch, familyRoot) : null;
+      const alarmTestEntity = familyRoot ? findControl(isAlarmTestButton, familyRoot) : null;
+
       // Derive unit from whichever entity has it
       const unitEntity = thresholds.high ?? thresholds.low ?? liveEntity;
       const unit = unitEntity?.unit ?? null;
@@ -204,6 +238,8 @@
         lowAlertEntity: alerts.low,
         highAlertEntity: alerts.high,
         genericAlertEntity: alerts.generic,
+        buzzerEntity,
+        alarmTestEntity,
         liveEntity
       };
     });
@@ -217,6 +253,8 @@
       r.lowAlertEntity?.id,
       r.highAlertEntity?.id,
       r.genericAlertEntity?.id,
+      r.buzzerEntity?.id,
+      r.alarmTestEntity?.id,
       r.liveEntity?.id
     ].filter(Boolean))
   ]));
@@ -819,6 +857,48 @@
           </div>
         </div>
 
+        {#if rule.buzzerEntity || rule.alarmTestEntity}
+          {@const buzzer = rule.buzzerEntity}
+          {@const test = rule.alarmTestEntity}
+          <div class="rule-controls">
+            {#if buzzer}
+              {@const buzzerOn = states[buzzer.id]?.value === buzzer.payloadOn}
+              <button
+                type="button"
+                class="ctl ctl-toggle"
+                class:on={buzzerOn}
+                disabled={live.commandPending[buzzer.id]}
+                aria-pressed={buzzerOn}
+                onclick={() => live.sendCommand(buzzer, !buzzerOn)}
+              >
+                <span class="ctl-label">Buzzer</span>
+                <span class="ctl-state">{buzzerOn ? 'On' : 'Off'}</span>
+              </button>
+            {/if}
+            {#if test}
+              <button
+                type="button"
+                class="ctl ctl-test"
+                disabled={live.commandPending[test.id]}
+                onclick={() => live.sendCommand(test)}
+              >
+                Test alarm
+              </button>
+            {/if}
+          </div>
+
+          {#if (buzzer && live.commandErrors[buzzer.id]) || (test && live.commandErrors[test.id])}
+            <div class="threshold-errors">
+              {#if buzzer && live.commandErrors[buzzer.id]}
+                <p class="threshold-error">{live.commandErrors[buzzer.id]}</p>
+              {/if}
+              {#if test && live.commandErrors[test.id]}
+                <p class="threshold-error">{live.commandErrors[test.id]}</p>
+              {/if}
+            </div>
+          {/if}
+        {/if}
+
         {#if (rule.lowEntity && live.commandErrors[rule.lowEntity.id]) || (rule.highEntity && live.commandErrors[rule.highEntity.id])}
           <div class="threshold-errors">
             {#if rule.lowEntity && live.commandErrors[rule.lowEntity.id]}
@@ -989,6 +1069,51 @@
     justify-content: space-between;
     font-size: 0.7rem;
     color: var(--muted);
+  }
+
+  .rule-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ctl {
+    min-height: 34px;
+    padding: 4px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    background: var(--panel-2);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .ctl:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+
+  .ctl-toggle.on {
+    border-color: var(--amber);
+    background: var(--amber-dim);
+    color: var(--amber);
+  }
+
+  .ctl-label {
+    letter-spacing: 0.04em;
+  }
+
+  .ctl-state {
+    font-family: var(--font-mono);
+  }
+
+  .ctl-test {
+    border-color: var(--alert);
+    color: var(--alert);
   }
 
   .threshold-errors {

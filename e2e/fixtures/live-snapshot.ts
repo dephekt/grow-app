@@ -162,6 +162,11 @@ export const liveSnapshot = {
         "atoms3u_sensor_rig_thermal_camera",
         "espselectthermal_color_palette",
         "espswitchthermal_overlay_enable",
+        "espnumberthermal_alarm_high_threshold",
+        "espnumberthermal_alarm_low_threshold",
+        "espbinary_sensorthermal_alarm",
+        "espswitchthermal_buzzer_enabled",
+        "espbuttonthermal_alarm_test",
         "espnumberthermal_update_interval",
         "espsensoruptime",
         "espsensorvpd",
@@ -1677,6 +1682,153 @@ export const liveSnapshot = {
       "payloadNotAvailable": "offline",
       "dangerous": false,
       "writable": false,
+      "raw": {}
+    },
+    {
+      "id": "espnumberthermal_alarm_high_threshold",
+      "component": "number",
+      "name": "Thermal Alarm High Threshold",
+      "uniqueId": "ESPnumberthermal_alarm_high_threshold",
+      "objectId": "thermal_alarm_high_threshold",
+      "nodeId": "atoms3u-sensor-rig",
+      "device": {
+        "identifiers": [
+          "0123456789ab"
+        ],
+        "name": "AtomS3U Sensor Rig",
+        "manufacturer": "stackdrift",
+        "model": "atoms3u-sensor-rig",
+        "swVersion": "dev (ESPHome 2026.5.1)"
+      },
+      "stateTopic": "grow/daniel-home/atoms3u-sensor-rig/number/thermal_alarm_high_threshold/state",
+      "commandTopic": "grow/daniel-home/atoms3u-sensor-rig/number/thermal_alarm_high_threshold/command",
+      "availabilityTopic": "grow/daniel-home/atoms3u-sensor-rig/status",
+      "unit": "°C",
+      "payloadOn": "ON",
+      "payloadOff": "OFF",
+      "payloadPress": "PRESS",
+      "payloadAvailable": "online",
+      "payloadNotAvailable": "offline",
+      "min": -20,
+      "max": 120,
+      "step": 0.5,
+      "dangerous": false,
+      "writable": true,
+      "raw": {}
+    },
+    {
+      "id": "espnumberthermal_alarm_low_threshold",
+      "component": "number",
+      "name": "Thermal Alarm Low Threshold",
+      "uniqueId": "ESPnumberthermal_alarm_low_threshold",
+      "objectId": "thermal_alarm_low_threshold",
+      "nodeId": "atoms3u-sensor-rig",
+      "device": {
+        "identifiers": [
+          "0123456789ab"
+        ],
+        "name": "AtomS3U Sensor Rig",
+        "manufacturer": "stackdrift",
+        "model": "atoms3u-sensor-rig",
+        "swVersion": "dev (ESPHome 2026.5.1)"
+      },
+      "stateTopic": "grow/daniel-home/atoms3u-sensor-rig/number/thermal_alarm_low_threshold/state",
+      "commandTopic": "grow/daniel-home/atoms3u-sensor-rig/number/thermal_alarm_low_threshold/command",
+      "availabilityTopic": "grow/daniel-home/atoms3u-sensor-rig/status",
+      "unit": "°C",
+      "payloadOn": "ON",
+      "payloadOff": "OFF",
+      "payloadPress": "PRESS",
+      "payloadAvailable": "online",
+      "payloadNotAvailable": "offline",
+      "min": -40,
+      "max": 100,
+      "step": 0.5,
+      "dangerous": false,
+      "writable": true,
+      "raw": {}
+    },
+    {
+      "id": "espbinary_sensorthermal_alarm",
+      "component": "binary_sensor",
+      "name": "Thermal Alarm",
+      "uniqueId": "ESPbinary_sensorthermal_alarm",
+      "objectId": "thermal_alarm",
+      "nodeId": "atoms3u-sensor-rig",
+      "device": {
+        "identifiers": [
+          "0123456789ab"
+        ],
+        "name": "AtomS3U Sensor Rig",
+        "manufacturer": "stackdrift",
+        "model": "atoms3u-sensor-rig",
+        "swVersion": "dev (ESPHome 2026.5.1)"
+      },
+      "stateTopic": "grow/daniel-home/atoms3u-sensor-rig/binary_sensor/thermal_alarm/state",
+      "availabilityTopic": "grow/daniel-home/atoms3u-sensor-rig/status",
+      "deviceClass": "problem",
+      "payloadOn": "ON",
+      "payloadOff": "OFF",
+      "payloadPress": "PRESS",
+      "payloadAvailable": "online",
+      "payloadNotAvailable": "offline",
+      "dangerous": false,
+      "writable": false,
+      "raw": {}
+    },
+    {
+      "id": "espswitchthermal_buzzer_enabled",
+      "component": "switch",
+      "name": "Thermal Buzzer Enabled",
+      "uniqueId": "ESPswitchthermal_buzzer_enabled",
+      "objectId": "thermal_buzzer_enabled",
+      "nodeId": "atoms3u-sensor-rig",
+      "device": {
+        "identifiers": [
+          "0123456789ab"
+        ],
+        "name": "AtomS3U Sensor Rig",
+        "manufacturer": "stackdrift",
+        "model": "atoms3u-sensor-rig",
+        "swVersion": "dev (ESPHome 2026.5.1)"
+      },
+      "stateTopic": "grow/daniel-home/atoms3u-sensor-rig/switch/thermal_buzzer_enabled/state",
+      "commandTopic": "grow/daniel-home/atoms3u-sensor-rig/switch/thermal_buzzer_enabled/command",
+      "availabilityTopic": "grow/daniel-home/atoms3u-sensor-rig/status",
+      "payloadOn": "ON",
+      "payloadOff": "OFF",
+      "payloadPress": "PRESS",
+      "payloadAvailable": "online",
+      "payloadNotAvailable": "offline",
+      "dangerous": false,
+      "writable": true,
+      "raw": {}
+    },
+    {
+      "id": "espbuttonthermal_alarm_test",
+      "component": "button",
+      "name": "Thermal Alarm Test",
+      "uniqueId": "ESPbuttonthermal_alarm_test",
+      "objectId": "thermal_alarm_test",
+      "nodeId": "atoms3u-sensor-rig",
+      "device": {
+        "identifiers": [
+          "0123456789ab"
+        ],
+        "name": "AtomS3U Sensor Rig",
+        "manufacturer": "stackdrift",
+        "model": "atoms3u-sensor-rig",
+        "swVersion": "dev (ESPHome 2026.5.1)"
+      },
+      "commandTopic": "grow/daniel-home/atoms3u-sensor-rig/button/thermal_alarm_test/command",
+      "availabilityTopic": "grow/daniel-home/atoms3u-sensor-rig/status",
+      "payloadOn": "ON",
+      "payloadOff": "OFF",
+      "payloadPress": "PRESS",
+      "payloadAvailable": "online",
+      "payloadNotAvailable": "offline",
+      "dangerous": true,
+      "writable": true,
       "raw": {}
     },
     {
@@ -3983,6 +4135,22 @@ export const liveSnapshot = {
     }
   ],
   "states": {
+    "espnumberthermal_alarm_high_threshold": {
+      "value": "32.000000",
+      "updatedAt": "2026-06-29T08:55:35.103Z"
+    },
+    "espnumberthermal_alarm_low_threshold": {
+      "value": "12.000000",
+      "updatedAt": "2026-06-29T08:55:35.103Z"
+    },
+    "espbinary_sensorthermal_alarm": {
+      "value": "OFF",
+      "updatedAt": "2026-06-29T10:05:26.704Z"
+    },
+    "espswitchthermal_buzzer_enabled": {
+      "value": "ON",
+      "updatedAt": "2026-06-29T08:55:35.113Z"
+    },
     "espnumberthermal_update_interval": {
       "value": "2000.000000",
       "updatedAt": "2026-06-29T08:55:35.103Z"
@@ -4617,6 +4785,36 @@ export const liveSnapshot = {
           "objectId": "vpd_low_alert",
           "group": "thresholds",
           "order": 160
+        },
+        {
+          "component": "number",
+          "objectId": "thermal_alarm_high_threshold",
+          "group": "thresholds",
+          "order": 170
+        },
+        {
+          "component": "number",
+          "objectId": "thermal_alarm_low_threshold",
+          "group": "thresholds",
+          "order": 180
+        },
+        {
+          "component": "binary_sensor",
+          "objectId": "thermal_alarm",
+          "group": "thresholds",
+          "order": 190
+        },
+        {
+          "component": "switch",
+          "objectId": "thermal_buzzer_enabled",
+          "group": "thresholds",
+          "order": 200
+        },
+        {
+          "component": "button",
+          "objectId": "thermal_alarm_test",
+          "group": "thresholds",
+          "order": 210
         },
         {
           "component": "sensor",

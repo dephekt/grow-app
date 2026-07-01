@@ -51,10 +51,36 @@ export function isThresholdEntity(entity: EntityConfig): boolean {
   return objectId.includes('threshold') || /(^|_)(high|low|min|max|limit)(_|$)/.test(objectId);
 }
 
-/** An alert `binary_sensor` (e.g. `co2_high_alert`, "VPD Alert"). */
+/**
+ * An alert `binary_sensor`: either a split-side `*_alert` (e.g. `co2_high_alert`,
+ * "VPD Alert") or a single-band alarm (`thermal_alarm`, device_class `problem`).
+ *
+ * The scd4x climate rig splits high/low into two `*_alert` sensors; the thermal
+ * camera instead exposes one latching `thermal_alarm` that carries no `alert`
+ * token and no high/low side. Recognise it by the `alarm` name or the `problem`
+ * device_class so it pairs into the same band (as the rule's generic alert) and
+ * so `isAlertsCurated` renders the curated card rather than the fallback list.
+ */
 export function isAlertEntity(entity: EntityConfig): boolean {
   if (entity.component !== 'binary_sensor') return false;
   const objectId = objectIdOf(entity);
   const name = (entity.name ?? '').toLowerCase();
-  return objectId.includes('alert') || name.includes('alert');
+  return (
+    objectId.includes('alert') ||
+    name.includes('alert') ||
+    objectId.includes('alarm') ||
+    name.includes('alarm') ||
+    entity.deviceClass === 'problem'
+  );
+}
+
+/** The buzzer-enable `switch` that mutes a device alarm (e.g. `thermal_buzzer_enabled`). */
+export function isBuzzerSwitch(entity: EntityConfig): boolean {
+  return entity.component === 'switch' && objectIdOf(entity).includes('buzzer');
+}
+
+/** The momentary `button` that sounds an alarm self-test (e.g. `thermal_alarm_test`). */
+export function isAlarmTestButton(entity: EntityConfig): boolean {
+  const objectId = objectIdOf(entity);
+  return entity.component === 'button' && objectId.includes('alarm') && objectId.includes('test');
 }
