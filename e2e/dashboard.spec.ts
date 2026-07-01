@@ -330,6 +330,75 @@ test('renders a draggable handle for a writable threshold that has no current st
   expect(commands[0].body).toMatchObject({ value: 850, confirm: false });
 });
 
+test('renders the curated thermal single-band alarm card', async ({ page }) => {
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: liveSnapshot }));
+
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
+
+  const thermalCard = page.locator('.rule-card').filter({ hasText: 'Thermal' });
+  await expect(thermalCard).toBeVisible();
+
+  // Single band: two threshold handles, one status chip. The mean reading (25.2 °C)
+  // sits inside 12..32 with the alarm OFF, so the card reads OK.
+  await expect(thermalCard.getByRole('slider', { name: 'Thermal low threshold' })).toBeVisible();
+  await expect(thermalCard.getByRole('slider', { name: 'Thermal high threshold' })).toBeVisible();
+  await expect(thermalCard.locator('.status-chip')).toHaveText('OK');
+
+  // The alarm extras render inside the card, not the "Other Alerts" fallback list.
+  await expect(thermalCard.locator('.ctl-toggle')).toContainText('Buzzer');
+  await expect(thermalCard.locator('.ctl-toggle')).toContainText('On');
+  await expect(thermalCard.getByRole('button', { name: 'Test alarm' })).toBeVisible();
+  await expect(page.getByText('Other Alerts')).toHaveCount(0);
+});
+
+test('drags the thermal high threshold past its bound and publishes the clamped value', async ({ page }) => {
+  const commands = await captureThresholdCommands(page, liveSnapshot);
+
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
+
+  const thermalCard = page.locator('.rule-card').filter({ hasText: 'Thermal' });
+  await expect(thermalCard).toBeVisible();
+  // Single band: an SVG slider, not a numeric input.
+  await expect(thermalCard.locator('input[type="number"]')).toHaveCount(0);
+
+  const highThreshold = thermalCard.getByRole('slider', { name: 'Thermal high threshold' });
+  // Thermal is the last card, so on the narrow phone viewport it stacks below the fold;
+  // bring it into view before driving raw pointer coordinates.
+  await highThreshold.scrollIntoViewIfNeeded();
+
+  // A full sweep left overshoots the low end; the high handle clamps to its floor
+  // (max(min −20, low 12 + step 0.5) = 12.5 °C).
+  await dragSliderBy(page, highThreshold, -320);
+
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0].url).toContain('/api/entities/espnumberthermal_alarm_high_threshold/command');
+  expect(commands[0].body).toMatchObject({ value: 12.5, confirm: false });
+});
+
+test('toggles the thermal buzzer and sounds the alarm test after confirming', async ({ page }) => {
+  const commands = await captureThresholdCommands(page, liveSnapshot);
+  // The alarm-test button is flagged dangerous (all buttons are), so it prompts.
+  page.on('dialog', (dialog) => dialog.accept());
+
+  await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
+
+  const thermalCard = page.locator('.rule-card').filter({ hasText: 'Thermal' });
+  await expect(thermalCard).toBeVisible();
+
+  // Buzzer starts ON in the fixture → toggling publishes false (not dangerous, no confirm).
+  await thermalCard.locator('.ctl-toggle').click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0].url).toContain('/api/entities/espswitchthermal_buzzer_enabled/command');
+  expect(commands[0].body).toMatchObject({ value: false, confirm: false });
+
+  // Test button publishes a momentary press once the confirm dialog is accepted.
+  await thermalCard.getByRole('button', { name: 'Test alarm' }).click();
+  await expect.poll(() => commands.length).toBe(2);
+  expect(commands[1].url).toContain('/api/entities/espbuttonthermal_alarm_test/command');
+  expect(commands[1].body).toMatchObject({ confirm: true });
+});
+
 test('shows stable firmware update status and applies only when device state matches', async ({ page }) => {
   await page.goto('/device-settings?device=atlas-hydro-monitor');
 
