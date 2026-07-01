@@ -56,6 +56,12 @@ export function isThermalArrayTemp(e: EntityConfig): boolean {
   return isNumericSensor(e) && /mlx90640_(min|mean|max)_temp$/.test(e.objectId ?? '');
 }
 
+/** The MLX90640 thermal-array MEAN temperature — the representative live reading for
+ *  the thermal alarm band (the min/max aggregates bracket it but aren't the "current" value). */
+export function isThermalMeanTemp(e: EntityConfig): boolean {
+  return isNumericSensor(e) && /mlx90640_mean_temp$/.test(e.objectId ?? '');
+}
+
 export function isCo2(e: EntityConfig): boolean {
   return (
     isNumericSensor(e) &&
