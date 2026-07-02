@@ -58,6 +58,33 @@ The browser never connects directly to Mosquitto. The SvelteKit server keeps the
 MQTT session, caches retained/current state, streams browser updates over SSE,
 and publishes commands only through discovered command topics.
 
+## Authentication
+
+The app enforces its own login for every request (LAN and remote alike); only
+`/health`, `/favicon.ico`, the login page, and the firmware device-token
+endpoints are public. Auth is owned by the app, not the reverse proxy, so it
+keeps working when the proxy or identity provider is unavailable.
+
+- **Local accounts.** Username/password stored in a SQLite auth DB
+  (`GROW_AUTH_DB`), hashed with scrypt. A bootstrap admin is created on first
+  boot from `GROW_AUTH_ADMIN_PASSWORD[_FILE]` (or `..._HASH[_FILE]`); the secret
+  is inert after that first boot and a later password change is never reset by
+  it. Admins can create more local accounts and disable/enable users from
+  **Users & access** (`/settings/users`).
+- **Sessions.** An `HttpOnly`, `SameSite=Lax` cookie holds an opaque token; only
+  its SHA-256 is stored. Sessions roll a 30-day window and survive restarts (the
+  DB is on a persistent volume). The cookie is marked `Secure` only on HTTPS
+  requests so it also works on the plain-HTTP LAN origin — set
+  `PROTOCOL_HEADER=x-forwarded-proto` behind a TLS proxy so the app sees HTTPS.
+- **OIDC / SSO.** Wired in a follow-up. When `GROW_OIDC_ISSUER` and client
+  credentials are set, the login page adds a "Sign in with SSO" button and
+  authorizes users by OIDC group membership. With no OIDC env the app runs
+  local-auth-only.
+
+The auth DB needs a writable path. The container defaults `GROW_AUTH_DB` to
+`/data/auth.db` and declares `/data` as a volume; mount a named volume there so
+users and sessions persist across deploys. See `.env.example` for the full list.
+
 ## Production container
 
 The app publishes as `ghcr.io/dephekt/grow-app`. The container

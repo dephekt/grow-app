@@ -29,6 +29,9 @@ FROM docker.io/node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+# Default the auth DB onto a writable, node-owned path so the image works even
+# without an explicit override; compose mounts a named volume here.
+ENV GROW_AUTH_DB=/data/auth.db
 
 WORKDIR /app
 
@@ -36,6 +39,10 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/build ./build
 COPY --from=build /app/build-recorder ./build-recorder
 COPY --from=build /app/node_modules ./node_modules
+
+# Writable data dir for the SQLite auth DB, owned by the runtime user.
+RUN mkdir -p /data && chown node:node /data
+VOLUME ["/data"]
 
 EXPOSE 3000
 

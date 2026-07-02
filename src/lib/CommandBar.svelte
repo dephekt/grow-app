@@ -3,8 +3,10 @@
   import { page } from '$app/state';
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
   import type { EntityConfig } from '$lib/server/mqtt/types';
+  import type { AuthenticatedUser } from '$lib/server/auth/users';
+  import AccountMenu from '$lib/AccountMenu.svelte';
 
-  let { live }: { live: LiveSnapshot } = $props();
+  let { live, user }: { live: LiveSnapshot; user: AuthenticatedUser } = $props();
 
   const snapshot = $derived(live.snapshot);
   const broker = $derived(snapshot.broker);
@@ -57,6 +59,7 @@
     </span>
     <span class="counts mono">{snapshot.devices.length} DEV · {snapshot.entities.length} ENT</span>
     <span class="clock mono">{clock}</span>
+    <AccountMenu {user} />
   </div>
 </header>
 
@@ -148,7 +151,14 @@
       display: none;
     }
     .command-bar {
-      gap: 14px;
+      gap: 12px;
+      /* Wrap instead of overflowing: the account chip would otherwise push the
+         narrow header past the viewport and collapse the site identity to zero. */
+      flex-wrap: wrap;
+      row-gap: 8px;
+    }
+    .identity {
+      flex-shrink: 0;
     }
   }
 </style>

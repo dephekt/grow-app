@@ -127,6 +127,22 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
 
     events.onerror = () => {
       error = 'Live event stream disconnected';
+      // The SSE endpoint is session-guarded: a mid-stream 401 means the session
+      // expired or was revoked. Re-probe /api/me and, if we're now anonymous,
+      // bounce to the login screen. A transient network drop keeps user set, so
+      // this doesn't fire on ordinary reconnect churn.
+      if (typeof window === 'undefined') return;
+      void fetch('/api/me')
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body: { user?: unknown } | null) => {
+          if (body && body.user === null) {
+            const next = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/login?next=${next}`;
+          }
+        })
+        .catch(() => {
+          /* offline — leave the stale-data banner up, don't force a redirect */
+        });
     };
 
     return () => events.close();

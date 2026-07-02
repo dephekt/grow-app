@@ -26,13 +26,15 @@ the right-hand column:
   training memory.
 - Pin `svelte` to a `^5` major; never float it backward.
 
-## Phase 1 boundaries
+## Scope boundaries
 
-- Site mode only: Daniel's local `grow/daniel-home/#` broker namespace.
+- Site mode only: Daniel's local `grow/daniel-home/#` broker namespace. One
+  codebase deployed per site — there is no central/multi-tenant grow-app.
 - Browser clients use HTTP and SSE only; MQTT.js stays server-side.
-- Do not add Keycloak, central mode, multi-site tenancy, InfluxDB, AC Infinity,
-  Pulse, or `grow-rules` in Phase 1.
-- App command publishes are not retained in Phase 1.
+- App-owned auth is in scope: local accounts and per-site OIDC (Keycloak) with an
+  app-owned session. The app enforces login itself; a proxy only routes. Do not
+  add central mode, multi-site tenancy, AC Infinity, Pulse, or `grow-rules`.
+- App command publishes are not retained.
 
 ## Codebase knowledge graph
 
