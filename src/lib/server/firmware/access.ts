@@ -1,21 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { json } from '@sveltejs/kit';
-
-function env(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : undefined;
-}
-
-function secretEnv(name: string): string | undefined {
-  const direct = env(name);
-  if (direct) return direct;
-
-  const file = env(`${name}_FILE`);
-  if (!file) return undefined;
-
-  return readFileSync(file, 'utf8').replace(/\r?\n$/, '');
-}
+import { secretEnv } from '$lib/server/env';
 
 function constantTimeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a);

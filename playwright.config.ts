@@ -1,29 +1,45 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// The setup project logs in through the real UI and writes a storage state that
+// the app projects reuse, so existing dashboard/camera/screenshot specs run
+// authenticated. Auth-flow specs opt out per-file with a clean storage state.
+const authFile = '.playwright/state.json';
+
 export default defineConfig({
   testDir: './e2e',
   webServer: {
-    command: 'pnpm build && pnpm preview --port 4173',
+    // Seed a local admin via the product's own bootstrap env (no test-only auth
+    // bypass). The auth DB is ephemeral and reset each run.
+    command: 'rm -f .playwright/auth.db* && pnpm build && pnpm preview --port 4173',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000
+    timeout: 120_000,
+    env: {
+      GROW_AUTH_DB: '.playwright/auth.db',
+      GROW_AUTH_ADMIN_USERNAME: 'e2e-admin',
+      GROW_AUTH_ADMIN_PASSWORD: 'e2e-password'
+    }
   },
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'on-first-retry'
   },
   projects: [
+    { name: 'setup', testMatch: /auth\.setup\.ts$/ },
     {
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'] }
+      use: { ...devices['Desktop Chrome'], storageState: authFile },
+      dependencies: ['setup']
     },
     {
       name: 'tab5',
-      use: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1, isMobile: false }
+      use: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1, isMobile: false, storageState: authFile },
+      dependencies: ['setup']
     },
     {
       name: 'phone',
-      use: { ...devices['Pixel 7'] }
+      use: { ...devices['Pixel 7'], storageState: authFile },
+      dependencies: ['setup']
     }
   ]
 });
