@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { env, secretEnv } from '$lib/server/env';
 
 export interface SiteMqttConfig {
   site: string;
@@ -10,21 +10,6 @@ export interface SiteMqttConfig {
   /** Explicit MQTT client id. Set distinctly per process (e.g. the recorder)
    * to avoid two containers colliding on a PID-derived id — both run as PID 1. */
   clientId?: string;
-}
-
-function env(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : undefined;
-}
-
-function secretEnv(name: string): string | undefined {
-  const direct = env(name);
-  if (direct) return direct;
-
-  const file = env(`${name}_FILE`);
-  if (!file) return undefined;
-
-  return readFileSync(file, 'utf8').replace(/\r?\n$/, '');
 }
 
 export function getSiteMqttConfig(): SiteMqttConfig {
