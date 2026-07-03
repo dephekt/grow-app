@@ -1,26 +1,46 @@
 {
   "version": "1.0.0",
-  "gitCommitHash": "0bc7c82eab0c2d7267f12b15188883a21bc3f02a",
-  "generatedAt": "2026-06-21T23:55:33.358Z",
+  "gitCommitHash": "30631fe2be4214b093a9f37809e0ed8bdefabe6f",
+  "generatedAt": "2026-07-03T10:53:42.057Z",
   "files": {
     ".dockerignore": {
       "filePath": ".dockerignore",
-      "contentHash": "fa44bde16ff168cc228b9ef4ce75d871634b29f1b49608eb2288d16b866efae5",
+      "contentHash": "d40848dc7c49da4e7e056c610e992f27e5ff2d5a718115d2e89d39ee03a5ccb8",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 14,
+      "totalLines": 16,
       "hasStructuralAnalysis": false
     },
-    ".forgejo/workflows/build.yaml": {
-      "filePath": ".forgejo/workflows/build.yaml",
-      "contentHash": "45382f48bdc3602a2ee14878430682a434bbb3b5255368b70bf92065c214f275",
+    ".env.example": {
+      "filePath": ".env.example",
+      "contentHash": "318b99ea0a8aa04348b73e683e5f48f02fe843be7d4407870acb7ff0f4aed873",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 110,
+      "totalLines": 46,
+      "hasStructuralAnalysis": true
+    },
+    ".github/workflows/build.yaml": {
+      "filePath": ".github/workflows/build.yaml",
+      "contentHash": "adaccb8c58836aa5c6ea25c5ff458ed47066e2cfbff044451470e9e60ebe3723",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    ".github/workflows/ci.yaml": {
+      "filePath": ".github/workflows/ci.yaml",
+      "contentHash": "d58f8a6993875ec2676459603801196ccdbec13b499c3814f7c620b488b7f10e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 75,
       "hasStructuralAnalysis": true
     },
     ".npmrc": {
@@ -33,9 +53,19 @@
       "totalLines": 2,
       "hasStructuralAnalysis": false
     },
-    ".understand-anything/.understandignore": {
-      "filePath": ".understand-anything/.understandignore",
-      "contentHash": "9c3676226d140fabf324710b102f3cdddbc162d4f527e4e729fba6d55d587076",
+    "AGENTS.md": {
+      "filePath": "AGENTS.md",
+      "contentHash": "9a320aa0cabd98c45cad374c97aa3f73f2192d783798aa2aaaaeb66e3fc436d5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 60,
+      "hasStructuralAnalysis": true
+    },
+    "design/mission-control/.thumbnail": {
+      "filePath": "design/mission-control/.thumbnail",
+      "contentHash": "4caabe634dd4b21e6ecf0cbfd74fde0f78522f84c49517f0ebc21feda4eda9e5",
       "functions": [],
       "classes": [],
       "imports": [],
@@ -43,48 +73,78 @@
       "totalLines": 49,
       "hasStructuralAnalysis": false
     },
-    ".understand-anything/config.json": {
-      "filePath": ".understand-anything/config.json",
-      "contentHash": "08d37f20ea0af2233ae24f094723759f952381ecb6dd7f2aaa05ef96e95eae6b",
+    "design/mission-control/MissionControl.dc.html": {
+      "filePath": "design/mission-control/MissionControl.dc.html",
+      "contentHash": "035d9b8408d2c256b2024ae1f158b1436abfa5f18d1c189188ba6b6c2c4e8a4b",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 4,
+      "totalLines": 865,
+      "hasStructuralAnalysis": false
+    },
+    "design/mission-control/README.md": {
+      "filePath": "design/mission-control/README.md",
+      "contentHash": "b6f0e7e181e08dc9028dbe001f6fee23ddc3d1bbb8dd4643b2bdd8a3e2d2c8b1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 119,
       "hasStructuralAnalysis": true
     },
-    "AGENTS.md": {
-      "filePath": "AGENTS.md",
-      "contentHash": "d3d75ae7eec0bc7a3b841f3baa851f913f521ed45542e738bacb09cfcecbbaa6",
+    "design/mission-control/support.js": {
+      "filePath": "design/mission-control/support.js",
+      "contentHash": "7c923c3f6027e809dcca3e6b4ae7b6d5bd45576d76894a257eb4607b49bea005",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 36,
+      "totalLines": 1604,
       "hasStructuralAnalysis": true
     },
     "Dockerfile": {
       "filePath": "Dockerfile",
-      "contentHash": "f77432a15a70432d555d70683fc99d8277a48474dbf383543184efc540496ca9",
+      "contentHash": "75e4a7e67a2140046d05091c6a6a0bd0557bc18d900c291420d79628850ec962",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 41,
+      "totalLines": 52,
       "hasStructuralAnalysis": true
     },
-    "e2e/dashboard.spec.ts": {
-      "filePath": "e2e/dashboard.spec.ts",
-      "contentHash": "d0a8c8534536176e0f24db60fe65a30943ffecb070ffd11e4d502fdd93372094",
+    "e2e/auth.setup.ts": {
+      "filePath": "e2e/auth.setup.ts",
+      "contentHash": "853495d15e74dcf8cd2bfc747f6de7c85fb6918f26c37bb6587a40662e5e308a",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@playwright/test",
+          "specifiers": [
+            "expect",
+            "setup"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 16,
+      "hasStructuralAnalysis": true
+    },
+    "e2e/auth.spec.ts": {
+      "filePath": "e2e/auth.spec.ts",
+      "contentHash": "478263e1f3182320bdb754bb8167086a345fde646cc5c7dbed2667149ff840d4",
       "functions": [
         {
-          "name": "installMockEventSource",
+          "name": "login",
           "params": [
-            "page"
+            "page",
+            "username",
+            "password"
           ],
           "returnType": "Promise<void>",
           "exported": false,
-          "lineCount": 38
+          "lineCount": 6
         }
       ],
       "classes": [],
@@ -96,6 +156,36 @@
             "test",
             "Page"
           ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 81,
+      "hasStructuralAnalysis": true
+    },
+    "e2e/camera.spec.ts": {
+      "filePath": "e2e/camera.spec.ts",
+      "contentHash": "235c855cca75c7e7c7e873b416c3c31016217e7db6daf9fedbb5fa715a5174dd",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "* as fs"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "* as path"
+          ]
+        },
+        {
+          "source": "@playwright/test",
+          "specifiers": [
+            "expect",
+            "test"
+          ]
         },
         {
           "source": "./fixtures/dashboard-snapshot",
@@ -105,12 +195,96 @@
         }
       ],
       "exports": [],
-      "totalLines": 306,
+      "totalLines": 107,
+      "hasStructuralAnalysis": true
+    },
+    "e2e/dashboard.spec.ts": {
+      "filePath": "e2e/dashboard.spec.ts",
+      "contentHash": "3385b685721bf28c31f09502b5b39e2722a37b1826a24c2d5cb08d1ec633b4d3",
+      "functions": [
+        {
+          "name": "installMockEventSource",
+          "params": [
+            "page"
+          ],
+          "returnType": "Promise<void>",
+          "exported": false,
+          "lineCount": 38
+        },
+        {
+          "name": "dragSliderBy",
+          "params": [
+            "page",
+            "slider",
+            "deltaX",
+            "beforeRelease"
+          ],
+          "returnType": "Promise<void>",
+          "exported": false,
+          "lineCount": 12
+        },
+        {
+          "name": "centerX",
+          "params": [
+            "locator"
+          ],
+          "returnType": "Promise<number>",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "dragSliderTo",
+          "params": [
+            "page",
+            "slider",
+            "targetX"
+          ],
+          "returnType": "Promise<void>",
+          "exported": false,
+          "lineCount": 11
+        },
+        {
+          "name": "captureThresholdCommands",
+          "params": [
+            "page",
+            "snapshot"
+          ],
+          "returnType": "Promise<CapturedCommand[]>",
+          "exported": false,
+          "lineCount": 15
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@playwright/test",
+          "specifiers": [
+            "expect",
+            "test",
+            "Locator",
+            "Page"
+          ]
+        },
+        {
+          "source": "./fixtures/dashboard-snapshot",
+          "specifiers": [
+            "snapshot"
+          ]
+        },
+        {
+          "source": "./fixtures/live-snapshot",
+          "specifiers": [
+            "liveSnapshot"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 536,
       "hasStructuralAnalysis": true
     },
     "e2e/design-screenshots.spec.ts": {
       "filePath": "e2e/design-screenshots.spec.ts",
-      "contentHash": "88c3cbe4018cdf3a0f7a6895dd04253b61035c808ae42eea6bc854b49f8ebf49",
+      "contentHash": "8bb51d5e90438106a5effa90835237cf6381534f4984c1466e21b2776038297c",
       "functions": [],
       "classes": [],
       "imports": [
@@ -122,9 +296,9 @@
           ]
         },
         {
-          "source": "./fixtures/dashboard-snapshot",
+          "source": "./fixtures/live-snapshot",
           "specifiers": [
-            "dashboardSnapshot"
+            "liveSnapshot"
           ]
         }
       ],
@@ -134,7 +308,7 @@
     },
     "e2e/fixtures/dashboard-snapshot.ts": {
       "filePath": "e2e/fixtures/dashboard-snapshot.ts",
-      "contentHash": "1093bd03cbfedae256fa58a5c6819e3e4fca5a66e271a236a1a077063a5a9202",
+      "contentHash": "187fa9ec76165a0d9ce5160c010d95b80268e40cefeb252c94a4784554fe7839",
       "functions": [],
       "classes": [],
       "imports": [
@@ -148,22 +322,80 @@
       "exports": [
         "dashboardSnapshot"
       ],
-      "totalLines": 332,
+      "totalLines": 482,
+      "hasStructuralAnalysis": true
+    },
+    "e2e/fixtures/live-snapshot.ts": {
+      "filePath": "e2e/fixtures/live-snapshot.ts",
+      "contentHash": "20822deabea7641ceccc6c01c36e2d44dbd56cd0f94b6d08be5ff9ba37521183",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../../src/lib/server/mqtt/types",
+          "specifiers": [
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "liveSnapshot"
+      ],
+      "totalLines": 5305,
+      "hasStructuralAnalysis": true
+    },
+    "e2e/mission-control-screenshots.spec.ts": {
+      "filePath": "e2e/mission-control-screenshots.spec.ts",
+      "contentHash": "8ef9497c19f381e9b5e0af5b94c6e177ad1eadcda9481e958f30a7a27ba6b58d",
+      "functions": [
+        {
+          "name": "makePoints",
+          "params": [
+            "base",
+            "n"
+          ],
+          "exported": false,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync"
+          ]
+        },
+        {
+          "source": "@playwright/test",
+          "specifiers": [
+            "test"
+          ]
+        },
+        {
+          "source": "./fixtures/live-snapshot",
+          "specifiers": [
+            "liveSnapshot"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 104,
       "hasStructuralAnalysis": true
     },
     "package.json": {
       "filePath": "package.json",
-      "contentHash": "c2cf086411d7376f7508202f25186742085e29a270d640a39f70780ac47f2aa9",
+      "contentHash": "57bbe4962d1edee3f6076a8ee9aa3e69542bc55d905977f95fd3b324678c0015",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 37,
+      "totalLines": 44,
       "hasStructuralAnalysis": true
     },
     "playwright.config.ts": {
       "filePath": "playwright.config.ts",
-      "contentHash": "a021b74a29bd9eacc45deda36cca6b53f578903b3af95fe3f226fc8b243f647c",
+      "contentHash": "e53d03be46fa5a821b0b0eedc686b49ec7b0af19c2aa064fa58ca61d6f200a09",
       "functions": [],
       "classes": [],
       "imports": [
@@ -176,7 +408,7 @@
         }
       ],
       "exports": [],
-      "totalLines": 30,
+      "totalLines": 46,
       "hasStructuralAnalysis": true
     },
     "pnpm-workspace.yaml": {
@@ -191,22 +423,67 @@
     },
     "README.md": {
       "filePath": "README.md",
-      "contentHash": "c0701f9fc1907178570b22edd42e1888250ce4348d690bf5d1a3c064fa042390",
+      "contentHash": "1877214597b0efc57e75c02047397e5202a255071a959b46f9c6a61ffac241db",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 82,
+      "totalLines": 143,
       "hasStructuralAnalysis": true
+    },
+    "scripts/capture-fixture.sh": {
+      "filePath": "scripts/capture-fixture.sh",
+      "contentHash": "4ff1507b5b48f03bbb20793d8c2c488355af696d882fd0f44189eec2bf888f0e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/sanitize-fixture.mjs": {
+      "filePath": "scripts/sanitize-fixture.mjs",
+      "contentHash": "de7ee7c6f4ac171419d5bced42c8f4c76a32b7a3836162db7a2e24f4b655b649",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync",
+            "writeFileSync"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 54,
+      "hasStructuralAnalysis": true
+    },
+    "src/app.css": {
+      "filePath": "src/app.css",
+      "contentHash": "f5fb3094e07da39087458d8d6b162b70f6d0f57075698f751f5556ea87c43528",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 147,
+      "hasStructuralAnalysis": false
     },
     "src/app.d.ts": {
       "filePath": "src/app.d.ts",
-      "contentHash": "05836746e38b5028adbcf960715fb37504746fb8644949aa2267552774eaa696",
+      "contentHash": "0a6d8f2f6dd4d5cc15631de859730ddb77e55bb69306968e22cf87c575e46931",
       "functions": [],
       "classes": [],
-      "imports": [],
+      "imports": [
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "AuthenticatedUser"
+          ]
+        }
+      ],
       "exports": [],
-      "totalLines": 6,
+      "totalLines": 14,
       "hasStructuralAnalysis": true
     },
     "src/app.html": {
@@ -221,24 +498,166 @@
     },
     "src/hooks.server.ts": {
       "filePath": "src/hooks.server.ts",
-      "contentHash": "20fc77cd6fd5ceb20ee860d717b4f3d143fdfc2205d8e8d5c91c0b3de5c0fcfb",
-      "functions": [],
+      "contentHash": "0a158451ef575ec24dc2d27d9811f822752cb954afef9c5377676ba9dca25dc0",
+      "functions": [
+        {
+          "name": "handle",
+          "params": [
+            "{ event, resolve }"
+          ],
+          "exported": true,
+          "lineCount": 43
+        }
+      ],
       "classes": [],
       "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "Handle"
+          ]
+        },
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "redirect"
+          ]
+        },
         {
           "source": "$lib/server/mqtt/service",
           "specifiers": [
             "getSiteMqttService"
           ]
+        },
+        {
+          "source": "$lib/server/auth/db",
+          "specifiers": [
+            "getAuthDb"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "ensureBootstrapAdmin",
+            "toAuthenticatedUser"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/sessions",
+          "specifiers": [
+            "lookupSession",
+            "renewIfNeeded"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/guard",
+          "specifiers": [
+            "classifyPath",
+            "isApiOrAuthPath",
+            "isSafeMethod",
+            "isCsrfSafe"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "SESSION_COOKIE",
+            "getBootstrapAdmin",
+            "isSecureRequest",
+            "sessionCookieOptions"
+          ]
         }
       ],
-      "exports": [],
-      "totalLines": 4,
+      "exports": [
+        "handle"
+      ],
+      "totalLines": 59,
       "hasStructuralAnalysis": true
+    },
+    "src/lib/AccountMenu.svelte": {
+      "filePath": "src/lib/AccountMenu.svelte",
+      "contentHash": "9fe071a58ce28584fa536ac762cf8a5172bb14fa929d9cce56978723e9988b7b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 260,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/AlertsPanel.svelte": {
+      "filePath": "src/lib/AlertsPanel.svelte",
+      "contentHash": "2b32da1418323926e1044f6c7a5407900f5f7eab584e9f45ce39236c54c84b12",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1170,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/CalibrationPanel.svelte": {
+      "filePath": "src/lib/CalibrationPanel.svelte",
+      "contentHash": "ad2d8fed55f282c908cec780b7a1fb638896ef8d35f802972f0a27da615df638",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 853,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/CameraImageTile.svelte": {
+      "filePath": "src/lib/CameraImageTile.svelte",
+      "contentHash": "0943689739bfc33fd502d977e8ebebd93935ab41c634162b8ce6039b50c90da6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 204,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/CommandBar.svelte": {
+      "filePath": "src/lib/CommandBar.svelte",
+      "contentHash": "6f16a2c84c8e2bf646f2a39829f37b20e8b7d1fa4e1317abf512d07042d3840d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 165,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/dashboard/ReadoutPanel.svelte": {
+      "filePath": "src/lib/dashboard/ReadoutPanel.svelte",
+      "contentHash": "603c5c04f9613401a3c9e0a2d9f259c44d74686b7bc5a3bb793031363e014340",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 120,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/dashboard/ThermalPanel.svelte": {
+      "filePath": "src/lib/dashboard/ThermalPanel.svelte",
+      "contentHash": "c9238bf87030664b1ebb553193dbfa7f2e56308c7e4b35b7f7053cbfee512c15",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 65,
+      "hasStructuralAnalysis": false
+    },
+    "src/lib/dashboard/TrendsPanel.svelte": {
+      "filePath": "src/lib/dashboard/TrendsPanel.svelte",
+      "contentHash": "8656731a8e52031ab409ef4b45b5e196874971b25ba2a00002954b25a394b6c9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 156,
+      "hasStructuralAnalysis": false
     },
     "src/lib/device-presentation.ts": {
       "filePath": "src/lib/device-presentation.ts",
-      "contentHash": "d377435f65b570c4a920531b3091eb5bf4d82c8215da9955f13e23fdfa0de42a",
+      "contentHash": "4c1626a838073c069b5dfb4b2bc23a316e1d712281fbcd605a011ab5c86b8895",
       "functions": [
         {
           "name": "entityMatchKey",
@@ -344,6 +763,25 @@
           "lineCount": 7
         },
         {
+          "name": "hasCameraFrameSource",
+          "params": [
+            "entity"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "selectCameras",
+          "params": [
+            "entities",
+            "entityMetadata"
+          ],
+          "returnType": "PresentedEntity[]",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
           "name": "fallbackMetrics",
           "params": [
             "entities"
@@ -360,7 +798,18 @@
           ],
           "returnType": "DashboardPresentation",
           "exported": true,
-          "lineCount": 28
+          "lineCount": 57
+        },
+        {
+          "name": "presentedNumericMetrics",
+          "params": [
+            "snapshot",
+            "device",
+            "stripPrefix"
+          ],
+          "returnType": "PresentedEntity[]",
+          "exported": true,
+          "lineCount": 11
         },
         {
           "name": "groupSectionsByPanel",
@@ -388,11 +837,17 @@
           ],
           "returnType": "DeviceSettingsPanel[]",
           "exported": true,
-          "lineCount": 73
+          "lineCount": 85
         }
       ],
       "classes": [],
       "imports": [
+        {
+          "source": "$lib/entity-match",
+          "specifiers": [
+            "isNumericSensor"
+          ]
+        },
         {
           "source": "$lib/server/mqtt/types",
           "specifiers": [
@@ -408,19 +863,162 @@
       "exports": [
         "DEVICE_SETTINGS_SECTIONS",
         "dashboardPresentation",
+        "presentedNumericMetrics",
         "deviceSettingsPresentation"
       ],
-      "totalLines": 272,
+      "totalLines": 350,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/entity-match.ts": {
+      "filePath": "src/lib/entity-match.ts",
+      "contentHash": "e489177692be2b215e1547512cd577a6005f4237ffc9907260fb35fdf46c09e6",
+      "functions": [
+        {
+          "name": "isNumericSensor",
+          "params": [
+            "e"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isWaterPh",
+          "params": [
+            "e"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isWaterTemperature",
+          "params": [
+            "e"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "isHumidity",
+          "params": [
+            "e"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isAmbientTemperature",
+          "params": [
+            "e"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "isThermalArrayTemp",
+          "params": [
+            "e"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isThermalMeanTemp",
+          "params": [
+            "e"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isCo2",
+          "params": [
+            "e"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "deviceOwning",
+          "params": [
+            "snapshot",
+            "pred"
+          ],
+          "returnType": "DeviceSnapshot | undefined",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "resolveWaterDevice",
+          "params": [
+            "snapshot"
+          ],
+          "returnType": "DeviceSnapshot | undefined",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "resolveClimateDevice",
+          "params": [
+            "snapshot"
+          ],
+          "returnType": "DeviceSnapshot | undefined",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "resolveThermalDevice",
+          "params": [
+            "snapshot"
+          ],
+          "returnType": "DeviceSnapshot | undefined",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "DeviceSnapshot",
+            "EntityConfig",
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "isNumericSensor",
+        "isWaterPh",
+        "isWaterTemperature",
+        "isHumidity",
+        "isAmbientTemperature",
+        "isThermalArrayTemp",
+        "isThermalMeanTemp",
+        "isCo2",
+        "deviceOwning",
+        "resolveWaterDevice",
+        "resolveClimateDevice",
+        "resolveThermalDevice"
+      ],
+      "totalLines": 108,
       "hasStructuralAnalysis": true
     },
     "src/lib/EntityRow.svelte": {
       "filePath": "src/lib/EntityRow.svelte",
-      "contentHash": "a6d79311c8c04a6bd3ee86a01b82892934f876a5c65d748922f7d7914bdd93a0",
+      "contentHash": "02faf6a17412a0d17f57f154c9d39029d777b9630c54ab2eb3cd898b681ceaa2",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 206,
+      "totalLines": 209,
       "hasStructuralAnalysis": false
     },
     "src/lib/firmware.ts": {
@@ -473,17 +1071,61 @@
     },
     "src/lib/FirmwareUpdatesPanel.svelte": {
       "filePath": "src/lib/FirmwareUpdatesPanel.svelte",
-      "contentHash": "acb0ae83ce5ce2d8053a75a1da477c91433902afa41ac2eafb05f8953ad97cc5",
+      "contentHash": "f03b6df756f6d9a68044245a51d5a35f1481d641a485c5c6d7ba6f123c513352",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 532,
+      "totalLines": 537,
       "hasStructuralAnalysis": false
+    },
+    "src/lib/live-snapshot-context.ts": {
+      "filePath": "src/lib/live-snapshot-context.ts",
+      "contentHash": "4218bb3e8934bafd72334ccc4f78b8fadef46261aad50fce398d5bafb32a5fa5",
+      "functions": [
+        {
+          "name": "setLiveSnapshotContext",
+          "params": [
+            "value"
+          ],
+          "returnType": "LiveSnapshot",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "getLiveSnapshot",
+          "params": [],
+          "returnType": "LiveSnapshot",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "svelte",
+          "specifiers": [
+            "getContext",
+            "setContext"
+          ]
+        },
+        {
+          "source": "./live-snapshot.svelte",
+          "specifiers": [
+            "createLiveSnapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "setLiveSnapshotContext",
+        "getLiveSnapshot"
+      ],
+      "totalLines": 18,
+      "hasStructuralAnalysis": true
     },
     "src/lib/live-snapshot.svelte.ts": {
       "filePath": "src/lib/live-snapshot.svelte.ts",
-      "contentHash": "43ca6d3ab7a18334869f2d2cf2c60eafad0ad20da7b781de3f4803cb886e6a6a",
+      "contentHash": "33e407528f5a3f32d4a500a3223b13c83f23cbad4221e5d44f356462ee3b3857",
       "functions": [
         {
           "name": "isRecord",
@@ -548,7 +1190,7 @@
             "initialSnapshot"
           ],
           "exported": true,
-          "lineCount": 113
+          "lineCount": 140
         }
       ],
       "classes": [],
@@ -575,12 +1217,611 @@
         "normalizeSnapshot",
         "createLiveSnapshot"
       ],
-      "totalLines": 182,
+      "totalLines": 209,
       "hasStructuralAnalysis": true
     },
-    "src/lib/server/firmware/access.ts": {
-      "filePath": "src/lib/server/firmware/access.ts",
-      "contentHash": "1d0e2135e596e16029c12e00fb076561d8ce376053417f43a1582dec93c45b37",
+    "src/lib/server/auth/audit.ts": {
+      "filePath": "src/lib/server/auth/audit.ts",
+      "contentHash": "b582502655afe93960ed989f1ba2020cbdb49172931454b65806b26efcb77815",
+      "functions": [
+        {
+          "name": "recordAudit",
+          "params": [
+            "db",
+            "entry"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:sqlite",
+          "specifiers": [
+            "DatabaseSync"
+          ]
+        }
+      ],
+      "exports": [
+        "recordAudit"
+      ],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/auth/authz.ts": {
+      "filePath": "src/lib/server/auth/authz.ts",
+      "contentHash": "322aad4028d73b7f973234dd68dc3c7c6fad12a5e276559b0635dcf1ab2f4792",
+      "functions": [
+        {
+          "name": "requireAdmin",
+          "params": [
+            "locals"
+          ],
+          "returnType": "Response | null",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        }
+      ],
+      "exports": [
+        "requireAdmin"
+      ],
+      "totalLines": 14,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/auth/config.ts": {
+      "filePath": "src/lib/server/auth/config.ts",
+      "contentHash": "a7f8e19f269f403a97ba50ebac9f82657f17a13e30361d6a81753cf3aa4e78d8",
+      "functions": [
+        {
+          "name": "getAuthDbPath",
+          "params": [],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "getSiteSlug",
+          "params": [],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "getBootstrapAdmin",
+          "params": [],
+          "returnType": "BootstrapAdmin",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "isSsoEnabled",
+          "params": [],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isSecureRequest",
+          "params": [
+            "headers"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "sessionCookieOptions",
+          "params": [
+            "secure"
+          ],
+          "returnType": "SessionCookieOptions",
+          "exported": true,
+          "lineCount": 9
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/env",
+          "specifiers": [
+            "env",
+            "secretEnv"
+          ]
+        }
+      ],
+      "exports": [
+        "SESSION_COOKIE",
+        "SESSION_MAX_AGE_SECONDS",
+        "MIN_PASSWORD_LENGTH",
+        "getAuthDbPath",
+        "getSiteSlug",
+        "getBootstrapAdmin",
+        "isSsoEnabled",
+        "isSecureRequest",
+        "sessionCookieOptions"
+      ],
+      "totalLines": 84,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/auth/db.ts": {
+      "filePath": "src/lib/server/auth/db.ts",
+      "contentHash": "69b050faeead9ac07ca0c9510ed44ed704c5c17e93be6c170de01e54c711bbc2",
+      "functions": [
+        {
+          "name": "migrate",
+          "params": [
+            "db"
+          ],
+          "returnType": "void",
+          "exported": false,
+          "lineCount": 17
+        },
+        {
+          "name": "openAuthDb",
+          "params": [
+            "path"
+          ],
+          "returnType": "DatabaseSync",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "purgeExpiredSessions",
+          "params": [
+            "db"
+          ],
+          "returnType": "number",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "getAuthDb",
+          "params": [],
+          "returnType": "DatabaseSync",
+          "exported": true,
+          "lineCount": 16
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:sqlite",
+          "specifiers": [
+            "DatabaseSync"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdirSync"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "dirname"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "getAuthDbPath"
+          ]
+        }
+      ],
+      "exports": [
+        "openAuthDb",
+        "purgeExpiredSessions",
+        "getAuthDb"
+      ],
+      "totalLines": 115,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/auth/guard.ts": {
+      "filePath": "src/lib/server/auth/guard.ts",
+      "contentHash": "9e59517aeab4fe1718211479e665f9e77a718a8ad0da6d4e9073fc55e3a19514",
+      "functions": [
+        {
+          "name": "classifyPath",
+          "params": [
+            "pathname"
+          ],
+          "returnType": "PathClass",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "isSafeMethod",
+          "params": [
+            "method"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isApiOrAuthPath",
+          "params": [
+            "pathname"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isCsrfSafe",
+          "params": [
+            "contentType",
+            "secFetchSite"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "classifyPath",
+        "isSafeMethod",
+        "isApiOrAuthPath",
+        "isCsrfSafe"
+      ],
+      "totalLines": 57,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/auth/passwords.ts": {
+      "filePath": "src/lib/server/auth/passwords.ts",
+      "contentHash": "340a3d06cc2d32b18009d430edddbba1514b6faae68701836fbba48de899b090",
+      "functions": [
+        {
+          "name": "derive",
+          "params": [
+            "password",
+            "salt",
+            "keylen",
+            "n",
+            "r",
+            "p"
+          ],
+          "returnType": "Buffer",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "hashPassword",
+          "params": [
+            "password"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "parse",
+          "params": [
+            "stored"
+          ],
+          "returnType": "ParsedHash | null",
+          "exported": false,
+          "lineCount": 13
+        },
+        {
+          "name": "verifyPassword",
+          "params": [
+            "password",
+            "stored"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 18
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:crypto",
+          "specifiers": [
+            "randomBytes",
+            "scryptSync",
+            "timingSafeEqual"
+          ]
+        }
+      ],
+      "exports": [
+        "hashPassword",
+        "verifyPassword"
+      ],
+      "totalLines": 74,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/auth/sessions.ts": {
+      "filePath": "src/lib/server/auth/sessions.ts",
+      "contentHash": "82945ebfd865bf866c6ee65c8662ca4b60874f83c2b5c80583725cd8cc277dc0",
+      "functions": [
+        {
+          "name": "hashToken",
+          "params": [
+            "token"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "createSession",
+          "params": [
+            "db",
+            "input"
+          ],
+          "returnType": "NewSession",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "lookupSession",
+          "params": [
+            "db",
+            "token"
+          ],
+          "returnType": "SessionLookup | null",
+          "exported": true,
+          "lineCount": 21
+        },
+        {
+          "name": "renewIfNeeded",
+          "params": [
+            "db",
+            "sessionId",
+            "expiresAt"
+          ],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "deleteSession",
+          "params": [
+            "db",
+            "token"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "deleteSessionsForUser",
+          "params": [
+            "db",
+            "userId"
+          ],
+          "returnType": "number",
+          "exported": true,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:sqlite",
+          "specifiers": [
+            "DatabaseSync"
+          ]
+        },
+        {
+          "source": "node:crypto",
+          "specifiers": [
+            "createHash",
+            "randomBytes"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "SESSION_MAX_AGE_SECONDS"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "UserRow"
+          ]
+        }
+      ],
+      "exports": [
+        "hashToken",
+        "createSession",
+        "lookupSession",
+        "renewIfNeeded",
+        "deleteSession",
+        "deleteSessionsForUser"
+      ],
+      "totalLines": 106,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/auth/users.ts": {
+      "filePath": "src/lib/server/auth/users.ts",
+      "contentHash": "dd8f022697432309de013f5a21ef699effd13cdf4a79fd42b02ce8193dbb431e",
+      "functions": [
+        {
+          "name": "toUserSummary",
+          "params": [
+            "row"
+          ],
+          "returnType": "UserSummary",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "toAuthenticatedUser",
+          "params": [
+            "row"
+          ],
+          "returnType": "AuthenticatedUser",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "getUserByUsername",
+          "params": [
+            "db",
+            "username"
+          ],
+          "returnType": "UserRow | undefined",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "getUserById",
+          "params": [
+            "db",
+            "id"
+          ],
+          "returnType": "UserRow | undefined",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "getUserByOidc",
+          "params": [
+            "db",
+            "issuer",
+            "sub"
+          ],
+          "returnType": "UserRow | undefined",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "listUsers",
+          "params": [
+            "db"
+          ],
+          "returnType": "UserRow[]",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "createLocalUser",
+          "params": [
+            "db",
+            "input"
+          ],
+          "returnType": "UserRow",
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "setPassword",
+          "params": [
+            "db",
+            "userId",
+            "password"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "clearPassword",
+          "params": [
+            "db",
+            "userId"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "setDisabled",
+          "params": [
+            "db",
+            "userId",
+            "disabled"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "touchLogin",
+          "params": [
+            "db",
+            "userId"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "ensureBootstrapAdmin",
+          "params": [
+            "db",
+            "admin"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 35
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:sqlite",
+          "specifiers": [
+            "DatabaseSync"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "BootstrapAdmin"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/passwords",
+          "specifiers": [
+            "hashPassword"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/audit",
+          "specifiers": [
+            "recordAudit"
+          ]
+        }
+      ],
+      "exports": [
+        "toUserSummary",
+        "toAuthenticatedUser",
+        "getUserByUsername",
+        "getUserById",
+        "getUserByOidc",
+        "listUsers",
+        "createLocalUser",
+        "setPassword",
+        "clearPassword",
+        "setDisabled",
+        "touchLogin",
+        "ensureBootstrapAdmin"
+      ],
+      "totalLines": 181,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/dev-snapshot.ts": {
+      "filePath": "src/lib/server/dev-snapshot.ts",
+      "contentHash": "3595abb158b07eae0b4d6407af416634d35820943547e54d7291d57f52606cb3",
       "functions": [
         {
           "name": "env",
@@ -592,14 +1833,149 @@
           "lineCount": 4
         },
         {
+          "name": "isSnapshot",
+          "params": [
+            "value"
+          ],
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "devSnapshotConfig",
+          "params": [],
+          "returnType": "DevSnapshotConfig",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "loadDevSnapshot",
+          "params": [
+            "config",
+            "fetchImpl",
+            "readFileImpl"
+          ],
+          "returnType": "Promise<Snapshot | null>",
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "devSnapshotCommandResult",
+          "params": [
+            "entityId",
+            "request",
+            "config",
+            "fetchImpl"
+          ],
+          "returnType": "Promise<DevCommandResult | null>",
+          "exported": true,
+          "lineCount": 37
+        },
+        {
+          "name": "fetchSnapshot",
+          "params": [
+            "url",
+            "fetchImpl"
+          ],
+          "returnType": "Promise<unknown>",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "readSnapshot",
+          "params": [
+            "file",
+            "readFileImpl"
+          ],
+          "returnType": "Promise<unknown>",
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$app/environment",
+          "specifiers": [
+            "dev"
+          ]
+        },
+        {
+          "source": "node:fs/promises",
+          "specifiers": [
+            "readFile"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "resolve"
+          ]
+        },
+        {
+          "source": "./mqtt/discovery",
+          "specifiers": [
+            "buildCommandPublish"
+          ]
+        },
+        {
+          "source": "./mqtt/types",
+          "specifiers": [
+            "CommandRequest",
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "devSnapshotConfig",
+        "loadDevSnapshot",
+        "devSnapshotCommandResult"
+      ],
+      "totalLines": 112,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/env.ts": {
+      "filePath": "src/lib/server/env.ts",
+      "contentHash": "148c6d681581e048d838ee6b7793c1e060f200f07ca29d865dcb40a0e54586f8",
+      "functions": [
+        {
+          "name": "env",
+          "params": [
+            "name"
+          ],
+          "returnType": "string | undefined",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
           "name": "secretEnv",
           "params": [
             "name"
           ],
           "returnType": "string | undefined",
-          "exported": false,
+          "exported": true,
           "lineCount": 9
-        },
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "readFileSync"
+          ]
+        }
+      ],
+      "exports": [
+        "env",
+        "secretEnv"
+      ],
+      "totalLines": 24,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/firmware/access.ts": {
+      "filePath": "src/lib/server/firmware/access.ts",
+      "contentHash": "0b70982dd1f709c2284ff2015807629661015dda4ce498b3fd6b0333f61329f9",
+      "functions": [
         {
           "name": "constantTimeEquals",
           "params": [
@@ -629,22 +2005,22 @@
           ]
         },
         {
-          "source": "node:fs",
-          "specifiers": [
-            "readFileSync"
-          ]
-        },
-        {
           "source": "@sveltejs/kit",
           "specifiers": [
             "json"
+          ]
+        },
+        {
+          "source": "$lib/server/env",
+          "specifiers": [
+            "secretEnv"
           ]
         }
       ],
       "exports": [
         "requireFirmwareUpdateToken"
       ],
-      "totalLines": 40,
+      "totalLines": 25,
       "hasStructuralAnalysis": true
     },
     "src/lib/server/firmware/http.ts": {
@@ -776,7 +2152,7 @@
     },
     "src/lib/server/firmware/packages.ts": {
       "filePath": "src/lib/server/firmware/packages.ts",
-      "contentHash": "c13f0f7c79924c6e4a05254e2c25a12a1246bd537cf874766e22944be65441fd",
+      "contentHash": "3723e91e43d977e8f0b5b6272d65e6180873bdf85574fda14747be3de7022e75",
       "functions": [
         {
           "name": "env",
@@ -801,7 +2177,7 @@
           "params": [],
           "returnType": "FirmwarePackageSource",
           "exported": true,
-          "lineCount": 11
+          "lineCount": 27
         },
         {
           "name": "stableVersionKey",
@@ -889,6 +2265,79 @@
           "lineCount": 3
         },
         {
+          "name": "ociPackageName",
+          "params": [
+            "source",
+            "packageName"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "ociRepository",
+          "params": [
+            "source",
+            "packageName"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "ociBaseUrl",
+          "params": [
+            "source",
+            "packageName"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "ociManifestPackageOwner",
+          "params": [
+            "device",
+            "source"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "ociFetch",
+          "params": [
+            "fetchImpl",
+            "source",
+            "packageName",
+            "path",
+            "init"
+          ],
+          "returnType": "Promise<Response>",
+          "exported": false,
+          "lineCount": 19
+        },
+        {
+          "name": "fetchRegistryToken",
+          "params": [
+            "fetchImpl",
+            "source",
+            "challenge"
+          ],
+          "returnType": "Promise<string | null>",
+          "exported": false,
+          "lineCount": 21
+        },
+        {
+          "name": "parseBearerChallenge",
+          "params": [
+            "header"
+          ],
+          "returnType": "Map<string, string>",
+          "exported": false,
+          "lineCount": 8
+        },
+        {
           "name": "packageDownloadUrl",
           "params": [
             "owner",
@@ -914,6 +2363,17 @@
           "lineCount": 42
         },
         {
+          "name": "listOciFirmwarePackages",
+          "params": [
+            "packageName",
+            "fetchImpl",
+            "source"
+          ],
+          "returnType": "Promise<CodebergPackage[]>",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
           "name": "selectPackageVersion",
           "params": [
             "packages",
@@ -933,7 +2393,19 @@
           ],
           "returnType": "Promise<FirmwarePackageManifest>",
           "exported": true,
-          "lineCount": 11
+          "lineCount": 15
+        },
+        {
+          "name": "downloadOciPackageManifest",
+          "params": [
+            "device",
+            "version",
+            "fetchImpl",
+            "source"
+          ],
+          "returnType": "Promise<FirmwarePackageManifest>",
+          "exported": false,
+          "lineCount": 10
         },
         {
           "name": "resolveFirmwarePackage",
@@ -945,7 +2417,7 @@
           ],
           "returnType": "Promise<ResolvedFirmwarePackage | null>",
           "exported": true,
-          "lineCount": 14
+          "lineCount": 17
         },
         {
           "name": "toEspHomeManifest",
@@ -968,6 +2440,29 @@
           ],
           "returnType": "Promise<Uint8Array>",
           "exported": true,
+          "lineCount": 22
+        },
+        {
+          "name": "downloadOciLayer",
+          "params": [
+            "packageName",
+            "version",
+            "filename",
+            "fetchImpl",
+            "source"
+          ],
+          "returnType": "Promise<Uint8Array>",
+          "exported": false,
+          "lineCount": 17
+        },
+        {
+          "name": "ociLayerDigest",
+          "params": [
+            "manifest",
+            "filename"
+          ],
+          "returnType": "string",
+          "exported": false,
           "lineCount": 16
         },
         {
@@ -1064,6 +2559,7 @@
         "getFirmwarePackageSource",
         "packageDownloadUrl",
         "listCodebergPackages",
+        "listOciFirmwarePackages",
         "selectPackageVersion",
         "downloadPackageManifest",
         "resolveFirmwarePackage",
@@ -1073,7 +2569,7 @@
         "parsePackageManifest",
         "assertPackageManifestMatchesDevice"
       ],
-      "totalLines": 379,
+      "totalLines": 549,
       "hasStructuralAnalysis": true
     },
     "src/lib/server/firmware/update-state.ts": {
@@ -1089,9 +2585,80 @@
       "totalLines": 3,
       "hasStructuralAnalysis": true
     },
-    "src/lib/server/mqtt/config.ts": {
-      "filePath": "src/lib/server/mqtt/config.ts",
-      "contentHash": "5db34286f21acba2055b0c56d8c577f9ad136456c46ec23b18a75fc662ac9567",
+    "src/lib/server/history/recorder.ts": {
+      "filePath": "src/lib/server/history/recorder.ts",
+      "contentHash": "d00e356de8c75dd325d884b5a02f76ff9eb2e72dbfb26ab3f45438c1d2241e15",
+      "functions": [
+        {
+          "name": "isRecordable",
+          "params": [
+            "entity"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "numericValue",
+          "params": [
+            "entity",
+            "state"
+          ],
+          "returnType": "number | null",
+          "exported": false,
+          "lineCount": 15
+        },
+        {
+          "name": "main",
+          "params": [],
+          "returnType": "void",
+          "exported": false,
+          "lineCount": 104
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@influxdata/influxdb-client",
+          "specifiers": [
+            "Point"
+          ]
+        },
+        {
+          "source": "$lib/server/influx/client",
+          "specifiers": [
+            "getInfluxConfig",
+            "getInfluxDB"
+          ]
+        },
+        {
+          "source": "$lib/server/influx/query",
+          "specifiers": [
+            "READING_MEASUREMENT"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "EntityConfig",
+            "EntityState",
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 153,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/influx/client.ts": {
+      "filePath": "src/lib/server/influx/client.ts",
+      "contentHash": "6723350283af38a7d267c706cd53729f0fee3308044ac5639b2fadbe9466d4ea",
       "functions": [
         {
           "name": "env",
@@ -1109,14 +2676,30 @@
           ],
           "returnType": "string | undefined",
           "exported": false,
-          "lineCount": 9
+          "lineCount": 13
         },
         {
-          "name": "getSiteMqttConfig",
+          "name": "getInfluxConfig",
           "params": [],
-          "returnType": "SiteMqttConfig",
+          "returnType": "InfluxConfig | null",
           "exported": true,
-          "lineCount": 13
+          "lineCount": 12
+        },
+        {
+          "name": "getInfluxDB",
+          "params": [
+            "config"
+          ],
+          "returnType": "InfluxDB | null",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "isInfluxConfigured",
+          "params": [],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
         }
       ],
       "classes": [],
@@ -1126,17 +2709,180 @@
           "specifiers": [
             "readFileSync"
           ]
+        },
+        {
+          "source": "@influxdata/influxdb-client",
+          "specifiers": [
+            "InfluxDB"
+          ]
+        }
+      ],
+      "exports": [
+        "getInfluxConfig",
+        "getInfluxDB",
+        "isInfluxConfigured"
+      ],
+      "totalLines": 60,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/influx/query.ts": {
+      "filePath": "src/lib/server/influx/query.ts",
+      "contentHash": "5ae918126276ea9c1ab49349260628148ef69d32de032d6409815f2f3933452d",
+      "functions": [
+        {
+          "name": "isHistoryRange",
+          "params": [
+            "value"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "escapeFluxString",
+          "params": [
+            "value"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "queryHistory",
+          "params": [
+            "series",
+            "range"
+          ],
+          "returnType": "Promise<HistorySeries[]>",
+          "exported": true,
+          "lineCount": 42
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./client",
+          "specifiers": [
+            "getInfluxConfig",
+            "getInfluxDB"
+          ]
+        }
+      ],
+      "exports": [
+        "HISTORY_RANGES",
+        "DEFAULT_HISTORY_RANGE",
+        "READING_MEASUREMENT",
+        "isHistoryRange",
+        "queryHistory"
+      ],
+      "totalLines": 95,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/influx/trend-domains.ts": {
+      "filePath": "src/lib/server/influx/trend-domains.ts",
+      "contentHash": "a5da9a4c42d22fead3cbde4097ce3c569be5613809ca447a61759d86258b538d",
+      "functions": [
+        {
+          "name": "metricSpecs",
+          "params": [
+            "snapshot",
+            "device",
+            "stripPrefix"
+          ],
+          "returnType": "DomainSeriesSpec[]",
+          "exported": false,
+          "lineCount": 12
+        },
+        {
+          "name": "thermalLabel",
+          "params": [
+            "objectId"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "resolveDomainSeries",
+          "params": [
+            "snapshot",
+            "domain"
+          ],
+          "returnType": "DomainSeriesSpec[]",
+          "exported": true,
+          "lineCount": 26
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/device-presentation",
+          "specifiers": [
+            "presentedNumericMetrics"
+          ]
+        },
+        {
+          "source": "$lib/entity-match",
+          "specifiers": [
+            "isThermalArrayTemp",
+            "resolveClimateDevice",
+            "resolveThermalDevice",
+            "resolveWaterDevice"
+          ]
+        },
+        {
+          "source": "$lib/trends",
+          "specifiers": [
+            "TrendDomain"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "DeviceSnapshot",
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [
+        "DEFAULT_TREND_DOMAIN",
+        "isTrendDomain",
+        "TrendDomain",
+        "resolveDomainSeries"
+      ],
+      "totalLines": 73,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/server/mqtt/config.ts": {
+      "filePath": "src/lib/server/mqtt/config.ts",
+      "contentHash": "24a3d2e8679f4de1dfda680b00af12f8965c7b35f602a323e5f9cc87ee47ef6e",
+      "functions": [
+        {
+          "name": "getSiteMqttConfig",
+          "params": [],
+          "returnType": "SiteMqttConfig",
+          "exported": true,
+          "lineCount": 14
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "$lib/server/env",
+          "specifiers": [
+            "env",
+            "secretEnv"
+          ]
         }
       ],
       "exports": [
         "getSiteMqttConfig"
       ],
-      "totalLines": 40,
+      "totalLines": 29,
       "hasStructuralAnalysis": true
     },
     "src/lib/server/mqtt/discovery.ts": {
       "filePath": "src/lib/server/mqtt/discovery.ts",
-      "contentHash": "62faf6454b4774a64e10fb0355d4f36af25e35199d2785ac3141d14ed072005d",
+      "contentHash": "903b607e39bb7d404b9c935950cde0937476769874b516c9a203e245c2b6fb6c",
       "functions": [
         {
           "name": "text",
@@ -1233,7 +2979,7 @@
           ],
           "returnType": "EntityConfig | null",
           "exported": true,
-          "lineCount": 61
+          "lineCount": 63
         },
         {
           "name": "isDangerousEntity",
@@ -1286,12 +3032,12 @@
         "isDangerousEntity",
         "buildCommandPublish"
       ],
-      "totalLines": 239,
+      "totalLines": 243,
       "hasStructuralAnalysis": true
     },
     "src/lib/server/mqtt/service.ts": {
       "filePath": "src/lib/server/mqtt/service.ts",
-      "contentHash": "e5ba0a128c9025d71e4335c8ea487f15ab38edd441b385d4540533974f6d3171",
+      "contentHash": "185419e406d264395dbc654d291b364b105768abc2a78d24d2d0d13a3adb3733",
       "functions": [
         {
           "name": "getSiteMqttService",
@@ -1318,6 +3064,8 @@
             "setFirmwareChannel",
             "triggerFirmwareCheck",
             "applyFirmwareUpdate",
+            "resolveCameraUrl",
+            "getCameraFrame",
             "handleMessage",
             "upsertEntity",
             "scopedEntity",
@@ -1342,10 +3090,12 @@
             "firmwareChannelByNodeId",
             "retainedByTopic",
             "emitter",
+            "cameraFrames",
+            "cameraFetches",
             "broker"
           ],
           "exported": true,
-          "lineCount": 350
+          "lineCount": 412
         }
       ],
       "imports": [
@@ -1360,6 +3110,12 @@
           "source": "node:events",
           "specifiers": [
             "EventEmitter"
+          ]
+        },
+        {
+          "source": "node:crypto",
+          "specifiers": [
+            "randomBytes"
           ]
         },
         {
@@ -1414,17 +3170,17 @@
         "SiteMqttService",
         "getSiteMqttService"
       ],
-      "totalLines": 389,
+      "totalLines": 452,
       "hasStructuralAnalysis": true
     },
     "src/lib/server/mqtt/types.ts": {
       "filePath": "src/lib/server/mqtt/types.ts",
-      "contentHash": "822decac38bf52a75bb44250158745b7ced150e8192500d38c6ea67e4b464f1c",
+      "contentHash": "d1d866575395e258c0ba3eed2e73b9dcccd74a6ef7e441a073470f8d4f669ff8",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 167,
+      "totalLines": 170,
       "hasStructuralAnalysis": true
     },
     "src/lib/server/mqtt/ui-metadata.ts": {
@@ -1508,6 +3264,16 @@
       "totalLines": 92,
       "hasStructuralAnalysis": true
     },
+    "src/lib/Sparkline.svelte": {
+      "filePath": "src/lib/Sparkline.svelte",
+      "contentHash": "762a8aed7686c4e8034096382cc7ed16ad382febc7f7531c0898e47b96450380",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 59,
+      "hasStructuralAnalysis": false
+    },
     "src/lib/state-format.ts": {
       "filePath": "src/lib/state-format.ts",
       "contentHash": "41c539266c973631a91d4d19bd090c390e8a0aa1a9024bd9ecfc97fd0110c1c6",
@@ -1549,27 +3315,82 @@
       "totalLines": 21,
       "hasStructuralAnalysis": true
     },
-    "src/routes/+page.svelte": {
-      "filePath": "src/routes/+page.svelte",
-      "contentHash": "529453beba27242faf74691f49d9a44537f5f7c770bda0532bbd76eb089cec16",
+    "src/lib/ThermalCameraControls.svelte": {
+      "filePath": "src/lib/ThermalCameraControls.svelte",
+      "contentHash": "2e6c47d9dcad9833854a4bdd8e5c5892d5db00ae9cf3df6bcdba9b6fc2a8cc70",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 366,
+      "totalLines": 413,
       "hasStructuralAnalysis": false
     },
-    "src/routes/+page.ts": {
-      "filePath": "src/routes/+page.ts",
-      "contentHash": "88cd382de2bf68d9f96ce4b249df5562d5e15b9f5d6b7df4b34aeaf5d57eda03",
+    "src/lib/threshold-match.ts": {
+      "filePath": "src/lib/threshold-match.ts",
+      "contentHash": "dec0622539a7e8587074dfdd9ae415c325841612556be674bdf6880792ce4235",
       "functions": [
         {
-          "name": "load",
+          "name": "objectIdOf",
           "params": [
-            "{ fetch }"
+            "entity"
           ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "metricPrefix",
+          "params": [
+            "entity"
+          ],
+          "returnType": "string",
           "exported": true,
           "lineCount": 6
+        },
+        {
+          "name": "entitySide",
+          "params": [
+            "entity"
+          ],
+          "returnType": "'high' | 'low' | null",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "isThresholdEntity",
+          "params": [
+            "entity"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "isAlertEntity",
+          "params": [
+            "entity"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "isBuzzerSwitch",
+          "params": [
+            "entity"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "isAlarmTestButton",
+          "params": [
+            "entity"
+          ],
+          "returnType": "boolean",
+          "exported": true,
+          "lineCount": 4
         }
       ],
       "classes": [],
@@ -1577,28 +3398,271 @@
         {
           "source": "$lib/server/mqtt/types",
           "specifiers": [
-            "Snapshot"
+            "EntityConfig"
           ]
         }
       ],
       "exports": [
+        "metricPrefix",
+        "entitySide",
+        "isThresholdEntity",
+        "isAlertEntity",
+        "isBuzzerSwitch",
+        "isAlarmTestButton"
+      ],
+      "totalLines": 87,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/trends.ts": {
+      "filePath": "src/lib/trends.ts",
+      "contentHash": "cf89abd4b17581c8dcdff1e94b43387bea41ee01fba80b8f978ead8c20ab2bad",
+      "functions": [
+        {
+          "name": "isTrendDomain",
+          "params": [
+            "value"
+          ],
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "TREND_DOMAINS",
+        "DEFAULT_TREND_DOMAIN",
+        "isTrendDomain"
+      ],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "src/lib/TrendsChart.svelte": {
+      "filePath": "src/lib/TrendsChart.svelte",
+      "contentHash": "9112f84d4930b3d1da0530d32b583a62f30f73fec936fca4a03d234f727ea023",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 189,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/(app)/+layout.svelte": {
+      "filePath": "src/routes/(app)/+layout.svelte",
+      "contentHash": "045802f493ac005c05123099485f8b97e70d2421bf501d124d9876bb4b671cca",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 38,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/(app)/+layout.ts": {
+      "filePath": "src/routes/(app)/+layout.ts",
+      "contentHash": "d3061b9682c68f11ae5b63830560e5133ac7728a97396e5811a63b00846c6898",
+      "functions": [
+        {
+          "name": "load",
+          "params": [
+            "{ fetch, url }"
+          ],
+          "exported": true,
+          "lineCount": 30
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "redirect"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/types",
+          "specifiers": [
+            "Snapshot"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "AuthenticatedUser"
+          ]
+        }
+      ],
+      "exports": [
+        "load"
+      ],
+      "totalLines": 49,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/(app)/+page.svelte": {
+      "filePath": "src/routes/(app)/+page.svelte",
+      "contentHash": "16a977e63fd951a8fa98b1ddda68e19f79da2b5d202d0e22ec9560288f567938",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 101,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/(app)/device-settings/+page.svelte": {
+      "filePath": "src/routes/(app)/device-settings/+page.svelte",
+      "contentHash": "b25efc0c0a7fc5b4e9835a11448e2a5add7c15148977f909851da14077331848",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 654,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/(app)/device-settings/+page.ts": {
+      "filePath": "src/routes/(app)/device-settings/+page.ts",
+      "contentHash": "6809ef7929d8df2d5c50fab1ba9fbd407e3b840ca17f0c2b3d7595072838c11e",
+      "functions": [
+        {
+          "name": "load",
+          "params": [
+            "{ url }"
+          ],
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
         "ssr",
         "load"
       ],
-      "totalLines": 11,
+      "totalLines": 9,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/(app)/settings/users/+page.svelte": {
+      "filePath": "src/routes/(app)/settings/users/+page.svelte",
+      "contentHash": "7e67cc003648f80ed513e35972af9af9f4b0a948f97db636881e137e29c08497",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 236,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/(app)/settings/users/+page.ts": {
+      "filePath": "src/routes/(app)/settings/users/+page.ts",
+      "contentHash": "2856e6a17e60cfeaa22f3b5c3ea38c73e820714b55ae2a0c0399bd66b17b7bcd",
+      "functions": [
+        {
+          "name": "load",
+          "params": [
+            "{ fetch }"
+          ],
+          "exported": true,
+          "lineCount": 14
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "error",
+            "redirect"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "UserSummary"
+          ]
+        }
+      ],
+      "exports": [
+        "load"
+      ],
+      "totalLines": 18,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/(auth)/login/+page.svelte": {
+      "filePath": "src/routes/(auth)/login/+page.svelte",
+      "contentHash": "d0bc5e1705af239a3c88ac3c65d18b85d5cbdfe78e990165e413e23cb1da8296",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 154,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/(auth)/login/+page.ts": {
+      "filePath": "src/routes/(auth)/login/+page.ts",
+      "contentHash": "eb2399cf00d6eca289c10b62ef1f6acd2a5ad74a9f1a50dc7ef24b3a47df5b24",
+      "functions": [
+        {
+          "name": "sanitizeNext",
+          "params": [
+            "raw"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "load",
+          "params": [
+            "{ fetch, url }"
+          ],
+          "exported": true,
+          "lineCount": 21
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "redirect"
+          ]
+        }
+      ],
+      "exports": [
+        "load"
+      ],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/+layout.svelte": {
+      "filePath": "src/routes/+layout.svelte",
+      "contentHash": "07c121458701ab3252fda860bcd85fc6bd4af3d1ba91f63152d436256a8c9ee5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 8,
+      "hasStructuralAnalysis": false
+    },
+    "src/routes/+layout.ts": {
+      "filePath": "src/routes/+layout.ts",
+      "contentHash": "fc93f3a934e493ce56df7d170ac2c5f47ab5e7729661ef47361d77c768c87b9a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "ssr"
+      ],
+      "totalLines": 5,
       "hasStructuralAnalysis": true
     },
     "src/routes/api/entities/[entityId]/command/+server.ts": {
       "filePath": "src/routes/api/entities/[entityId]/command/+server.ts",
-      "contentHash": "5c9b1686d231e0f9dc2badf89911da301d9e46bf2cfd412922603c6067462eb3",
+      "contentHash": "2f3c10854d4c41400277a212ea13b765c8b5483e281cc51c86ddf44f22c986dc",
       "functions": [
         {
           "name": "POST",
           "params": [
-            "{ params, request }"
+            "{ fetch, params, request }"
           ],
           "exported": true,
-          "lineCount": 17
+          "lineCount": 20
         }
       ],
       "classes": [],
@@ -1608,6 +3672,12 @@
           "specifiers": [
             "json",
             "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/dev-snapshot",
+          "specifiers": [
+            "devSnapshotCommandResult"
           ]
         },
         {
@@ -1626,12 +3696,47 @@
       "exports": [
         "POST"
       ],
-      "totalLines": 22,
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/entities/[entityId]/image/+server.ts": {
+      "filePath": "src/routes/api/entities/[entityId]/image/+server.ts",
+      "contentHash": "2bb28a9b05e95f2fb640e0febeddf49e0d985dde78e99121e7c806603bd4e8a5",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [
+            "{ params }"
+          ],
+          "exported": true,
+          "lineCount": 19
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 23,
       "hasStructuralAnalysis": true
     },
     "src/routes/api/events/+server.ts": {
       "filePath": "src/routes/api/events/+server.ts",
-      "contentHash": "ec108b649150fb464f8233f2657eccf70ac7ae3789a5a71cb055ec2f5435df3b",
+      "contentHash": "474809cd680df9caf7e2cacf6c743381e74b030eb80ba0244965acbb3f72b9b3",
       "functions": [
         {
           "name": "encode",
@@ -1645,13 +3750,36 @@
         },
         {
           "name": "GET",
-          "params": [],
+          "params": [
+            "{ fetch }"
+          ],
           "exported": true,
-          "lineCount": 31
+          "lineCount": 34
+        },
+        {
+          "name": "snapshotOnlyStream",
+          "params": [
+            "snapshot"
+          ],
+          "returnType": "Response",
+          "exported": false,
+          "lineCount": 23
         }
       ],
       "classes": [],
       "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/dev-snapshot",
+          "specifiers": [
+            "loadDevSnapshot"
+          ]
+        },
         {
           "source": "$lib/server/mqtt/service",
           "specifiers": [
@@ -1662,7 +3790,7 @@
       "exports": [
         "GET"
       ],
-      "totalLines": 40,
+      "totalLines": 69,
       "hasStructuralAnalysis": true
     },
     "src/routes/api/firmware/devices/[nodeId]/apply/+server.ts": {
@@ -1720,7 +3848,7 @@
     },
     "src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts": {
       "filePath": "src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts",
-      "contentHash": "4110a126581192377eb0bd650b495b59e8feb22f6ecdee8fded23eac5ca2958e",
+      "contentHash": "d2e8762b674757f2ff727d7d505550c7cb8b0f7fc19a81041823ffef24725c91",
       "functions": [
         {
           "name": "GET",
@@ -1984,13 +4112,77 @@
       "totalLines": 24,
       "hasStructuralAnalysis": true
     },
-    "src/routes/api/snapshot/+server.ts": {
-      "filePath": "src/routes/api/snapshot/+server.ts",
-      "contentHash": "30e024d76472797b82e9ff0507cfbc92ad5f259bd56a17cd117a9f2bb51acd40",
+    "src/routes/api/history/+server.ts": {
+      "filePath": "src/routes/api/history/+server.ts",
+      "contentHash": "d88f91add768d62a4bedc8afc1a014f10b5f676e7093ab61172d656d4c295321",
       "functions": [
         {
           "name": "GET",
-          "params": [],
+          "params": [
+            "{ url }"
+          ],
+          "exported": true,
+          "lineCount": 31
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "$lib/server/influx/client",
+          "specifiers": [
+            "isInfluxConfigured"
+          ]
+        },
+        {
+          "source": "$lib/server/influx/query",
+          "specifiers": [
+            "DEFAULT_HISTORY_RANGE",
+            "isHistoryRange",
+            "queryHistory"
+          ]
+        },
+        {
+          "source": "$lib/server/influx/trend-domains",
+          "specifiers": [
+            "DEFAULT_TREND_DOMAIN",
+            "isTrendDomain",
+            "resolveDomainSeries"
+          ]
+        },
+        {
+          "source": "$lib/server/mqtt/service",
+          "specifiers": [
+            "getSiteMqttService"
+          ]
+        },
+        {
+          "source": "./$types",
+          "specifiers": [
+            "RequestHandler"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/me/+server.ts": {
+      "filePath": "src/routes/api/me/+server.ts",
+      "contentHash": "d150446678a0f79ca45859a46a60e88f6295cd94dc13d19edb14b113d3023f81",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [
+            "{ locals }"
+          ],
           "exported": true,
           "lineCount": 3
         }
@@ -2004,6 +4196,53 @@
           ]
         },
         {
+          "source": "./$types",
+          "specifiers": [
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "isSsoEnabled"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 11,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/snapshot/+server.ts": {
+      "filePath": "src/routes/api/snapshot/+server.ts",
+      "contentHash": "e4a2abdf7da503cea92a90d3cc0a178186a885dc4695fd41893ba8619c5cd49e",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [
+            "{ fetch }"
+          ],
+          "exported": true,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json",
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/dev-snapshot",
+          "specifiers": [
+            "loadDevSnapshot"
+          ]
+        },
+        {
           "source": "$lib/server/mqtt/service",
           "specifiers": [
             "getSiteMqttService"
@@ -2013,46 +4252,336 @@
       "exports": [
         "GET"
       ],
-      "totalLines": 7,
+      "totalLines": 9,
       "hasStructuralAnalysis": true
     },
-    "src/routes/device-settings/+page.svelte": {
-      "filePath": "src/routes/device-settings/+page.svelte",
-      "contentHash": "de88645356640737e5948119f44d39f929356013739e5bf7e8bbe018e9b562c9",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 412,
-      "hasStructuralAnalysis": false
-    },
-    "src/routes/device-settings/+page.ts": {
-      "filePath": "src/routes/device-settings/+page.ts",
-      "contentHash": "3654662ebc8d63ca806d7321f4e2e3c6e113ff8bda9ac3ef5ef788e80d2d782d",
+    "src/routes/api/users/[id]/+server.ts": {
+      "filePath": "src/routes/api/users/[id]/+server.ts",
+      "contentHash": "450ae61bbb17f32f7f5097d04974a54b9698a525af3fa4cc7b65e9f07ec0f229",
       "functions": [
         {
-          "name": "load",
+          "name": "PATCH",
           "params": [
-            "{ fetch, url }"
+            "{ params, request, locals }"
           ],
           "exported": true,
-          "lineCount": 10
+          "lineCount": 43
         }
       ],
       "classes": [],
       "imports": [
         {
-          "source": "$lib/server/mqtt/types",
+          "source": "@sveltejs/kit",
           "specifiers": [
-            "Snapshot"
+            "json"
+          ]
+        },
+        {
+          "source": "./$types",
+          "specifiers": [
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/db",
+          "specifiers": [
+            "getAuthDb"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "clearPassword",
+            "getUserById",
+            "setDisabled",
+            "toUserSummary"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/sessions",
+          "specifiers": [
+            "deleteSessionsForUser"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/audit",
+          "specifiers": [
+            "recordAudit"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/authz",
+          "specifiers": [
+            "requireAdmin"
           ]
         }
       ],
       "exports": [
-        "ssr",
-        "load"
+        "PATCH"
       ],
-      "totalLines": 15,
+      "totalLines": 63,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/api/users/+server.ts": {
+      "filePath": "src/routes/api/users/+server.ts",
+      "contentHash": "4924dac52334d59595aebec0ea6aa338cc168ca4813e71f8ef22add230b8182a",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [
+            "{ locals }"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "POST",
+          "params": [
+            "{ request, locals }"
+          ],
+          "exported": true,
+          "lineCount": 43
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "./$types",
+          "specifiers": [
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/db",
+          "specifiers": [
+            "getAuthDb"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "createLocalUser",
+            "getUserByUsername",
+            "listUsers",
+            "toUserSummary"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "MIN_PASSWORD_LENGTH"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/authz",
+          "specifiers": [
+            "requireAdmin"
+          ]
+        }
+      ],
+      "exports": [
+        "GET",
+        "POST"
+      ],
+      "totalLines": 66,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/auth/login/+server.ts": {
+      "filePath": "src/routes/auth/login/+server.ts",
+      "contentHash": "e0fec2ae70e3ec83ece3922fac79ba59679200be68f3b359c5f216fdfd24f66d",
+      "functions": [
+        {
+          "name": "POST",
+          "params": [
+            "{ request, cookies, getClientAddress }"
+          ],
+          "exported": true,
+          "lineCount": 46
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "./$types",
+          "specifiers": [
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/db",
+          "specifiers": [
+            "getAuthDb"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "getUserByUsername",
+            "touchLogin",
+            "toAuthenticatedUser"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/passwords",
+          "specifiers": [
+            "verifyPassword"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/sessions",
+          "specifiers": [
+            "createSession"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/audit",
+          "specifiers": [
+            "recordAudit"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "SESSION_COOKIE",
+            "isSecureRequest",
+            "sessionCookieOptions"
+          ]
+        }
+      ],
+      "exports": [
+        "POST"
+      ],
+      "totalLines": 62,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/auth/logout/+server.ts": {
+      "filePath": "src/routes/auth/logout/+server.ts",
+      "contentHash": "611451fcd7dbcfbbed7115b453aa0e234acc868ae973ec86b510cde69429e442",
+      "functions": [
+        {
+          "name": "POST",
+          "params": [
+            "{ cookies, locals, request }"
+          ],
+          "exported": true,
+          "lineCount": 12
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "./$types",
+          "specifiers": [
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/db",
+          "specifiers": [
+            "getAuthDb"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/sessions",
+          "specifiers": [
+            "deleteSession"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/audit",
+          "specifiers": [
+            "recordAudit"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "SESSION_COOKIE",
+            "isSecureRequest"
+          ]
+        }
+      ],
+      "exports": [
+        "POST"
+      ],
+      "totalLines": 22,
+      "hasStructuralAnalysis": true
+    },
+    "src/routes/auth/password/+server.ts": {
+      "filePath": "src/routes/auth/password/+server.ts",
+      "contentHash": "eb26549d85116cc3197a5a3c9f92911b87a0ede2910b90c9c0af7b9304e8699c",
+      "functions": [
+        {
+          "name": "POST",
+          "params": [
+            "{ request, locals }"
+          ],
+          "exported": true,
+          "lineCount": 36
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@sveltejs/kit",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "./$types",
+          "specifiers": [
+            "RequestHandler"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/db",
+          "specifiers": [
+            "getAuthDb"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "getUserById",
+            "setPassword"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/passwords",
+          "specifiers": [
+            "verifyPassword"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "MIN_PASSWORD_LENGTH"
+          ]
+        }
+      ],
+      "exports": [
+        "POST"
+      ],
+      "totalLines": 55,
       "hasStructuralAnalysis": true
     },
     "src/routes/health/+server.ts": {
@@ -2110,9 +4639,302 @@
       "totalLines": 16,
       "hasStructuralAnalysis": true
     },
+    "tests/unit/auth-guard.test.ts": {
+      "filePath": "tests/unit/auth-guard.test.ts",
+      "contentHash": "c68a770b63039f4ee57498958379cd1dc5d16704bf89fa607940aef3c4f70de0",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/guard",
+          "specifiers": [
+            "classifyPath",
+            "isApiOrAuthPath",
+            "isCsrfSafe",
+            "isSafeMethod"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/config",
+          "specifiers": [
+            "isSecureRequest"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 87,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/auth-passwords.test.ts": {
+      "filePath": "tests/unit/auth-passwords.test.ts",
+      "contentHash": "e5311a94213609bfd0efa8efc53ed0ea2e7e54c1db493d35a3f92aa11b48217f",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/passwords",
+          "specifiers": [
+            "hashPassword",
+            "verifyPassword"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/auth-sessions.test.ts": {
+      "filePath": "tests/unit/auth-sessions.test.ts",
+      "contentHash": "1fbfca70cc1f1e682209e8ef51c2d04e5f18f527260c2081edcedfea2df44e9a",
+      "functions": [
+        {
+          "name": "freshDb",
+          "params": [],
+          "returnType": "DatabaseSync",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "setExpiry",
+          "params": [
+            "db",
+            "sessionId",
+            "iso"
+          ],
+          "returnType": "void",
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "node:sqlite",
+          "specifiers": [
+            "DatabaseSync"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/db",
+          "specifiers": [
+            "openAuthDb",
+            "purgeExpiredSessions"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "createLocalUser",
+            "setDisabled"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/sessions",
+          "specifiers": [
+            "createSession",
+            "deleteSession",
+            "deleteSessionsForUser",
+            "hashToken",
+            "lookupSession",
+            "renewIfNeeded"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 112,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/auth-users.test.ts": {
+      "filePath": "tests/unit/auth-users.test.ts",
+      "contentHash": "a5999850893be355924ff473517ad642b9a02252f4cd695cdaffb85ab0932785",
+      "functions": [
+        {
+          "name": "tempDbPath",
+          "params": [],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "afterEach",
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "node:fs",
+          "specifiers": [
+            "mkdtempSync",
+            "rmSync"
+          ]
+        },
+        {
+          "source": "node:os",
+          "specifiers": [
+            "tmpdir"
+          ]
+        },
+        {
+          "source": "node:path",
+          "specifiers": [
+            "join"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/db",
+          "specifiers": [
+            "openAuthDb"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/users",
+          "specifiers": [
+            "createLocalUser",
+            "ensureBootstrapAdmin",
+            "getUserByUsername"
+          ]
+        },
+        {
+          "source": "$lib/server/auth/passwords",
+          "specifiers": [
+            "verifyPassword"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 91,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/dev-snapshot.test.ts": {
+      "filePath": "tests/unit/dev-snapshot.test.ts",
+      "contentHash": "a05062fb03ed8f970419b37b92698a5f7e21ee9199f715c05a093512bdc819be",
+      "functions": [
+        {
+          "name": "fetchSnapshot",
+          "params": [
+            "body",
+            "status"
+          ],
+          "returnType": "typeof fetch",
+          "exported": false,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/dev-snapshot",
+          "specifiers": [
+            "devSnapshotCommandResult",
+            "loadDevSnapshot",
+            "DevSnapshotConfig"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/mqtt/types",
+          "specifiers": [
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 133,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/device-presentation.test.ts": {
+      "filePath": "tests/unit/device-presentation.test.ts",
+      "contentHash": "8f94cb44abca109993460c2f90c51c025d350cb9b1b327bb23ffd6989713376d",
+      "functions": [
+        {
+          "name": "makeAtomEntity",
+          "params": [
+            "overrides"
+          ],
+          "returnType": "EntityConfig",
+          "exported": false,
+          "lineCount": 15
+        },
+        {
+          "name": "makeSnapshot",
+          "params": [
+            "uiConfigs",
+            "overrides"
+          ],
+          "returnType": "Snapshot",
+          "exported": false,
+          "lineCount": 15
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../../src/lib/device-presentation",
+          "specifiers": [
+            "dashboardPresentation",
+            "deviceSettingsPresentation"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/mqtt/types",
+          "specifiers": [
+            "EntityConfig",
+            "Snapshot"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 408,
+      "hasStructuralAnalysis": true
+    },
     "tests/unit/discovery.test.ts": {
       "filePath": "tests/unit/discovery.test.ts",
-      "contentHash": "89e85926224ec4ea329deae36e212d7d8dfcba06a845830fa68b3dd50ff8b16b",
+      "contentHash": "63880b1425f905d632ab99fc949cc4721884b084217d06c6dd35780d3d5afaad",
       "functions": [],
       "classes": [],
       "imports": [
@@ -2147,12 +4969,12 @@
         }
       ],
       "exports": [],
-      "totalLines": 325,
+      "totalLines": 349,
       "hasStructuralAnalysis": true
     },
     "tests/unit/firmware.test.ts": {
       "filePath": "tests/unit/firmware.test.ts",
-      "contentHash": "9aa3e0d4ee04cee59e2c2d8f15222cd04a5c947f432a9397e79ee12ea9590ed1",
+      "contentHash": "32b5077963cb06f5d1c601687f440b124b93483b2d15b1c279d34c1388988c52",
       "functions": [],
       "classes": [],
       "imports": [
@@ -2185,6 +5007,7 @@
           "specifiers": [
             "downloadAndValidateBinary",
             "listCodebergPackages",
+            "listOciFirmwarePackages",
             "parsePackageManifest",
             "resolveFirmwarePackage",
             "selectPackageVersion",
@@ -2202,7 +5025,45 @@
         }
       ],
       "exports": [],
-      "totalLines": 270,
+      "totalLines": 346,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/history.test.ts": {
+      "filePath": "tests/unit/history.test.ts",
+      "contentHash": "53a676bacd021da9995941e9d729c3c00153098438f19c637862cbce378e621a",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../../e2e/fixtures/live-snapshot",
+          "specifiers": [
+            "liveSnapshot"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/influx/query",
+          "specifiers": [
+            "isHistoryRange"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/influx/trend-domains",
+          "specifiers": [
+            "isTrendDomain",
+            "resolveDomainSeries"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 66,
       "hasStructuralAnalysis": true
     },
     "tests/unit/live-snapshot.test.ts": {
@@ -2265,6 +5126,52 @@
       ],
       "exports": [],
       "totalLines": 43,
+      "hasStructuralAnalysis": true
+    },
+    "tests/unit/threshold-match.test.ts": {
+      "filePath": "tests/unit/threshold-match.test.ts",
+      "contentHash": "6beeb6b87b68d57801f0b6e163574eb7f04d99487151552752037c6a78b51289",
+      "functions": [
+        {
+          "name": "mk",
+          "params": [
+            "overrides"
+          ],
+          "returnType": "EntityConfig",
+          "exported": false,
+          "lineCount": 20
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../../src/lib/threshold-match",
+          "specifiers": [
+            "entitySide",
+            "isAlarmTestButton",
+            "isAlertEntity",
+            "isBuzzerSwitch",
+            "isThresholdEntity",
+            "metricPrefix"
+          ]
+        },
+        {
+          "source": "../../src/lib/server/mqtt/types",
+          "specifiers": [
+            "EntityConfig"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 125,
       "hasStructuralAnalysis": true
     },
     "tsconfig.json": {

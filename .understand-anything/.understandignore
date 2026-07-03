@@ -46,3 +46,7 @@
 .svelte-kit/
 test-results/
 playwright-report/
+build/
+.playwright/
+.claude/
+.understand-anything/
