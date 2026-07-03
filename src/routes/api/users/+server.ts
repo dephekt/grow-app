@@ -50,7 +50,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   let created;
   try {
-    created = createLocalUser(db, { username, password, isAdmin, displayName });
+    created = await createLocalUser(db, { username, password, isAdmin, displayName });
   } catch (err) {
     // A concurrent create can pass the pre-check above and still lose the race to
     // the UNIQUE(username) constraint — answer 409 like the pre-check, not a 500.

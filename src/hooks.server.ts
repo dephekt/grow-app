@@ -8,10 +8,13 @@ import { classifyPath, isApiOrAuthPath, isSafeMethod, isCsrfSafe } from '$lib/se
 import { SESSION_COOKIE, getBootstrapAdmin, isSecureRequest, sessionCookieOptions } from '$lib/server/auth/config';
 
 // Warm the MQTT singleton (as before) and open the auth DB + bootstrap the local
-// admin, once, at server start.
+// admin, once, at server start. ensureBootstrapAdmin is async now (its scrypt
+// runs off-thread), so this module evaluates with a top-level await — SvelteKit
+// awaits the hooks module before handling any request, so bootstrap still
+// completes before the first login can arrive.
 getSiteMqttService();
 const authDb = getAuthDb();
-ensureBootstrapAdmin(authDb, getBootstrapAdmin());
+await ensureBootstrapAdmin(authDb, getBootstrapAdmin());
 
 export const handle: Handle = async ({ event, resolve }) => {
   const { pathname, search } = event.url;

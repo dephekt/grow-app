@@ -17,7 +17,13 @@ export default defineConfig({
     env: {
       GROW_AUTH_DB: '.playwright/auth.db',
       GROW_AUTH_ADMIN_USERNAME: 'e2e-admin',
-      GROW_AUTH_ADMIN_PASSWORD: 'e2e-password'
+      GROW_AUTH_ADMIN_PASSWORD: 'e2e-password',
+      // Auth-flow specs log in fresh in every test across three parallel projects,
+      // all from 127.0.0.1 — well past the production default within one window.
+      // Raise the per-IP login cap so the throttle still runs (happy path stays
+      // covered) but doesn't 429 the suite's own logins. Its limiting behaviour is
+      // unit-tested in login-throttle.test.ts.
+      GROW_AUTH_LOGIN_RATE_MAX: '1000'
     }
   },
   use: {
