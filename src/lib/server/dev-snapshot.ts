@@ -1,6 +1,7 @@
 import { dev } from '$app/environment';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { env } from '$lib/server/env';
 import { buildCommandPublish } from './mqtt/discovery';
 import type { CommandRequest, Snapshot } from './mqtt/types';
 
@@ -21,11 +22,6 @@ export interface DevCommandResult {
     simulated?: true;
     error?: string;
   };
-}
-
-function env(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : undefined;
 }
 
 function isSnapshot(value: unknown): value is Snapshot {

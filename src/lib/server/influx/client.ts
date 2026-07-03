@@ -1,30 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { InfluxDB } from '@influxdata/influxdb-client';
+import { env, secretEnv } from '$lib/server/env';
+import { getSiteSlug } from '$lib/server/site';
 
 export interface InfluxConfig {
   url: string;
   token: string;
   org: string;
   bucket: string;
-}
-
-function env(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : undefined;
-}
-
-function secretEnv(name: string): string | undefined {
-  const direct = env(name);
-  if (direct) return direct;
-
-  const file = env(`${name}_FILE`);
-  if (!file) return undefined;
-
-  try {
-    return readFileSync(file, 'utf8').trim();
-  } catch {
-    return undefined;
-  }
 }
 
 /**
@@ -35,14 +17,14 @@ function secretEnv(name: string): string | undefined {
  */
 export function getInfluxConfig(): InfluxConfig | null {
   const url = env('INFLUX_URL');
-  const token = secretEnv('INFLUX_TOKEN');
+  const token = secretEnv('INFLUX_TOKEN', { optional: true });
   if (!url || !token) return null;
 
   return {
     url,
     token,
     org: env('INFLUX_ORG') ?? 'grow',
-    bucket: env('INFLUX_BUCKET') ?? env('GROW_SITE') ?? 'daniel-home'
+    bucket: env('INFLUX_BUCKET') ?? getSiteSlug()
   };
 }
 

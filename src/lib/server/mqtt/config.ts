@@ -1,4 +1,5 @@
 import { env, secretEnv } from '$lib/server/env';
+import { getSiteSlug } from '$lib/server/site';
 
 export interface SiteMqttConfig {
   site: string;
@@ -13,7 +14,7 @@ export interface SiteMqttConfig {
 }
 
 export function getSiteMqttConfig(): SiteMqttConfig {
-  const site = env('GROW_SITE') ?? 'daniel-home';
+  const site = getSiteSlug();
   const topicPrefix = env('MQTT_TOPIC_PREFIX') ?? `grow/${site}`;
 
   return {
