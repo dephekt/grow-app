@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getAuthDb } from '$lib/server/auth/db';
 import { getUserByUsername, touchLogin, toAuthenticatedUser } from '$lib/server/auth/users';
 import { verifyPassword } from '$lib/server/auth/passwords';
+import { getLoginThrottle } from '$lib/server/auth/login-throttle';
 import { createSession } from '$lib/server/auth/sessions';
 import { recordAudit } from '$lib/server/auth/audit';
 import { SESSION_COOKIE, isSecureRequest, sessionCookieOptions } from '$lib/server/auth/config';
@@ -29,12 +30,40 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
     return json({ ok: false, error: 'Username and password are required' }, { status: 400 });
   }
 
+  const throttle = getLoginThrottle();
+
+  // Per-IP rate limit, checked before any DB read or scrypt so a flood is shed
+  // cheaply. Deliberately not audited: a rejected request must not hand an
+  // attacker a cheap DB write to amplify against the audit table.
+  const rate = throttle.checkRate(ip);
+  if (!rate.allowed) {
+    return json(
+      { ok: false, error: 'Too many attempts. Try again shortly.' },
+      { status: 429, headers: { 'retry-after': String(rate.retryAfterSeconds) } }
+    );
+  }
+
   const db = getAuthDb();
   const user = getUserByUsername(db, username);
 
+  // Bound concurrent derivations so a login burst can't saturate the small libuv
+  // threadpool (which also serves fs/dns/other crypto) even when every attempt
+  // shares one proxy IP and slips past the per-IP limit above.
+  if (!throttle.tryAcquireSlot()) {
+    return json(
+      { ok: false, error: 'Server busy. Try again shortly.' },
+      { status: 429, headers: { 'retry-after': '1' } }
+    );
+  }
+
   // verifyPassword runs a scrypt even when the user is missing/passwordless, so
   // the three failure modes take similar time and don't leak account existence.
-  const passwordOk = verifyPassword(password, user?.password_hash ?? null);
+  let passwordOk: boolean;
+  try {
+    passwordOk = await verifyPassword(password, user?.password_hash ?? null);
+  } finally {
+    throttle.releaseSlot();
+  }
 
   if (!user || user.disabled === 1 || !passwordOk) {
     recordAudit(db, {

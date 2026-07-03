@@ -44,11 +44,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   // opt-in (no password yet) is authorised by the active session alone.
   if (row.password_hash) {
     const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
-    if (!verifyPassword(currentPassword, row.password_hash)) {
+    if (!(await verifyPassword(currentPassword, row.password_hash))) {
       return json({ ok: false, error: 'Current password is incorrect' }, { status: 400 });
     }
   }
 
-  setPassword(db, row.id, newPassword);
+  await setPassword(db, row.id, newPassword);
   return json({ ok: true, hasLocalPassword: true });
 };

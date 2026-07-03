@@ -19,6 +19,20 @@ export const DEFAULT_AUTH_AUDIT_RETENTION_DAYS = 90;
  *  within the retention window. 0 disables the cap. */
 export const DEFAULT_AUTH_AUDIT_MAX_ROWS = 50_000;
 
+/** Max `POST /auth/login` attempts allowed per client IP within the rate window
+ *  before the endpoint answers 429 without running scrypt. 0 disables per-IP
+ *  throttling. See login-throttle.ts and #34. */
+export const DEFAULT_LOGIN_RATE_MAX = 10;
+
+/** Length of the fixed per-IP login rate window, in seconds. */
+export const DEFAULT_LOGIN_RATE_WINDOW_SECONDS = 60;
+
+/** Cap on concurrent scrypt derivations the login path will run at once. The
+ *  libuv threadpool defaults to 4 threads, so this bounds how much of it a login
+ *  burst can occupy even when every attempt shares one proxy IP. 0 disables the
+ *  cap. */
+export const DEFAULT_LOGIN_MAX_INFLIGHT = 8;
+
 export interface BootstrapAdmin {
   username: string;
   /** Plaintext bootstrap password (hashed on first boot). Mutually exclusive
@@ -39,6 +53,18 @@ export function getAuthAuditRetentionDays(): number {
 
 export function getAuthAuditMaxRows(): number {
   return intEnv('GROW_AUTH_AUDIT_MAX_ROWS', DEFAULT_AUTH_AUDIT_MAX_ROWS);
+}
+
+export function getLoginRateMax(): number {
+  return intEnv('GROW_AUTH_LOGIN_RATE_MAX', DEFAULT_LOGIN_RATE_MAX);
+}
+
+export function getLoginRateWindowSeconds(): number {
+  return intEnv('GROW_AUTH_LOGIN_RATE_WINDOW_SECONDS', DEFAULT_LOGIN_RATE_WINDOW_SECONDS);
+}
+
+export function getLoginMaxInflight(): number {
+  return intEnv('GROW_AUTH_LOGIN_MAX_INFLIGHT', DEFAULT_LOGIN_MAX_INFLIGHT);
 }
 
 export function getBootstrapAdmin(): BootstrapAdmin {

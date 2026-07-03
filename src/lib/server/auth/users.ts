@@ -92,7 +92,11 @@ export interface CreateLocalUserInput {
 
 /** Create a pure-local (no OIDC) user with a password. Throws if the username
  *  is taken (the UNIQUE constraint surfaces as an error). */
-export function createLocalUser(db: DatabaseSync, input: CreateLocalUserInput): UserRow {
+export async function createLocalUser(db: DatabaseSync, input: CreateLocalUserInput): Promise<UserRow> {
+  // Derive the hash BEFORE opening any statement: hashPassword is async now, so
+  // computing it up front keeps the INSERT a single synchronous node:sqlite call
+  // — no `await` sits between statements on the shared connection.
+  const passwordHash = await hashPassword(input.password);
   const now = new Date().toISOString();
   const result = db
     .prepare(
@@ -103,7 +107,7 @@ export function createLocalUser(db: DatabaseSync, input: CreateLocalUserInput): 
       input.username,
       input.displayName ?? null,
       input.isAdmin ? 1 : 0,
-      hashPassword(input.password),
+      passwordHash,
       now,
       now
     );
@@ -112,9 +116,10 @@ export function createLocalUser(db: DatabaseSync, input: CreateLocalUserInput): 
   return getUserById(db, id)!;
 }
 
-export function setPassword(db: DatabaseSync, userId: number, password: string): void {
+export async function setPassword(db: DatabaseSync, userId: number, password: string): Promise<void> {
+  const passwordHash = await hashPassword(password);
   db.prepare('UPDATE users SET password_hash = ?, password_updated_at = ? WHERE id = ?').run(
-    hashPassword(password),
+    passwordHash,
     new Date().toISOString(),
     userId
   );
@@ -147,7 +152,7 @@ export function touchLogin(db: DatabaseSync, userId: number): void {
  * doubles as a recovery path: the named user is re-enabled and re-promoted. Its
  * password hash is never overwritten, so the inert-secret guarantee still holds.
  */
-export function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdmin): void {
+export async function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdmin): Promise<void> {
   const existing = db
     .prepare('SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND disabled = 0 AND password_hash IS NOT NULL')
     .get() as { n: number };
@@ -161,7 +166,7 @@ export function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdmin): v
     return;
   }
 
-  const hash = admin.passwordHash ?? hashPassword(admin.password!);
+  const hash = admin.passwordHash ?? (await hashPassword(admin.password!));
   const now = new Date().toISOString();
   const row = getUserByUsername(db, admin.username);
 

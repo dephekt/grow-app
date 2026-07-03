@@ -20,9 +20,9 @@ function setExpiry(db: DatabaseSync, sessionId: number, iso: string): void {
 }
 
 describe('sessions', () => {
-  it('stores only the token hash, never the raw token', () => {
+  it('stores only the token hash, never the raw token', async () => {
     const db = freshDb();
-    const user = createLocalUser(db, { username: 'greg', password: 'password123' });
+    const user = await createLocalUser(db, { username: 'greg', password: 'password123' });
     const { token } = createSession(db, { userId: user.id, loginMethod: 'local' });
 
     const row = db.prepare('SELECT token_hash FROM sessions').get() as { token_hash: string };
@@ -30,9 +30,9 @@ describe('sessions', () => {
     expect(row.token_hash).not.toBe(token);
   });
 
-  it('resolves a valid token to its user', () => {
+  it('resolves a valid token to its user', async () => {
     const db = freshDb();
-    const user = createLocalUser(db, { username: 'greg', password: 'password123' });
+    const user = await createLocalUser(db, { username: 'greg', password: 'password123' });
     const { token } = createSession(db, { userId: user.id, loginMethod: 'local' });
 
     const lookup = lookupSession(db, token);
@@ -46,9 +46,9 @@ describe('sessions', () => {
     expect(lookupSession(db, 'nope')).toBeNull();
   });
 
-  it('returns null for an expired session', () => {
+  it('returns null for an expired session', async () => {
     const db = freshDb();
-    const user = createLocalUser(db, { username: 'greg', password: 'password123' });
+    const user = await createLocalUser(db, { username: 'greg', password: 'password123' });
     const { token } = createSession(db, { userId: user.id, loginMethod: 'local' });
     const sid = lookupSession(db, token)!.sessionId;
 
@@ -56,9 +56,9 @@ describe('sessions', () => {
     expect(lookupSession(db, token)).toBeNull();
   });
 
-  it('returns null once the user is disabled (live authz lever)', () => {
+  it('returns null once the user is disabled (live authz lever)', async () => {
     const db = freshDb();
-    const user = createLocalUser(db, { username: 'greg', password: 'password123' });
+    const user = await createLocalUser(db, { username: 'greg', password: 'password123' });
     const { token } = createSession(db, { userId: user.id, loginMethod: 'local' });
     expect(lookupSession(db, token)).not.toBeNull();
 
@@ -66,9 +66,9 @@ describe('sessions', () => {
     expect(lookupSession(db, token)).toBeNull();
   });
 
-  it('does not renew a fresh session but renews one inside the last day', () => {
+  it('does not renew a fresh session but renews one inside the last day', async () => {
     const db = freshDb();
-    const user = createLocalUser(db, { username: 'greg', password: 'password123' });
+    const user = await createLocalUser(db, { username: 'greg', password: 'password123' });
     const { token, expiresAt } = createSession(db, { userId: user.id, loginMethod: 'local' });
     const sid = lookupSession(db, token)!.sessionId;
 
@@ -83,9 +83,9 @@ describe('sessions', () => {
     expect(new Date(renewed!).getTime()).toBeGreaterThan(new Date(soon).getTime());
   });
 
-  it('deletes a single session and all sessions for a user', () => {
+  it('deletes a single session and all sessions for a user', async () => {
     const db = freshDb();
-    const user = createLocalUser(db, { username: 'greg', password: 'password123' });
+    const user = await createLocalUser(db, { username: 'greg', password: 'password123' });
     const a = createSession(db, { userId: user.id, loginMethod: 'local' });
     const b = createSession(db, { userId: user.id, loginMethod: 'local' });
 
@@ -98,9 +98,9 @@ describe('sessions', () => {
     expect(lookupSession(db, b.token)).toBeNull();
   });
 
-  it('purges expired sessions', () => {
+  it('purges expired sessions', async () => {
     const db = freshDb();
-    const user = createLocalUser(db, { username: 'greg', password: 'password123' });
+    const user = await createLocalUser(db, { username: 'greg', password: 'password123' });
     const { token } = createSession(db, { userId: user.id, loginMethod: 'local' });
     const sid = lookupSession(db, token)!.sessionId;
     setExpiry(db, sid, new Date(Date.now() - 1000).toISOString());
