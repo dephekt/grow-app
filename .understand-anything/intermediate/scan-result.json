@@ -1,37 +1,53 @@
 {
   "name": "grow-app",
-  "description": "SvelteKit/Svelte 5 (runes mode) site-mode HMI for a local grow broker. The SvelteKit server holds the MQTT session, caches retained and current state, streams updates to browsers over SSE, and publishes commands only through discovered command topics so the browser never connects to Mosquitto directly.",
+  "description": "SvelteKit/Svelte 5 site-mode HMI for a local hydroponic grow broker. The SvelteKit server keeps an MQTT session to a local Mosquitto broker, caches retained/current state, streams browser updates over SSE, and publishes commands only through discovered topics, with optional InfluxDB time-series history and its own local SQLite authentication. Note: this project has over 100 source files; consider scoping analysis to a subdirectory for faster results.",
   "languages": [
+    "css",
     "dockerfile",
     "html",
     "javascript",
     "json",
     "markdown",
+    "shell",
     "svelte",
     "typescript",
     "yaml"
   ],
   "frameworks": [
     "SvelteKit",
-    "Svelte",
+    "Svelte 5",
     "Vite",
     "Vitest",
     "Playwright",
     "MQTT.js",
-    "Docker"
+    "InfluxDB",
+    "Docker",
+    "GitHub Actions"
   ],
   "files": [
     {
       "path": ".dockerignore",
       "language": "unknown",
-      "sizeLines": 13,
+      "sizeLines": 15,
       "fileCategory": "infra"
     },
     {
-      "path": ".forgejo/workflows/build.yaml",
-      "language": "yaml",
-      "sizeLines": 109,
+      "path": ".env.example",
+      "language": "config",
+      "sizeLines": 45,
       "fileCategory": "config"
+    },
+    {
+      "path": ".github/workflows/build.yaml",
+      "language": "yaml",
+      "sizeLines": 43,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/ci.yaml",
+      "language": "yaml",
+      "sizeLines": 74,
+      "fileCategory": "infra"
     },
     {
       "path": ".npmrc",
@@ -40,33 +56,63 @@
       "fileCategory": "code"
     },
     {
-      "path": ".understand-anything/.understandignore",
+      "path": "AGENTS.md",
+      "language": "markdown",
+      "sizeLines": 59,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "design/mission-control/.thumbnail",
       "language": "unknown",
       "sizeLines": 48,
       "fileCategory": "code"
     },
     {
-      "path": ".understand-anything/config.json",
-      "language": "json",
-      "sizeLines": 3,
-      "fileCategory": "config"
+      "path": "design/mission-control/MissionControl.dc.html",
+      "language": "html",
+      "sizeLines": 864,
+      "fileCategory": "markup"
     },
     {
-      "path": "AGENTS.md",
+      "path": "design/mission-control/README.md",
       "language": "markdown",
-      "sizeLines": 35,
+      "sizeLines": 118,
       "fileCategory": "docs"
+    },
+    {
+      "path": "design/mission-control/support.js",
+      "language": "javascript",
+      "sizeLines": 1603,
+      "fileCategory": "code"
     },
     {
       "path": "Dockerfile",
       "language": "dockerfile",
-      "sizeLines": 40,
+      "sizeLines": 51,
       "fileCategory": "infra"
+    },
+    {
+      "path": "e2e/auth.setup.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "e2e/auth.spec.ts",
+      "language": "typescript",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "e2e/camera.spec.ts",
+      "language": "typescript",
+      "sizeLines": 106,
+      "fileCategory": "code"
     },
     {
       "path": "e2e/dashboard.spec.ts",
       "language": "typescript",
-      "sizeLines": 305,
+      "sizeLines": 535,
       "fileCategory": "code"
     },
     {
@@ -78,19 +124,31 @@
     {
       "path": "e2e/fixtures/dashboard-snapshot.ts",
       "language": "typescript",
-      "sizeLines": 331,
+      "sizeLines": 481,
+      "fileCategory": "code"
+    },
+    {
+      "path": "e2e/fixtures/live-snapshot.ts",
+      "language": "typescript",
+      "sizeLines": 5304,
+      "fileCategory": "code"
+    },
+    {
+      "path": "e2e/mission-control-screenshots.spec.ts",
+      "language": "typescript",
+      "sizeLines": 103,
       "fileCategory": "code"
     },
     {
       "path": "package.json",
       "language": "json",
-      "sizeLines": 36,
+      "sizeLines": 43,
       "fileCategory": "config"
     },
     {
       "path": "playwright.config.ts",
       "language": "typescript",
-      "sizeLines": 29,
+      "sizeLines": 45,
       "fileCategory": "code"
     },
     {
@@ -102,13 +160,31 @@
     {
       "path": "README.md",
       "language": "markdown",
-      "sizeLines": 81,
+      "sizeLines": 142,
       "fileCategory": "docs"
+    },
+    {
+      "path": "scripts/capture-fixture.sh",
+      "language": "shell",
+      "sizeLines": 29,
+      "fileCategory": "script"
+    },
+    {
+      "path": "scripts/sanitize-fixture.mjs",
+      "language": "javascript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app.css",
+      "language": "css",
+      "sizeLines": 146,
+      "fileCategory": "markup"
     },
     {
       "path": "src/app.d.ts",
       "language": "typescript",
-      "sizeLines": 5,
+      "sizeLines": 13,
       "fileCategory": "code"
     },
     {
@@ -120,19 +196,73 @@
     {
       "path": "src/hooks.server.ts",
       "language": "typescript",
-      "sizeLines": 3,
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/AccountMenu.svelte",
+      "language": "svelte",
+      "sizeLines": 259,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/AlertsPanel.svelte",
+      "language": "svelte",
+      "sizeLines": 1169,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/CalibrationPanel.svelte",
+      "language": "svelte",
+      "sizeLines": 852,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/CameraImageTile.svelte",
+      "language": "svelte",
+      "sizeLines": 203,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/CommandBar.svelte",
+      "language": "svelte",
+      "sizeLines": 164,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/dashboard/ReadoutPanel.svelte",
+      "language": "svelte",
+      "sizeLines": 119,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/dashboard/ThermalPanel.svelte",
+      "language": "svelte",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/dashboard/TrendsPanel.svelte",
+      "language": "svelte",
+      "sizeLines": 155,
       "fileCategory": "code"
     },
     {
       "path": "src/lib/device-presentation.ts",
       "language": "typescript",
-      "sizeLines": 271,
+      "sizeLines": 349,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/entity-match.ts",
+      "language": "typescript",
+      "sizeLines": 107,
       "fileCategory": "code"
     },
     {
       "path": "src/lib/EntityRow.svelte",
       "language": "svelte",
-      "sizeLines": 205,
+      "sizeLines": 208,
       "fileCategory": "code"
     },
     {
@@ -144,19 +274,85 @@
     {
       "path": "src/lib/FirmwareUpdatesPanel.svelte",
       "language": "svelte",
-      "sizeLines": 531,
+      "sizeLines": 536,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/live-snapshot-context.ts",
+      "language": "typescript",
+      "sizeLines": 17,
       "fileCategory": "code"
     },
     {
       "path": "src/lib/live-snapshot.svelte.ts",
       "language": "typescript",
-      "sizeLines": 181,
+      "sizeLines": 208,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/auth/audit.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/auth/authz.ts",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/auth/config.ts",
+      "language": "typescript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/auth/db.ts",
+      "language": "typescript",
+      "sizeLines": 114,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/auth/guard.ts",
+      "language": "typescript",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/auth/passwords.ts",
+      "language": "typescript",
+      "sizeLines": 73,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/auth/sessions.ts",
+      "language": "typescript",
+      "sizeLines": 105,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/auth/users.ts",
+      "language": "typescript",
+      "sizeLines": 180,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/dev-snapshot.ts",
+      "language": "typescript",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/env.ts",
+      "language": "typescript",
+      "sizeLines": 23,
       "fileCategory": "code"
     },
     {
       "path": "src/lib/server/firmware/access.ts",
       "language": "typescript",
-      "sizeLines": 39,
+      "sizeLines": 24,
       "fileCategory": "code"
     },
     {
@@ -174,7 +370,7 @@
     {
       "path": "src/lib/server/firmware/packages.ts",
       "language": "typescript",
-      "sizeLines": 378,
+      "sizeLines": 548,
       "fileCategory": "code"
     },
     {
@@ -184,27 +380,51 @@
       "fileCategory": "code"
     },
     {
+      "path": "src/lib/server/history/recorder.ts",
+      "language": "typescript",
+      "sizeLines": 152,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/influx/client.ts",
+      "language": "typescript",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/influx/query.ts",
+      "language": "typescript",
+      "sizeLines": 94,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/server/influx/trend-domains.ts",
+      "language": "typescript",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
       "path": "src/lib/server/mqtt/config.ts",
       "language": "typescript",
-      "sizeLines": 39,
+      "sizeLines": 28,
       "fileCategory": "code"
     },
     {
       "path": "src/lib/server/mqtt/discovery.ts",
       "language": "typescript",
-      "sizeLines": 238,
+      "sizeLines": 242,
       "fileCategory": "code"
     },
     {
       "path": "src/lib/server/mqtt/service.ts",
       "language": "typescript",
-      "sizeLines": 388,
+      "sizeLines": 451,
       "fileCategory": "code"
     },
     {
       "path": "src/lib/server/mqtt/types.ts",
       "language": "typescript",
-      "sizeLines": 166,
+      "sizeLines": 169,
       "fileCategory": "code"
     },
     {
@@ -214,33 +434,123 @@
       "fileCategory": "code"
     },
     {
+      "path": "src/lib/Sparkline.svelte",
+      "language": "svelte",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
       "path": "src/lib/state-format.ts",
       "language": "typescript",
       "sizeLines": 20,
       "fileCategory": "code"
     },
     {
-      "path": "src/routes/+page.svelte",
+      "path": "src/lib/ThermalCameraControls.svelte",
       "language": "svelte",
-      "sizeLines": 365,
+      "sizeLines": 412,
       "fileCategory": "code"
     },
     {
-      "path": "src/routes/+page.ts",
+      "path": "src/lib/threshold-match.ts",
       "language": "typescript",
-      "sizeLines": 10,
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/trends.ts",
+      "language": "typescript",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/TrendsChart.svelte",
+      "language": "svelte",
+      "sizeLines": 188,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(app)/+layout.svelte",
+      "language": "svelte",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(app)/+layout.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(app)/+page.svelte",
+      "language": "svelte",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(app)/device-settings/+page.svelte",
+      "language": "svelte",
+      "sizeLines": 653,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(app)/device-settings/+page.ts",
+      "language": "typescript",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(app)/settings/users/+page.svelte",
+      "language": "svelte",
+      "sizeLines": 235,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(app)/settings/users/+page.ts",
+      "language": "typescript",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(auth)/login/+page.svelte",
+      "language": "svelte",
+      "sizeLines": 153,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/(auth)/login/+page.ts",
+      "language": "typescript",
+      "sizeLines": 38,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/+layout.svelte",
+      "language": "svelte",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/+layout.ts",
+      "language": "typescript",
+      "sizeLines": 4,
       "fileCategory": "code"
     },
     {
       "path": "src/routes/api/entities/[entityId]/command/+server.ts",
       "language": "typescript",
-      "sizeLines": 21,
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/api/entities/[entityId]/image/+server.ts",
+      "language": "typescript",
+      "sizeLines": 22,
       "fileCategory": "code"
     },
     {
       "path": "src/routes/api/events/+server.ts",
       "language": "typescript",
-      "sizeLines": 39,
+      "sizeLines": 68,
       "fileCategory": "code"
     },
     {
@@ -280,21 +590,51 @@
       "fileCategory": "code"
     },
     {
+      "path": "src/routes/api/history/+server.ts",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/api/me/+server.ts",
+      "language": "typescript",
+      "sizeLines": 10,
+      "fileCategory": "code"
+    },
+    {
       "path": "src/routes/api/snapshot/+server.ts",
       "language": "typescript",
-      "sizeLines": 6,
+      "sizeLines": 8,
       "fileCategory": "code"
     },
     {
-      "path": "src/routes/device-settings/+page.svelte",
-      "language": "svelte",
-      "sizeLines": 411,
-      "fileCategory": "code"
-    },
-    {
-      "path": "src/routes/device-settings/+page.ts",
+      "path": "src/routes/api/users/[id]/+server.ts",
       "language": "typescript",
-      "sizeLines": 14,
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/api/users/+server.ts",
+      "language": "typescript",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/auth/login/+server.ts",
+      "language": "typescript",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/auth/logout/+server.ts",
+      "language": "typescript",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/routes/auth/password/+server.ts",
+      "language": "typescript",
+      "sizeLines": 54,
       "fileCategory": "code"
     },
     {
@@ -310,15 +650,57 @@
       "fileCategory": "code"
     },
     {
+      "path": "tests/unit/auth-guard.test.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/auth-passwords.test.ts",
+      "language": "typescript",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/auth-sessions.test.ts",
+      "language": "typescript",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/auth-users.test.ts",
+      "language": "typescript",
+      "sizeLines": 90,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/dev-snapshot.test.ts",
+      "language": "typescript",
+      "sizeLines": 132,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/device-presentation.test.ts",
+      "language": "typescript",
+      "sizeLines": 407,
+      "fileCategory": "code"
+    },
+    {
       "path": "tests/unit/discovery.test.ts",
       "language": "typescript",
-      "sizeLines": 324,
+      "sizeLines": 348,
       "fileCategory": "code"
     },
     {
       "path": "tests/unit/firmware.test.ts",
       "language": "typescript",
-      "sizeLines": 269,
+      "sizeLines": 345,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/history.test.ts",
+      "language": "typescript",
+      "sizeLines": 65,
       "fileCategory": "code"
     },
     {
@@ -334,6 +716,12 @@
       "fileCategory": "code"
     },
     {
+      "path": "tests/unit/threshold-match.test.ts",
+      "language": "typescript",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    },
+    {
       "path": "tsconfig.json",
       "language": "json",
       "sizeLines": 14,
@@ -346,43 +734,93 @@
       "fileCategory": "code"
     }
   ],
-  "totalFiles": 54,
-  "filteredByIgnore": 0,
+  "totalFiles": 118,
+  "filteredByIgnore": 6,
   "estimatedComplexity": "moderate",
   "importMap": {
     ".dockerignore": [],
-    ".forgejo/workflows/build.yaml": [],
+    ".env.example": [],
+    ".github/workflows/build.yaml": [],
+    ".github/workflows/ci.yaml": [],
     ".npmrc": [],
-    ".understand-anything/.understandignore": [],
-    ".understand-anything/config.json": [],
     "AGENTS.md": [],
+    "design/mission-control/.thumbnail": [],
+    "design/mission-control/MissionControl.dc.html": [],
+    "design/mission-control/README.md": [],
+    "design/mission-control/support.js": [],
     "Dockerfile": [],
-    "e2e/dashboard.spec.ts": [
+    "e2e/auth.setup.ts": [],
+    "e2e/auth.spec.ts": [],
+    "e2e/camera.spec.ts": [
       "e2e/fixtures/dashboard-snapshot.ts"
     ],
+    "e2e/dashboard.spec.ts": [
+      "e2e/fixtures/dashboard-snapshot.ts",
+      "e2e/fixtures/live-snapshot.ts"
+    ],
     "e2e/design-screenshots.spec.ts": [
-      "e2e/fixtures/dashboard-snapshot.ts"
+      "e2e/fixtures/live-snapshot.ts"
     ],
     "e2e/fixtures/dashboard-snapshot.ts": [
       "src/lib/server/mqtt/types.ts"
+    ],
+    "e2e/fixtures/live-snapshot.ts": [
+      "src/lib/server/mqtt/types.ts"
+    ],
+    "e2e/mission-control-screenshots.spec.ts": [
+      "e2e/fixtures/live-snapshot.ts"
     ],
     "package.json": [],
     "playwright.config.ts": [],
     "pnpm-workspace.yaml": [],
     "README.md": [],
+    "scripts/capture-fixture.sh": [],
+    "scripts/sanitize-fixture.mjs": [],
+    "src/app.css": [],
     "src/app.d.ts": [],
     "src/app.html": [],
     "src/hooks.server.ts": [],
+    "src/lib/AccountMenu.svelte": [],
+    "src/lib/AlertsPanel.svelte": [],
+    "src/lib/CalibrationPanel.svelte": [],
+    "src/lib/CameraImageTile.svelte": [],
+    "src/lib/CommandBar.svelte": [],
+    "src/lib/dashboard/ReadoutPanel.svelte": [],
+    "src/lib/dashboard/ThermalPanel.svelte": [],
+    "src/lib/dashboard/TrendsPanel.svelte": [],
     "src/lib/device-presentation.ts": [],
+    "src/lib/entity-match.ts": [],
     "src/lib/EntityRow.svelte": [],
     "src/lib/firmware.ts": [],
     "src/lib/FirmwareUpdatesPanel.svelte": [],
+    "src/lib/live-snapshot-context.ts": [
+      "src/lib/live-snapshot.svelte.ts"
+    ],
     "src/lib/live-snapshot.svelte.ts": [],
+    "src/lib/server/auth/audit.ts": [],
+    "src/lib/server/auth/authz.ts": [],
+    "src/lib/server/auth/config.ts": [],
+    "src/lib/server/auth/db.ts": [],
+    "src/lib/server/auth/guard.ts": [],
+    "src/lib/server/auth/passwords.ts": [],
+    "src/lib/server/auth/sessions.ts": [],
+    "src/lib/server/auth/users.ts": [],
+    "src/lib/server/dev-snapshot.ts": [
+      "src/lib/server/mqtt/discovery.ts",
+      "src/lib/server/mqtt/types.ts"
+    ],
+    "src/lib/server/env.ts": [],
     "src/lib/server/firmware/access.ts": [],
     "src/lib/server/firmware/http.ts": [],
     "src/lib/server/firmware/metadata.ts": [],
     "src/lib/server/firmware/packages.ts": [],
     "src/lib/server/firmware/update-state.ts": [],
+    "src/lib/server/history/recorder.ts": [],
+    "src/lib/server/influx/client.ts": [],
+    "src/lib/server/influx/query.ts": [
+      "src/lib/server/influx/client.ts"
+    ],
+    "src/lib/server/influx/trend-domains.ts": [],
     "src/lib/server/mqtt/config.ts": [],
     "src/lib/server/mqtt/discovery.ts": [
       "src/lib/server/mqtt/types.ts"
@@ -397,10 +835,25 @@
     "src/lib/server/mqtt/ui-metadata.ts": [
       "src/lib/server/mqtt/types.ts"
     ],
+    "src/lib/Sparkline.svelte": [],
     "src/lib/state-format.ts": [],
-    "src/routes/+page.svelte": [],
-    "src/routes/+page.ts": [],
+    "src/lib/ThermalCameraControls.svelte": [],
+    "src/lib/threshold-match.ts": [],
+    "src/lib/trends.ts": [],
+    "src/lib/TrendsChart.svelte": [],
+    "src/routes/(app)/+layout.svelte": [],
+    "src/routes/(app)/+layout.ts": [],
+    "src/routes/(app)/+page.svelte": [],
+    "src/routes/(app)/device-settings/+page.svelte": [],
+    "src/routes/(app)/device-settings/+page.ts": [],
+    "src/routes/(app)/settings/users/+page.svelte": [],
+    "src/routes/(app)/settings/users/+page.ts": [],
+    "src/routes/(auth)/login/+page.svelte": [],
+    "src/routes/(auth)/login/+page.ts": [],
+    "src/routes/+layout.svelte": [],
+    "src/routes/+layout.ts": [],
     "src/routes/api/entities/[entityId]/command/+server.ts": [],
+    "src/routes/api/entities/[entityId]/image/+server.ts": [],
     "src/routes/api/events/+server.ts": [],
     "src/routes/api/firmware/devices/[nodeId]/apply/+server.ts": [],
     "src/routes/api/firmware/devices/[nodeId]/binary/[filename]/+server.ts": [],
@@ -408,11 +861,28 @@
     "src/routes/api/firmware/devices/[nodeId]/check/+server.ts": [],
     "src/routes/api/firmware/devices/[nodeId]/manifest/+server.ts": [],
     "src/routes/api/firmware/devices/[nodeId]/package/+server.ts": [],
+    "src/routes/api/history/+server.ts": [],
+    "src/routes/api/me/+server.ts": [],
     "src/routes/api/snapshot/+server.ts": [],
-    "src/routes/device-settings/+page.svelte": [],
-    "src/routes/device-settings/+page.ts": [],
+    "src/routes/api/users/[id]/+server.ts": [],
+    "src/routes/api/users/+server.ts": [],
+    "src/routes/auth/login/+server.ts": [],
+    "src/routes/auth/logout/+server.ts": [],
+    "src/routes/auth/password/+server.ts": [],
     "src/routes/health/+server.ts": [],
     "svelte.config.js": [],
+    "tests/unit/auth-guard.test.ts": [],
+    "tests/unit/auth-passwords.test.ts": [],
+    "tests/unit/auth-sessions.test.ts": [],
+    "tests/unit/auth-users.test.ts": [],
+    "tests/unit/dev-snapshot.test.ts": [
+      "src/lib/server/dev-snapshot.ts",
+      "src/lib/server/mqtt/types.ts"
+    ],
+    "tests/unit/device-presentation.test.ts": [
+      "src/lib/device-presentation.ts",
+      "src/lib/server/mqtt/types.ts"
+    ],
     "tests/unit/discovery.test.ts": [
       "src/lib/server/mqtt/discovery.ts",
       "src/lib/server/mqtt/service.ts",
@@ -424,6 +894,11 @@
       "src/lib/server/firmware/packages.ts",
       "src/lib/server/firmware/update-state.ts"
     ],
+    "tests/unit/history.test.ts": [
+      "e2e/fixtures/live-snapshot.ts",
+      "src/lib/server/influx/query.ts",
+      "src/lib/server/influx/trend-domains.ts"
+    ],
     "tests/unit/live-snapshot.test.ts": [
       "src/lib/live-snapshot.svelte.ts",
       "src/lib/server/mqtt/types.ts"
@@ -431,6 +906,10 @@
     "tests/unit/state-format.test.ts": [
       "src/lib/server/mqtt/types.ts",
       "src/lib/state-format.ts"
+    ],
+    "tests/unit/threshold-match.test.ts": [
+      "src/lib/server/mqtt/types.ts",
+      "src/lib/threshold-match.ts"
     ],
     "tsconfig.json": [],
     "vite.config.ts": []
