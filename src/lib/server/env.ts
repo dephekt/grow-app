@@ -6,6 +6,16 @@ export function env(name: string): string | undefined {
   return value && value.length > 0 ? value : undefined;
 }
 
+/** A non-negative integer from `name`, or `fallback` when unset/invalid. Accepts
+ *  0 (callers use it as a "disable" sentinel); rejects negatives, non-integers,
+ *  and unparseable values, falling back rather than throwing. */
+export function intEnv(name: string, fallback: number): number {
+  const raw = env(name);
+  if (raw === undefined) return fallback;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
 export interface SecretEnvOptions {
   /** Return undefined instead of throwing when the `NAME_FILE` path can't be
    *  read. For optional subsystems that degrade gracefully (e.g. InfluxDB)
