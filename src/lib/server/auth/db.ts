@@ -1,7 +1,11 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { getAuthDbPath } from '$lib/server/auth/config';
+import {
+  getAuthAuditMaxRows,
+  getAuthAuditRetentionDays,
+  getAuthDbPath
+} from '$lib/server/auth/config';
 
 // Ordered, append-only migrations. The index in this array +1 is the schema
 // version stored in `PRAGMA user_version`. Never edit an existing entry — add a
@@ -91,21 +95,57 @@ export function purgeExpiredSessions(db: DatabaseSync): number {
   return Number(result.changes);
 }
 
+/** Delete `auth_audit` rows older than `retentionDays`. A non-positive value is
+ *  a no-op (retain indefinitely). Uses the `auth_audit_at` index; `at` is an
+ *  ISO-8601 string so the lexical `<=` compare matches chronological order.
+ *  Returns rows removed. */
+export function purgeOldAuditEntries(db: DatabaseSync, retentionDays: number): number {
+  if (retentionDays <= 0) return 0;
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+  const result = db.prepare('DELETE FROM auth_audit WHERE at <= ?').run(cutoff);
+  return Number(result.changes);
+}
+
+/** Keep only the newest `maxRows` `auth_audit` rows (ordered by autoincrement
+ *  `id`), dropping the rest. A non-positive value is a no-op (uncapped). This
+ *  bounds the table even if an unauthenticated flood writes rows faster than the
+ *  age prune reclaims them. Returns rows removed. */
+export function capAuditRows(db: DatabaseSync, maxRows: number): number {
+  if (maxRows <= 0) return 0;
+  // The id of the first row beyond the newest `maxRows` (undefined if the table
+  // holds `maxRows` or fewer). A single-row PK lookup + PK range delete — cheap,
+  // and gap-safe because it does not assume ids are contiguous.
+  const boundary = db
+    .prepare('SELECT id FROM auth_audit ORDER BY id DESC LIMIT 1 OFFSET ?')
+    .get(maxRows) as { id: number } | undefined;
+  if (!boundary) return 0;
+  const result = db.prepare('DELETE FROM auth_audit WHERE id <= ?').run(boundary.id);
+  return Number(result.changes);
+}
+
+/** Run every periodic auth-DB purge: expired sessions, then aged-out and
+ *  overflowing audit rows. Called at open and from the daily timer. */
+function runAuthMaintenance(db: DatabaseSync): void {
+  purgeExpiredSessions(db);
+  purgeOldAuditEntries(db, getAuthAuditRetentionDays());
+  capAuditRows(db, getAuthAuditMaxRows());
+}
+
 let singleton: DatabaseSync | null = null;
 
-/** Process-wide auth DB, opened once at the configured path. Purges expired
- *  sessions at open and daily thereafter (timer unref'd so it never holds the
- *  process open). */
+/** Process-wide auth DB, opened once at the configured path. Runs maintenance
+ *  (session + audit purge) at open and daily thereafter (timer unref'd so it
+ *  never holds the process open). */
 export function getAuthDb(): DatabaseSync {
   if (singleton) return singleton;
   singleton = openAuthDb(getAuthDbPath());
 
-  purgeExpiredSessions(singleton);
+  runAuthMaintenance(singleton);
   const daily = setInterval(() => {
     try {
-      purgeExpiredSessions(singleton!);
+      runAuthMaintenance(singleton!);
     } catch (error) {
-      console.error('[auth] session purge failed', error);
+      console.error('[auth] maintenance purge failed', error);
     }
   }, 24 * 60 * 60 * 1000);
   daily.unref?.();

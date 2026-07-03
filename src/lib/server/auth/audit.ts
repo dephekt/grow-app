@@ -23,8 +23,12 @@ export interface AuditEntry {
   detail?: string | null;
 }
 
-/** Append-only auth event log. Best-effort: a logging failure must never block a
- *  login or an admin action, so callers may wrap this but it also swallows here. */
+/** Auth event log, bounded by age + a hard row cap in the daily maintenance
+ *  timer (see purgeOldAuditEntries / capAuditRows in db.ts) — the public login
+ *  endpoint writes attacker-controlled `login.failed` rows, so this is not a
+ *  compliance-grade immutable log. Best-effort: a logging failure must never
+ *  block a login or an admin action, so callers may wrap this but it also
+ *  swallows here. */
 export function recordAudit(db: DatabaseSync, entry: AuditEntry): void {
   try {
     db.prepare(

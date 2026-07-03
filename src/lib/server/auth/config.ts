@@ -1,4 +1,4 @@
-import { env, secretEnv } from '$lib/server/env';
+import { env, intEnv, secretEnv } from '$lib/server/env';
 
 /** Session cookie name. Distinct per app; not `__Host-` prefixed because the LAN
  *  origin is plain HTTP and a `__Host-` cookie requires Secure. */
@@ -9,6 +9,15 @@ export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 /** Minimum length for a local/fallback password. */
 export const MIN_PASSWORD_LENGTH = 8;
+
+/** Days of `auth_audit` history to keep. The daily maintenance timer deletes
+ *  older rows. 0 disables age pruning (retain indefinitely). */
+export const DEFAULT_AUTH_AUDIT_RETENTION_DAYS = 90;
+
+/** Hard cap on `auth_audit` rows — the newest N survive the daily sweep, so the
+ *  table stays bounded even if an unauthenticated client floods `login.failed`
+ *  within the retention window. 0 disables the cap. */
+export const DEFAULT_AUTH_AUDIT_MAX_ROWS = 50_000;
 
 export interface BootstrapAdmin {
   username: string;
@@ -22,6 +31,14 @@ export interface BootstrapAdmin {
 
 export function getAuthDbPath(): string {
   return env('GROW_AUTH_DB') ?? './data/auth.db';
+}
+
+export function getAuthAuditRetentionDays(): number {
+  return intEnv('GROW_AUTH_AUDIT_RETENTION_DAYS', DEFAULT_AUTH_AUDIT_RETENTION_DAYS);
+}
+
+export function getAuthAuditMaxRows(): number {
+  return intEnv('GROW_AUTH_AUDIT_MAX_ROWS', DEFAULT_AUTH_AUDIT_MAX_ROWS);
 }
 
 export function getBootstrapAdmin(): BootstrapAdmin {
