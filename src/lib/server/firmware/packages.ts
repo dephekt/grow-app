@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { env, secretEnv } from '$lib/server/env';
 import type { FirmwareChannel, FirmwareDeviceConfig } from '$lib/server/mqtt/types';
 
 export interface CodebergPackage {
@@ -84,21 +84,6 @@ export interface FirmwarePackageSource {
 export interface PackageFetchOptions {
   baseUrl?: string;
   auth?: PackageAuthConfig;
-}
-
-function env(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : undefined;
-}
-
-function secretEnv(name: string): string | undefined {
-  const direct = env(name);
-  if (direct) return direct;
-
-  const file = env(`${name}_FILE`);
-  if (!file) return undefined;
-
-  return readFileSync(file, 'utf8').replace(/\r?\n$/, '');
 }
 
 export function getFirmwarePackageSource(): FirmwarePackageSource {

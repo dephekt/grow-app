@@ -13,6 +13,7 @@ import { Point } from '@influxdata/influxdb-client';
 import { getInfluxConfig, getInfluxDB } from '$lib/server/influx/client';
 import { READING_MEASUREMENT } from '$lib/server/influx/query';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
+import { getSiteSlug } from '$lib/server/site';
 import type { EntityConfig, EntityState, Snapshot } from '$lib/server/mqtt/types';
 
 // Default to a recorder-specific MQTT client id so we never collide with the web
@@ -20,7 +21,7 @@ import type { EntityConfig, EntityState, Snapshot } from '$lib/server/mqtt/types
 // own container, so the PID-derived fallback would otherwise be identical.
 // Compose may still override this for an explicit id.
 if (!process.env.MQTT_CLIENT_ID) {
-  process.env.MQTT_CLIENT_ID = `grow-history-recorder-${process.env.GROW_SITE ?? 'daniel-home'}`;
+  process.env.MQTT_CLIENT_ID = `grow-history-recorder-${getSiteSlug()}`;
 }
 
 function isRecordable(entity: EntityConfig): boolean {

@@ -24,12 +24,6 @@ export function getAuthDbPath(): string {
   return env('GROW_AUTH_DB') ?? './data/auth.db';
 }
 
-/** The site slug used both for MQTT topics and as the OIDC group scope
- *  (`/grow/sites/<slug>`). Reuses the existing GROW_SITE env. */
-export function getSiteSlug(): string {
-  return env('GROW_SITE') ?? 'daniel-home';
-}
-
 export function getBootstrapAdmin(): BootstrapAdmin {
   return {
     username: env('GROW_AUTH_ADMIN_USERNAME') ?? 'admin',
