@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openAuthDb } from '$lib/server/auth/db';
-import { createLocalUser, ensureBootstrapAdmin, getUserByUsername } from '$lib/server/auth/users';
+import { createLocalUser, ensureBootstrapAdmin, getUserByUsername, setDisabled } from '$lib/server/auth/users';
 import { verifyPassword } from '$lib/server/auth/passwords';
 
 const tempDirs: string[] = [];
@@ -72,6 +72,54 @@ describe('ensureBootstrapAdmin', () => {
     const db = openAuthDb(':memory:');
     ensureBootstrapAdmin(db, { username: 'admin' });
     expect(getUserByUsername(db, 'admin')).toBeUndefined();
+  });
+
+  it('re-enables a disabled bootstrap admin without changing its password', () => {
+    const db = openAuthDb(':memory:');
+    ensureBootstrapAdmin(db, { username: 'admin', password: 'original-pass' });
+    const before = getUserByUsername(db, 'admin')!;
+    // Lock the instance out: disable the only usable admin.
+    setDisabled(db, before.id, true);
+
+    ensureBootstrapAdmin(db, { username: 'admin', password: 'a-different-secret' });
+
+    const after = getUserByUsername(db, 'admin')!;
+    expect(after.disabled).toBe(0);
+    expect(after.is_admin).toBe(1);
+    // Hash untouched — inert-secret guarantee holds even on the recovery path.
+    expect(after.password_hash).toBe(before.password_hash);
+    expect(after.password_updated_at).toBe(before.password_updated_at);
+    expect(verifyPassword('original-pass', after.password_hash)).toBe(true);
+    expect(verifyPassword('a-different-secret', after.password_hash)).toBe(false);
+  });
+
+  it('re-promotes the bootstrap user when it was stripped of admin', () => {
+    const db = openAuthDb(':memory:');
+    ensureBootstrapAdmin(db, { username: 'admin', password: 'original-pass' });
+    const before = getUserByUsername(db, 'admin')!;
+    // Strip the admin flag, leaving no usable admin behind.
+    db.prepare('UPDATE users SET is_admin = 0 WHERE id = ?').run(before.id);
+
+    ensureBootstrapAdmin(db, { username: 'admin', password: 'original-pass' });
+
+    const after = getUserByUsername(db, 'admin')!;
+    expect(after.is_admin).toBe(1);
+    expect(after.disabled).toBe(0);
+    expect(after.password_hash).toBe(before.password_hash);
+  });
+
+  it('leaves a disabled bootstrap user alone while another usable admin exists', () => {
+    const db = openAuthDb(':memory:');
+    ensureBootstrapAdmin(db, { username: 'admin', password: 'original-pass' });
+    const admin = getUserByUsername(db, 'admin')!;
+    setDisabled(db, admin.id, true);
+    // A second, enabled admin keeps the instance recoverable, so the top-level
+    // existing.n > 0 short-circuit must fire and leave `admin` untouched.
+    createLocalUser(db, { username: 'ops', password: 'password123', isAdmin: true });
+
+    ensureBootstrapAdmin(db, { username: 'admin', password: 'original-pass' });
+
+    expect(getUserByUsername(db, 'admin')!.disabled).toBe(1);
   });
 });
 
