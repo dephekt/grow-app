@@ -17,9 +17,15 @@
   const selfId = $derived(data.user?.id);
 
   async function refresh(): Promise<void> {
-    const response = await fetch('/api/users');
-    if (response.ok) {
-      users = ((await response.json()) as { users: UserSummary[] }).users;
+    // Best-effort: a failed refresh must not reject into a caller's try/catch and
+    // get mislabelled as the create/patch itself failing after it already succeeded.
+    try {
+      const response = await fetch('/api/users');
+      if (response.ok) {
+        users = ((await response.json()) as { users: UserSummary[] }).users;
+      }
+    } catch {
+      // Leave the list as-is; the action still succeeded server-side.
     }
   }
 
