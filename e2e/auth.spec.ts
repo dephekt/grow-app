@@ -50,7 +50,7 @@ test('changes the local password via the account menu', async ({ page }) => {
   await expect(dialog.getByText('Password saved')).toBeVisible();
 });
 
-test('admin can create a local user from the users page', async ({ page }) => {
+test('admin can create a local user from the users page', async ({ page }, testInfo) => {
   await login(page, 'e2e-admin', 'e2e-password');
   await expect(page.getByLabel('Account menu')).toBeVisible();
 
@@ -58,14 +58,18 @@ test('admin can create a local user from the users page', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Users & access' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'e2e-admin' })).toBeVisible();
 
+  // Unique per project: all three browser projects share the webServer's auth
+  // DB and run in parallel, so a fixed username races to a 409.
+  const username = `guest-${testInfo.project.name}`;
+
   // Scope to the create form — "Password" also matches the account dialog's
   // password fields elsewhere in the DOM.
   const form = page.locator('.new-user');
-  await form.getByLabel('Username').fill('guest-user');
+  await form.getByLabel('Username').fill(username);
   await form.getByLabel('Password').fill('guest-password');
   await form.getByRole('button', { name: 'Create' }).click();
 
-  await expect(page.getByRole('cell', { name: 'guest-user' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: username })).toBeVisible();
 });
 
 test('serves /health without authentication', async ({ request }) => {
