@@ -45,11 +45,14 @@ describe('purgeOldAuditEntries', () => {
     expect(auditCount(db)).toBe(2);
   });
 
-  it('is a no-op when retention is 0 (retain indefinitely)', () => {
+  it('is a no-op for a non-positive window (retain indefinitely)', () => {
     const db = freshDb();
     insertAudit(db, new Date(Date.now() - 3650 * DAY_MS).toISOString());
 
+    // Both 0 and negative must short-circuit; a `<=`->`===` regression on the
+    // guard would let a negative window wipe the whole table.
     expect(purgeOldAuditEntries(db, 0)).toBe(0);
+    expect(purgeOldAuditEntries(db, -1)).toBe(0);
     expect(auditCount(db)).toBe(1);
   });
 
@@ -97,11 +100,12 @@ describe('capAuditRows', () => {
     expect(auditCount(db)).toBe(3);
   });
 
-  it('is a no-op when the cap is 0 (uncapped)', () => {
+  it('is a no-op for a non-positive cap (uncapped)', () => {
     const db = freshDb();
     for (let i = 0; i < 5; i++) recordAudit(db, { event: 'login.failed' });
 
     expect(capAuditRows(db, 0)).toBe(0);
+    expect(capAuditRows(db, -1)).toBe(0);
     expect(auditCount(db)).toBe(5);
   });
 });
@@ -127,8 +131,10 @@ describe('intEnv', () => {
     expect(intEnv(KEY, 90)).toBe(0);
   });
 
-  it('falls back on negative, non-integer, and garbage values', () => {
-    for (const bad of ['-5', '1.5', 'abc', '']) {
+  it('falls back on negative, non-integer, whitespace, and garbage values', () => {
+    // '   ' / '\t' matter: Number('  ') is 0, so without a trim guard a
+    // whitespace value would silently disable a 0-means-off tunable.
+    for (const bad of ['-5', '1.5', 'abc', '', '   ', '\t']) {
       process.env[KEY] = bad;
       expect(intEnv(KEY, 90)).toBe(90);
     }

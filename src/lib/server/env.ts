@@ -10,8 +10,11 @@ export function env(name: string): string | undefined {
  *  0 (callers use it as a "disable" sentinel); rejects negatives, non-integers,
  *  and unparseable values, falling back rather than throwing. */
 export function intEnv(name: string, fallback: number): number {
-  const raw = env(name);
-  if (raw === undefined) return fallback;
+  const raw = env(name)?.trim();
+  // Empty-after-trim (unset, or a whitespace-only value) falls back rather than
+  // parsing: Number('  ') is 0, which would silently flip a 0-means-disable
+  // tunable OFF instead of using the default.
+  if (!raw) return fallback;
   const n = Number(raw);
   return Number.isInteger(n) && n >= 0 ? n : fallback;
 }
