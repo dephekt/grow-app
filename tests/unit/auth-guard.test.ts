@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { classifyPath, isApiOrAuthPath, isCsrfSafe, isSafeMethod } from '$lib/server/auth/guard';
+import { isSecureRequest } from '$lib/server/auth/config';
 
 describe('classifyPath', () => {
   it('treats health, favicon, login, /api/me and pre-session auth routes as public', () => {
@@ -66,5 +67,20 @@ describe('isCsrfSafe', () => {
     expect(isCsrfSafe('application/json', 'same-origin')).toBe(true);
     expect(isCsrfSafe('application/json', 'none')).toBe(true);
     expect(isCsrfSafe('application/json', null)).toBe(true);
+  });
+});
+
+describe('isSecureRequest', () => {
+  it('is false with no forwarded header (LAN direct)', () => {
+    expect(isSecureRequest(new Headers())).toBe(false);
+  });
+
+  it('is true behind a TLS-terminating proxy', () => {
+    expect(isSecureRequest(new Headers({ 'x-forwarded-proto': 'https' }))).toBe(true);
+  });
+
+  it('takes the first hop of a comma-separated list and is case-insensitive', () => {
+    expect(isSecureRequest(new Headers({ 'x-forwarded-proto': 'HTTPS, http' }))).toBe(true);
+    expect(isSecureRequest(new Headers({ 'x-forwarded-proto': 'http, https' }))).toBe(false);
   });
 });
