@@ -51,10 +51,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   let created;
   try {
     created = createLocalUser(db, { username, password, isAdmin, displayName });
-  } catch {
+  } catch (err) {
     // A concurrent create can pass the pre-check above and still lose the race to
     // the UNIQUE(username) constraint — answer 409 like the pre-check, not a 500.
-    return json({ ok: false, error: 'A user with that username already exists' }, { status: 409 });
+    // Only map the uniqueness violation; a genuine DB/infra failure (busy, disk,
+    // hashing) must surface as a 500, not masquerade as a duplicate username.
+    if (err instanceof Error && /UNIQUE constraint failed/i.test(err.message)) {
+      return json({ ok: false, error: 'A user with that username already exists' }, { status: 409 });
+    }
+    throw err;
   }
   return json({ ok: true, user: toUserSummary(created) }, { status: 201 });
 };

@@ -9,6 +9,14 @@
   // once from the prop, then this drives the "set" vs "change" password UI.
   let hasLocalPassword = $state(untrack(() => user.hasLocalPassword));
 
+  // Re-sync when load data legitimately refreshes the prop — e.g. an admin clears
+  // their own local password on the users page and navigates back, so the (app)
+  // layout reruns and passes hasLocalPassword=false. Without this the dialog would
+  // stay stuck in "change" mode, demanding a current password that no longer exists.
+  $effect(() => {
+    hasLocalPassword = user.hasLocalPassword;
+  });
+
   let menuOpen = $state(false);
   let dialog = $state<HTMLDialogElement | null>(null);
   let currentPassword = $state('');
