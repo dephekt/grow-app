@@ -25,6 +25,10 @@
   let saving = $state(false);
   let error = $state<string | null>(null);
   let saved = $state(false);
+  // Auto-close timer id, tracked so a reopen can cancel a still-pending close —
+  // `dialog` is a single shared instance, so a stale timer would otherwise close
+  // a dialog the user reopened within the 900ms window.
+  let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
   const passwordAction = $derived(hasLocalPassword ? 'Change local password' : 'Set local password');
 
@@ -35,6 +39,11 @@
     currentPassword = '';
     newPassword = '';
     confirmPassword = '';
+    // Cancel a pending auto-close from a prior save so it can't slam this dialog shut.
+    if (closeTimer !== null) {
+      clearTimeout(closeTimer);
+      closeTimer = null;
+    }
     dialog?.showModal();
   }
 
@@ -59,7 +68,10 @@
       }
       saved = true;
       hasLocalPassword = true;
-      setTimeout(() => dialog?.close(), 900);
+      closeTimer = setTimeout(() => {
+        dialog?.close();
+        closeTimer = null;
+      }, 900);
     } catch {
       error = 'Could not save password';
     } finally {
