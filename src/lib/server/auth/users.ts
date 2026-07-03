@@ -142,6 +142,10 @@ export function touchLogin(db: DatabaseSync, userId: number): void {
  * Ensure a usable local admin exists on first boot. If any enabled admin with a
  * local password already exists, this is a no-op — the bootstrap secret is inert
  * after the first successful boot and a later password change is never reset.
+ *
+ * When no usable admin remains (all disabled or de-admin'd), the bootstrap secret
+ * doubles as a recovery path: the named user is re-enabled and re-promoted. Its
+ * password hash is never overwritten, so the inert-secret guarantee still holds.
  */
 export function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdmin): void {
   const existing = db
@@ -162,8 +166,25 @@ export function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdmin): v
   const row = getUserByUsername(db, admin.username);
 
   if (row) {
-    // Never overwrite an existing password hash (inert-secret guarantee).
-    if (row.password_hash) return;
+    if (row.password_hash) {
+      // We only reach here with existing.n === 0, so this named user — though it
+      // has a password — is disabled and/or no longer an admin (otherwise it would
+      // have counted as a usable admin above). Restore admin access WITHOUT touching
+      // the hash: the never-overwrite-password / inert-secret guarantee holds, and
+      // the bootstrap secret still gives operators a recovery path.
+      db.prepare('UPDATE users SET is_admin = 1, disabled = 0 WHERE id = ?').run(row.id);
+      recordAudit(db, {
+        event: 'admin.bootstrapped',
+        username: admin.username,
+        userId: row.id,
+        detail: 're-enabled existing admin'
+      });
+      console.warn(
+        `[auth] Re-enabled bootstrap admin '${admin.username}' (existed with a password but was ` +
+          "disabled/de-admin'd and no other usable admin remained). Password left unchanged."
+      );
+      return;
+    }
     db.prepare('UPDATE users SET password_hash = ?, password_updated_at = ?, is_admin = 1, disabled = 0 WHERE id = ?').run(
       hash,
       now,
