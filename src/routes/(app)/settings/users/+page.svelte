@@ -42,6 +42,8 @@
       newPassword = '';
       newIsAdmin = false;
       await refresh();
+    } catch {
+      error = 'Could not create user';
     } finally {
       creating = false;
     }
@@ -49,17 +51,21 @@
 
   async function patchUser(id: number, patch: Record<string, unknown>): Promise<void> {
     error = null;
-    const response = await fetch(`/api/users/${id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(patch)
-    });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      error = body.error ?? 'Action failed';
-      return;
+    try {
+      const response = await fetch(`/api/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch)
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        error = body.error ?? 'Action failed';
+        return;
+      }
+      await refresh();
+    } catch {
+      error = 'Action failed';
     }
-    await refresh();
   }
 </script>
 

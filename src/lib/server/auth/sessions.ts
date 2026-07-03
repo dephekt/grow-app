@@ -4,8 +4,9 @@ import { SESSION_MAX_AGE_SECONDS } from '$lib/server/auth/config';
 import type { UserRow } from '$lib/server/auth/users';
 
 const SESSION_TTL_MS = SESSION_MAX_AGE_SECONDS * 1000;
-// Renew only when less than a day of the 30-day window remains, so an active
-// session writes to the DB at most once per day.
+// Renew once more than a day has elapsed since the session was last extended
+// (i.e. less than 29 of the 30 days remain), so an actively used session keeps
+// rolling its 30-day window forward while writing to the DB at most once a day.
 const RENEW_WHEN_REMAINING_MS = SESSION_TTL_MS - 24 * 60 * 60 * 1000;
 
 export type LoginMethod = 'local' | 'oidc';
@@ -78,9 +79,9 @@ export function lookupSession(db: DatabaseSync, token: string): SessionLookup | 
 }
 
 /**
- * Extend a session's expiry to a fresh 30 days when it's within the last day of
- * its window. Returns the new expiry ISO string when a renewal happened (so the
- * caller re-issues the cookie), or null when the session was still fresh.
+ * Extend a session's expiry to a fresh 30 days once more than a day has elapsed
+ * since it was last extended. Returns the new expiry ISO string when a renewal
+ * happened (so the caller re-issues the cookie), or null when it was still fresh.
  */
 export function renewIfNeeded(db: DatabaseSync, sessionId: number, expiresAt: string): string | null {
   const remaining = new Date(expiresAt).getTime() - Date.now();

@@ -3,12 +3,7 @@ import type { RequestHandler } from './$types';
 import { getAuthDb } from '$lib/server/auth/db';
 import { createLocalUser, getUserByUsername, listUsers, toUserSummary } from '$lib/server/auth/users';
 import { MIN_PASSWORD_LENGTH } from '$lib/server/auth/config';
-
-function requireAdmin(locals: App.Locals): Response | null {
-  if (!locals.user) return json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  if (!locals.user.isAdmin) return json({ ok: false, error: 'Admin access required' }, { status: 403 });
-  return null;
-}
+import { requireAdmin } from '$lib/server/auth/authz';
 
 // Admin: list all users (sanitised — no password hashes).
 export const GET: RequestHandler = ({ locals }) => {
@@ -53,6 +48,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ ok: false, error: 'A user with that username already exists' }, { status: 409 });
   }
 
-  const created = createLocalUser(db, { username, password, isAdmin, displayName });
+  let created;
+  try {
+    created = createLocalUser(db, { username, password, isAdmin, displayName });
+  } catch {
+    // A concurrent create can pass the pre-check above and still lose the race to
+    // the UNIQUE(username) constraint — answer 409 like the pre-check, not a 500.
+    return json({ ok: false, error: 'A user with that username already exists' }, { status: 409 });
+  }
   return json({ ok: true, user: toUserSummary(created) }, { status: 201 });
 };

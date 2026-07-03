@@ -1,7 +1,13 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { AuthenticatedUser } from '$lib/server/auth/users';
 
   let { user }: { user: AuthenticatedUser } = $props();
+
+  // Track locally: `user` comes from load data (a plain, non-reactive object), so
+  // mutating user.hasLocalPassword would not re-render the dialog's mode. Seed
+  // once from the prop, then this drives the "set" vs "change" password UI.
+  let hasLocalPassword = $state(untrack(() => user.hasLocalPassword));
 
   let menuOpen = $state(false);
   let dialog = $state<HTMLDialogElement | null>(null);
@@ -12,7 +18,7 @@
   let error = $state<string | null>(null);
   let saved = $state(false);
 
-  const passwordAction = $derived(user.hasLocalPassword ? 'Change local password' : 'Set local password');
+  const passwordAction = $derived(hasLocalPassword ? 'Change local password' : 'Set local password');
 
   function openPasswordDialog(): void {
     menuOpen = false;
@@ -44,7 +50,7 @@
         return;
       }
       saved = true;
-      user.hasLocalPassword = true;
+      hasLocalPassword = true;
       setTimeout(() => dialog?.close(), 900);
     } catch {
       error = 'Could not save password';
@@ -90,10 +96,10 @@
 <dialog bind:this={dialog} class="pw-dialog">
   <form method="dialog" onsubmit={savePassword}>
     <h2>{passwordAction}</h2>
-    {#if !user.hasLocalPassword}
+    {#if !hasLocalPassword}
       <p class="hint">Set a local password to sign in without SSO — useful when the identity provider is unreachable.</p>
     {/if}
-    {#if user.hasLocalPassword}
+    {#if hasLocalPassword}
       <label>
         Current password
         <input type="password" bind:value={currentPassword} autocomplete="current-password" />

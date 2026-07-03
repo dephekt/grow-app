@@ -1,9 +1,11 @@
 import { redirect } from '@sveltejs/kit';
 
 /** Only allow same-site absolute paths as a post-login redirect target, to avoid
- *  an open redirect via `?next=`. */
+ *  an open redirect via `?next=`. Rejects protocol-relative (`//host`) and its
+ *  backslash-normalised variant (`/\host` / `/%5Chost`) — browsers treat `\` as
+ *  `/`, so both escape to a foreign origin. */
 function sanitizeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/';
+  if (!raw || raw[0] !== '/' || raw[1] === '/' || raw[1] === '\\') return '/';
   return raw;
 }
 

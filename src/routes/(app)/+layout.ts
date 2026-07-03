@@ -25,7 +25,9 @@ export const load = async ({ fetch, url }) => {
   let snapshot: Snapshot | null = null;
   try {
     const response = await fetch('/api/snapshot');
-    snapshot = (await response.json()) as Snapshot;
+    // A session revoked between the /api/me probe and here returns a 401 JSON
+    // body; without the ok check it would be cast to Snapshot and crash the shell.
+    snapshot = response.ok ? ((await response.json()) as Snapshot) : null;
   } catch {
     snapshot = null;
   }

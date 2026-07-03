@@ -4,12 +4,7 @@ import { getAuthDb } from '$lib/server/auth/db';
 import { clearPassword, getUserById, setDisabled, toUserSummary } from '$lib/server/auth/users';
 import { deleteSessionsForUser } from '$lib/server/auth/sessions';
 import { recordAudit } from '$lib/server/auth/audit';
-
-function requireAdmin(locals: App.Locals): Response | null {
-  if (!locals.user) return json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  if (!locals.user.isAdmin) return json({ ok: false, error: 'Admin access required' }, { status: 403 });
-  return null;
-}
+import { requireAdmin } from '$lib/server/auth/authz';
 
 interface PatchBody {
   disabled?: unknown;
