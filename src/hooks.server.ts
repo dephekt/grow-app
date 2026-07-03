@@ -22,7 +22,9 @@ export const handle: Handle = async ({ event, resolve }) => {
   const lookup = token ? lookupSession(authDb, token) : null;
   if (token && !lookup) {
     // Expired/disabled/unknown cookie — clear it so the browser stops sending it.
-    event.cookies.delete(SESSION_COOKIE, { path: '/' });
+    // Match the per-request Secure flag used on set; SvelteKit's default Secure
+    // deletion cookie is dropped by the browser on the plain-HTTP LAN origin.
+    event.cookies.delete(SESSION_COOKIE, { path: '/', secure: isSecureRequest(event.request.headers) });
   }
   event.locals.user = lookup ? toAuthenticatedUser(lookup.user) : null;
 

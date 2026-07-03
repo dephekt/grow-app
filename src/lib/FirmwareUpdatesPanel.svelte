@@ -155,7 +155,10 @@
     actionMessage = '';
 
     try {
-      const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/check`, { method: 'POST' });
+      const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/check`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' }
+      });
       const body = (await response.json().catch(() => ({}))) as {
         package?: FirmwarePackageManifest | null;
         checkTriggered?: boolean;
