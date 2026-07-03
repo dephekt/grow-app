@@ -57,6 +57,21 @@ export interface SessionCookieOptions {
   maxAge: number;
 }
 
+/**
+ * Whether the client reached us over HTTPS. TLS always terminates upstream
+ * (Pangolin/Traefik) — the app itself only ever speaks plain HTTP — so the
+ * forwarded protocol header is the only trustworthy signal. Do NOT use
+ * `event.url.protocol` for this: adapter-node defaults it to `https:` when no
+ * ORIGIN/PROTOCOL_HEADER is configured, so plain-HTTP LAN requests would get a
+ * Secure cookie the browser then silently drops. A LAN client spoofing the
+ * header only mis-flags its own cookie.
+ */
+export function isSecureRequest(headers: Pick<Headers, 'get'>): boolean {
+  const forwarded = headers.get('x-forwarded-proto');
+  if (!forwarded) return false;
+  return forwarded.split(',')[0].trim().toLowerCase() === 'https';
+}
+
 export function sessionCookieOptions(secure: boolean): SessionCookieOptions {
   return {
     path: '/',

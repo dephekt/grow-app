@@ -5,7 +5,7 @@ import { getAuthDb } from '$lib/server/auth/db';
 import { ensureBootstrapAdmin, toAuthenticatedUser } from '$lib/server/auth/users';
 import { lookupSession, renewIfNeeded } from '$lib/server/auth/sessions';
 import { classifyPath, isApiOrAuthPath, isSafeMethod, isCsrfSafe } from '$lib/server/auth/guard';
-import { SESSION_COOKIE, getBootstrapAdmin, sessionCookieOptions } from '$lib/server/auth/config';
+import { SESSION_COOKIE, getBootstrapAdmin, isSecureRequest, sessionCookieOptions } from '$lib/server/auth/config';
 
 // Warm the MQTT singleton (as before) and open the auth DB + bootstrap the local
 // admin, once, at server start.
@@ -14,7 +14,7 @@ const authDb = getAuthDb();
 ensureBootstrapAdmin(authDb, getBootstrapAdmin());
 
 export const handle: Handle = async ({ event, resolve }) => {
-  const { pathname, search, protocol } = event.url;
+  const { pathname, search } = event.url;
 
   // Best-effort session resolution for every request, so public endpoints like
   // /api/me and /login can see an already-authenticated user.
@@ -48,7 +48,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (lookup) {
     const renewed = renewIfNeeded(authDb, lookup.sessionId, lookup.expiresAt);
     if (renewed && token) {
-      event.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(protocol === 'https:'));
+      event.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(isSecureRequest(event.request.headers)));
     }
   }
 

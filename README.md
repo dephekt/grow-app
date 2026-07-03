@@ -73,9 +73,10 @@ keeps working when the proxy or identity provider is unavailable.
   **Users & access** (`/settings/users`).
 - **Sessions.** An `HttpOnly`, `SameSite=Lax` cookie holds an opaque token; only
   its SHA-256 is stored. Sessions roll a 30-day window and survive restarts (the
-  DB is on a persistent volume). The cookie is marked `Secure` only on HTTPS
-  requests so it also works on the plain-HTTP LAN origin — set
-  `PROTOCOL_HEADER=x-forwarded-proto` behind a TLS proxy so the app sees HTTPS.
+  DB is on a persistent volume). The cookie is marked `Secure` only when the
+  request arrived with `x-forwarded-proto: https` (TLS always terminates at the
+  proxy), so it also works on the plain-HTTP LAN origin where that header is
+  absent.
 - **OIDC / SSO.** Wired in a follow-up. When `GROW_OIDC_ISSUER` and client
   credentials are set, the login page adds a "Sign in with SSO" button and
   authorizes users by OIDC group membership. With no OIDC env the app runs

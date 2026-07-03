@@ -5,7 +5,7 @@ import { getUserByUsername, touchLogin, toAuthenticatedUser } from '$lib/server/
 import { verifyPassword } from '$lib/server/auth/passwords';
 import { createSession } from '$lib/server/auth/sessions';
 import { recordAudit } from '$lib/server/auth/audit';
-import { SESSION_COOKIE, sessionCookieOptions } from '$lib/server/auth/config';
+import { SESSION_COOKIE, isSecureRequest, sessionCookieOptions } from '$lib/server/auth/config';
 
 interface LoginBody {
   username?: unknown;
@@ -13,7 +13,7 @@ interface LoginBody {
 }
 
 // Public: local username/password login. Always works regardless of IdP state.
-export const POST: RequestHandler = async ({ request, cookies, url, getClientAddress }) => {
+export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
   let body: LoginBody;
   try {
     body = (await request.json()) as LoginBody;
@@ -53,7 +53,7 @@ export const POST: RequestHandler = async ({ request, cookies, url, getClientAdd
     userAgent: request.headers.get('user-agent'),
     ip
   });
-  cookies.set(SESSION_COOKIE, token, sessionCookieOptions(url.protocol === 'https:'));
+  cookies.set(SESSION_COOKIE, token, sessionCookieOptions(isSecureRequest(request.headers)));
   touchLogin(db, user.id);
   recordAudit(db, { event: 'login.local', username: user.username, userId: user.id, ip });
 
