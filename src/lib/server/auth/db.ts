@@ -101,7 +101,13 @@ export function purgeExpiredSessions(db: DatabaseSync): number {
  *  Returns rows removed. */
 export function purgeOldAuditEntries(db: DatabaseSync, retentionDays: number): number {
   if (retentionDays <= 0) return 0;
-  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+  const cutoffMs = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  // A window so large the cutoff predates the representable Date range (min
+  // -8.64e15 ms) means no row can be that old, so delete nothing — and skipping
+  // the compute avoids the RangeError that `new Date(...).toISOString()` throws
+  // for an out-of-range value (e.g. GROW_AUTH_AUDIT_RETENTION_DAYS=1e9).
+  if (cutoffMs < -8_640_000_000_000_000) return 0;
+  const cutoff = new Date(cutoffMs).toISOString();
   const result = db.prepare('DELETE FROM auth_audit WHERE at <= ?').run(cutoff);
   return Number(result.changes);
 }
@@ -131,6 +137,17 @@ function runAuthMaintenance(db: DatabaseSync): void {
   capAuditRows(db, getAuthAuditMaxRows());
 }
 
+/** Best-effort wrapper: housekeeping must never prevent the auth DB from being
+ *  used, so a purge failure (e.g. a wildly out-of-range tunable) is logged and
+ *  swallowed — at open just as it already was on the daily timer. */
+function tryRunAuthMaintenance(db: DatabaseSync): void {
+  try {
+    runAuthMaintenance(db);
+  } catch (error) {
+    console.error('[auth] maintenance purge failed', error);
+  }
+}
+
 let singleton: DatabaseSync | null = null;
 
 /** Process-wide auth DB, opened once at the configured path. Runs maintenance
@@ -140,14 +157,8 @@ export function getAuthDb(): DatabaseSync {
   if (singleton) return singleton;
   singleton = openAuthDb(getAuthDbPath());
 
-  runAuthMaintenance(singleton);
-  const daily = setInterval(() => {
-    try {
-      runAuthMaintenance(singleton!);
-    } catch (error) {
-      console.error('[auth] maintenance purge failed', error);
-    }
-  }, 24 * 60 * 60 * 1000);
+  tryRunAuthMaintenance(singleton);
+  const daily = setInterval(() => tryRunAuthMaintenance(singleton!), 24 * 60 * 60 * 1000);
   daily.unref?.();
 
   return singleton;

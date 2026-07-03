@@ -64,6 +64,18 @@ describe('purgeOldAuditEntries', () => {
     expect(purgeOldAuditEntries(db, 90)).toBe(0);
     expect(auditCount(db)).toBe(2);
   });
+
+  it('does not throw for an enormous window that underflows the Date range', () => {
+    const db = freshDb();
+    insertAudit(db, new Date().toISOString());
+
+    // 1e9 days pushes the cutoff past the representable Date range; without the
+    // guard `new Date(...).toISOString()` throws RangeError, crashing the
+    // unwrapped at-open maintenance call. Such a window means "keep everything".
+    expect(() => purgeOldAuditEntries(db, 1e9)).not.toThrow();
+    expect(purgeOldAuditEntries(db, 1e9)).toBe(0);
+    expect(auditCount(db)).toBe(1);
+  });
 });
 
 describe('capAuditRows', () => {
