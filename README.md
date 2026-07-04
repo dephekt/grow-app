@@ -84,7 +84,9 @@ keeps working when the proxy or identity provider is unavailable.
 
 The auth DB needs a writable path. The container defaults `GROW_AUTH_DB` to
 `/data/auth.db` and declares `/data` as a volume; mount a named volume there so
-users and sessions persist across deploys. A daily maintenance timer purges
+users and sessions persist across deploys. The irrigation DB (zones + run log)
+likewise defaults `GROW_IRRIGATION_DB` to `/data/irrigation.db` on the same volume.
+A daily maintenance timer purges
 expired sessions and bounds the audit log — rows older than
 `GROW_AUTH_AUDIT_RETENTION_DAYS` (default 90) are pruned and the table is capped
 at the newest `GROW_AUTH_AUDIT_MAX_ROWS` (default 50000), so the public login
