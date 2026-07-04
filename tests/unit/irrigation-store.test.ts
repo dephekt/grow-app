@@ -23,7 +23,7 @@ describe('irrigation zone store', () => {
       stationSid: 0,
       substrateVolumeMl: 3785,
       drippers: 2,
-      emitterGph: 0.5
+      emitterLph: 2
     });
     expect(zone.id).toBeTruthy();
     expect(zone.maxRunSeconds).toBe(300); // default

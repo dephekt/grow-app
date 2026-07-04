@@ -14,9 +14,9 @@ function zone(overrides: Partial<Zone> = {}): Zone {
     name: 'Tent 1',
     stationSid: 0,
     substrateType: 'Rockwool',
-    substrateVolumeMl: 3785,
+    substrateVolumeMl: 4000,
     drippers: 2,
-    emitterGph: 0.5,
+    emitterLph: 2, // L/hr (canonical)
     maxRunSeconds: 300,
     vwcEntityId: null,
     pwecEntityId: null,
@@ -28,19 +28,20 @@ function zone(overrides: Partial<Zone> = {}): Zone {
 }
 
 describe('shot math', () => {
-  it('computes total emitter flow (2 drippers × 0.5 GPH ≈ 63.09 mL/min)', () => {
-    expect(zoneFlowMlPerMin(zone())).toBeCloseTo(63.09, 1);
+  it('computes total emitter flow (2 drippers × 2 L/hr ≈ 66.7 mL/min)', () => {
+    expect(zoneFlowMlPerMin(zone())).toBeCloseTo(66.67, 1);
     expect(zoneFlowMlPerMin(zone({ drippers: null }))).toBeNull();
-    expect(zoneFlowMlPerMin(zone({ emitterGph: null }))).toBeNull();
+    expect(zoneFlowMlPerMin(zone({ emitterLph: null }))).toBeNull();
   });
 
   it('converts a percent shot to mL of the substrate volume', () => {
-    expect(percentToMl(3, zone())).toBeCloseTo(113.55, 2);
+    expect(percentToMl(3, zone())).toBeCloseTo(120, 6); // 3% of 4000 mL
     expect(percentToMl(3, zone({ substrateVolumeMl: null }))).toBeNull();
   });
 
   it('converts mL to seconds via the flow rate', () => {
-    expect(mlToSeconds(63.0902, zone({ drippers: 1, emitterGph: 1 }))).toBeCloseTo(60, 3);
+    // one minute's worth of flow → 60 s
+    expect(mlToSeconds(66.6667, zone())).toBeCloseTo(60, 1);
     expect(mlToSeconds(100, zone({ drippers: null }))).toBeNull();
   });
 
@@ -50,12 +51,12 @@ describe('shot math', () => {
   });
 
   it('resolves a percent shot through the emitter/substrate spec', () => {
-    // 3% of 3785 mL = 113.55 mL ÷ 63.09 mL/min × 60 ≈ 108 s
+    // 3% of 4000 mL = 120 mL ÷ 66.67 mL/min × 60 ≈ 108 s
     expect(resolveShotSeconds({ percent: 3 }, zone())).toBe(108);
   });
 
   it('resolves an mL shot through the emitter spec', () => {
-    expect(resolveShotSeconds({ ml: 63.0902 }, zone({ drippers: 1, emitterGph: 1 }))).toBe(60);
+    expect(resolveShotSeconds({ ml: 120 }, zone())).toBe(108);
   });
 
   it('rejects non-positive and unspecified inputs', () => {
