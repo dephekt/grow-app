@@ -103,6 +103,11 @@
     packageInfo = null;
     lookupError = '';
     actionMessage = '';
+    // A command (Check/Apply) in flight for the previous key is superseded by this
+    // device/channel change; clear its busy flag, since bumping requestId above makes
+    // that command's own requestId-guarded finally skip the reset (covers a channel
+    // switch, which the nodeId-only device-switch effect doesn't).
+    commandPending = false;
 
     try {
       const response = await fetch(`/api/firmware/devices/${encodeURIComponent(currentNodeId)}/package?channel=${channel}`);
@@ -157,7 +162,11 @@
 
   async function checkForUpdate(): Promise<void> {
     if (!firmwareConfig || commandPending) return;
-    const id = ++requestId;
+    // Capture (don't bump) the staleness token: a device/channel switch bumps requestId
+    // via loadPackage, so this still bails on switch and can't clobber the new device —
+    // but a concurrent same-device loadPackage is no longer invalidated, so it completes
+    // and clears its own lookupPending instead of stranding "Checking".
+    const id = requestId;
     commandPending = true;
     commandMessage = '';
     actionMessage = '';
@@ -203,7 +212,8 @@
 
   async function applyUpdate(): Promise<void> {
     if (!packageInfo || !canApply || commandPending) return;
-    const id = ++requestId;
+    // Capture (not bump) the staleness token — see checkForUpdate.
+    const id = requestId;
     commandPending = true;
     commandMessage = '';
     actionMessage = '';
