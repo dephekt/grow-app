@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getAuthDb } from '$lib/server/auth/db';
 import { clearPassword, getUserById, setDisabled, toUserSummary } from '$lib/server/auth/users';
 import { deleteSessionsForUser } from '$lib/server/auth/sessions';
+import { closeEventStreamsForUser } from '$lib/server/events/streams';
 import { recordAudit } from '$lib/server/auth/audit';
 import { requireAdmin } from '$lib/server/auth/authz';
 
@@ -46,7 +47,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   if (typeof body.disabled === 'boolean') {
     setDisabled(db, id, body.disabled);
-    if (body.disabled) deleteSessionsForUser(db, id);
+    if (body.disabled) {
+      deleteSessionsForUser(db, id);
+      // Kill any open SSE stream now; revoking the session only stops the next
+      // request, and /api/events is a single request that never comes back.
+      closeEventStreamsForUser(id);
+    }
   }
 
   if (body.clearPassword === true) {
@@ -55,6 +61,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   if (body.revokeSessions === true) {
     const removed = deleteSessionsForUser(db, id);
+    closeEventStreamsForUser(id);
     recordAudit(db, { event: 'sessions.revoked', userId: id, detail: `${removed} session(s)` });
   }
 
