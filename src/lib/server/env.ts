@@ -51,7 +51,10 @@ export function secretEnv(name: string, options: SecretEnvOptions = {}): string 
   try {
     return readFileSync(file, 'utf8').replace(/\r?\n$/, '');
   } catch (error) {
-    if (options.optional) return undefined;
+    if (options.optional) {
+      options.onReadError?.(error);
+      return undefined;
+    }
     throw error;
   }
 }

@@ -87,6 +87,12 @@ describe('GET /auth/oidc/callback', () => {
     expect(vi.mocked(completeLogin)).not.toHaveBeenCalled();
   });
 
+  it('redirects to error=sso when tx.redirectUri is not a valid URL (no uncaught 500)', async () => {
+    const { event } = makeEvent({ tx: txCookie({ redirectUri: 'not-a-valid-url' }), ip: '203.0.113.26' });
+    expect((await invoke(event)).location).toBe('/login?error=sso');
+    expect(vi.mocked(completeLogin)).not.toHaveBeenCalled();
+  });
+
   it('rate-limits per IP before the token exchange', async () => {
     vi.mocked(completeLogin).mockRejectedValue(new Error('exchange failed'));
     const ip = '203.0.113.22';
