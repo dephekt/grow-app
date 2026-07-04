@@ -51,14 +51,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     return json({ ok: false, error: message }, { status: message.includes('not connected') ? 503 : 500 });
   }
 
-  recordEvent(db, {
-    zoneId: zone.id,
-    stationSid: zone.stationSid,
-    requestedPercent: numOrNull(body.percent),
-    requestedMl: numOrNull(body.ml),
-    seconds,
-    actor: locals.user?.username ?? null
-  });
+  // The valve has already fired; a failure to write the audit row must not report a
+  // successful run as failed (the user would retry an already-running station).
+  try {
+    recordEvent(db, {
+      zoneId: zone.id,
+      stationSid: zone.stationSid,
+      requestedPercent: numOrNull(body.percent),
+      requestedMl: numOrNull(body.ml),
+      seconds,
+      actor: locals.user?.username ?? null
+    });
+  } catch (error) {
+    console.error('[irrigation] failed to record run event', error);
+  }
 
   return json({ ok: true, seconds });
 };
