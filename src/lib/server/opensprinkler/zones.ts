@@ -11,7 +11,7 @@ export interface Zone {
   substrateType: string | null;
   substrateVolumeMl: number | null;
   drippers: number | null;
-  emitterGph: number | null;
+  emitterLph: number | null;
   maxRunSeconds: number;
   vwcEntityId: string | null;
   pwecEntityId: string | null;
@@ -26,7 +26,7 @@ export interface ZoneCreate {
   substrateType?: string | null;
   substrateVolumeMl?: number | null;
   drippers?: number | null;
-  emitterGph?: number | null;
+  emitterLph?: number | null;
   maxRunSeconds?: number;
   vwcEntityId?: string | null;
   pwecEntityId?: string | null;
@@ -42,7 +42,7 @@ interface ZoneRow {
   substrate_type: string | null;
   substrate_volume_ml: number | null;
   drippers: number | null;
-  emitter_gph: number | null;
+  emitter_l_per_hr: number | null;
   max_run_seconds: number;
   vwc_entity_id: string | null;
   pwec_entity_id: string | null;
@@ -59,7 +59,7 @@ function toZone(row: ZoneRow): Zone {
     substrateType: row.substrate_type,
     substrateVolumeMl: row.substrate_volume_ml,
     drippers: row.drippers,
-    emitterGph: row.emitter_gph,
+    emitterLph: row.emitter_l_per_hr,
     maxRunSeconds: row.max_run_seconds,
     vwcEntityId: row.vwc_entity_id,
     pwecEntityId: row.pwec_entity_id,
@@ -89,7 +89,7 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
   const id = randomUUID();
   db.prepare(
     `INSERT INTO zones (id, name, station_sid, substrate_type, substrate_volume_ml, drippers,
-       emitter_gph, max_run_seconds, vwc_entity_id, pwec_entity_id, enabled, created_at, updated_at)
+       emitter_l_per_hr, max_run_seconds, vwc_entity_id, pwec_entity_id, enabled, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
@@ -98,7 +98,7 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
     input.substrateType ?? null,
     input.substrateVolumeMl ?? null,
     input.drippers ?? null,
-    input.emitterGph ?? null,
+    input.emitterLph ?? null,
     input.maxRunSeconds ?? 300,
     input.vwcEntityId ?? null,
     input.pwecEntityId ?? null,
@@ -120,7 +120,7 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     ...('substrateType' in patch ? { substrateType: patch.substrateType ?? null } : {}),
     ...('substrateVolumeMl' in patch ? { substrateVolumeMl: patch.substrateVolumeMl ?? null } : {}),
     ...('drippers' in patch ? { drippers: patch.drippers ?? null } : {}),
-    ...('emitterGph' in patch ? { emitterGph: patch.emitterGph ?? null } : {}),
+    ...('emitterLph' in patch ? { emitterLph: patch.emitterLph ?? null } : {}),
     ...('maxRunSeconds' in patch ? { maxRunSeconds: patch.maxRunSeconds ?? existing.maxRunSeconds } : {}),
     ...('vwcEntityId' in patch ? { vwcEntityId: patch.vwcEntityId ?? null } : {}),
     ...('pwecEntityId' in patch ? { pwecEntityId: patch.pwecEntityId ?? null } : {}),
@@ -130,7 +130,7 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
 
   db.prepare(
     `UPDATE zones SET name = ?, station_sid = ?, substrate_type = ?, substrate_volume_ml = ?,
-       drippers = ?, emitter_gph = ?, max_run_seconds = ?, vwc_entity_id = ?, pwec_entity_id = ?,
+       drippers = ?, emitter_l_per_hr = ?, max_run_seconds = ?, vwc_entity_id = ?, pwec_entity_id = ?,
        enabled = ?, updated_at = ? WHERE id = ?`
   ).run(
     merged.name,
@@ -138,7 +138,7 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     merged.substrateType,
     merged.substrateVolumeMl,
     merged.drippers,
-    merged.emitterGph,
+    merged.emitterLph,
     merged.maxRunSeconds,
     merged.vwcEntityId,
     merged.pwecEntityId,

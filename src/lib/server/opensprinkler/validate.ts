@@ -54,7 +54,7 @@ export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
     substrateType: optString(body.substrateType),
     substrateVolumeMl: optPositiveNumber(body.substrateVolumeMl, 'substrateVolumeMl'),
     drippers: optPositiveInt(body.drippers, 'drippers'),
-    emitterGph: optPositiveNumber(body.emitterGph, 'emitterGph'),
+    emitterLph: optPositiveNumber(body.emitterLph, 'emitterLph'),
     maxRunSeconds: body.maxRunSeconds == null ? 300 : requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds'),
     vwcEntityId: optString(body.vwcEntityId),
     pwecEntityId: optString(body.pwecEntityId),
@@ -69,7 +69,7 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('substrateType' in body) patch.substrateType = optString(body.substrateType);
   if ('substrateVolumeMl' in body) patch.substrateVolumeMl = optPositiveNumber(body.substrateVolumeMl, 'substrateVolumeMl');
   if ('drippers' in body) patch.drippers = optPositiveInt(body.drippers, 'drippers');
-  if ('emitterGph' in body) patch.emitterGph = optPositiveNumber(body.emitterGph, 'emitterGph');
+  if ('emitterLph' in body) patch.emitterLph = optPositiveNumber(body.emitterLph, 'emitterLph');
   if ('maxRunSeconds' in body) patch.maxRunSeconds = requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds');
   if ('vwcEntityId' in body) patch.vwcEntityId = optString(body.vwcEntityId);
   if ('pwecEntityId' in body) patch.pwecEntityId = optString(body.pwecEntityId);
