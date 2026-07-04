@@ -174,7 +174,7 @@ export interface UpsertOidcUserInput {
    *  for an existing account (username is set once, never renamed). */
   username: string;
   displayName?: string | null;
-  /** Recomputed from the /grow/admin group claim on every login. */
+  /** Recomputed from the /grow-admin group claim on every login. */
   isAdmin: boolean;
 }
 

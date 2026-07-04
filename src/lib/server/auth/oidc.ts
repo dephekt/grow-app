@@ -7,12 +7,17 @@ import {
   isSecureRequest
 } from '$lib/server/auth/config';
 
-/** Global admin group — full control across the deployment (decision 28). */
-export const ADMIN_GROUP = '/grow/admin';
+// Group names are flat (`/grow-admin`, `/grow-site-<slug>`) rather than a nested
+// `/grow/...` tree: the site IdP (Keycloak) federates groups from a flat LDAP
+// `groupOfNames` directory, so a nested path would be awkward to model there.
+// The token's group claim carries these as full paths with a single segment.
 
-/** The site-scope group for a given slug (`/grow/sites/<slug>`). */
+/** Global admin group — full control across the deployment (decision 28). */
+export const ADMIN_GROUP = '/grow-admin';
+
+/** The site-scope group for a given slug (`/grow-site-<slug>`). */
 export function siteGroup(siteSlug: string): string {
-  return `/grow/sites/${siteSlug}`;
+  return `/grow-site-${siteSlug}`;
 }
 
 /** Validated claims we read off the ID token. */
