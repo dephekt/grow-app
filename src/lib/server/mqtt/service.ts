@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import { randomBytes } from 'node:crypto';
 import { buildCommandPublish, normalizeDiscoveryId, parseDiscoveryPayload } from './discovery';
 import { getSiteMqttConfig, type SiteMqttConfig } from './config';
+import { matchStationTopic, normalizeStationState, stationStateTopic } from '$lib/server/opensprinkler/normalize';
 import { parseUiConfigPayload } from './ui-metadata';
 import {
   buildFirmwareChannelConfig,
@@ -140,6 +141,19 @@ export class SiteMqttService {
         else resolve();
       });
     });
+  }
+
+  /** Publish a raw OpenSprinkler command string to `<osBaseTopic>/cmd`. */
+  publishOsCommand(command: string): Promise<void> {
+    if (!this.config.osBaseTopic) {
+      return Promise.reject(new Error('OpenSprinkler base topic not configured'));
+    }
+    return this.publishRaw(`${this.config.osBaseTopic}/cmd`, command, false);
+  }
+
+  /** Publish (retained) a self-generated discovery config for an OpenSprinkler entity. */
+  publishOsDiscovery(topic: string, payload: string): Promise<void> {
+    return this.publishRaw(topic, payload, true);
   }
 
   firmwareDevice(nodeId: string): FirmwareDeviceConfig | undefined {
@@ -283,6 +297,21 @@ export class SiteMqttService {
       else this.firmwareChannelByNodeId.delete(firmwareChannel.nodeId);
       this.emitFirmware();
       return;
+    }
+
+    // OpenSprinkler status normalization: OS publishes station state as JSON to
+    // `<base>/station/<n>`; republish a plain ON/OFF scalar (retained) to
+    // `<base>/station/<n>/state` so the self-published discovery entity + the
+    // recorder see clean values (the discovery parser has no value_template).
+    if (this.config.osEnabled && this.config.osBaseTopic) {
+      const sid = matchStationTopic(topic, this.config.osBaseTopic);
+      if (sid !== null) {
+        const scalar = normalizeStationState(payload);
+        if (scalar) {
+          void this.publishRaw(stationStateTopic(this.config.osBaseTopic, sid), scalar, true).catch(() => {});
+        }
+        return;
+      }
     }
 
     const stateEntityIds = this.topicToEntity.get(topic);
