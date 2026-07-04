@@ -63,4 +63,22 @@ describe('event stream registry', () => {
     expect(close).toHaveBeenCalledTimes(1);
     expect(activeEventStreamCount()).toBe(0);
   });
+
+  it('continues the sweep when one stream’s close() throws', () => {
+    // One handle throwing must not abort the sweep or propagate into the caller
+    // (the admin PATCH would 500 after its DB delete already succeeded).
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const boom = vi.fn(() => {
+      throw new Error('close failed');
+    });
+    const ok = vi.fn();
+    registerEventStream({ userId: 1, close: boom });
+    registerEventStream({ userId: 1, close: ok });
+
+    expect(() => closeEventStreamsForUser(1)).not.toThrow();
+    expect(boom).toHaveBeenCalledTimes(1);
+    expect(ok).toHaveBeenCalledTimes(1);
+    expect(activeEventStreamCount()).toBe(0);
+    errorSpy.mockRestore();
+  });
 });

@@ -70,20 +70,30 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
       });
 
       heartbeat = setInterval(() => {
+        // Backstop for the registry: if the session is gone (disabled, revoked,
+        // or expired) close the stream instead of sending another heartbeat.
+        // The two failure modes below are deliberately handled differently.
+        let sessionGone = false;
         try {
-          // Backstop for the registry: if the session is gone (disabled, revoked,
-          // or expired) close the stream instead of sending another heartbeat.
-          if (token && !lookupSession(getAuthDb(), token)) {
-            closeStream();
-            return;
-          }
-          controller.enqueue(encoder.encode(': heartbeat\n\n'));
+          sessionGone = token ? !lookupSession(getAuthDb(), token) : false;
         } catch (error) {
-          // A throw here runs in a bare timer callback: unhandled, it takes the
-          // whole process (every stream) down. Swallow a transient DB/enqueue
-          // error and re-check next tick — the registry still covers immediate
-          // revocation, so we'd rather keep the stream than drop it on a hiccup.
+          // A DB hiccup is transient: swallow and re-check next tick rather than
+          // drop the stream (the registry still covers immediate revocation). A
+          // throw escaping this bare timer callback would take the whole process
+          // — every stream — down, so it must never propagate.
           console.error('[events] heartbeat revalidation failed', error);
+          return;
+        }
+        if (sessionGone) {
+          closeStream();
+          return;
+        }
+        try {
+          controller.enqueue(encoder.encode(': heartbeat\n\n'));
+        } catch {
+          // enqueue throws only when the controller is already closed/errored —
+          // terminal, not transient. Match the subscribe path and tear down.
+          closeStream();
         }
       }, HEARTBEAT_INTERVAL_MS);
 
@@ -114,7 +124,14 @@ function snapshotOnlyStream(snapshot: unknown): Response {
     start(controller) {
       controller.enqueue(encode('snapshot', snapshot));
       heartbeat = setInterval(() => {
-        controller.enqueue(encoder.encode(': heartbeat\n\n'));
+        try {
+          controller.enqueue(encoder.encode(': heartbeat\n\n'));
+        } catch {
+          // Controller already closed (reader gone before cancel() fired). Stop
+          // the timer here: an unhandled throw from a bare timer callback would
+          // take the whole process down.
+          if (heartbeat) clearInterval(heartbeat);
+        }
       }, HEARTBEAT_INTERVAL_MS);
     },
     cancel() {

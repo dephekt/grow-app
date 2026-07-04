@@ -44,7 +44,14 @@ export function closeEventStreamsForUser(userId: number): number {
     if (handle.userId !== userId) continue;
     active.delete(handle);
     closed += 1;
-    handle.close();
+    try {
+      handle.close();
+    } catch (error) {
+      // Never let one handle's teardown abort the sweep — the remaining streams
+      // for this user must still close, and the admin PATCH that called us must
+      // not 500 after its DB session-delete already succeeded.
+      console.error('[events] failed to close a revoked stream', error);
+    }
   }
   return closed;
 }
