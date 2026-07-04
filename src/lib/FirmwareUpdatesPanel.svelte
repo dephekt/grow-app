@@ -162,11 +162,13 @@
 
   async function checkForUpdate(): Promise<void> {
     if (!firmwareConfig || commandPending) return;
-    // Capture (don't bump) the staleness token: a device/channel switch bumps requestId
-    // via loadPackage, so this still bails on switch and can't clobber the new device —
-    // but a concurrent same-device loadPackage is no longer invalidated, so it completes
-    // and clears its own lookupPending instead of stranding "Checking".
-    const id = requestId;
+    // This is an authoritative refresh. Bump the staleness token so a concurrent
+    // in-flight loadPackage is disowned — its guarded writes bail, so a slow/failing
+    // lookup can't win a last-writer race and re-surface the stale error/manifest this
+    // clears. Then take ownership of lookupPending, because that disowned loadPackage's
+    // finally won't clear it (otherwise "Latest: Checking" strands).
+    const id = ++requestId;
+    lookupPending = false;
     commandPending = true;
     commandMessage = '';
     actionMessage = '';
@@ -212,8 +214,10 @@
 
   async function applyUpdate(): Promise<void> {
     if (!packageInfo || !canApply || commandPending) return;
-    // Capture (not bump) the staleness token — see checkForUpdate.
-    const id = requestId;
+    // Authoritative action — see checkForUpdate: bump to disown a concurrent loadPackage,
+    // and take ownership of lookupPending.
+    const id = ++requestId;
+    lookupPending = false;
     commandPending = true;
     commandMessage = '';
     actionMessage = '';
