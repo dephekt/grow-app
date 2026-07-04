@@ -30,8 +30,11 @@ export class IrrigationController {
   }
 
   async stopStation(sid: number): Promise<void> {
-    this.clearWatchdog(sid);
+    // Publish first, then drop the watchdog: if the stop publish fails (e.g. broker
+    // disconnected), the driver-side force-stop must stay armed as the safety net on
+    // exactly the failure path where a still-running valve most needs it.
     await this.service.publishOsCommand(buildStopCommand(sid));
+    this.clearWatchdog(sid);
   }
 
   publishAllDiscovery(zones: Zone[]): void {
@@ -109,7 +112,15 @@ export function startOpenSprinklerDriver(): void {
 
   const service = getSiteMqttService();
   const controller = getIrrigationController();
-  const publish = () => controller.publishAllDiscovery(listZones(getIrrigationDb()));
+  // Guarded so a transient DB error (listZones) can't throw into the EventEmitter
+  // path — this runs inside broker-event dispatch and at startup.
+  const publish = () => {
+    try {
+      controller.publishAllDiscovery(listZones(getIrrigationDb()));
+    } catch (error) {
+      console.error('[opensprinkler] publishing station discovery failed', error);
+    }
+  };
 
   service.subscribe((event: SnapshotEvent) => {
     if (event.type === 'broker' && event.broker?.connected) publish();
