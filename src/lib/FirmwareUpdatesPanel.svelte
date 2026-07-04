@@ -70,6 +70,9 @@
       channelOverride = null;
       commandMessage = '';
       actionMessage = '';
+      // A command in flight for the previous device is now stale (its requestId-guarded
+      // finally won't clear this); reset so the newly selected device isn't shown busy.
+      commandPending = false;
     }
   });
 
@@ -154,6 +157,7 @@
 
   async function checkForUpdate(): Promise<void> {
     if (!firmwareConfig || commandPending) return;
+    const id = ++requestId;
     commandPending = true;
     commandMessage = '';
     actionMessage = '';
@@ -174,6 +178,10 @@
         error?: string;
       };
 
+      // Device switched mid-check (requestId bumped by loadPackage or another command):
+      // discard this response so it can't clobber the now-selected device's manifest.
+      if (requestId !== id) return;
+
       if (!response.ok) {
         commandMessage = body.error ?? 'Update check failed';
         return;
@@ -187,14 +195,15 @@
       }
       actionMessage = body.checkTriggered ? 'Device check requested' : 'Package lookup refreshed';
     } catch (error) {
-      commandMessage = error instanceof Error ? error.message : 'Update check failed';
+      if (requestId === id) commandMessage = error instanceof Error ? error.message : 'Update check failed';
     } finally {
-      commandPending = false;
+      if (requestId === id) commandPending = false;
     }
   }
 
   async function applyUpdate(): Promise<void> {
     if (!packageInfo || !canApply || commandPending) return;
+    const id = ++requestId;
     commandPending = true;
     commandMessage = '';
     actionMessage = '';
@@ -206,11 +215,12 @@
         body: JSON.stringify({ version: packageInfo.version })
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
+      if (requestId !== id) return;
       commandMessage = response.ok ? 'Install requested' : body.error ?? 'Install request failed';
     } catch (error) {
-      commandMessage = error instanceof Error ? error.message : 'Install request failed';
+      if (requestId === id) commandMessage = error instanceof Error ? error.message : 'Install request failed';
     } finally {
-      commandPending = false;
+      if (requestId === id) commandPending = false;
     }
   }
 
