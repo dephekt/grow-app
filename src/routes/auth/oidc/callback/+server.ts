@@ -58,15 +58,16 @@ export const GET: RequestHandler = async ({ request, url, cookies, getClientAddr
     redirect(303, '/login?error=sso');
   }
 
-  // Rebuild the exact URL openid-client needs: the stored redirect_uri (origin +
-  // path) plus the IdP's query (code, state). Using the stored redirect_uri — not
-  // the incoming request origin — is what makes the token-exchange redirect_uri
-  // byte-match the one sent at authorize, even behind the plain-HTTP LAN proxy.
-  const currentUrl = new URL(tx.redirectUri);
-  currentUrl.search = url.search;
-
   let claims: OidcClaims;
   try {
+    // Rebuild the exact URL openid-client needs: the stored redirect_uri (origin +
+    // path) plus the IdP's query (code, state). Inside the try so a forged tx whose
+    // redirectUri isn't a valid URL fails cleanly (new URL throws) like every other
+    // bad-tx path, not with a 500. Using the stored redirect_uri — not the incoming
+    // request origin — is what makes the token-exchange redirect_uri byte-match the
+    // one sent at authorize, even behind the plain-HTTP LAN proxy.
+    const currentUrl = new URL(tx.redirectUri);
+    currentUrl.search = url.search;
     claims = await completeLogin(currentUrl, tx);
   } catch (err) {
     console.error('[auth] OIDC callback exchange failed', err);
