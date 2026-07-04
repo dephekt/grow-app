@@ -24,6 +24,11 @@ export interface SecretEnvOptions {
    *  read. For optional subsystems that degrade gracefully (e.g. InfluxDB)
    *  rather than failing loudly on a half-configured secret. */
   optional?: boolean;
+  /** Invoked with the read error when `optional` swallows a `NAME_FILE` read
+   *  failure. Lets a caller surface a *configured-but-unreadable* secret (a
+   *  broken mount) without failing loudly — e.g. a `console.warn` — while still
+   *  returning undefined. Not called when `NAME_FILE` is simply unset. */
+  onReadError?: (error: unknown) => void;
 }
 
 /**
