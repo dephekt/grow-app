@@ -24,18 +24,22 @@
     name: '',
     stationSid: '',
     substrateType: '',
-    substrateVolumeMl: '',
+    substrateVolume: '',
+    volumeUnit: 'ml',
     drippers: '',
-    emitterGph: '',
+    emitterFlow: '',
+    flowUnit: 'lph',
     maxRunSeconds: '300',
     enabled: true
   });
   let form = $state(blankForm());
 
-  // p.55 substrate-volume presets (mL) for the datalist.
-  const VOLUME_PRESETS = [650, 800, 1000, 3785, 5678, 7570, 11355, 18925];
-  const GPH_PRESETS = ['0.3', '0.5', '1.0'];
-  const ML_PER_MIN_PER_GPH = 3785.411784 / 60;
+  // The store is canonical metric — volume in mL, emitter flow in L/hr. The editor
+  // lets you enter either in a friendlier unit and converts to canonical on submit.
+  const ML_PER_GAL = 3785.411784;
+  const ML_PER_MIN_PER_LPH = 1000 / 60; // L/hr → mL/min
+  const VOLUME_TO_ML: Record<string, number> = { ml: 1, l: 1000, gal: ML_PER_GAL };
+  const FLOW_TO_LPH: Record<string, number> = { lph: 1, gph: ML_PER_GAL / 1000, lpm: 60 };
 
   function unitFor(id: string): string {
     return runUnit[id] ?? 'seconds';
@@ -64,7 +68,7 @@
     if (!Number.isFinite(raw) || raw <= 0) return null;
     const unit = unitFor(zone.id);
     if (unit === 'seconds') return Math.min(Math.round(raw), zone.maxRunSeconds);
-    const flow = zone.drippers && zone.emitterGph ? zone.drippers * zone.emitterGph * ML_PER_MIN_PER_GPH : null;
+    const flow = zone.drippers && zone.emitterLph ? zone.drippers * zone.emitterLph * ML_PER_MIN_PER_LPH : null;
     if (!flow) return null;
     let ml = raw;
     if (unit === 'percent') {
@@ -104,9 +108,11 @@
       name: zone.name,
       stationSid: String(zone.stationSid),
       substrateType: zone.substrateType ?? '',
-      substrateVolumeMl: zone.substrateVolumeMl != null ? String(zone.substrateVolumeMl) : '',
+      substrateVolume: zone.substrateVolumeMl != null ? String(zone.substrateVolumeMl) : '',
+      volumeUnit: 'ml',
       drippers: zone.drippers != null ? String(zone.drippers) : '',
-      emitterGph: zone.emitterGph != null ? String(zone.emitterGph) : '',
+      emitterFlow: zone.emitterLph != null ? String(zone.emitterLph) : '',
+      flowUnit: 'lph',
       maxRunSeconds: String(zone.maxRunSeconds),
       enabled: zone.enabled
     };
@@ -122,9 +128,9 @@
       name: form.name,
       stationSid: Number(form.stationSid),
       substrateType: form.substrateType.trim() || null,
-      substrateVolumeMl: form.substrateVolumeMl ? Number(form.substrateVolumeMl) : null,
+      substrateVolumeMl: form.substrateVolume ? Number(form.substrateVolume) * VOLUME_TO_ML[form.volumeUnit] : null,
       drippers: form.drippers ? Number(form.drippers) : null,
-      emitterGph: form.emitterGph ? Number(form.emitterGph) : null,
+      emitterLph: form.emitterFlow ? Number(form.emitterFlow) * FLOW_TO_LPH[form.flowUnit] : null,
       maxRunSeconds: Number(form.maxRunSeconds),
       enabled: form.enabled
     };
@@ -203,7 +209,7 @@
           STN {zone.stationSid}
           {#if zone.substrateType}· {zone.substrateType}{/if}
           {#if zone.substrateVolumeMl}· {zone.substrateVolumeMl} mL{/if}
-          {#if zone.drippers && zone.emitterGph}· {zone.drippers}×{zone.emitterGph} GPH{/if}
+          {#if zone.drippers && zone.emitterLph}· {zone.drippers}×{zone.emitterLph} L/hr{/if}
           · cap {zone.maxRunSeconds}s
         </p>
 
@@ -245,11 +251,36 @@
       </div>
       <div class="grid">
         <label>Name<input type="text" bind:value={form.name} required /></label>
-        <label>Station #<input type="text" inputmode="numeric" bind:value={form.stationSid} required /></label>
-        <label>Substrate<input type="text" list="substrate-types" bind:value={form.substrateType} /></label>
-        <label>Volume (mL)<input type="text" inputmode="decimal" list="volume-presets" bind:value={form.substrateVolumeMl} /></label>
-        <label>Drippers<input type="text" inputmode="numeric" bind:value={form.drippers} /></label>
-        <label>Emitter GPH<input type="text" inputmode="decimal" list="gph-presets" bind:value={form.emitterGph} /></label>
+        <label>
+          OpenSprinkler station
+          <input type="text" inputmode="numeric" bind:value={form.stationSid} required />
+          <small class="hint">0-based · OS Zone 1 = 0</small>
+        </label>
+        <label>Substrate type<input type="text" list="substrate-types" bind:value={form.substrateType} /></label>
+        <label>
+          Substrate volume
+          <span class="unit-row">
+            <input type="text" inputmode="decimal" bind:value={form.substrateVolume} />
+            <select bind:value={form.volumeUnit}>
+              <option value="ml">mL</option>
+              <option value="l">L</option>
+              <option value="gal">gal</option>
+            </select>
+          </span>
+          <small class="hint">per container</small>
+        </label>
+        <label>Drippers per container<input type="text" inputmode="numeric" bind:value={form.drippers} /></label>
+        <label>
+          Emitter flow
+          <span class="unit-row">
+            <input type="text" inputmode="decimal" bind:value={form.emitterFlow} />
+            <select bind:value={form.flowUnit}>
+              <option value="lph">L/hr</option>
+              <option value="gph">GPH</option>
+              <option value="lpm">L/min</option>
+            </select>
+          </span>
+        </label>
         <label>Max run (s)<input type="text" inputmode="numeric" bind:value={form.maxRunSeconds} required /></label>
       </div>
       <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Enabled</label>
@@ -263,12 +294,6 @@
   <datalist id="substrate-types">
     <option value="Rockwool"></option>
     <option value="Coco"></option>
-  </datalist>
-  <datalist id="volume-presets">
-    {#each VOLUME_PRESETS as v}<option value={v}></option>{/each}
-  </datalist>
-  <datalist id="gph-presets">
-    {#each GPH_PRESETS as g}<option value={g}></option>{/each}
   </datalist>
 </section>
 
@@ -387,6 +412,23 @@
     gap: 4px;
     font-size: 0.68rem;
     color: var(--muted);
+  }
+  .editor .unit-row {
+    display: flex;
+    gap: 6px;
+  }
+  .editor .unit-row input {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .editor .unit-row select {
+    flex: 0 0 auto;
+    width: 4.2em;
+  }
+  .editor .hint {
+    color: var(--faint);
+    font-size: 0.58rem;
+    letter-spacing: 0.02em;
   }
   .editor-actions {
     display: flex;

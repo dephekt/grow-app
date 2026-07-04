@@ -38,6 +38,13 @@ const MIGRATIONS: string[] = [
     ts TEXT NOT NULL
   );
   CREATE INDEX irrigation_events_ts ON irrigation_events(ts);
+  `,
+  // 2 — canonical metric emitter flow. Rename emitter_gph -> emitter_l_per_hr and
+  // convert any existing rows (they were entered as GPH under migration 1). Volume
+  // is already metric (mL); the UI now offers unit selectors that convert to these.
+  `
+  ALTER TABLE zones RENAME COLUMN emitter_gph TO emitter_l_per_hr;
+  UPDATE zones SET emitter_l_per_hr = emitter_l_per_hr * 3.785411784 WHERE emitter_l_per_hr IS NOT NULL;
   `
 ];
 
