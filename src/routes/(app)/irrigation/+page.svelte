@@ -27,7 +27,8 @@
     substrateVolumeMl: '',
     drippers: '',
     emitterGph: '',
-    maxRunSeconds: '300'
+    maxRunSeconds: '300',
+    enabled: true
   });
   let form = $state(blankForm());
 
@@ -106,7 +107,8 @@
       substrateVolumeMl: zone.substrateVolumeMl != null ? String(zone.substrateVolumeMl) : '',
       drippers: zone.drippers != null ? String(zone.drippers) : '',
       emitterGph: zone.emitterGph != null ? String(zone.emitterGph) : '',
-      maxRunSeconds: String(zone.maxRunSeconds)
+      maxRunSeconds: String(zone.maxRunSeconds),
+      enabled: zone.enabled
     };
   }
 
@@ -123,7 +125,8 @@
       substrateVolumeMl: form.substrateVolumeMl ? Number(form.substrateVolumeMl) : null,
       drippers: form.drippers ? Number(form.drippers) : null,
       emitterGph: form.emitterGph ? Number(form.emitterGph) : null,
-      maxRunSeconds: Number(form.maxRunSeconds)
+      maxRunSeconds: Number(form.maxRunSeconds),
+      enabled: form.enabled
     };
   }
 
@@ -187,9 +190,9 @@
   <div class="zones">
     {#each zones as zone (zone.id)}
       {@const running = stationRunning(zone)}
-      <article class="panel zone">
+      <article class="panel zone" class:disabled={!zone.enabled}>
         <div class="panel-head">
-          <span class="panel-title">{zone.name}</span>
+          <span class="panel-title">{zone.name}{#if !zone.enabled}<span class="tag">DISABLED</span>{/if}</span>
           <span class="state">
             <span class="dot {running === true ? 'ok pulse' : running === false ? '' : 'faint'}"></span>
             <span class="mono">{running === true ? 'RUNNING' : running === false ? 'IDLE' : '—'}</span>
@@ -217,7 +220,7 @@
             <option value="ml">mL</option>
             <option value="percent">%</option>
           </select>
-          <button class="run-btn" onclick={() => runShot(zone)} disabled={busy(zone.id)}>Run</button>
+          <button class="run-btn" onclick={() => runShot(zone)} disabled={busy(zone.id) || !zone.enabled}>Run</button>
           <button class="stop-btn" onclick={() => stopZone(zone)} disabled={busy(zone.id)}>Stop</button>
           {#if previewSeconds(zone) !== null && unitFor(zone.id) !== 'seconds'}
             <span class="preview mono">≈ {previewSeconds(zone)}s</span>
@@ -249,6 +252,7 @@
         <label>Emitter GPH<input type="text" inputmode="decimal" list="gph-presets" bind:value={form.emitterGph} /></label>
         <label>Max run (s)<input type="text" inputmode="numeric" bind:value={form.maxRunSeconds} required /></label>
       </div>
+      <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Enabled</label>
       <div class="editor-actions">
         <button type="submit" disabled={saving}>{editingId ? 'Save' : 'Add zone'}</button>
         {#if editingId}<button type="button" onclick={cancelEdit}>Cancel</button>{/if}
@@ -387,6 +391,23 @@
   .editor-actions {
     display: flex;
     gap: 8px;
+  }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .tag {
+    margin-left: 6px;
+    font-size: 0.56rem;
+    letter-spacing: 0.1em;
+    color: var(--alert);
+  }
+  .zone.disabled {
+    opacity: 0.6;
   }
   .error {
     color: var(--alert);

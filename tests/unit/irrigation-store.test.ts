@@ -43,6 +43,12 @@ describe('irrigation zone store', () => {
     expect(deleteZone(db, zone.id)).toBe(false);
   });
 
+  it('rejects a second zone on the same station (UNIQUE station_sid)', () => {
+    const db = freshDb();
+    createZone(db, { name: 'A', stationSid: 0 });
+    expect(() => createZone(db, { name: 'B', stationSid: 0 })).toThrow(/UNIQUE/i);
+  });
+
   it('clears a nullable field when the patch sets it to null', () => {
     const db = freshDb();
     const zone = createZone(db, { name: 'Z', stationSid: 1, substrateVolumeMl: 1000 });

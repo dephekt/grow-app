@@ -35,6 +35,13 @@ export function stationEntityId(sid: number): string {
   return normalizeDiscoveryId(`opensprinkler_station_${sid}`);
 }
 
+/** Inverse of stationEntityId — the station index for a discovered entity id, or
+ *  null if it isn't an OpenSprinkler station entity. */
+export function stationSidFromEntityId(entityId: string): number | null {
+  const match = /^opensprinkler_station_(\d+)$/.exec(entityId);
+  return match ? Number(match[1]) : null;
+}
+
 export function buildStationDiscovery(opts: {
   discoveryPrefix: string;
   baseTopic: string;

@@ -71,6 +71,13 @@ describe('/api/irrigation/zones', () => {
     expect(zone.name).toBe('Tent 1');
     expect(zone.stationEntityId).toBe('opensprinkler_station_3');
   });
+
+  it('409s a second zone that reuses a station', async () => {
+    await createViaApi({ name: 'Tent 1', stationSid: 0 });
+    const res = (await POST(event({ body: { name: 'Tent 2', stationSid: 0 }, user: admin }) as unknown as Parameters<typeof POST>[0])) as Response;
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/station 0/i);
+  });
 });
 
 describe('/api/irrigation/zones/[id]', () => {

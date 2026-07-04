@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRunCommand, buildStopCommand, buildStopAllCommand } from '../../src/lib/server/opensprinkler/commands';
+import { buildRunCommand, buildStopCommand } from '../../src/lib/server/opensprinkler/commands';
 
 describe('OpenSprinkler command strings', () => {
   it('builds a manual station run command (no pw — Ignore Password)', () => {
@@ -10,9 +10,5 @@ describe('OpenSprinkler command strings', () => {
   it('builds a single-station stop command', () => {
     expect(buildStopCommand(0)).toBe('cm?sid=0&en=0');
     expect(buildStopCommand(2)).toBe('cm?sid=2&en=0');
-  });
-
-  it('builds a stop-all command', () => {
-    expect(buildStopAllCommand()).toBe('cv?rsn=1');
   });
 });

@@ -6,6 +6,14 @@ import { clampSeconds, resolveShotSeconds } from '$lib/server/opensprinkler/shot
 import { getOpenSprinklerConfig } from '$lib/server/opensprinkler/config';
 import { getIrrigationController } from '$lib/server/opensprinkler/controller';
 
+/** Coerce a JSON value (number or numeric string) to a number for the audit log,
+ *  or null when absent/non-numeric — so a string `percent`/`ml` isn't logged as null. */
+function numOrNull(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 /**
  * Run a zone as a shot. Body accepts one of `{ seconds } | { ml } | { percent }`;
  * ml/percent compile to seconds via the zone's substrate/emitter spec. The result
@@ -20,6 +28,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const db = getIrrigationDb();
   const zone = getZone(db, params.id);
   if (!zone) return json({ ok: false, error: 'Zone not found' }, { status: 404 });
+  if (!zone.enabled) return json({ ok: false, error: 'Zone is disabled' }, { status: 409 });
 
   let body: Record<string, unknown>;
   try {
@@ -45,8 +54,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   recordEvent(db, {
     zoneId: zone.id,
     stationSid: zone.stationSid,
-    requestedPercent: typeof body.percent === 'number' ? body.percent : null,
-    requestedMl: typeof body.ml === 'number' ? body.ml : null,
+    requestedPercent: numOrNull(body.percent),
+    requestedMl: numOrNull(body.ml),
     seconds,
     actor: locals.user?.username ?? null
   });

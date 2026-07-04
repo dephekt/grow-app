@@ -17,8 +17,3 @@ export function buildRunCommand(sid: number, seconds: number): string {
 export function buildStopCommand(sid: number): string {
   return `cm?sid=${sid}&en=0`;
 }
-
-/** Stop/reset all stations. */
-export function buildStopAllCommand(): string {
-  return 'cv?rsn=1';
-}
