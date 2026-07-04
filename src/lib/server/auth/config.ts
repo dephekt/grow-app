@@ -75,11 +75,85 @@ export function getBootstrapAdmin(): BootstrapAdmin {
   };
 }
 
-/** Whether the "Sign in with SSO" path is available. OIDC is wired in PR2; until
- *  then there is no callback route, so keep the button hidden even if an issuer
- *  env leaks onto a local-auth-only image. */
+export interface OidcConfigEnv {
+  issuer?: string;
+  clientId?: string;
+  clientSecret?: string;
+}
+
+/** OIDC client settings from the environment. Absent values => OIDC disabled. */
+export function getOidcConfigEnv(): OidcConfigEnv {
+  return {
+    issuer: env('GROW_OIDC_ISSUER'),
+    clientId: env('GROW_OIDC_CLIENT_ID'),
+    clientSecret: secretEnv('GROW_OIDC_CLIENT_SECRET', { optional: true })
+  };
+}
+
+/** Space-separated OIDC scopes requested at authorize. `openid` is mandatory;
+ *  `profile`/`email` populate display name + a username fallback. */
+export function getOidcScopes(): string {
+  return env('GROW_OIDC_SCOPES') ?? 'openid profile email';
+}
+
+/**
+ * Allowed origins the OIDC flow may run on — the public site URL plus any LAN
+ * origins, comma-separated in `GROW_AUTH_ORIGINS`. This is the access control for
+ * the callback `redirect_uri`, so it is enforced fail-closed: an empty list means
+ * no origin is accepted and SSO stays disabled (see `isSsoEnabled`). Each entry is
+ * a bare scheme://host[:port] with any trailing slash trimmed.
+ */
+export function getAllowedOrigins(): string[] {
+  return (env('GROW_AUTH_ORIGINS') ?? '')
+    .split(',')
+    .map((o) => o.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
+/** Per-request HTTP timeout (seconds) for the IdP calls openid-client makes
+ *  (discovery, token, JWKS). Kept short so a hung IdP fails the login fast instead
+ *  of stalling the request. `GROW_OIDC_HTTP_TIMEOUT_MS` is in milliseconds. */
+export function getOidcHttpTimeoutSeconds(): number {
+  return intEnv('GROW_OIDC_HTTP_TIMEOUT_MS', 5000) / 1000;
+}
+
+/** Allow OIDC over plain HTTP (skip openid-client's HTTPS-only check for the
+ *  issuer). Default false. Only for development/testing or a trusted LAN-only IdP;
+ *  a public issuer must be HTTPS. */
+export function getOidcAllowInsecureIssuer(): boolean {
+  return env('GROW_OIDC_ALLOW_INSECURE_ISSUER') === 'true';
+}
+
+/** Whether the "Sign in with SSO" path is available. True only when the issuer,
+ *  client id, and client secret are all set AND at least one allowed origin is
+ *  configured — the origin allowlist is mandatory (fail-closed) because it gates
+ *  the callback redirect_uri. `/api/me` and the login page read this to show/hide
+ *  the SSO button. */
 export function isSsoEnabled(): boolean {
-  return false;
+  const { issuer, clientId, clientSecret } = getOidcConfigEnv();
+  return Boolean(issuer && clientId && clientSecret) && getAllowedOrigins().length > 0;
+}
+
+/** Short-lived cookie holding the in-flight OIDC auth-code exchange state (PKCE
+ *  verifier, state, nonce, the exact redirect_uri, and the post-login `next`).
+ *  HttpOnly + one-time-use: deleted on callback. */
+export const OIDC_TX_COOKIE = 'grow_oidc_tx';
+
+/** Lifetime of the OIDC transaction cookie — long enough for a user to complete
+ *  the IdP login, short enough to bound replay of an abandoned flow. */
+export const OIDC_TX_MAX_AGE_SECONDS = 10 * 60;
+
+/** Cookie options for the OIDC transaction cookie. Same per-request `secure`
+ *  reasoning as the session cookie; SameSite=Lax so it survives the top-level
+ *  redirect back from the IdP. */
+export function oidcTxCookieOptions(secure: boolean): SessionCookieOptions {
+  return {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    secure,
+    maxAge: OIDC_TX_MAX_AGE_SECONDS
+  };
 }
 
 /** Cookie options for the session cookie. `secure` is decided per-request from

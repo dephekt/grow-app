@@ -4,13 +4,16 @@
   let username = $state('');
   let password = $state('');
   let submitting = $state(false);
-  let error = $state<string | null>(null);
+  let formError = $state<string | null>(null);
+  // A local-login attempt's error takes precedence; otherwise fall back to the
+  // load-time error (e.g. an OIDC callback bounced here with ?error=sso|forbidden).
+  const error = $derived(formError ?? data.error ?? null);
 
   const ssoHref = $derived(`/auth/oidc?next=${encodeURIComponent(data.next)}`);
 
   async function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    error = null;
+    formError = null;
     submitting = true;
     try {
       const response = await fetch('/auth/login', {
@@ -20,13 +23,13 @@
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
-        error = body.error ?? 'Login failed';
+        formError = body.error ?? 'Login failed';
         return;
       }
       // Hard navigation so the new session cookie is applied on the next load.
       window.location.href = data.next;
     } catch {
-      error = 'Login failed';
+      formError = 'Login failed';
     } finally {
       submitting = false;
     }
