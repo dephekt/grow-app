@@ -1,22 +1,21 @@
 import { redirect } from '@sveltejs/kit';
+import { sanitizeNext } from '$lib/auth-redirect';
 
-/** Only allow same-site absolute paths as a post-login redirect target, to avoid
- *  an open redirect via `?next=`. Rejects protocol-relative (`//host`) and its
- *  backslash-normalised variant (`/\host` / `/%5Chost`) — browsers treat `\` as
- *  `/`, so both escape to a foreign origin. Also strips ASCII tab/newline first:
- *  the WHATWG URL parser removes `\t`, `\n`, `\r` while resolving a URL, so a
- *  value like `/<tab>/host` (`?next=/%09/host`) would otherwise collapse to
- *  `//host` after this check and escape too. Validating the stripped string
- *  matches exactly what the browser will navigate to. */
-function sanitizeNext(raw: string | null): string {
-  if (!raw) return '/';
-  const path = raw.replace(/[\t\n\r]/g, '');
-  if (path[0] !== '/' || path[1] === '/' || path[1] === '\\') return '/';
-  return path;
+/** Map a `?error=` code from the OIDC callback to a user-facing message. */
+function errorMessage(code: string | null): string | null {
+  switch (code) {
+    case 'sso':
+      return 'SSO sign-in failed. Try again, or use your local password.';
+    case 'forbidden':
+      return "Your account isn't authorized for this site.";
+    default:
+      return null;
+  }
 }
 
 export const load = async ({ fetch, url }) => {
   const next = sanitizeNext(url.searchParams.get('next'));
+  const error = errorMessage(url.searchParams.get('error'));
 
   let user: unknown = null;
   let ssoEnabled = false;
@@ -34,5 +33,5 @@ export const load = async ({ fetch, url }) => {
   // Note: redirect() throws — keep it out of the try/catch above.
   if (user) redirect(307, next);
 
-  return { next, ssoEnabled };
+  return { next, ssoEnabled, error };
 };

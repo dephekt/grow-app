@@ -143,6 +143,72 @@ export function touchLogin(db: DatabaseSync, userId: number): void {
   db.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').run(new Date().toISOString(), userId);
 }
 
+/** Sanitise a claim into a username seed, falling back to `user` when empty. */
+function usernameSeed(desired: string): string {
+  const trimmed = desired.trim();
+  return trimmed.length > 0 ? trimmed : 'user';
+}
+
+/**
+ * A username not already taken (COLLATE NOCASE). Prefers `desired`; on collision
+ * with a *different* account it appends a numeric suffix rather than reusing the
+ * row — linking an OIDC identity to an existing local account by a matching
+ * username would be an account-takeover vector. The base is unlikely to collide
+ * (it comes from `preferred_username`/email/sub), so the suffix path is rare.
+ */
+function pickAvailableUsername(db: DatabaseSync, desired: string): string {
+  const base = usernameSeed(desired);
+  if (!getUserByUsername(db, base)) return base;
+  for (let i = 2; i < 10_000; i++) {
+    const candidate = `${base}-${i}`;
+    if (!getUserByUsername(db, candidate)) return candidate;
+  }
+  // Astronomically unlikely; fail loudly rather than loop forever.
+  throw new Error(`could not derive a free username for '${base}'`);
+}
+
+export interface UpsertOidcUserInput {
+  issuer: string;
+  sub: string;
+  /** Seed for a new account's username (preferred_username/email/sub); ignored
+   *  for an existing account (username is set once, never renamed). */
+  username: string;
+  displayName?: string | null;
+  /** Recomputed from the /grow/admin group claim on every login. */
+  isAdmin: boolean;
+}
+
+/**
+ * Resolve an OIDC identity to a local user row, provisioning one on first sight.
+ * The identity key is `(oidc_issuer, oidc_sub)` ONLY — never link by email or
+ * username. For an existing row, re-sync the mutable profile (`display_name`) and
+ * `is_admin` from the IdP, but never touch `password_hash` (the D30 fallback),
+ * `username`, or `disabled` (the local kill-switch). Returns the fresh row.
+ */
+export async function upsertOidcUser(db: DatabaseSync, input: UpsertOidcUserInput): Promise<UserRow> {
+  const existing = getUserByOidc(db, input.issuer, input.sub);
+  if (existing) {
+    db.prepare('UPDATE users SET display_name = ?, is_admin = ? WHERE id = ?').run(
+      input.displayName ?? null,
+      input.isAdmin ? 1 : 0,
+      existing.id
+    );
+    return getUserById(db, existing.id)!;
+  }
+
+  const now = new Date().toISOString();
+  const username = pickAvailableUsername(db, input.username);
+  const result = db
+    .prepare(
+      `INSERT INTO users (username, display_name, is_admin, disabled, oidc_issuer, oidc_sub, created_at)
+       VALUES (?, ?, ?, 0, ?, ?, ?)`
+    )
+    .run(username, input.displayName ?? null, input.isAdmin ? 1 : 0, input.issuer, input.sub, now);
+  const id = Number(result.lastInsertRowid);
+  recordAudit(db, { event: 'user.provisioned', username, userId: id, detail: 'oidc' });
+  return getUserById(db, id)!;
+}
+
 /**
  * Ensure a usable local admin exists on first boot. If any enabled admin with a
  * local password already exists, this is a no-op — the bootstrap secret is inert
