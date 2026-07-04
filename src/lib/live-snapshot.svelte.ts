@@ -187,6 +187,56 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     }
   }
 
+  /** Run an irrigation zone as a shot. Pending/error are tracked under a
+   *  `zone:<id>` key so they never collide with entity-id command state. */
+  async function runZoneShot(zoneId: string, shot: { seconds?: number; ml?: number; percent?: number }): Promise<boolean> {
+    const key = `zone:${zoneId}`;
+    commandPending = { ...commandPending, [key]: true };
+    commandErrors = { ...commandErrors, [key]: '' };
+    try {
+      const response = await fetch(`/api/irrigation/zones/${zoneId}/run`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(shot)
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        commandErrors = { ...commandErrors, [key]: body.error ?? 'Run failed' };
+        return false;
+      }
+      return true;
+    } catch {
+      commandErrors = { ...commandErrors, [key]: 'Run failed' };
+      return false;
+    } finally {
+      commandPending = { ...commandPending, [key]: false };
+    }
+  }
+
+  async function stopZone(zoneId: string): Promise<boolean> {
+    const key = `zone:${zoneId}`;
+    commandPending = { ...commandPending, [key]: true };
+    commandErrors = { ...commandErrors, [key]: '' };
+    try {
+      const response = await fetch(`/api/irrigation/zones/${zoneId}/stop`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        commandErrors = { ...commandErrors, [key]: body.error ?? 'Stop failed' };
+        return false;
+      }
+      return true;
+    } catch {
+      commandErrors = { ...commandErrors, [key]: 'Stop failed' };
+      return false;
+    } finally {
+      commandPending = { ...commandPending, [key]: false };
+    }
+  }
+
   return {
     get snapshot() {
       return snapshot;
@@ -203,6 +253,8 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     connect,
     stateFor,
     formatState,
-    sendCommand
+    sendCommand,
+    runZoneShot,
+    stopZone
   };
 }

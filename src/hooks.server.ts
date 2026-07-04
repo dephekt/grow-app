@@ -1,6 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { json, redirect } from '@sveltejs/kit';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
+import { startOpenSprinklerDriver } from '$lib/server/opensprinkler/controller';
 import { getAuthDb } from '$lib/server/auth/db';
 import { ensureBootstrapAdmin, toAuthenticatedUser } from '$lib/server/auth/users';
 import { lookupSession, renewIfNeeded } from '$lib/server/auth/sessions';
@@ -13,6 +14,10 @@ import { SESSION_COOKIE, getBootstrapAdmin, isSecureRequest, sessionCookieOption
 // awaits the hooks module before handling any request, so bootstrap still
 // completes before the first login can arrive.
 getSiteMqttService();
+// Initialize the OpenSprinkler driver here (web app only — the read-only recorder
+// also warms the MQTT singleton but must never publish/drive). No-op unless the
+// site is OS-enabled.
+startOpenSprinklerDriver();
 const authDb = getAuthDb();
 await ensureBootstrapAdmin(authDb, getBootstrapAdmin());
 
