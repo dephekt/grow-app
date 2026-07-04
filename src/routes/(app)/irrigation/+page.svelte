@@ -128,9 +128,11 @@
       name: form.name,
       stationSid: Number(form.stationSid),
       substrateType: form.substrateType.trim() || null,
-      substrateVolumeMl: form.substrateVolume ? Number(form.substrateVolume) * VOLUME_TO_ML[form.volumeUnit] : null,
+      // Round the unit-converted canonical values so they don't carry float noise
+      // (e.g. 1 gal → 3785 mL, 2.11 GPH → 7.99 L/hr) into the store/API/summary.
+      substrateVolumeMl: form.substrateVolume ? Math.round(Number(form.substrateVolume) * VOLUME_TO_ML[form.volumeUnit]) : null,
       drippers: form.drippers ? Number(form.drippers) : null,
-      emitterLph: form.emitterFlow ? Number(form.emitterFlow) * FLOW_TO_LPH[form.flowUnit] : null,
+      emitterLph: form.emitterFlow ? Math.round(Number(form.emitterFlow) * FLOW_TO_LPH[form.flowUnit] * 100) / 100 : null,
       maxRunSeconds: Number(form.maxRunSeconds),
       enabled: form.enabled
     };

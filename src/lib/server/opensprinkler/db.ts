@@ -44,7 +44,7 @@ const MIGRATIONS: string[] = [
   // is already metric (mL); the UI now offers unit selectors that convert to these.
   `
   ALTER TABLE zones RENAME COLUMN emitter_gph TO emitter_l_per_hr;
-  UPDATE zones SET emitter_l_per_hr = emitter_l_per_hr * 3.785411784 WHERE emitter_l_per_hr IS NOT NULL;
+  UPDATE zones SET emitter_l_per_hr = ROUND(emitter_l_per_hr * 3.785411784, 2) WHERE emitter_l_per_hr IS NOT NULL;
   `
 ];
 
