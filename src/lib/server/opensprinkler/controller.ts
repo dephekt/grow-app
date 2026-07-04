@@ -1,8 +1,9 @@
 import { getSiteMqttService, type SiteMqttService } from '$lib/server/mqtt/service';
 import type { SnapshotEvent } from '$lib/server/mqtt/types';
 import { getOpenSprinklerConfig, type OpenSprinklerConfig } from './config';
-import { buildRunCommand, buildStopCommand, buildStopAllCommand } from './commands';
-import { buildStationDiscovery, stationDiscoveryTopic } from './discovery';
+import { buildRunCommand, buildStopCommand } from './commands';
+import { buildStationDiscovery, stationDiscoveryTopic, stationSidFromEntityId } from './discovery';
+import { stationStateTopic } from './normalize';
 import { getIrrigationDb } from './db';
 import { listZones, type Zone } from './zones';
 
@@ -33,11 +34,6 @@ export class IrrigationController {
     await this.service.publishOsCommand(buildStopCommand(sid));
   }
 
-  async stopAll(): Promise<void> {
-    for (const sid of [...this.watchdogs.keys()]) this.clearWatchdog(sid);
-    await this.service.publishOsCommand(buildStopAllCommand());
-  }
-
   publishAllDiscovery(zones: Zone[]): void {
     for (const zone of zones) this.publishZoneDiscovery(zone);
   }
@@ -54,13 +50,24 @@ export class IrrigationController {
       .catch((error) => console.error('[opensprinkler] discovery publish failed', error));
   }
 
-  /** Clear the retained discovery for a station (empty retained payload). The
-   *  in-memory entity lingers until the next app restart — acceptable for v1. */
-  retractStationDiscovery(sid: number): void {
-    const topic = stationDiscoveryTopic(this.config.discoveryPrefix, sid);
-    void this.service
-      .publishOsDiscovery(topic, '')
-      .catch((error) => console.error('[opensprinkler] discovery retract failed', error));
+  /** Clear a station's retained discovery config AND its normalized state (both
+   *  empty retained payloads) so a later re-create doesn't seed from stale data.
+   *  The in-memory entity lingers until the next app restart — acceptable for v1. */
+  retractStation(sid: number): void {
+    this.clearWatchdog(sid);
+    const topics = [stationDiscoveryTopic(this.config.discoveryPrefix, sid), stationStateTopic(this.config.baseTopic, sid)];
+    for (const topic of topics) {
+      void this.service
+        .publishOsDiscovery(topic, '')
+        .catch((error) => console.error('[opensprinkler] retract failed', error));
+    }
+  }
+
+  /** React to a station's normalized state. On OFF the run is done, so clear the
+   *  watchdog — this both avoids the redundant stop and prevents a stale watchdog
+   *  from clipping a run started externally (OS web UI) during the grace window. */
+  noteStationState(sid: number, running: boolean): void {
+    if (!running) this.clearWatchdog(sid);
   }
 
   private armWatchdog(sid: number, seconds: number): void {
@@ -106,6 +113,10 @@ export function startOpenSprinklerDriver(): void {
 
   service.subscribe((event: SnapshotEvent) => {
     if (event.type === 'broker' && event.broker?.connected) publish();
+    if (event.type === 'state' && event.entityId && event.state) {
+      const sid = stationSidFromEntityId(event.entityId);
+      if (sid !== null) controller.noteStationState(sid, event.state.value === 'ON');
+    }
   });
   // Best-effort immediate publish; a no-op reject if the broker isn't connected yet
   // (the broker-connect event above will then do the real publish).

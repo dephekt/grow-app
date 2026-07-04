@@ -46,7 +46,9 @@ export function resolveShotSeconds(input: ShotInput, zone: Zone): number {
   if (input.seconds != null) {
     const s = Number(input.seconds);
     if (!Number.isFinite(s) || s <= 0) throw new Error('seconds must be a positive number');
-    return Math.round(s);
+    const rounded = Math.round(s);
+    if (rounded <= 0) throw new Error('run time rounds to 0 seconds');
+    return rounded;
   }
 
   let ml: number | null;

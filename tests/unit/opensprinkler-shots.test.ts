@@ -64,6 +64,10 @@ describe('shot math', () => {
     expect(() => resolveShotSeconds({ percent: -1 }, zone())).toThrow(/positive/);
   });
 
+  it('rejects a sub-half-second run that would round to 0 (no t=0 command)', () => {
+    expect(() => resolveShotSeconds({ seconds: 0.4 }, zone())).toThrow(/rounds to 0/);
+  });
+
   it('rejects volumetric shots when the zone lacks the spec', () => {
     expect(() => resolveShotSeconds({ percent: 3 }, zone({ substrateVolumeMl: null }))).toThrow(/substrate volume/);
     expect(() => resolveShotSeconds({ ml: 100 }, zone({ drippers: null }))).toThrow(/emitter flow/);

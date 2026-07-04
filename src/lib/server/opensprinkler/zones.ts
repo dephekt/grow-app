@@ -124,7 +124,7 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     ...('maxRunSeconds' in patch ? { maxRunSeconds: patch.maxRunSeconds ?? existing.maxRunSeconds } : {}),
     ...('vwcEntityId' in patch ? { vwcEntityId: patch.vwcEntityId ?? null } : {}),
     ...('pwecEntityId' in patch ? { pwecEntityId: patch.pwecEntityId ?? null } : {}),
-    ...('enabled' in patch ? { enabled: patch.enabled !== false } : {}),
+    ...('enabled' in patch ? { enabled: patch.enabled === true } : {}),
     updatedAt: new Date().toISOString()
   };
 

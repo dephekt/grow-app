@@ -13,9 +13,9 @@ const MIGRATIONS: string[] = [
   CREATE TABLE zones (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    station_sid INTEGER NOT NULL,
+    station_sid INTEGER NOT NULL UNIQUE,
     substrate_type TEXT,
-    substrate_volume_ml INTEGER,
+    substrate_volume_ml REAL,
     drippers INTEGER,
     emitter_gph REAL,
     max_run_seconds INTEGER NOT NULL DEFAULT 300,

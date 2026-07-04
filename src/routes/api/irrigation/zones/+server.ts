@@ -31,7 +31,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ ok: false, error: error instanceof Error ? error.message : 'Invalid zone' }, { status: 400 });
   }
 
-  const zone = createZone(getIrrigationDb(), input);
+  let zone;
+  try {
+    zone = createZone(getIrrigationDb(), input);
+  } catch (err) {
+    if (err instanceof Error && /UNIQUE constraint failed/i.test(err.message)) {
+      return json({ ok: false, error: `Station ${input.stationSid} is already used by another zone` }, { status: 409 });
+    }
+    throw err;
+  }
   if (getOpenSprinklerConfig().enabled) getIrrigationController().publishZoneDiscovery(zone);
 
   return json({ ok: true, zone: toZoneJson(zone) }, { status: 201 });
