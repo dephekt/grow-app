@@ -94,6 +94,10 @@
     requestId = id;
     lookupPending = true;
     packageLookupComplete = false;
+    // Clear the previous device/channel's manifest up front so a stale changelog
+    // (or another device's, on a device switch) can't render while this lookup is in
+    // flight — it repopulates below once the fetch resolves.
+    packageInfo = null;
     lookupError = '';
     actionMessage = '';
 
@@ -153,6 +157,11 @@
     commandPending = true;
     commandMessage = '';
     actionMessage = '';
+    // A fresh check supersedes any earlier package-lookup error (e.g. a transient
+    // "fetch failed"); clear it so a successful re-check doesn't keep showing the
+    // stale error, and so a new failure surfaces via commandMessage instead of being
+    // masked by the higher-priority lookupError.
+    lookupError = '';
 
     try {
       const response = await fetch(`/api/firmware/devices/${encodeURIComponent(nodeId)}/check`, {
