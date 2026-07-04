@@ -24,7 +24,16 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 
   const username = typeof body.username === 'string' ? body.username.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
-  const ip = getClientAddress();
+  // adapter-node's getClientAddress() throws when ADDRESS_HEADER is configured but
+  // the header is absent from the request — e.g. a direct plain-HTTP LAN request
+  // that never traversed the proxy. Degrade to a shared bucket instead of 500-ing
+  // the login; the header-bearing (proxied) requests still key on their real IP.
+  let ip: string;
+  try {
+    ip = getClientAddress();
+  } catch {
+    ip = 'unknown';
+  }
 
   if (!username || !password) {
     return json({ ok: false, error: 'Username and password are required' }, { status: 400 });

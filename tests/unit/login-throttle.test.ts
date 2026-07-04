@@ -52,9 +52,15 @@ describe('login throttle — per-IP rate limit', () => {
   it('drops elapsed buckets on sweep', () => {
     const t = createLoginThrottle({ max: 1, windowSeconds: 60, maxInflight: 0 });
     t.checkRate('ip', 0);
-    expect(t.checkRate('ip', 0).allowed).toBe(false);
-    // Sweeping after the window frees the bucket; the next attempt starts fresh.
+    expect(t.trackedIps).toBe(1);
+    // A sweep inside the window keeps the live bucket.
+    t.sweep(30_000);
+    expect(t.trackedIps).toBe(1);
+    // After the window the bucket is actually reclaimed — the map shrinks, which a
+    // checkRate assertion can't distinguish from checkRate's own lazy reset (so a
+    // no-op sweep would slip past that). The next attempt still starts fresh.
     t.sweep(60_000);
+    expect(t.trackedIps).toBe(0);
     expect(t.checkRate('ip', 60_000).allowed).toBe(true);
   });
 });
