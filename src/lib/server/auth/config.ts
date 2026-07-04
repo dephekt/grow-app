@@ -81,12 +81,30 @@ export interface OidcConfigEnv {
   clientSecret?: string;
 }
 
-/** OIDC client settings from the environment. Absent values => OIDC disabled. */
+// getOidcConfigEnv runs on every /api/me, so warn at most once about a
+// set-but-unreadable client-secret file rather than flooding the log.
+let warnedSecretUnreadable = false;
+
+/** OIDC client settings from the environment. Absent values => OIDC disabled. A
+ *  `GROW_OIDC_CLIENT_SECRET_FILE` that is set but unreadable is treated as absent
+ *  (so `isSsoEnabled()` never throws on the hot path) but warns once — a broken
+ *  secret mount is a real misconfiguration, not an intentional local-auth-only
+ *  deployment. */
 export function getOidcConfigEnv(): OidcConfigEnv {
   return {
     issuer: env('GROW_OIDC_ISSUER'),
     clientId: env('GROW_OIDC_CLIENT_ID'),
-    clientSecret: secretEnv('GROW_OIDC_CLIENT_SECRET', { optional: true })
+    clientSecret: secretEnv('GROW_OIDC_CLIENT_SECRET', {
+      optional: true,
+      onReadError: (error) => {
+        if (warnedSecretUnreadable) return;
+        warnedSecretUnreadable = true;
+        console.warn(
+          '[auth] GROW_OIDC_CLIENT_SECRET_FILE is set but could not be read; SSO stays disabled until it is fixed.',
+          error
+        );
+      }
+    })
   };
 }
 
