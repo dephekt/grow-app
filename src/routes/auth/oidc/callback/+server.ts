@@ -12,6 +12,7 @@ import {
   oidcTxCookieOptions
 } from '$lib/server/auth/config';
 import { completeLogin, authorizeFromGroups, type OidcClaims, type OidcTransaction } from '$lib/server/auth/oidc';
+import { getLoginThrottle } from '$lib/server/auth/login-throttle';
 import { getSiteSlug } from '$lib/server/site';
 import { sanitizeNext } from '$lib/auth-redirect';
 
@@ -46,6 +47,14 @@ export const GET: RequestHandler = async ({ request, url, cookies, getClientAddr
     }
   }
   if (!tx || !tx.state || !tx.verifier || !tx.redirectUri) {
+    redirect(303, '/login?error=sso');
+  }
+
+  // Per-IP throttle before the token exchange. The tx cookie is client-forgeable
+  // and reusable, so without this one client could drive unbounded token-exchange
+  // requests at the IdP. Shares the POST /auth/login per-IP window; deliberately
+  // not audited (a shed request must not hand an attacker a cheap audit write).
+  if (!getLoginThrottle().checkRate(ip).allowed) {
     redirect(303, '/login?error=sso');
   }
 
