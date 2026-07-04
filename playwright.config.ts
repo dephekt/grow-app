@@ -19,11 +19,14 @@ export default defineConfig({
       GROW_AUTH_ADMIN_USERNAME: 'e2e-admin',
       GROW_AUTH_ADMIN_PASSWORD: 'e2e-password',
       // Auth-flow specs log in fresh in every test across three parallel projects,
-      // all from 127.0.0.1 — well past the production default within one window.
-      // Raise the per-IP login cap so the throttle still runs (happy path stays
-      // covered) but doesn't 429 the suite's own logins. Its limiting behaviour is
-      // unit-tested in login-throttle.test.ts.
-      GROW_AUTH_LOGIN_RATE_MAX: '1000'
+      // all from 127.0.0.1 — well past the production defaults within one window.
+      // Raise the per-IP cap and disable the concurrent-derivation cap so the
+      // throttle still runs (happy path stays covered) but neither 429s the suite's
+      // own logins: on a many-worker CI box more than 8 logins can be mid-scrypt at
+      // once, which would otherwise flake on the in-flight cap. Its limiting
+      // behaviour is unit-tested in login-throttle.test.ts.
+      GROW_AUTH_LOGIN_RATE_MAX: '1000',
+      GROW_AUTH_LOGIN_MAX_INFLIGHT: '0'
     }
   },
   use: {

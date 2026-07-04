@@ -51,6 +51,10 @@ export interface LoginThrottle {
   sweep(now?: number): void;
   /** Current in-flight derivation count (for tests/introspection). */
   readonly inFlight: number;
+  /** Number of per-IP buckets currently held (for tests/introspection). Lets a
+   *  sweep test observe map reclamation, which a checkRate-only assertion can't
+   *  distinguish from checkRate's own lazy per-bucket reset. */
+  readonly trackedIps: number;
 }
 
 export function createLoginThrottle(options: LoginThrottleOptions): LoginThrottle {
@@ -94,6 +98,10 @@ export function createLoginThrottle(options: LoginThrottleOptions): LoginThrottl
 
     get inFlight(): number {
       return inFlight;
+    },
+
+    get trackedIps(): number {
+      return buckets.size;
     }
   };
 }
