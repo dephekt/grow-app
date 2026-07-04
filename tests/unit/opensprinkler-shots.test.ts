@@ -55,8 +55,9 @@ describe('shot math', () => {
     expect(resolveShotSeconds({ percent: 3 }, zone())).toBe(108);
   });
 
-  it('resolves an mL shot through the emitter spec', () => {
-    expect(resolveShotSeconds({ ml: 120 }, zone())).toBe(108);
+  it('resolves an mL shot through a non-default (1-dripper) flow', () => {
+    // 1 dripper × 2 L/hr = 33.33 mL/min; 100 mL ÷ 33.33 × 60 = 180 s
+    expect(resolveShotSeconds({ ml: 100 }, zone({ drippers: 1 }))).toBe(180);
   });
 
   it('rejects non-positive and unspecified inputs', () => {
