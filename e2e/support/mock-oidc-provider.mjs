@@ -4,9 +4,9 @@
 //
 // The "user" typed into the login form determines the group claims, which is how
 // the e2e drives the authorized vs. denied paths:
-//   greg     -> /grow/sites/daniel-home  (authorized as a normal user)
-//   boss     -> /grow/admin              (authorized as admin)
-//   anyone   -> no groups                (denied by group authz)
+//   greg     -> /grow-site-daniel-home  (authorized as a normal user)
+//   boss     -> /grow-admin             (authorized as admin)
+//   anyone   -> no groups               (denied by group authz)
 import { createServer } from 'node:http';
 import { generateKeyPairSync, sign as cryptoSign, randomUUID } from 'node:crypto';
 
@@ -35,8 +35,8 @@ function signIdToken(claims, nonce) {
 }
 
 function groupsFor(username) {
-  if (username === 'greg') return ['/grow/sites/daniel-home'];
-  if (username === 'boss') return ['/grow/admin'];
+  if (username === 'greg') return ['/grow-site-daniel-home'];
+  if (username === 'boss') return ['/grow-admin'];
   return [];
 }
 

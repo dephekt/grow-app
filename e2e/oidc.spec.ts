@@ -13,7 +13,7 @@ test('signs in via OIDC when the user is in the site group', async ({ page }) =>
   await page.goto('/login');
   await page.getByRole('link', { name: 'Sign in with SSO' }).click();
 
-  // On the mock IdP login form: "greg" carries /grow/sites/daniel-home.
+  // On the mock IdP login form: "greg" carries /grow-site-daniel-home.
   await expect(page.getByRole('heading', { name: 'Mock IdP' })).toBeVisible();
   await page.getByLabel('Username').fill('greg');
   await page.getByRole('button', { name: 'Continue' }).click();

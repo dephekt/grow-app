@@ -8,15 +8,15 @@ describe('authorizeFromGroups', () => {
   const SLUG = 'daniel-home';
 
   it('grants access from the site group without admin', () => {
-    expect(authorizeFromGroups(['/grow/sites/daniel-home'], SLUG)).toEqual({ authorized: true, isAdmin: false });
+    expect(authorizeFromGroups(['/grow-site-daniel-home'], SLUG)).toEqual({ authorized: true, isAdmin: false });
   });
 
   it('grants access and admin from the global admin group alone', () => {
-    expect(authorizeFromGroups(['/grow/admin'], SLUG)).toEqual({ authorized: true, isAdmin: true });
+    expect(authorizeFromGroups(['/grow-admin'], SLUG)).toEqual({ authorized: true, isAdmin: true });
   });
 
   it('denies when no relevant group is present', () => {
-    expect(authorizeFromGroups(['/grow/sites/other-site', '/unrelated'], SLUG)).toEqual({
+    expect(authorizeFromGroups(['/grow-site-other-site', '/unrelated'], SLUG)).toEqual({
       authorized: false,
       isAdmin: false
     });
@@ -26,12 +26,12 @@ describe('authorizeFromGroups', () => {
     expect(authorizeFromGroups([], SLUG)).toEqual({ authorized: false, isAdmin: false });
   });
 
-  it('requires the full group path (leaf name alone does not match)', () => {
-    expect(authorizeFromGroups(['daniel-home', 'admin'], SLUG).authorized).toBe(false);
+  it('requires the full group path (leading slash; leaf name alone does not match)', () => {
+    expect(authorizeFromGroups(['grow-site-daniel-home', 'grow-admin'], SLUG).authorized).toBe(false);
   });
 
   it('ignores unrelated groups while honouring the matching one', () => {
-    expect(authorizeFromGroups(['/a', '/grow/sites/daniel-home', '/b'], SLUG)).toEqual({
+    expect(authorizeFromGroups(['/a', '/grow-site-daniel-home', '/b'], SLUG)).toEqual({
       authorized: true,
       isAdmin: false
     });
