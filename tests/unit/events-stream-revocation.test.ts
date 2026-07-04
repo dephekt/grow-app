@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 let userSeq = 0;
-async function seedUserWithStream(): Promise<{ userId: number; token: string }> {
+async function seedUserWithStream(): Promise<{ userId: number; token: string; response: Response }> {
   const db = getAuthDb();
   const user = await createLocalUser(db, { username: `streamer${userSeq++}`, password: 'password123' });
   touchedUserIds.add(user.id);
@@ -54,9 +54,9 @@ async function seedUserWithStream(): Promise<{ userId: number; token: string }> 
     cookies: { get: (name: string) => (name === SESSION_COOKIE ? token : undefined) },
     locals: { user: { id: user.id, isAdmin: false } }
   } as unknown as Parameters<typeof GET>[0];
-  await GET(event);
+  const response = (await GET(event)) as Response;
 
-  return { userId: user.id, token };
+  return { userId: user.id, token, response };
 }
 
 async function invokePatch(targetId: number, body: unknown, adminId: number): Promise<Response> {
@@ -108,6 +108,17 @@ describe('SSE stream revocation (issue #35)', () => {
     expect(activeEventStreamCount()).toBe(1);
     // The survivor is still registered; sweep it in afterEach.
     expect(touchedUserIds.has(survivor.userId)).toBe(true);
+  });
+
+  it('unregisters the stream when the client disconnects (cancel path)', async () => {
+    const { response } = await seedUserWithStream();
+    expect(activeEventStreamCount()).toBe(1);
+
+    // A client disconnect surfaces as cancel() on the response body's stream,
+    // which must run the shared cleanup (clear the heartbeat, unsubscribe,
+    // unregister) — the teardown path all three close routes funnel through.
+    await response.body?.cancel();
+    expect(activeEventStreamCount()).toBe(0);
   });
 
   it('heartbeat backstop self-closes a stream once its session is gone', async () => {
