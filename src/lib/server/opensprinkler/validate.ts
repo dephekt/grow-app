@@ -1,4 +1,5 @@
 import type { ZoneCreate, ZonePatch } from './zones';
+import type { ScheduleCreate, SchedulePatch } from './schedules';
 
 /**
  * Pure request-body validation for zone create/update. Throws a caller-friendly
@@ -74,5 +75,65 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('vwcEntityId' in body) patch.vwcEntityId = optString(body.vwcEntityId);
   if ('pwecEntityId' in body) patch.pwecEntityId = optString(body.pwecEntityId);
   if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
+  return patch;
+}
+
+function requireId(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`${field} is required`);
+  return value.trim();
+}
+
+/** Parse a single "HH:MM" wall time to canonical minutes-past-local-midnight (0..1439). */
+export function parseHhMm(value: unknown): number {
+  if (typeof value !== 'string') throw new Error('time must be an "HH:MM" string');
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) throw new Error(`invalid time "${value}" (expected HH:MM)`);
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) throw new Error(`invalid time "${value}" (out of range)`);
+  return hours * 60 + minutes;
+}
+
+/** A non-empty array of "HH:MM" strings → deduped, sorted canonical minutes. */
+function parseTimes(value: unknown): number[] {
+  if (!Array.isArray(value)) throw new Error('times must be an array of "HH:MM" strings');
+  const unique = [...new Set(value.map(parseHhMm))].sort((a, b) => a - b);
+  if (unique.length === 0) throw new Error('at least one time is required');
+  return unique;
+}
+
+/** Exactly one of shotPercent / shotMl / shotSeconds must be a positive value — the
+ *  same invariant the DB CHECK enforces, surfaced here as a 400 instead of a 500. */
+function parseShot(body: Record<string, unknown>): Pick<ScheduleCreate, 'shotPercent' | 'shotMl' | 'shotSeconds'> {
+  const shotPercent = optPositiveNumber(body.shotPercent, 'shotPercent');
+  const shotMl = optPositiveNumber(body.shotMl, 'shotMl');
+  const shotSeconds = optPositiveInt(body.shotSeconds, 'shotSeconds');
+  const set = [shotPercent, shotMl, shotSeconds].filter((v) => v != null).length;
+  if (set !== 1) throw new Error('provide exactly one of shotPercent, shotMl, or shotSeconds');
+  return { shotPercent, shotMl, shotSeconds };
+}
+
+export function parseScheduleCreate(body: Record<string, unknown>): ScheduleCreate {
+  return {
+    zoneId: requireId(body.zoneId, 'zoneId'),
+    name: optString(body.name),
+    times: parseTimes(body.times),
+    ...parseShot(body),
+    enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled')
+  };
+}
+
+export function parseSchedulePatch(body: Record<string, unknown>): SchedulePatch {
+  const patch: SchedulePatch = {};
+  if ('name' in body) patch.name = optString(body.name);
+  if ('times' in body) patch.times = parseTimes(body.times);
+  if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
+  // The shot moves as a set: any shot key present re-validates all three (exactly one).
+  if ('shotPercent' in body || 'shotMl' in body || 'shotSeconds' in body) {
+    const shot = parseShot(body);
+    patch.shotPercent = shot.shotPercent;
+    patch.shotMl = shot.shotMl;
+    patch.shotSeconds = shot.shotSeconds;
+  }
   return patch;
 }

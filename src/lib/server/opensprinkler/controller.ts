@@ -2,7 +2,7 @@ import { getSiteMqttService, type SiteMqttService } from '$lib/server/mqtt/servi
 import type { SnapshotEvent } from '$lib/server/mqtt/types';
 import { getOpenSprinklerConfig, type OpenSprinklerConfig } from './config';
 import { buildRunCommand, buildStopCommand } from './commands';
-import { buildStationDiscovery, stationDiscoveryTopic, stationSidFromEntityId } from './discovery';
+import { buildStationDiscovery, stationDiscoveryTopic, stationEntityId, stationSidFromEntityId } from './discovery';
 import { stationStateTopic } from './normalize';
 import { getIrrigationDb } from './db';
 import { listZones, type Zone } from './zones';
@@ -64,6 +64,16 @@ export class IrrigationController {
         .publishOsDiscovery(topic, '')
         .catch((error) => console.error('[opensprinkler] retract failed', error));
     }
+  }
+
+  /** Is the station currently running? True when our own watchdog is armed (we just
+   *  started a run) OR the live normalized station state reads ON. The scheduler uses
+   *  this as a best-effort busy guard so a scheduled shot never stomps an in-flight run
+   *  started manually or from the OS web UI. `entityState` null-guards a missing entity
+   *  (returns `{ value: null }`), so an undiscovered station simply reads not-running. */
+  isStationRunning(sid: number): boolean {
+    if (this.watchdogs.has(sid)) return true;
+    return this.service.entityState(stationEntityId(sid)).value === 'ON';
   }
 
   /** React to a station's normalized state. On OFF the run is done, so clear the

@@ -2,6 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 import { json, redirect } from '@sveltejs/kit';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { startOpenSprinklerDriver } from '$lib/server/opensprinkler/controller';
+import { startIrrigationScheduler } from '$lib/server/opensprinkler/scheduler';
 import { getAuthDb } from '$lib/server/auth/db';
 import { ensureBootstrapAdmin, toAuthenticatedUser } from '$lib/server/auth/users';
 import { lookupSession, renewIfNeeded } from '$lib/server/auth/sessions';
@@ -18,6 +19,10 @@ getSiteMqttService();
 // also warms the MQTT singleton but must never publish/drive). No-op unless the
 // site is OS-enabled.
 startOpenSprinklerDriver();
+// Start the per-zone irrigation schedule tick (web app only). Also no-op unless the
+// site is OS-enabled; it recomputes next-due from persisted state, so a restart just
+// resumes scheduling with no catch-up backlog.
+startIrrigationScheduler();
 const authDb = getAuthDb();
 await ensureBootstrapAdmin(authDb, getBootstrapAdmin());
 

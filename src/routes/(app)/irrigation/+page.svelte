@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import type { Zone } from '$lib/server/opensprinkler/zones';
+  import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
 
   type ZoneJson = Zone & { stationEntityId: string };
 
@@ -10,6 +11,7 @@
 
   // Seed once from load; manage locally as mutations happen.
   let zones = $state<ZoneJson[]>(untrack(() => data.zones));
+  let schedules = $state<ScheduleJson[]>(untrack(() => data.schedules));
   let error = $state<string | null>(null);
   const isAdmin = $derived(Boolean(data.user?.isAdmin));
 
@@ -181,6 +183,110 @@
       error = 'Could not delete zone';
     }
   }
+
+  // --- Per-zone schedules --------------------------------------------------------
+  function zoneSchedules(zoneId: string): ScheduleJson[] {
+    return schedules.filter((s) => s.zoneId === zoneId);
+  }
+  function shotLabel(s: ScheduleJson): string {
+    if (s.shotPercent != null) return `${s.shotPercent}%`;
+    if (s.shotMl != null) return `${s.shotMl} mL`;
+    return `${s.shotSeconds}s`;
+  }
+  function nextRunLabel(s: ScheduleJson): string {
+    if (!s.nextDueAt) return '—';
+    return new Date(s.nextDueAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Schedule editor — doubles as create (editingId null, scoped to scheduleZoneId) and
+  // update. Times are entered as comma-separated HH:MM; the shot is one unit at a time.
+  let scheduleEditingId = $state<string | null>(null);
+  let scheduleZoneId = $state<string | null>(null);
+  let scheduleSaving = $state(false);
+  const blankScheduleForm = () => ({ times: '', shotValue: '', shotUnit: 'seconds', enabled: true });
+  let scheduleForm = $state(blankScheduleForm());
+
+  function startScheduleCreate(zone: ZoneJson): void {
+    scheduleEditingId = null;
+    scheduleZoneId = zone.id;
+    scheduleForm = blankScheduleForm();
+  }
+  function startScheduleEdit(schedule: ScheduleJson): void {
+    scheduleEditingId = schedule.id;
+    scheduleZoneId = schedule.zoneId;
+    const unit = schedule.shotPercent != null ? 'percent' : schedule.shotMl != null ? 'ml' : 'seconds';
+    const value = schedule.shotPercent ?? schedule.shotMl ?? schedule.shotSeconds ?? '';
+    scheduleForm = { times: schedule.times.join(', '), shotValue: String(value), shotUnit: unit, enabled: schedule.enabled };
+  }
+  function cancelScheduleEdit(): void {
+    scheduleEditingId = null;
+    scheduleZoneId = null;
+    scheduleForm = blankScheduleForm();
+  }
+
+  function buildScheduleBody(zoneId: string): Record<string, unknown> {
+    const times = scheduleForm.times
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const shotKey =
+      scheduleForm.shotUnit === 'percent' ? 'shotPercent' : scheduleForm.shotUnit === 'ml' ? 'shotMl' : 'shotSeconds';
+    return { zoneId, times, [shotKey]: Number(scheduleForm.shotValue), enabled: scheduleForm.enabled };
+  }
+
+  async function refreshSchedules(): Promise<void> {
+    try {
+      const response = await fetch('/api/irrigation/schedules');
+      if (response.ok) schedules = ((await response.json()) as { schedules: ScheduleJson[] }).schedules;
+    } catch {
+      /* leave list as-is; the mutation still applied server-side */
+    }
+  }
+
+  async function saveSchedule(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (!scheduleZoneId) return;
+    error = null;
+    scheduleSaving = true;
+    try {
+      const url = scheduleEditingId ? `/api/irrigation/schedules/${scheduleEditingId}` : '/api/irrigation/schedules';
+      const response = await fetch(url, {
+        method: scheduleEditingId ? 'PATCH' : 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(buildScheduleBody(scheduleZoneId))
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        error = body.error ?? 'Could not save schedule';
+        return;
+      }
+      cancelScheduleEdit();
+      await refreshSchedules();
+    } catch {
+      error = 'Could not save schedule';
+    } finally {
+      scheduleSaving = false;
+    }
+  }
+
+  async function removeSchedule(schedule: ScheduleJson): Promise<void> {
+    if (!confirm('Delete this schedule?')) return;
+    error = null;
+    try {
+      const response = await fetch(`/api/irrigation/schedules/${schedule.id}`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' }
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        error = body.error ?? 'Could not delete schedule';
+        return;
+      }
+      await refreshSchedules();
+    } catch {
+      error = 'Could not delete schedule';
+    }
+  }
 </script>
 
 <section class="irrigation">
@@ -235,6 +341,59 @@
           {/if}
         </div>
         {#if cmdError(zone.id)}<p class="error small">{cmdError(zone.id)}</p>{/if}
+
+        {#if isAdmin || zoneSchedules(zone.id).length > 0}
+          <div class="schedule">
+            <div class="schedule-head">
+              <span class="schedule-title mono">SCHEDULE</span>
+              {#if isAdmin}<button class="link" onclick={() => startScheduleCreate(zone)}>+ Add</button>{/if}
+            </div>
+
+            {#if zoneSchedules(zone.id).length === 0}
+              <p class="empty mono small">No schedules.</p>
+            {/if}
+            {#each zoneSchedules(zone.id) as schedule (schedule.id)}
+              <div class="schedule-row" class:off={!schedule.enabled}>
+                <span class="mono times">{schedule.times.join(' · ')}</span>
+                <span class="mono muted">{shotLabel(schedule)}</span>
+                <span class="mono next">next {nextRunLabel(schedule)}</span>
+                {#if !schedule.enabled}<span class="tag">OFF</span>{/if}
+                {#if isAdmin}
+                  <span class="schedule-actions">
+                    <button class="link" onclick={() => startScheduleEdit(schedule)}>Edit</button>
+                    <button class="link" onclick={() => removeSchedule(schedule)}>Delete</button>
+                  </span>
+                {/if}
+              </div>
+            {/each}
+
+            {#if isAdmin && scheduleZoneId === zone.id}
+              <form class="schedule-editor" onsubmit={saveSchedule}>
+                <label class="wide">
+                  Times
+                  <input type="text" bind:value={scheduleForm.times} placeholder="06:00, 18:00" required />
+                  <small class="hint">HH:MM, comma-separated</small>
+                </label>
+                <label>
+                  Shot
+                  <span class="unit-row">
+                    <input type="text" inputmode="decimal" bind:value={scheduleForm.shotValue} required />
+                    <select bind:value={scheduleForm.shotUnit}>
+                      <option value="seconds">sec</option>
+                      <option value="ml">mL</option>
+                      <option value="percent">%</option>
+                    </select>
+                  </span>
+                </label>
+                <label class="check"><input type="checkbox" bind:checked={scheduleForm.enabled} /> Enabled</label>
+                <div class="editor-actions">
+                  <button type="submit" disabled={scheduleSaving}>{scheduleEditingId ? 'Save' : 'Add'}</button>
+                  <button type="button" onclick={cancelScheduleEdit}>Cancel</button>
+                </div>
+              </form>
+            {/if}
+          </div>
+        {/if}
 
         {#if isAdmin}
           <div class="admin-actions">
@@ -459,5 +618,90 @@
   }
   .error.small {
     font-size: 0.68rem;
+  }
+  .small {
+    font-size: 0.62rem;
+  }
+  .schedule {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .schedule-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .schedule-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+  }
+  .schedule-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.66rem;
+    color: var(--text);
+  }
+  .schedule-row.off {
+    opacity: 0.55;
+  }
+  .schedule-row .muted {
+    color: var(--muted);
+  }
+  .schedule-row .next {
+    color: var(--faint);
+    font-size: 0.6rem;
+  }
+  .schedule-actions {
+    display: inline-flex;
+    gap: 6px;
+    margin-left: auto;
+  }
+  button.link {
+    min-height: auto;
+    padding: 2px 4px;
+    font-size: 0.6rem;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .schedule-editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+  }
+  .schedule-editor label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.66rem;
+    color: var(--muted);
+  }
+  .schedule-editor label.wide {
+    flex: 1 1 160px;
+  }
+  .schedule-editor .unit-row {
+    display: flex;
+    gap: 6px;
+  }
+  .schedule-editor .unit-row select {
+    width: 4.2em;
+  }
+  .schedule-editor .hint {
+    color: var(--faint);
+    font-size: 0.58rem;
   }
 </style>

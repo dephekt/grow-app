@@ -45,6 +45,35 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE zones RENAME COLUMN emitter_gph TO emitter_l_per_hr;
   UPDATE zones SET emitter_l_per_hr = ROUND(emitter_l_per_hr * 3.785411784, 2) WHERE emitter_l_per_hr IS NOT NULL;
+  `,
+  // 3 — per-zone time-based schedules. Many schedules per zone; the FK cascades so
+  // deleting a zone reaps its schedules (foreign_keys is ON). `mode` is a discriminator
+  // seam so 'cycles'/'sensor' can be added later without a schema change. `times` holds
+  // canonical minutes-past-local-midnight ints as a JSON array (HH:MM lives only at the
+  // UI/validator edge, mirroring the metric-canonical precedent). Exactly one of the
+  // three shot columns is non-null — resolved to seconds at fire time so a later zone
+  // spec change is honored. `last_fired_at` is the ISO of the fired window instant (the
+  // due slot), the single dedup + skip-missed anchor. `schedule_id` on the audit log
+  // links a scheduled run back to its schedule (null for manual runs).
+  `
+  CREATE TABLE schedules (
+    id TEXT PRIMARY KEY,
+    zone_id TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    name TEXT,
+    mode TEXT NOT NULL DEFAULT 'time',
+    times TEXT NOT NULL DEFAULT '[]',
+    shot_percent REAL,
+    shot_ml REAL,
+    shot_seconds INTEGER,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_fired_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK ((shot_percent IS NOT NULL) + (shot_ml IS NOT NULL) + (shot_seconds IS NOT NULL) = 1)
+  );
+  CREATE INDEX schedules_zone ON schedules(zone_id);
+
+  ALTER TABLE irrigation_events ADD COLUMN schedule_id TEXT;
   `
 ];
 
