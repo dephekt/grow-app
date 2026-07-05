@@ -20,8 +20,17 @@ export const load = async ({ fetch }) => {
   }
 
   const zones = ((await zonesRes.json()) as { zones: ZoneJson[] }).zones ?? [];
-  // Schedules are non-critical for the page to render; degrade to empty on failure.
-  const schedules = schedulesRes.ok ? ((await schedulesRes.json()) as { schedules: ScheduleJson[] }).schedules ?? [] : [];
 
-  return { zones, schedules };
+  // Schedules are non-critical for the page to render; degrade to empty on failure. The
+  // response also carries the resolved schedule tz so "Next run" renders in schedule-
+  // local time regardless of the viewer's browser zone.
+  let schedules: ScheduleJson[] = [];
+  let scheduleTimeZone = 'UTC';
+  if (schedulesRes.ok) {
+    const body = (await schedulesRes.json()) as { schedules?: ScheduleJson[]; tz?: string };
+    schedules = body.schedules ?? [];
+    scheduleTimeZone = body.tz ?? 'UTC';
+  }
+
+  return { zones, schedules, scheduleTimeZone };
 };

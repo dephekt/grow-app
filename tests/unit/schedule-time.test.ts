@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  getScheduleTimeZone,
   localDateParts,
   tzOffsetMs,
   zonedMinutesToInstant
@@ -42,5 +43,35 @@ describe('schedule-time DST conversion', () => {
     // 03:00Z on Jul 15 is 23:00 the previous evening in Toronto (EDT).
     expect(localDateParts(Date.UTC(2026, 6, 15, 3, 0), TZ)).toEqual({ year: 2026, month: 7, day: 14 });
     expect(localDateParts(Date.UTC(2026, 6, 15, 12, 0), TZ)).toEqual({ year: 2026, month: 7, day: 15 });
+  });
+});
+
+describe('getScheduleTimeZone', () => {
+  const KEYS = ['GROW_SCHEDULE_TZ', 'TZ'];
+  const saved: Record<string, string | undefined> = {};
+  beforeEach(() => {
+    KEYS.forEach((k) => {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    });
+  });
+  afterEach(() => {
+    KEYS.forEach((k) => {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('passes a valid IANA zone through', () => {
+    process.env.GROW_SCHEDULE_TZ = 'America/Toronto';
+    expect(getScheduleTimeZone()).toBe('America/Toronto');
+  });
+
+  it('degrades a typo to UTC (no throw) with a logged warning', () => {
+    process.env.GROW_SCHEDULE_TZ = 'America/Teronto';
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(getScheduleTimeZone()).toBe('UTC');
+    expect(spy).toHaveBeenCalled();
   });
 });

@@ -8,15 +8,31 @@ import { env } from '$lib/server/env';
  * dependency — Node ships full-tz ICU, so `America/Toronto` resolves correctly.
  */
 
+/** Whether the platform's Intl accepts `tz` as an IANA zone. Constructing a formatter
+ *  with a bad zone throws RangeError — which, if it reached the tz math, would 500 the
+ *  schedules API and stall every tick — so we probe it here instead. */
+function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The zone all schedule wall-clock times are interpreted in. Explicit override
- *  first, then the process TZ, then the host's resolved zone, then UTC. */
+ *  first, then the process TZ, then the host's resolved zone, then UTC. A typo'd
+ *  override (e.g. `America/Teronto`) degrades to UTC with a logged warning rather
+ *  than throwing deep in the tz math on every schedule read and every tick. */
 export function getScheduleTimeZone(): string {
-  return (
+  const resolved =
     env('GROW_SCHEDULE_TZ') ??
     env('TZ') ??
     Intl.DateTimeFormat().resolvedOptions().timeZone ??
-    'UTC'
-  );
+    'UTC';
+  if (isValidTimeZone(resolved)) return resolved;
+  console.error(`[schedule] invalid time zone "${resolved}" (GROW_SCHEDULE_TZ/TZ); falling back to UTC`);
+  return 'UTC';
 }
 
 /** Read the year/month/day/hour/minute/second a UTC instant shows on the wall in `tz`. */

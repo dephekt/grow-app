@@ -74,6 +74,18 @@ describe('runSchedulerTick', () => {
     expect(events()).toHaveLength(1);
   });
 
+  it('treats a corrupt last_fired anchor as never-fired and recovers', async () => {
+    const zone = createZone(db, { name: 'T', stationSid: 0 });
+    const sched = createSchedule(db, { zoneId: zone.id, times: [360], shotSeconds: 30 });
+    markScheduleFired(db, sched.id, 'not-a-real-date'); // unparseable anchor
+    const ctrl = new FakeController();
+
+    await runSchedulerTick(deps(ctrl));
+
+    expect(ctrl.runs).toEqual([{ sid: 0, seconds: 30 }]); // fired despite the garbage anchor
+    expect(getSchedule(db, sched.id)?.lastFiredAt).toBe(SLOT_ISO); // healed to the real slot
+  });
+
   it('clamps the resolved run to the zone max-run cap', async () => {
     const zone = createZone(db, { name: 'T', stationSid: 0, maxRunSeconds: 300 });
     createSchedule(db, { zoneId: zone.id, times: [360], shotSeconds: 600 });

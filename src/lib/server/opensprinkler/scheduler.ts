@@ -5,7 +5,7 @@ import { getIrrigationController } from './controller';
 import { getOpenSprinklerConfig } from './config';
 import { computeScheduleDue } from './schedule-due';
 import { getScheduleTimeZone } from './schedule-time';
-import { listActiveSchedules, markScheduleFired, type Schedule } from './schedules';
+import { listActiveSchedules, markScheduleFired, parseAnchorMs, type Schedule } from './schedules';
 import { getZone, recordEvent } from './zones';
 import { clampSeconds, resolveShotSeconds, type ShotInput } from './shots';
 
@@ -57,7 +57,7 @@ export async function runSchedulerTick(deps: SchedulerTickDeps): Promise<void> {
 
   for (const schedule of listActiveSchedules(db)) {
     try {
-      const lastFiredMs = schedule.lastFiredAt ? Date.parse(schedule.lastFiredAt) : null;
+      const lastFiredMs = parseAnchorMs(schedule.lastFiredAt);
       const due = computeScheduleDue(schedule.times, lastFiredMs, nowMs, tz, graceMs);
       if (!due.shouldFire || due.dueAt === null) continue;
 
@@ -76,13 +76,15 @@ export async function runSchedulerTick(deps: SchedulerTickDeps): Promise<void> {
       const seconds = clampSeconds(resolveShotSeconds(shotInputFor(schedule), zone), zone.maxRunSeconds);
 
       // Make the durable dedup anchor a PRECONDITION of the physical fire, not a
-      // consequence. Claim the station for this tick and advance last_fired BEFORE
-      // opening the valve: if that write throws (e.g. a full disk), it throws before
-      // the run happens — a skipped shot, never a valve that re-fires every tick
-      // across the whole grace window because the anchor never advanced.
+      // consequence. Advance last_fired BEFORE opening the valve: if that write throws
+      // (e.g. a full disk), it throws before the run happens — a skipped shot, never a
+      // valve that re-fires every tick across the grace window because the anchor never
+      // advanced. Claim the station for this tick only AFTER the anchor is durable, so a
+      // failed anchor write doesn't wrongly mark the station busy and skip a co-located
+      // sibling schedule this tick.
       const priorLastFired = schedule.lastFiredAt;
-      firedThisTick.add(zone.stationSid);
       markScheduleFired(db, schedule.id, slotIso);
+      firedThisTick.add(zone.stationSid);
 
       try {
         await controller.runStation(zone.stationSid, seconds);
