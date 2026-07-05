@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { computeScheduleDue } from './schedule-due';
+import { resolveShotSeconds } from './shots';
+import type { Zone } from './zones';
+
+/** Discriminator seam for future schedule kinds. Only `'time'` is implemented; the
+ *  column defaults to it and `'cycles'`/`'sensor'` can be added additively later. */
+export type ScheduleMode = 'time' | 'cycles' | 'sensor';
 
 /** A per-zone time-based irrigation schedule: a set of local wall-clock times and a
  *  shot size (exactly one of %/mL/seconds), fired by the reconciliation tick. `times`
@@ -9,7 +15,7 @@ export interface Schedule {
   id: string;
   zoneId: string;
   name: string | null;
-  mode: string;
+  mode: ScheduleMode;
   times: number[];
   shotPercent: number | null;
   shotMl: number | null;
@@ -24,7 +30,7 @@ export interface Schedule {
 export interface ScheduleCreate {
   zoneId: string;
   name?: string | null;
-  mode?: string;
+  mode?: ScheduleMode;
   times: number[];
   shotPercent?: number | null;
   shotMl?: number | null;
@@ -68,7 +74,9 @@ function toSchedule(row: ScheduleRow): Schedule {
     id: row.id,
     zoneId: row.zone_id,
     name: row.name,
-    mode: row.mode,
+    // The column only ever holds a valid mode (validators write the default); cast the
+    // raw string back to the union.
+    mode: row.mode as ScheduleMode,
     times: parseTimes(row.times),
     shotPercent: row.shot_percent,
     shotMl: row.shot_ml,
@@ -84,12 +92,22 @@ function minutesToHhMm(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
+/** Parse a `last_fired_at` anchor to epoch ms, treating a missing OR unparseable value
+ *  as never-fired (null). A corrupt anchor must recover (fire within grace) rather than
+ *  stall forever: a bare `Date.parse` would yield NaN, and `prev > NaN` is always false,
+ *  which would make the schedule look permanently already-fired. */
+export function parseAnchorMs(iso: string | null): number | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? null : ms;
+}
+
 export type ScheduleJson = Omit<Schedule, 'times'> & { times: string[]; nextDueAt: string | null };
 
 /** Schedule as the frontend wants it: times back in HH:MM, plus the resolved next
  *  run instant (ISO) so the UI shows "Next run" without re-deriving the tz math. */
 export function toScheduleJson(schedule: Schedule, nowMs: number, tz: string): ScheduleJson {
-  const lastFiredMs = schedule.lastFiredAt ? Date.parse(schedule.lastFiredAt) : null;
+  const lastFiredMs = parseAnchorMs(schedule.lastFiredAt);
   // nextDueAt is grace-independent, so any grace works here.
   const { nextDueAt } = computeScheduleDue(schedule.times, lastFiredMs, nowMs, tz, 0);
   return {
@@ -154,10 +172,11 @@ export function updateSchedule(db: DatabaseSync, id: string, patch: SchedulePatc
   // present), so the exactly-one-non-null CHECK holds even when switching shot kinds.
   const shotChanged = 'shotPercent' in patch || 'shotMl' in patch || 'shotSeconds' in patch;
 
+  // `mode` is intentionally not patchable — it's a create-time discriminator seam, and
+  // the validators never populate it — so it's left off the merge and the UPDATE.
   const merged: Schedule = {
     ...existing,
     ...('name' in patch ? { name: patch.name ?? null } : {}),
-    ...('mode' in patch ? { mode: patch.mode! } : {}),
     ...('times' in patch ? { times: patch.times! } : {}),
     ...('enabled' in patch ? { enabled: patch.enabled === true } : {}),
     ...(shotChanged
@@ -167,11 +186,10 @@ export function updateSchedule(db: DatabaseSync, id: string, patch: SchedulePatc
   };
 
   db.prepare(
-    `UPDATE schedules SET name = ?, mode = ?, times = ?, shot_percent = ?, shot_ml = ?, shot_seconds = ?,
+    `UPDATE schedules SET name = ?, times = ?, shot_percent = ?, shot_ml = ?, shot_seconds = ?,
        enabled = ?, updated_at = ? WHERE id = ?`
   ).run(
     merged.name,
-    merged.mode,
     JSON.stringify(merged.times),
     merged.shotPercent,
     merged.shotMl,
@@ -194,4 +212,22 @@ export function deleteSchedule(db: DatabaseSync, id: string): boolean {
  *  updated_at (a fire is internal state, not an edit). */
 export function markScheduleFired(db: DatabaseSync, id: string, slotIso: string | null): void {
   db.prepare('UPDATE schedules SET last_fired_at = ? WHERE id = ?').run(slotIso, id);
+}
+
+/** A %/mL shot compiles to seconds via the zone's substrate/emitter spec; a seconds
+ *  shot needs none. Returns an error message (→ HTTP 400 at the route) when a %/mL shot
+ *  can't compile against `zone`, else null — so a schedule that could never fire is
+ *  rejected at save time with the same feedback as a bad manual run, rather than saving
+ *  and then throwing in `resolveShotSeconds` on every in-grace tick. */
+export function shotResolutionError(
+  shot: Pick<ScheduleCreate, 'shotPercent' | 'shotMl' | 'shotSeconds'>,
+  zone: Zone
+): string | null {
+  if (shot.shotSeconds != null) return null;
+  try {
+    resolveShotSeconds({ percent: shot.shotPercent ?? undefined, ml: shot.shotMl ?? undefined }, zone);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : 'shot cannot be resolved for this zone';
+  }
 }
