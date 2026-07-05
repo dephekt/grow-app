@@ -104,6 +104,21 @@ describe('/api/irrigation/schedules', () => {
     expect(schedule.times).toEqual(['06:00', '18:00']); // deduped + sorted
     expect(typeof schedule.nextDueAt === 'string').toBe(true);
   });
+
+  it('400s a %/mL shot the zone cannot compile, but accepts one it can (and seconds always)', async () => {
+    const bare = await createZone({ name: 'Bare', stationSid: 0 }); // no substrate/emitter spec
+    let res = (await POST(event({ body: { zoneId: bare.id, times: ['06:00'], shotPercent: 3 } }) as unknown as Parameters<typeof POST>[0])) as Response;
+    expect(res.status).toBe(400);
+    res = (await POST(event({ body: { zoneId: bare.id, times: ['06:00'], shotMl: 100 } }) as unknown as Parameters<typeof POST>[0])) as Response;
+    expect(res.status).toBe(400);
+    // A seconds shot needs no zone spec.
+    res = (await POST(event({ body: { zoneId: bare.id, times: ['06:00'], shotSeconds: 30 } }) as unknown as Parameters<typeof POST>[0])) as Response;
+    expect(res.status).toBe(201);
+    // A %/mL shot compiles once the zone has the spec.
+    const spec = await createZone({ name: 'Spec', stationSid: 1, substrateVolumeMl: 4000, drippers: 2, emitterLph: 2 });
+    res = (await POST(event({ body: { zoneId: spec.id, times: ['06:00'], shotPercent: 3 } }) as unknown as Parameters<typeof POST>[0])) as Response;
+    expect(res.status).toBe(201);
+  });
 });
 
 describe('/api/irrigation/schedules/[id]', () => {
@@ -115,7 +130,8 @@ describe('/api/irrigation/schedules/[id]', () => {
   });
 
   it('updates and deletes an existing schedule', async () => {
-    const zone = await createZone({ name: 'A', stationSid: 0 });
+    // Spec'd zone so the PATCH to a mL shot below compiles (see the shot-resolution guard).
+    const zone = await createZone({ name: 'A', stationSid: 0, substrateVolumeMl: 4000, drippers: 2, emitterLph: 2 });
     const sched = await createSchedule({ zoneId: zone.id, times: ['06:00'], shotSeconds: 30 });
 
     let res = (await PATCH(event({ body: { times: ['09:00'], shotMl: 50 }, id: sched.id }) as unknown as Parameters<typeof PATCH>[0])) as Response;
@@ -129,6 +145,13 @@ describe('/api/irrigation/schedules/[id]', () => {
     expect(res.status).toBe(200);
     res = (await DELETE(event({ id: sched.id }) as unknown as Parameters<typeof DELETE>[0])) as Response;
     expect(res.status).toBe(404);
+  });
+
+  it('400s a PATCH that switches to a %/mL shot the zone cannot compile', async () => {
+    const zone = await createZone({ name: 'A', stationSid: 0 }); // no substrate/emitter spec
+    const sched = await createSchedule({ zoneId: zone.id, times: ['06:00'], shotSeconds: 30 });
+    const res = (await PATCH(event({ body: { shotPercent: 3 }, id: sched.id }) as unknown as Parameters<typeof PATCH>[0])) as Response;
+    expect(res.status).toBe(400);
   });
 
   it('cascades schedule deletion when the zone is deleted', async () => {

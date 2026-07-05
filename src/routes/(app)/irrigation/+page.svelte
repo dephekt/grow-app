@@ -193,9 +193,18 @@
     if (s.shotMl != null) return `${s.shotMl} mL`;
     return `${s.shotSeconds}s`;
   }
+  // The next-run instant is correct regardless of zone; render its wall time in the
+  // schedule's tz (from the loader) so it matches the HH:MM the admin entered, not the
+  // viewer's browser zone.
+  const scheduleTz = $derived(data.scheduleTimeZone ?? 'UTC');
   function nextRunLabel(s: ScheduleJson): string {
     if (!s.nextDueAt) return '—';
-    return new Date(s.nextDueAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    return new Date(s.nextDueAt).toLocaleString(undefined, {
+      timeZone: scheduleTz,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   // Schedule editor — doubles as create (editingId null, scoped to scheduleZoneId) and
