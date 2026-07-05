@@ -162,12 +162,14 @@ export interface IrrigationEvent {
   requestedMl?: number | null;
   seconds: number;
   actor?: string | null;
+  /** Set for scheduler-driven runs; links the audit row back to its schedule. */
+  scheduleId?: string | null;
 }
 
 export function recordEvent(db: DatabaseSync, event: IrrigationEvent): void {
   db.prepare(
-    `INSERT INTO irrigation_events (zone_id, station_sid, source, requested_percent, requested_ml, seconds, actor, ts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO irrigation_events (zone_id, station_sid, source, requested_percent, requested_ml, seconds, actor, schedule_id, ts)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     event.zoneId,
     event.stationSid,
@@ -176,6 +178,7 @@ export function recordEvent(db: DatabaseSync, event: IrrigationEvent): void {
     event.requestedMl ?? null,
     event.seconds,
     event.actor ?? null,
+    event.scheduleId ?? null,
     new Date().toISOString()
   );
 }
