@@ -71,6 +71,18 @@ export function isCo2(e: EntityConfig): boolean {
   );
 }
 
+/**
+ * A particulate-matter / gas-index reading (PM1/2.5/4/10, VOC, NOx) — the signals
+ * unique to the air-quality monitor, distinct from the CLIMATE rig's CO₂/temp/RH.
+ * Used to resolve the AIR QUALITY panel to that device without a hardcoded nodeId.
+ */
+export function isAirQualityMetric(e: EntityConfig): boolean {
+  if (!isNumericSensor(e)) return false;
+  if (e.deviceClass === 'pm1' || e.deviceClass === 'pm25' || e.deviceClass === 'pm10') return true;
+  const oid = (e.objectId ?? '').toLowerCase();
+  return /(^|_)pm_/.test(oid) || /(^|_)voc(_|$)/.test(oid) || /(^|_)nox(_|$)/.test(oid);
+}
+
 /** The device that owns the first entity matching `pred` (resolved by nodeId). */
 export function deviceOwning(
   snapshot: Snapshot,
@@ -104,4 +116,13 @@ export function resolveClimateDevice(snapshot: Snapshot): DeviceSnapshot | undef
 /** THERMAL panel/trends device: the rig carrying the MLX90640 thermal array. */
 export function resolveThermalDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
   return deviceOwning(snapshot, isThermalArrayTemp);
+}
+
+/**
+ * AIR QUALITY panel device: the particulate/gas monitor (PM, VOC, NOx). Separate
+ * from CLIMATE so an air-quality rig that also reports CO₂ gets its own card
+ * instead of competing with the climate rig for the single CLIMATE slot.
+ */
+export function resolveAirQualityDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
+  return deviceOwning(snapshot, isAirQualityMetric);
 }
