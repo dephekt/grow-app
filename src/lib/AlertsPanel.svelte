@@ -318,7 +318,15 @@
       return [highValue, lowValue, genericValue].every((value) => value == null || isOff(value)) ? 'OK' : 'UNKNOWN';
     }
 
-    return 'UNKNOWN';
+    // Incomplete alert-sensor coverage: a paired alert sensor (e.g. a low-alert
+    // that has never fired) hasn't reported a state. Don't show a misleading
+    // UNKNOWN — defer to the live reading vs the committed thresholds, which is
+    // authoritative. If that's unavailable too, fall back to the alert sensors we
+    // do have (all-off ⇒ OK) before giving up as UNKNOWN.
+    const live = statusFromLive(rule, states);
+    if (live !== 'UNKNOWN') return live;
+    const present = [highValue, lowValue, genericValue].filter((value) => value != null && value !== '');
+    return present.length > 0 && present.every(isOff) ? 'OK' : 'UNKNOWN';
   }
 
   function liveValue(rule: ThresholdRule, states: Record<string, EntityState>): string {
