@@ -53,12 +53,12 @@
   <div class="thermal-area"><ThermalPanel {live} /></div>
   <div class="water-area"><ReadoutPanel title="WATER" rows={waterRows} deviceId={waterDevice?.nodeId} /></div>
   <div class="climate-area"><ReadoutPanel title="CLIMATE" rows={climateRows} deviceId={climateDevice?.nodeId} /></div>
-  {#if airQualityDevice}
-    <div class="air-quality-area"><ReadoutPanel title="AIR QUALITY" rows={airQualityRows} deviceId={airQualityDevice?.nodeId} /></div>
-  {/if}
   <div class="substrate-area">
     <ReadoutPanel title="SUBSTRATE" rows={substrateRows} planned={true} badge="NOT CONNECTED" />
   </div>
+  {#if airQualityDevice}
+    <div class="air-quality-area"><ReadoutPanel title="AIR QUALITY" rows={airQualityRows} deviceId={airQualityDevice?.nodeId} /></div>
+  {/if}
 </div>
 
 <style>

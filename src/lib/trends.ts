@@ -4,12 +4,13 @@
  * (`server/influx/trend-domains.ts`) so the three never drift. Client-safe — no
  * `$lib/server` imports — so the browser bundle can use the domain list/type.
  */
-export type TrendDomain = 'water' | 'climate' | 'thermal' | 'substrate';
+export type TrendDomain = 'water' | 'climate' | 'thermal' | 'air-quality' | 'substrate';
 
 export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string; planned?: boolean }> = [
   { key: 'water', label: 'Water' },
   { key: 'climate', label: 'Climate' },
   { key: 'thermal', label: 'Thermal' },
+  { key: 'air-quality', label: 'Air Quality' },
   // `planned` domains render the NOT-CONNECTED placeholder and skip the history fetch —
   // a future domain just sets the flag instead of being special-cased by name.
   { key: 'substrate', label: 'Substrate', planned: true }
