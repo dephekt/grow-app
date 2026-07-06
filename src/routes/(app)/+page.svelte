@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
-  import { resolveClimateDevice, resolveWaterDevice } from '$lib/entity-match';
+  import { resolveAirQualityDevice, resolveClimateDevice, resolveWaterDevice } from '$lib/entity-match';
   import { presentedNumericMetrics } from '$lib/device-presentation';
   import type { DeviceSnapshot } from '$lib/server/mqtt/types';
   import TrendsPanel from '$lib/dashboard/TrendsPanel.svelte';
@@ -31,6 +31,11 @@
   let waterRows = $derived(metricRows(waterDevice, 'Water '));
   let climateRows = $derived(metricRows(climateDevice));
 
+  // The particulate/gas monitor (PM, VOC, NOx) feeds AIR QUALITY. Resolved by its
+  // air-quality metrics so it gets its own card even though it also reports CO₂.
+  let airQualityDevice = $derived(resolveAirQualityDevice(live.snapshot));
+  let airQualityRows = $derived(metricRows(airQualityDevice));
+
   const substrateRows: Row[] = [
     { label: 'VWC', value: '—', status: 'none' },
     { label: 'pwEC', value: '—', status: 'none' },
@@ -48,6 +53,9 @@
   <div class="thermal-area"><ThermalPanel {live} /></div>
   <div class="water-area"><ReadoutPanel title="WATER" rows={waterRows} deviceId={waterDevice?.nodeId} /></div>
   <div class="climate-area"><ReadoutPanel title="CLIMATE" rows={climateRows} deviceId={climateDevice?.nodeId} /></div>
+  {#if airQualityDevice}
+    <div class="air-quality-area"><ReadoutPanel title="AIR QUALITY" rows={airQualityRows} deviceId={airQualityDevice?.nodeId} /></div>
+  {/if}
   <div class="substrate-area">
     <ReadoutPanel title="SUBSTRATE" rows={substrateRows} planned={true} badge="NOT CONNECTED" />
   </div>
@@ -69,6 +77,7 @@
   }
   .water-area,
   .climate-area,
+  .air-quality-area,
   .substrate-area {
     grid-column: span 4;
   }
@@ -80,6 +89,7 @@
     }
     .water-area,
     .climate-area,
+    .air-quality-area,
     .substrate-area {
       grid-column: span 6;
     }
@@ -93,6 +103,7 @@
     .thermal-area,
     .water-area,
     .climate-area,
+    .air-quality-area,
     .substrate-area {
       grid-column: span 1;
     }
