@@ -1,8 +1,16 @@
 name: Claude Code Review
 
+# Manual only. The automatic `pull_request` trigger (which ran a full opus-4-8,
+# xhigh-effort review on every PR open and every push/synchronize) was removed to
+# stop the per-push API billing. Run a review on demand from the Actions tab:
+# "Claude Code Review" -> "Run workflow" -> enter the PR number.
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to review"
+        required: true
+        type: string
 
 jobs:
   review:
@@ -12,5 +20,10 @@ jobs:
       pull-requests: write
       issues: read
       id-token: write
+    with:
+      # workflow_dispatch carries no pull_request context, so name the review
+      # target explicitly; the reusable workflow uses this prompt verbatim when
+      # it is non-empty (otherwise it falls back to github.event.pull_request).
+      prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ inputs.pr_number }}"
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
