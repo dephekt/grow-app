@@ -19,7 +19,7 @@ describe('isHistoryRange', () => {
 
 describe('isTrendDomain', () => {
   it('accepts the domains', () => {
-    for (const d of ['water', 'climate', 'thermal', 'substrate']) expect(isTrendDomain(d)).toBe(true);
+    for (const d of ['water', 'climate', 'thermal', 'air-quality', 'substrate']) expect(isTrendDomain(d)).toBe(true);
   });
   it('rejects anything else', () => {
     expect(isTrendDomain('air')).toBe(false);
