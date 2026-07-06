@@ -1,5 +1,11 @@
 import { presentedNumericMetrics } from '$lib/device-presentation';
-import { isThermalArrayTemp, resolveClimateDevice, resolveThermalDevice, resolveWaterDevice } from '$lib/entity-match';
+import {
+  isThermalArrayTemp,
+  resolveAirQualityDevice,
+  resolveClimateDevice,
+  resolveThermalDevice,
+  resolveWaterDevice
+} from '$lib/entity-match';
 import { type TrendDomain } from '$lib/trends';
 import type { DeviceSnapshot, Snapshot } from '$lib/server/mqtt/types';
 
@@ -50,6 +56,11 @@ export function resolveDomainSeries(snapshot: Snapshot, domain: TrendDomain): Do
   }
   if (domain === 'climate') {
     return metricSpecs(snapshot, resolveClimateDevice(snapshot));
+  }
+  if (domain === 'air-quality') {
+    // The particulate/gas monitor's firmware-declared metrics (role:metric) —
+    // same rule as its readout card, so the tab and card stay in sync.
+    return metricSpecs(snapshot, resolveAirQualityDevice(snapshot));
   }
   if (domain === 'thermal') {
     // Scope to the thermal device (like water/climate) so a second rig publishing
