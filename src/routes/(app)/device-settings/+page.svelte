@@ -116,18 +116,20 @@
   }
 
   // Is the calibration tab showing curated content? Only the Atlas EZO probe
-  // multi-point cal entities (ph/ec/rtd/orp_cal…, ph_mid, ec_dry, rtd_point, …)
-  // drive the curated CalibrationPanel — mirror its detectProbeType shape. A bare
-  // "_cal" substring also matches generic scd4x config (automatic_self_calibration,
-  // forced_calibration) via the word "calibration", which would misroute those to
-  // the probe panel and show it empty; require the probe-prefixed shape instead so
-  // they fall through to the generic entity list.
+  // multi-point cal entities (ph/ec/rtd/orp_cal…, rtd_calibration_25_0_c, ph_mid,
+  // ec_dry, rtd_point, …) drive the curated CalibrationPanel — mirror its
+  // detectProbeType shape, including the full word ("RTD Calibration (25.0°C)" →
+  // rtd_calibration_25_0_c), or an RTD/ORP-only probe would misroute to the
+  // generic list. A bare "_cal" substring also matches generic scd4x config
+  // (automatic_self_calibration, forced_calibration) via the word "calibration",
+  // which would misroute those to the probe panel and show it empty; require the
+  // probe-prefixed shape instead so they fall through to the generic entity list.
   function isCalibrationCurated(panel: typeof activeEntityPanel): boolean {
     if (!panel) return false;
     const allEntries = panel.groups.flatMap((g) => g.entries);
     return allEntries.some((e) => {
       const oid = (e.entity.objectId ?? e.entity.id).toLowerCase();
-      return /(^|_)(ph|ec|rtd|orp)_(cal|mid|low|high|dry|point)(_|$)/.test(oid);
+      return /(^|_)(ph|ec|rtd|orp)_(cal(?:ibration)?|mid|low|high|dry|point)(_|$)/.test(oid);
     });
   }
 
