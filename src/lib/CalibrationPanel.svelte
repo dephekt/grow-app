@@ -292,7 +292,10 @@
   let sampleKey = ''; // plain (non-reactive) — current probe:step, used to reset the buffer
 
   const BUFFER_SIZE = 14;
-  const STABLE_WINDOW_MS = 2600;
+  // The device polls every 2s while calibration mode is on (ezo_types
+  // CAL_MODE_UPDATE_INTERVAL_MS), so an 8s window sees ~4 readings; the old
+  // 2.6s window could never hold two readings and left isStable always false.
+  const STABLE_WINDOW_MS = 8000;
 
   // Sample the active probe's live sensor into a rolling buffer. This effect tracks
   // ONLY the probe/step and the live value; all readingBuffer reads/writes are
@@ -461,7 +464,9 @@
 
                 {#if activeProbe.liveEntity && sparklinePoints.length > 1}
                   <div class="sparkline-wrap">
-                    <Sparkline points={sparklinePoints} color={isStable ? 'var(--ok)' : 'var(--amber)'} height={36} />
+                    <!-- width 208 = the default 160 +30%: the SVG's preserveAspectRatio caps the
+                         drawn chart at viewBox width, so this is what actually widens it on screen -->
+                    <Sparkline points={sparklinePoints} color={isStable ? 'var(--ok)' : 'var(--amber)'} width={208} height={36} pulse surface="var(--panel-2)" />
                   </div>
                 {:else if !activeProbe.liveEntity}
                   <p class="no-sensor-note muted">No live sensor found for this probe. Calibrate will remain disabled.</p>
