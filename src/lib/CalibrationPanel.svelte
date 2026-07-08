@@ -289,33 +289,44 @@
   }
 
   let readingBuffer = $state<Reading[]>([]);
-  let sampleKey = ''; // plain (non-reactive) — current probe:step, used to reset the buffer
+  let sampleKey = ''; // plain (non-reactive) — current entity:probe:step, used to reset the buffer
+  let lastSampleAt: string | null = null; // plain — updatedAt of the last buffered reading
 
   const BUFFER_SIZE = 14;
-  // The device polls every 2s while calibration mode is on (ezo_types
-  // CAL_MODE_UPDATE_INTERVAL_MS), so an 8s window sees ~4 readings; the old
-  // 2.6s window could never hold two readings and left isStable always false.
-  const STABLE_WINDOW_MS = 8000;
+  // Bounds for the stability window. The device polls every 2s while its
+  // cal-mode switch is on (ezo_types CAL_MODE_UPDATE_INTERVAL_MS) but publishes
+  // every 15s (pH) to ~45s (EC, median send_every: 3) at the normal cadence —
+  // and this panel never toggles cal mode — so the window adapts to the
+  // observed cadence below instead of assuming the 2s poll.
+  const STABLE_WINDOW_MIN_MS = 8000;
+  const STABLE_WINDOW_MAX_MS = 90000;
 
   // Sample the active probe's live sensor into a rolling buffer. This effect tracks
-  // ONLY the probe/step and the live value; all readingBuffer reads/writes are
+  // ONLY the probe/step and the live state; all readingBuffer reads/writes are
   // untracked so the effect never depends on its own write (which would self-loop
   // and throw effect_update_depth_exceeded once the value starts updating).
   $effect(() => {
     const probe = activeProbe;
     const stepKey = activeStep?.key;
     const liveEntity = probe?.liveEntity ?? null;
-    const stateVal = liveEntity ? live.snapshot.states[liveEntity.id]?.value : null;
+    const liveState = liveEntity ? live.snapshot.states[liveEntity.id] : null;
 
     untrack(() => {
-      const key = `${probe?.type ?? ''}:${stepKey ?? ''}`;
+      const key = `${liveEntity?.id ?? ''}:${probe?.type ?? ''}:${stepKey ?? ''}`;
       if (key !== sampleKey) {
         sampleKey = key;
+        lastSampleAt = null;
         readingBuffer = [];
       }
-      if (!liveEntity || stateVal == null) return;
-      const n = parseFloat(stateVal);
+      if (!liveEntity || liveState?.value == null) return;
+      // Every SSE event rebuilds live.snapshot wholesale, re-running this effect
+      // with the probe's cached state. Only buffer a reading when the probe
+      // itself published (fresh updatedAt) — otherwise unrelated entities would
+      // flood the buffer with duplicates timestamped as fresh readings.
+      if (liveState.updatedAt != null && liveState.updatedAt === lastSampleAt) return;
+      const n = parseFloat(liveState.value);
       if (isNaN(n)) return;
+      lastSampleAt = liveState.updatedAt ?? null;
       readingBuffer = [...readingBuffer.slice(-(BUFFER_SIZE - 1)), { value: n, time: Date.now() }];
     });
   });
@@ -330,10 +341,34 @@
     return Math.max(0.02, Math.abs(activeStep.target) * 0.008);
   });
 
+  // Ticks once a second so the window check below decays when readings stop
+  // arriving. Date.now() alone is invisible to reactivity: a $derived that only
+  // re-runs on buffer changes would hold isStable=true forever once the probe
+  // goes silent (SSE drop, sensor fault, cal mode switched off).
+  let nowTick = $state(Date.now());
+  $effect(() => {
+    const id = setInterval(() => {
+      nowTick = Date.now();
+    }, 1000);
+    return () => clearInterval(id);
+  });
+
+  // Stability window derived from the probe's observed publish cadence: 4x the
+  // median inter-reading gap (≈4-5 readings), clamped so cal mode (2s polls)
+  // settles fast while slow EC publishes (~45s apart) still fit two readings.
+  let stableWindowMs = $derived.by(() => {
+    if (readingBuffer.length < 3) return STABLE_WINDOW_MIN_MS;
+    const gaps = readingBuffer
+      .slice(1)
+      .map((r, i) => r.time - readingBuffer[i].time)
+      .sort((a, b) => a - b);
+    const medianGap = gaps[Math.floor(gaps.length / 2)];
+    return Math.min(Math.max(4 * medianGap, STABLE_WINDOW_MIN_MS), STABLE_WINDOW_MAX_MS);
+  });
+
   let isStable = $derived.by(() => {
     if (readingBuffer.length < 3) return false;
-    const now = Date.now();
-    const recent = readingBuffer.filter((r) => now - r.time <= STABLE_WINDOW_MS);
+    const recent = readingBuffer.filter((r) => nowTick - r.time <= stableWindowMs);
     if (recent.length < 2) return false;
     const values = recent.map((r) => r.value);
     const spread = Math.max(...values) - Math.min(...values);
@@ -341,6 +376,10 @@
   });
 
   let sparklinePoints = $derived(readingBuffer.map((r) => r.value));
+
+  // Measured width of .sparkline-wrap; 0 until mounted (Sparkline falls back to
+  // a fixed viewBox width for the first frame / SSR).
+  let sparkWidth = $state(0);
 
   let liveDisplayValue = $derived.by(() => {
     if (!activeProbe?.liveEntity) return null;
@@ -463,10 +502,11 @@
                 </div>
 
                 {#if activeProbe.liveEntity && sparklinePoints.length > 1}
-                  <div class="sparkline-wrap">
-                    <!-- width 208 = the default 160 +30%: the SVG's preserveAspectRatio caps the
-                         drawn chart at viewBox width, so this is what actually widens it on screen -->
-                    <Sparkline points={sparklinePoints} color={isStable ? 'var(--ok)' : 'var(--amber)'} width={208} height={36} pulse surface="var(--panel-2)" />
+                  <div class="sparkline-wrap" bind:clientWidth={sparkWidth}>
+                    <!-- The viewBox tracks the wrap's measured width so chart coordinates map
+                         1:1 to CSS pixels at any layout width — a fixed viewBox would meet-scale
+                         (letterbox) on narrow layouts and cap the chart on wide ones. -->
+                    <Sparkline points={sparklinePoints} color={isStable ? 'var(--ok)' : 'var(--amber)'} width={sparkWidth || 208} height={36} pulse />
                   </div>
                 {:else if !activeProbe.liveEntity}
                   <p class="no-sensor-note muted">No live sensor found for this probe. Calibrate will remain disabled.</p>
