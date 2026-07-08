@@ -80,7 +80,9 @@ export function isAirQualityMetric(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
   if (e.deviceClass === 'pm1' || e.deviceClass === 'pm25' || e.deviceClass === 'pm10') return true;
   const oid = (e.objectId ?? '').toLowerCase();
-  return /(^|_)pm_/.test(oid) || /(^|_)voc(_|$)/.test(oid) || /(^|_)nox(_|$)/.test(oid);
+  // `pm` accepts a separator (pm_2_5, pm__1um) or compact digits (pm25, pm4_0) —
+  // PM4 has no HA device class to fall back on.
+  return /(^|_)pm(_|\d)/.test(oid) || /(^|_)(voc|nox)(_|$)/.test(oid);
 }
 
 /** The device that owns the first entity matching `pred` (resolved by nodeId). */
@@ -106,10 +108,17 @@ export function resolveWaterDevice(snapshot: Snapshot): DeviceSnapshot | undefin
  * ambient-temperature sensor, so a rig that only reports one of those still resolves.
  */
 export function resolveClimateDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
+  // The air-quality monitor also reports CO₂/temp/RH but owns the AIR QUALITY
+  // card, so it must never win the CLIMATE slot: both rigs name their CO₂ sensor
+  // "CO2", and the snapshot's name-sort breaks that tie by discovery arrival
+  // order — without this exclusion the winner would flip across restarts.
+  const airNodeId = resolveAirQualityDevice(snapshot)?.nodeId;
+  const notAirMonitor = (pred: (e: EntityConfig) => boolean) => (e: EntityConfig) =>
+    pred(e) && (airNodeId == null || e.nodeId !== airNodeId);
   return (
-    deviceOwning(snapshot, isCo2) ??
-    deviceOwning(snapshot, isHumidity) ??
-    deviceOwning(snapshot, isAmbientTemperature)
+    deviceOwning(snapshot, notAirMonitor(isCo2)) ??
+    deviceOwning(snapshot, notAirMonitor(isHumidity)) ??
+    deviceOwning(snapshot, notAirMonitor(isAmbientTemperature))
   );
 }
 
