@@ -7,8 +7,8 @@ import type { RequestHandler } from './$types';
 
 /**
  * Server-mediated time-series read. Browsers never touch InfluxDB directly — they
- * ask for a trend DOMAIN (water/climate/thermal/substrate), we resolve that domain's
- * entities against live discovery and query Influx on their behalf.
+ * ask for a trend DOMAIN (water/climate/thermal/air-quality/substrate), we resolve
+ * that domain's entities against live discovery and query Influx on their behalf.
  */
 export const GET: RequestHandler = async ({ url }) => {
   const rangeParam = url.searchParams.get('range');
