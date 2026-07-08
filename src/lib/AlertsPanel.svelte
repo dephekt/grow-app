@@ -320,13 +320,22 @@
 
     // Incomplete alert-sensor coverage: a paired alert sensor (e.g. a low-alert
     // that has never fired) hasn't reported a state. Don't show a misleading
-    // UNKNOWN — defer to the live reading vs the committed thresholds, which is
-    // authoritative. If that's unavailable too, fall back to the alert sensors we
-    // do have (all-off ⇒ OK) before giving up as UNKNOWN.
+    // UNKNOWN — defer to the live reading vs the committed thresholds, but never
+    // report a direction that a present alert sensor contradicts as OFF: the
+    // device's own alarm wins over a threshold comparison that can be desynced
+    // (hysteresis, lag, stale committed values). If live is unavailable or
+    // contradicted, fall back to the alert sensors we do have (all-off ⇒ OK)
+    // before giving up as UNKNOWN.
     const live = statusFromLive(rule, states);
-    if (live !== 'UNKNOWN') return live;
-    const present = [highValue, lowValue, genericValue].filter((value) => value != null && value !== '');
-    return present.length > 0 && present.every(isOff) ? 'OK' : 'UNKNOWN';
+    const highOff = highKnown && isOff(highValue);
+    const lowOff = lowKnown && isOff(lowValue);
+    const genericOff = genericKnown && isOff(genericValue);
+    if (live === 'HIGH' && !highOff && !genericOff) return 'HIGH';
+    if (live === 'LOW' && !lowOff && !genericOff) return 'LOW';
+    if (live === 'OK') return 'OK';
+    const anyPresent = highKnown || lowKnown || genericKnown;
+    const allPresentOff = (!highKnown || highOff) && (!lowKnown || lowOff) && (!genericKnown || genericOff);
+    return anyPresent && allPresentOff ? 'OK' : 'UNKNOWN';
   }
 
   function liveValue(rule: ThresholdRule, states: Record<string, EntityState>): string {
