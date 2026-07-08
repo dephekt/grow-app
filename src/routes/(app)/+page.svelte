@@ -57,7 +57,7 @@
     <ReadoutPanel title="SUBSTRATE" rows={substrateRows} planned={true} badge="NOT CONNECTED" />
   </div>
   {#if airQualityDevice}
-    <div class="air-quality-area"><ReadoutPanel title="AIR QUALITY" rows={airQualityRows} deviceId={airQualityDevice?.nodeId} /></div>
+    <div class="air-quality-area"><ReadoutPanel title="AIR QUALITY" rows={airQualityRows} deviceId={airQualityDevice.nodeId} /></div>
   {/if}
 </div>
 
