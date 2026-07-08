@@ -11,6 +11,7 @@
     metricPrefix
   } from '$lib/threshold-match';
   import { isAmbientTemperature, isCo2, isHumidity, isThermalMeanTemp, isWaterPh } from '$lib/entity-match';
+  import { alertStatus, numericStateValue } from '$lib/alert-status';
 
   let {
     groups,
@@ -261,83 +262,8 @@
   let fallbackEntries = $derived(allEntries.filter((e: import('$lib/device-presentation').PresentedEntity) => !recognizedIds.has(e.entity.id)));
 
   // ── Per-rule helpers ────────────────────────────────────────────────────────
-  function isOn(value: string | null | undefined): boolean {
-    return value === 'ON' || value === 'true';
-  }
-
-  function isOff(value: string | null | undefined): boolean {
-    return value === 'OFF' || value === 'false';
-  }
-
-  function alertValue(entity: EntityConfig | null, states: Record<string, EntityState>): string | null | undefined {
-    if (!entity) return undefined;
-    return states[entity.id]?.value;
-  }
-
-  /** Status derived purely from the live reading vs the device's thresholds.
-   *  Used when there's no alert sensor, or to recover HIGH/LOW direction from a
-   *  single combined alert. Uses committed threshold values, not optimistic ones. */
-  function statusFromLive(rule: ThresholdRule, states: Record<string, EntityState>): 'OK' | 'HIGH' | 'LOW' | 'UNKNOWN' {
-    const liveVal = numericStateValue(rule.liveEntity, states);
-    if (liveVal == null) return 'UNKNOWN';
-    const high = numericStateValue(rule.highEntity, states);
-    const low = numericStateValue(rule.lowEntity, states);
-    if (high != null && liveVal >= high) return 'HIGH';
-    if (low != null && liveVal <= low) return 'LOW';
-    return 'OK';
-  }
-
-  function alertStatus(rule: ThresholdRule, states: Record<string, EntityState>): 'OK' | 'ALERT' | 'ARMED' | 'HIGH' | 'LOW' | 'UNKNOWN' {
-    const highValue = alertValue(rule.highAlertEntity, states);
-    const lowValue = alertValue(rule.lowAlertEntity, states);
-    const genericValue = alertValue(rule.genericAlertEntity, states);
-
-    const highKnown = highValue != null && highValue !== '';
-    const lowKnown = lowValue != null && lowValue !== '';
-    const genericKnown = genericValue != null && genericValue !== '';
-    const hasAlertEntity = Boolean(rule.highAlertEntity || rule.lowAlertEntity || rule.genericAlertEntity);
-
-    if (isOn(highValue) && isOn(lowValue)) return 'ALERT';
-    if (isOn(highValue)) return 'HIGH';
-    if (isOn(lowValue)) return 'LOW';
-    if (isOn(genericValue)) {
-      // A single combined alert is on but carries no direction; recover HIGH/LOW
-      // from the live value vs thresholds, else fall back to ARMED.
-      const byLive = statusFromLive(rule, states);
-      return byLive === 'HIGH' || byLive === 'LOW' ? byLive : 'ARMED';
-    }
-
-    // No alert sensor at all → reflect the live reading vs thresholds.
-    if (!hasAlertEntity) return statusFromLive(rule, states);
-
-    if (
-      (!rule.highAlertEntity || highKnown) &&
-      (!rule.lowAlertEntity || lowKnown) &&
-      (!rule.genericAlertEntity || genericKnown)
-    ) {
-      return [highValue, lowValue, genericValue].every((value) => value == null || isOff(value)) ? 'OK' : 'UNKNOWN';
-    }
-
-    // Incomplete alert-sensor coverage: a paired alert sensor (e.g. a low-alert
-    // that has never fired) hasn't reported a state. Don't show a misleading
-    // UNKNOWN — defer to the live reading vs the committed thresholds, but never
-    // report a direction that a present alert sensor contradicts as OFF: the
-    // device's own alarm wins over a threshold comparison that can be desynced
-    // (hysteresis, lag, stale committed values). If live is unavailable or
-    // contradicted, fall back to the alert sensors we do have (all-off ⇒ OK)
-    // before giving up as UNKNOWN.
-    const live = statusFromLive(rule, states);
-    const highOff = highKnown && isOff(highValue);
-    const lowOff = lowKnown && isOff(lowValue);
-    const genericOff = genericKnown && isOff(genericValue);
-    if (live === 'HIGH' && !highOff && !genericOff) return 'HIGH';
-    if (live === 'LOW' && !lowOff && !genericOff) return 'LOW';
-    if (live === 'OK') return 'OK';
-    const anyPresent = highKnown || lowKnown || genericKnown;
-    const allPresentOff = (!highKnown || highOff) && (!lowKnown || lowOff) && (!genericKnown || genericOff);
-    return anyPresent && allPresentOff ? 'OK' : 'UNKNOWN';
-  }
-
+  // Status derivation (alertStatus, statusFromLive, isOn/isOff) lives in
+  // $lib/alert-status so it stays unit-testable outside the component.
   function liveValue(rule: ThresholdRule, states: Record<string, EntityState>): string {
     if (!rule.liveEntity) return '—';
     const v = states[rule.liveEntity.id]?.value;
@@ -373,14 +299,6 @@
   function formatThresholdValue(entity: EntityConfig, value: number): string {
     const precision = precisionFor(entity);
     return precision > 0 ? value.toFixed(precision) : value.toFixed(0);
-  }
-
-  function numericStateValue(entity: EntityConfig | null, states: Record<string, EntityState>): number | null {
-    if (!entity) return null;
-    const value = states[entity.id]?.value;
-    if (value == null || value === '') return null;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
   }
 
   function hasOverride(entityId: string): boolean {
