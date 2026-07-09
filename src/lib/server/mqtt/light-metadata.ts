@@ -1,16 +1,9 @@
 import type { DeviceLightsFragment } from './types';
+import { numberValue, stringValue } from './coerce';
 
 export interface ParsedLightsConfig {
   nodeId: string;
   fragment: DeviceLightsFragment | null;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function numberValue(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 /** Coerce a raw role value to a string objectId or a string[] of objectIds,
