@@ -5,6 +5,7 @@ import { buildCommandPublish, normalizeDiscoveryId, parseDiscoveryPayload } from
 import { getSiteMqttConfig, type SiteMqttConfig } from './config';
 import { matchStationTopic, normalizeStationState, stationStateTopic } from '$lib/server/opensprinkler/normalize';
 import { parseUiConfigPayload } from './ui-metadata';
+import { parseLightsConfigPayload } from './light-metadata';
 import {
   buildFirmwareChannelConfig,
   parseFirmwareChannelPayload,
@@ -14,6 +15,7 @@ import type {
   AvailabilityState,
   BrokerSnapshot,
   CommandRequest,
+  DeviceLightsFragment,
   DeviceSnapshot,
   DeviceUiConfig,
   EntityConfig,
@@ -22,6 +24,8 @@ import type {
   FirmwareChannelConfig,
   FirmwareDeviceConfig,
   FirmwareSnapshot,
+  LightConfig,
+  LightRoleRef,
   Snapshot,
   SnapshotEvent
 } from './types';
@@ -37,6 +41,7 @@ export class SiteMqttService {
   private readonly topicToEntity = new Map<string, Set<string>>();
   private readonly availabilityTopicToEntity = new Map<string, Set<string>>();
   private readonly uiByNodeId = new Map<string, DeviceUiConfig>();
+  private readonly lightsByNodeId = new Map<string, DeviceLightsFragment>();
   private readonly firmwareByNodeId = new Map<string, FirmwareDeviceConfig>();
   private readonly firmwareChannelByNodeId = new Map<string, FirmwareChannelConfig>();
   private readonly retainedByTopic = new Map<string, string>();
@@ -115,6 +120,7 @@ export class SiteMqttService {
       entities,
       states,
       uiConfigs,
+      lights: this.mergedLights(),
       firmware
     };
   }
@@ -283,6 +289,16 @@ export class SiteMqttService {
       return;
     }
 
+    const lightsConfig = parseLightsConfigPayload(topic, payload, this.config.topicPrefix);
+    if (lightsConfig) {
+      if (lightsConfig.fragment) this.lightsByNodeId.set(lightsConfig.nodeId, lightsConfig.fragment);
+      else this.lightsByNodeId.delete(lightsConfig.nodeId);
+      // No dedicated event — logical lights are derived state re-computed in
+      // snapshot(); a full snapshot carries the merged result to the client.
+      this.emit({ type: 'snapshot', snapshot: this.snapshot() });
+      return;
+    }
+
     const firmwareDevice = parseFirmwareDevicePayload(topic, payload, this.config.topicPrefix);
     if (firmwareDevice) {
       if (firmwareDevice.config) this.firmwareByNodeId.set(firmwareDevice.nodeId, firmwareDevice.config);
@@ -433,6 +449,53 @@ export class SiteMqttService {
       devices: Object.fromEntries([...this.firmwareByNodeId.entries()]),
       channels: Object.fromEntries([...this.firmwareChannelByNodeId.entries()])
     };
+  }
+
+  /** Merge every device's `grow-lights.v1` fragment into logical lights, keyed by
+   *  light id. Each role's objectId is local to the publishing node, so we stamp it
+   *  with that node here; the plug fragment supplies name/type (the anchor). */
+  private mergedLights(): LightConfig[] {
+    const byId = new Map<string, LightConfig>();
+
+    for (const fragment of this.lightsByNodeId.values()) {
+      for (const entry of fragment.lights) {
+        const light = byId.get(entry.id) ?? { id: entry.id, name: entry.id, order: 0, roles: {} };
+        if (entry.name) light.name = entry.name;
+        if (entry.type) light.type = entry.type;
+        if (entry.order) light.order = entry.order;
+
+        for (const [role, value] of Object.entries(entry.roles)) {
+          if (role === 'metrics') {
+            const ids = Array.isArray(value) ? value : [value];
+            light.roles.metrics = ids.map((objectId) => ({ node: fragment.nodeId, objectId }));
+            continue;
+          }
+          if (typeof value !== 'string') continue;
+          const ref: LightRoleRef = { node: fragment.nodeId, objectId: value };
+          switch (role) {
+            case 'power':
+              light.roles.power = ref;
+              break;
+            case 'scheduleArm':
+              light.roles.scheduleArm = ref;
+              break;
+            case 'onTime':
+              light.roles.onTime = ref;
+              break;
+            case 'offTime':
+              light.roles.offTime = ref;
+              break;
+            case 'dimmer':
+              light.roles.dimmer = ref;
+              break;
+          }
+        }
+
+        byId.set(entry.id, light);
+      }
+    }
+
+    return [...byId.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   }
 
   private deviceEntity(nodeId: string, predicate: (entity: EntityConfig) => boolean): EntityConfig | undefined {

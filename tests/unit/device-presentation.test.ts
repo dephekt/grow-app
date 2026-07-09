@@ -192,6 +192,7 @@ function makeSnapshot(uiConfigs: Snapshot['uiConfigs'] = {}, overrides: Partial<
     entities: [cameraEntity, temperatureEntity],
     states: {},
     uiConfigs,
+    lights: [],
     firmware: { devices: {}, channels: {} }
   };
   return { ...snapshot, ...overrides };

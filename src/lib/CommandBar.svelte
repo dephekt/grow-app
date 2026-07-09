@@ -35,6 +35,7 @@
 
   const pathname = $derived(page.url.pathname);
   const onDashboard = $derived(pathname === '/');
+  const onLights = $derived(pathname.startsWith('/lights'));
   const onIrrigation = $derived(pathname.startsWith('/irrigation'));
   const onSettings = $derived(pathname.startsWith('/device-settings'));
 </script>
@@ -47,6 +48,7 @@
 
   <nav class="nav">
     <a class="tab" class:active={onDashboard} href="/">DASHBOARD</a>
+    <a class="tab" class:active={onLights} href="/lights">LIGHTS</a>
     <a class="tab" class:active={onIrrigation} href="/irrigation">IRRIGATION</a>
     <a class="tab" class:active={onSettings} href="/device-settings">
       <span>SETTINGS</span>
