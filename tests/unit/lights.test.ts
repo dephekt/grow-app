@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseLightsConfigPayload } from '../../src/lib/server/mqtt/light-metadata';
-import { computeSchedule, entityByRef, formatCountdown, toTimeInputValue } from '../../src/lib/lights/model';
+import { computeSchedule, entityByRef, formatCountdown } from '../../src/lib/lights/model';
+import { SiteMqttService } from '../../src/lib/server/mqtt/service';
 import type { EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';
 
 const PREFIX = 'grow/daniel-home';
@@ -83,6 +84,93 @@ describe('entityByRef', () => {
     expect(entityByRef(snapshot, { node: 'grow-light', objectId: 'nope' })).toBeUndefined();
     expect(entityByRef(snapshot, undefined)).toBeUndefined();
   });
+
+  it('matches only the entity node, not a secondary device identifier (removed fallback)', () => {
+    // nodeId present: a ref pointing at a *secondary* device identifier must miss.
+    const withNodeId = {
+      objectId: 'grow_light',
+      nodeId: 'primary-node',
+      device: { identifiers: ['primary-node', 'legacy-alias'], name: 'x' }
+    } as unknown as EntityConfig;
+    // nodeId absent: the node falls back to the *primary* identifier only.
+    const noNodeId = {
+      objectId: 'relay',
+      device: { identifiers: ['dev-a', 'dev-b'], name: 'y' }
+    } as unknown as EntityConfig;
+    const snap = { entities: [withNodeId, noNodeId] } as unknown as Snapshot;
+
+    expect(entityByRef(snap, { node: 'primary-node', objectId: 'grow_light' })?.objectId).toBe('grow_light');
+    expect(entityByRef(snap, { node: 'legacy-alias', objectId: 'grow_light' })).toBeUndefined();
+    expect(entityByRef(snap, { node: 'dev-a', objectId: 'relay' })?.objectId).toBe('relay');
+    expect(entityByRef(snap, { node: 'dev-b', objectId: 'relay' })).toBeUndefined();
+  });
+});
+
+describe('SiteMqttService.mergedLights (cross-device fragment merge)', () => {
+  function lightsService() {
+    const service = new SiteMqttService({
+      site: 'daniel-home',
+      mqttUrl: 'mqtt://localhost:1883',
+      topicPrefix: PREFIX,
+      discoveryPrefix: `${PREFIX}/_discovery`
+    });
+    const receive = (
+      service as unknown as { handleMessage(topic: string, payload: string): void }
+    ).handleMessage.bind(service);
+    const publishFragment = (nodeId: string, lights: unknown[]) =>
+      receive(`${PREFIX}/${nodeId}/_lights/config`, JSON.stringify({ schema: 'grow-lights.v1', nodeId, lights }));
+    return { service, receive, publishFragment };
+  }
+
+  it('merges fragments for one light id: name anchor, cross-node roles, accumulated metrics', () => {
+    const { service, publishFragment } = lightsService();
+    // Arrival order is plug-then-dac; the merged result must be independent of it.
+    publishFragment('zzz-plug', [
+      {
+        id: 'main',
+        name: 'Main Light',
+        type: 'full-spectrum',
+        order: 5,
+        roles: { power: 'relay', metrics: ['plug_power'] }
+      }
+    ]);
+    publishFragment('aaa-dac', [
+      { id: 'main', order: 99, roles: { dimmer: 'ch1_brightness', metrics: ['dac_power'] } }
+    ]);
+
+    const { lights } = service.snapshot();
+    expect(lights).toHaveLength(1);
+    const [light] = lights;
+    // Identity (name/type/order) comes only from the anchor entry (the one with a
+    // name); the dac fragment's order 99 must not override the plug's order 5.
+    expect(light).toMatchObject({ id: 'main', name: 'Main Light', type: 'full-spectrum', order: 5 });
+    // Scalar roles are stamped with the node that published them.
+    expect(light.roles.power).toEqual({ node: 'zzz-plug', objectId: 'relay' });
+    expect(light.roles.dimmer).toEqual({ node: 'aaa-dac', objectId: 'ch1_brightness' });
+    // Metrics ACCUMULATE across fragments, ordered by the deterministic nodeId
+    // sort (aaa-dac before zzz-plug) rather than by message arrival order.
+    expect(light.roles.metrics).toEqual([
+      { node: 'aaa-dac', objectId: 'dac_power' },
+      { node: 'zzz-plug', objectId: 'plug_power' }
+    ]);
+  });
+
+  it('orders lights by order then name, honoring an explicit order 0', () => {
+    const { service, publishFragment } = lightsService();
+    publishFragment('plug', [
+      { id: 'bench', name: 'Bench', order: 0, roles: { power: 'relay_b' } },
+      { id: 'aux', name: 'Aux', order: 10, roles: { power: 'relay_a' } }
+    ]);
+    expect(service.snapshot().lights.map((l) => l.id)).toEqual(['bench', 'aux']);
+  });
+
+  it('drops a light once its retained fragment is cleared', () => {
+    const { service, receive, publishFragment } = lightsService();
+    publishFragment('plug', [{ id: 'main', name: 'Main', roles: { power: 'relay' } }]);
+    expect(service.snapshot().lights).toHaveLength(1);
+    receive(`${PREFIX}/plug/_lights/config`, ''); // empty retained payload = deletion
+    expect(service.snapshot().lights).toHaveLength(0);
+  });
 });
 
 describe('computeSchedule (mirrors the firmware half-open window)', () => {
@@ -118,16 +206,5 @@ describe('formatCountdown', () => {
   it('zero-pads the minor field', () => {
     expect(formatCountdown(3600 + 5 * 60)).toBe('1:05');
     expect(formatCountdown(65)).toBe('1:05');
-  });
-});
-
-describe('toTimeInputValue', () => {
-  it('reduces HH:MM:SS to HH:MM and pads a short hour', () => {
-    expect(toTimeInputValue('06:00:00')).toBe('06:00');
-    expect(toTimeInputValue('6:00')).toBe('06:00');
-  });
-  it('is empty for missing/unparseable values', () => {
-    expect(toTimeInputValue(null)).toBe('');
-    expect(toTimeInputValue('nope')).toBe('');
   });
 });
