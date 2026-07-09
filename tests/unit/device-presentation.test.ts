@@ -406,3 +406,51 @@ describe('deviceSettingsPresentation with camera entity', () => {
     expect(thermalGroup?.entries.map((entry) => entry.entity.objectId)).toEqual(['mlx90640_mean_temp', 'thermal_update_interval']);
   });
 });
+
+describe('deviceSettingsPresentation diagnostics folding', () => {
+  const wifi = makeAtomEntity({
+    id: 'atoms3u_wifi_signal',
+    component: 'sensor',
+    name: 'WiFi Signal',
+    objectId: 'wifi_signal',
+    entityCategory: 'diagnostic'
+  });
+  // Uncurated diagnostic entity (not in _ui/config) — like the plug's MAC Address.
+  const mac = makeAtomEntity({
+    id: 'atoms3u_mac_address',
+    component: 'sensor',
+    name: 'MAC Address',
+    objectId: 'mac_address',
+    entityCategory: 'diagnostic'
+  });
+  const diagDevice = { ...device, entityIds: [wifi.id, mac.id] };
+  const uiConfigs = {
+    'atoms3u-sensor-rig': {
+      schema: 'grow-ui.v1' as const,
+      nodeId: 'atoms3u-sensor-rig',
+      groups: [
+        {
+          id: 'diagnostics',
+          title: 'Diagnostics',
+          order: 90,
+          surface: 'device-settings',
+          deviceSettingsSection: 'diagnostics',
+          defaultOpen: false
+        }
+      ],
+      entities: [{ component: 'sensor', objectId: 'wifi_signal', group: 'diagnostics', order: 10 }]
+    }
+  };
+
+  it('folds an uncurated diagnostic entity into the curated Diagnostics section (no duplicate tab section)', () => {
+    const snapshot = makeSnapshot(uiConfigs, { devices: [diagDevice], entities: [wifi, mac] });
+    const panels = deviceSettingsPresentation(snapshot, diagDevice);
+    const diagnostics = panels.find((panel) => panel.id === 'diagnostics');
+
+    expect(diagnostics).toBeDefined();
+    // Exactly one collapsible titled "Diagnostics", not two.
+    expect(diagnostics!.groups).toHaveLength(1);
+    expect(diagnostics!.groups[0].title).toBe('Diagnostics');
+    expect(diagnostics!.groups[0].entries.map((entry) => entry.entity.objectId)).toEqual(['wifi_signal', 'mac_address']);
+  });
+});
