@@ -63,6 +63,7 @@ function makeSnapshot(entities: EntityConfig[]): Snapshot {
     entities,
     states: {},
     uiConfigs: {},
+    lights: [],
     firmware: { devices: {}, channels: {} }
   };
 }

@@ -45,6 +45,7 @@ const snapshot = {
   ],
   states: { co2_high_threshold: { value: '1500', updatedAt: '2026-06-30T09:59:30.000Z' } },
   uiConfigs: {},
+  lights: [],
   firmware: { devices: {}, channels: {} }
 } satisfies Snapshot;
 
