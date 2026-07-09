@@ -323,8 +323,23 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
   const diagnostics = remaining.filter(isDiagnostic).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
   const other = remaining.filter((entity) => !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
 
+  // Fold leftover (uncurated) entities into an existing curated section that lands
+  // in the same settings tab, rather than emitting a second collapsible with the
+  // same title. A device with a curated Diagnostics group plus an uncurated
+  // diagnostic entity (e.g. MAC Address, or an entity whose `_ui/config` component
+  // slug doesn't match its discovery topic) would otherwise render two identically
+  // titled "Diagnostics" sections in the tab.
+  const foldIn = (fallback: PresentedSection): void => {
+    const existing = sections.find((section) => section.deviceSettingsSection === fallback.deviceSettingsSection);
+    if (existing) {
+      existing.entries = [...existing.entries, ...fallback.entries];
+    } else {
+      sections.push(fallback);
+    }
+  };
+
   if (diagnostics.length > 0) {
-    sections.push({
+    foldIn({
       id: 'diagnostics_fallback',
       title: 'Diagnostics',
       order: 900,
@@ -335,7 +350,7 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
   }
 
   if (other.length > 0) {
-    sections.push({
+    foldIn({
       id: 'other',
       title: 'Other',
       order: 990,
