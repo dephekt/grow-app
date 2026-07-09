@@ -327,6 +327,27 @@ describe('command publishing', () => {
     });
   });
 
+  it('encodes time commands as the ESPHome mqtt_time JSON object', () => {
+    const entity = parseDiscoveryPayload(
+      `${prefix}/time/atlas/lights_on/config`,
+      JSON.stringify({
+        name: 'Lights On',
+        uniq_id: 'atlas_lights_on',
+        stat_t: 'grow/daniel-home/atlas/time/lights_on/state',
+        cmd_t: 'grow/daniel-home/atlas/time/lights_on/command',
+        dev: { ids: ['atlas'], name: 'Atlas' }
+      }),
+      prefix
+    );
+
+    expect(entity).not.toBeNull();
+    expect(buildCommandPublish(entity!, { value: '18:00' })).toEqual({
+      topic: 'grow/daniel-home/atlas/time/lights_on/command',
+      payload: '{"hour":18,"minute":0,"second":0}',
+      retain: false
+    });
+  });
+
   it('requires confirmation for button commands', () => {
     const entity = parseDiscoveryPayload(
       `${prefix}/button/atlas/factory_reset/config`,

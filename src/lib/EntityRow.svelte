@@ -2,6 +2,7 @@
   import type { PresentedEntity } from '$lib/device-presentation';
   import type { EntityConfig, EntityState } from '$lib/server/mqtt/types';
   import { formatEntityState } from '$lib/state-format';
+  import { toTimeInputValue } from '$lib/time-entity';
 
   let {
     entry,
@@ -62,6 +63,13 @@
           <option value={option}>{option}</option>
         {/each}
       </select>
+    {:else if entity.writable && entity.component === 'time'}
+      <input
+        type="time"
+        value={toTimeInputValue(state.value)}
+        disabled={pending}
+        onchange={(event) => onCommand(entity, event.currentTarget.value)}
+      />
     {:else if entity.writable && entity.component === 'button'}
       <button type="button" class:danger={entity.dangerous} disabled={pending} onclick={() => onCommand(entity)}>
         Send
