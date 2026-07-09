@@ -1,3 +1,4 @@
+import { timeCommandPayload } from '$lib/time-entity';
 import type { CommandPublish, CommandRequest, DiscoveryDevice, EntityConfig } from './types';
 
 const DANGEROUS_WORDS = [
@@ -235,6 +236,8 @@ function commandPayload(entity: EntityConfig, value: unknown): string {
       }
       return selected;
     }
+    case 'time':
+      return timeCommandPayload(value);
     default:
       if (value === undefined || value === null) throw new Error('Expected a command value');
       return String(value);
