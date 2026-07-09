@@ -1,16 +1,9 @@
 import type { DeviceUiConfig, DeviceUiEntity, DeviceUiGroup } from './types';
+import { numberValue, stringValue } from './coerce';
 
 export interface ParsedUiConfig {
   nodeId: string;
   config: DeviceUiConfig | null;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function numberValue(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 function parseGroup(value: unknown): DeviceUiGroup | null {

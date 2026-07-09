@@ -457,38 +457,43 @@ export class SiteMqttService {
   private mergedLights(): LightConfig[] {
     const byId = new Map<string, LightConfig>();
 
-    for (const fragment of this.lightsByNodeId.values()) {
+    // Data-driven setter for each scalar role: maps a role name to the typed
+    // LightRoles field it populates.
+    const scalarRoles: Record<string, (roles: LightConfig['roles'], ref: LightRoleRef) => void> = {
+      power: (roles, ref) => (roles.power = ref),
+      scheduleArm: (roles, ref) => (roles.scheduleArm = ref),
+      onTime: (roles, ref) => (roles.onTime = ref),
+      offTime: (roles, ref) => (roles.offTime = ref),
+      dimmer: (roles, ref) => (roles.dimmer = ref)
+    };
+
+    // Merge in a deterministic order so the result doesn't depend on the arrival
+    // order of retained fragment messages.
+    const fragments = [...this.lightsByNodeId.values()].sort((a, b) => a.nodeId.localeCompare(b.nodeId));
+
+    for (const fragment of fragments) {
       for (const entry of fragment.lights) {
         const light = byId.get(entry.id) ?? { id: entry.id, name: entry.id, order: 0, roles: {} };
-        if (entry.name) light.name = entry.name;
-        if (entry.type) light.type = entry.type;
-        if (entry.order) light.order = entry.order;
+        // Identity comes from the anchor entry (the one carrying a name): take
+        // name/type/order together, honoring an explicit order 0.
+        if (entry.name) {
+          light.name = entry.name;
+          light.type = entry.type;
+          light.order = entry.order ?? 0;
+        }
 
         for (const [role, value] of Object.entries(entry.roles)) {
           if (role === 'metrics') {
             const ids = Array.isArray(value) ? value : [value];
-            light.roles.metrics = ids.map((objectId) => ({ node: fragment.nodeId, objectId }));
+            light.roles.metrics = [
+              ...(light.roles.metrics ?? []),
+              ...ids.map((objectId) => ({ node: fragment.nodeId, objectId }))
+            ];
             continue;
           }
           if (typeof value !== 'string') continue;
-          const ref: LightRoleRef = { node: fragment.nodeId, objectId: value };
-          switch (role) {
-            case 'power':
-              light.roles.power = ref;
-              break;
-            case 'scheduleArm':
-              light.roles.scheduleArm = ref;
-              break;
-            case 'onTime':
-              light.roles.onTime = ref;
-              break;
-            case 'offTime':
-              light.roles.offTime = ref;
-              break;
-            case 'dimmer':
-              light.roles.dimmer = ref;
-              break;
-          }
+          const setRole = scalarRoles[role];
+          if (setRole) setRole(light.roles, { node: fragment.nodeId, objectId: value });
         }
 
         byId.set(entry.id, light);

@@ -1,27 +1,25 @@
 import type { EntityConfig, LightRoleRef, Snapshot } from '$lib/server/mqtt/types';
+import { parseTimeParts } from '$lib/time-entity';
 
 /** Resolve a role reference (node + objectId) to the discovered entity, if any.
- *  Matches the node against either the entity's nodeId or its device identifiers,
- *  mirroring `service.ts:deviceEntity`. */
+ *  Strict (node, objectId) pairing: the ref's node must match the entity's own
+ *  node (its `nodeId`, or the device's primary identifier as a fallback), never a
+ *  secondary device identifier — that keeps role resolution unambiguous even when
+ *  two nodes share a device grouping. Intentionally stricter than
+ *  `service.ts:deviceEntity`, which keeps a broader match on purpose. */
 export function entityByRef(snapshot: Snapshot, ref: LightRoleRef | undefined): EntityConfig | undefined {
   if (!ref) return undefined;
   return snapshot.entities.find(
-    (entity) =>
-      entity.objectId === ref.objectId &&
-      ((entity.nodeId ?? entity.device.identifiers[0]) === ref.node || entity.device.identifiers.includes(ref.node))
+    (entity) => entity.objectId === ref.objectId && (entity.nodeId ?? entity.device.identifiers[0]) === ref.node
   );
 }
 
-/** Seconds-of-day from an "HH:MM:SS" (or "HH:MM") wall-clock string; null if unparseable. */
+/** Seconds-of-day from a raw `time` entity state value — either the ESPHome JSON
+ *  blob or an "HH:MM:SS"/"HH:MM" clock string; null if unparseable. */
 function secondsOfDay(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(value.trim());
-  if (!match) return null;
-  const h = Number(match[1]);
-  const m = Number(match[2]);
-  const s = match[3] ? Number(match[3]) : 0;
-  if (h > 23 || m > 59 || s > 59) return null;
-  return h * 3600 + m * 60 + s;
+  const parts = parseTimeParts(value);
+  if (parts === null) return null;
+  return parts.hour * 3600 + parts.minute * 60 + parts.second;
 }
 
 export interface LightScheduleWindow {
@@ -63,11 +61,4 @@ export function formatCountdown(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
-}
-
-/** "HH:MM:SS"/"HH:MM" → "HH:MM" for an `<input type="time">` value. */
-export function toTimeInputValue(value: string | null | undefined): string {
-  if (!value) return '';
-  const match = /^(\d{1,2}):(\d{2})/.exec(value.trim());
-  return match ? `${match[1].padStart(2, '0')}:${match[2]}` : '';
 }

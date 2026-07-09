@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { EntityConfig, LightConfig } from '$lib/server/mqtt/types';
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
-  import { computeSchedule, entityByRef, formatCountdown, toTimeInputValue } from '$lib/lights/model';
+  import { computeSchedule, entityByRef, formatCountdown } from '$lib/lights/model';
+  import { toTimeInputValue } from '$lib/time-entity';
 
   let { light, live }: { light: LightConfig; live: LiveSnapshot } = $props();
 
@@ -24,13 +25,14 @@
   // Availability of the plug that owns on/off.
   const powerDevice = $derived.by(() => {
     if (!power) return undefined;
-    return snap.devices.find((d) => d.id === power.device.identifiers[0] || d.nodeId === power.nodeId);
+    return snap.devices.find((d) => d.id === power.device.identifiers[0]);
   });
   const offline = $derived(powerDevice?.availability === 'offline');
 
-  // Live clock so the countdown ticks.
+  // Live clock so the countdown ticks. Only runs when there's a schedule to count down.
   let now = $state(new Date());
   $effect(() => {
+    if (!hasSchedule) return;
     const timer = setInterval(() => (now = new Date()), 1000);
     return () => clearInterval(timer);
   });
@@ -56,29 +58,85 @@
     void live.sendCommand(entity, hhmm.length === 5 ? `${hhmm}:00` : hhmm);
   }
 
-  // ── Dimmer slider: local value tracks the entity except while dragging ──
+  // ── Dimmer slider ──
+  // `sliderValue` is what the input shows. `lastSent` is the last brightness we
+  // published, kept to de-dupe a redundant repeat of the same command. While
+  // `settling` is true we ignore inbound echoes so the slider doesn't snap back
+  // to the pre-command value before the device applies ours. Settling ends when
+  // the device echoes our value, when the publish fails, or when a grace timeout
+  // elapses — the last two guarantee the slider can never freeze out of sync
+  // with the device (a failed/offline publish or a clamped/rounded echo that
+  // never matches exactly would otherwise strand it forever).
+  const SETTLE_TIMEOUT_MS = 3000;
   let sliderValue = $state(100);
-  let dragging = $state(false);
+  let lastSent = $state<number | null>(null);
+  let settling = $state(false);
   let commitTimer: ReturnType<typeof setTimeout> | null = null;
+  let settleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  $effect(() => {
-    if (!dimmer || dragging) return;
-    const raw = live.stateFor(dimmer).value;
-    if (raw !== null && raw !== '') sliderValue = Number(raw);
+  // Clear any pending timers on unmount so they can't fire late.
+  $effect(() => () => {
+    if (commitTimer) clearTimeout(commitTimer);
+    if (settleTimer) clearTimeout(settleTimer);
   });
 
-  function commitDimmer(value: number) {
-    if (dimmer) void live.sendCommand(dimmer, value);
+  function stopSettling() {
+    settling = false;
+    if (settleTimer) {
+      clearTimeout(settleTimer);
+      settleTimer = null;
+    }
+  }
+
+  $effect(() => {
+    if (!dimmer) return;
+    const value = live.stateFor(dimmer).value;
+    if (value === null || value === '') return;
+    const echoed = Number(value);
+    if (settling) {
+      // A change is in flight; resume syncing once the device confirms our value.
+      if (echoed === lastSent) stopSettling();
+      return;
+    }
+    sliderValue = echoed;
+  });
+
+  function send(value: number) {
+    if (value === lastSent) return;
+    lastSent = value;
+    settling = true;
+    // Fallback so a clamped/rounded echo (device applies a value != requested)
+    // can't strand the slider: stop waiting for an exact echo after a grace
+    // period and let the next device snapshot drive the slider again. Also drop
+    // lastSent so re-selecting the same value retries rather than de-duping.
+    if (settleTimer) clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      settleTimer = null;
+      settling = false;
+      lastSent = null;
+    }, SETTLE_TIMEOUT_MS);
+    if (dimmer) {
+      void live.sendCommand(dimmer, value).then((ok) => {
+        // A failed publish (e.g. plug offline) never echoes — stop waiting and
+        // clear lastSent so the next device state drives the slider and a retry
+        // of the same value still publishes.
+        if (!ok) {
+          stopSettling();
+          lastSent = null;
+        }
+      });
+    }
   }
   function onDimmerInput(value: number) {
+    // Fresh user intent: drop the previous de-dupe anchor so dragging back to an
+    // earlier value (e.g. after the device drifted) still publishes.
+    lastSent = null;
     sliderValue = value;
-    dragging = true;
     if (commitTimer) clearTimeout(commitTimer);
-    // Debounce the publish; self-heal `dragging` if no change event follows.
+    // Debounce the publish while the user is still dragging.
     commitTimer = setTimeout(() => {
       commitTimer = null;
-      dragging = false;
-      commitDimmer(value);
+      send(value);
     }, 200);
   }
   function onDimmerChange(value: number) {
@@ -87,8 +145,7 @@
       commitTimer = null;
     }
     sliderValue = value;
-    dragging = false;
-    commitDimmer(value);
+    send(value);
   }
 </script>
 
@@ -127,7 +184,7 @@
           max="100"
           step="1"
           value={sliderValue}
-          disabled={live.commandPending[dimmer.id]}
+          disabled={offline || live.commandPending[dimmer.id]}
           oninput={(e) => onDimmerInput(Number(e.currentTarget.value))}
           onchange={(e) => onDimmerChange(Number(e.currentTarget.value))}
         />
@@ -145,7 +202,7 @@
             type="button"
             class="toggle sm"
             class:on={armed}
-            disabled={live.commandPending[arm.id]}
+            disabled={offline || live.commandPending[arm.id]}
             onclick={() => toggle(arm, armed)}
           >
             {armed ? 'Armed' : 'Manual'}
@@ -159,7 +216,7 @@
             <input
               type="time"
               value={toTimeInputValue(live.stateFor(onTime).value)}
-              disabled={live.commandPending[onTime.id]}
+              disabled={offline || live.commandPending[onTime.id]}
               onchange={(e) => sendTime(onTime, e.currentTarget.value)}
             />
           </label>
@@ -170,7 +227,7 @@
             <input
               type="time"
               value={toTimeInputValue(live.stateFor(offTime).value)}
-              disabled={live.commandPending[offTime.id]}
+              disabled={offline || live.commandPending[offTime.id]}
               onchange={(e) => sendTime(offTime, e.currentTarget.value)}
             />
           </label>
@@ -190,7 +247,7 @@
     </div>
   {/if}
 
-  {#if !power && !dimmer && metrics.length === 0}
+  {#if !power && !dimmer && metrics.length === 0 && !hasSchedule}
     <p class="empty">No controls discovered for this light yet.</p>
   {/if}
 </div>
