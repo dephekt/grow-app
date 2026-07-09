@@ -40,6 +40,7 @@ const fallbackSnapshot = {
   ],
   states: { firmware_update: { value: null, updatedAt: null } },
   uiConfigs: {},
+  lights: [],
   firmware: {
     devices: {
       'atoms3u-sensor-rig': {

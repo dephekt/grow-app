@@ -5261,6 +5261,7 @@ export const liveSnapshot = {
       ]
     }
   },
+  "lights": [],
   "firmware": {
     "devices": {
       "atoms3u-sensor-rig": {

@@ -91,6 +91,49 @@ export interface DeviceUiConfig {
   entities: DeviceUiEntity[];
 }
 
+/**
+ * A logical light is assembled from controls scattered across devices: on/off,
+ * schedule, and power live on a smart plug; the dimmer lives on a DAC channel on a
+ * different node. Each device publishes a `grow-lights.v1` fragment declaring which
+ * of ITS entities fill which role for a light id; the server merges fragments by id
+ * into `LightConfig`s. A resolved role points at one entity on one node.
+ */
+export interface LightRoleRef {
+  node: string;
+  objectId: string;
+}
+
+export interface LightRoles {
+  power?: LightRoleRef;
+  scheduleArm?: LightRoleRef;
+  onTime?: LightRoleRef;
+  offTime?: LightRoleRef;
+  dimmer?: LightRoleRef;
+  metrics?: LightRoleRef[];
+}
+
+export interface LightConfig {
+  id: string;
+  name: string;
+  type?: string;
+  order: number;
+  roles: LightRoles;
+}
+
+/** A single device's raw contribution, as published to `<node>/_lights/config`.
+ *  Role values are objectIds LOCAL to `nodeId`; the merge stamps them with node. */
+export interface DeviceLightsFragment {
+  schema: 'grow-lights.v1';
+  nodeId: string;
+  lights: Array<{
+    id: string;
+    name?: string;
+    type?: string;
+    order?: number;
+    roles: Record<string, string | string[]>;
+  }>;
+}
+
 export type FirmwareChannel = 'stable' | 'edge';
 
 export interface FirmwareDeviceConfig {
@@ -140,6 +183,7 @@ export interface Snapshot {
   entities: EntityConfig[];
   states: Record<string, EntityState>;
   uiConfigs: Record<string, DeviceUiConfig>;
+  lights: LightConfig[];
   firmware: FirmwareSnapshot;
 }
 

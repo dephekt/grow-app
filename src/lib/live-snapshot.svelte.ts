@@ -62,6 +62,7 @@ export function normalizeSnapshot(value: unknown, fallback?: Snapshot): Snapshot
     entities: Array.isArray(raw.entities) ? clonePlain(raw.entities) : clonePlain(fallback?.entities ?? []),
     states: recordOr(raw.states, fallback?.states ?? {}),
     uiConfigs: recordOr(raw.uiConfigs, fallback?.uiConfigs ?? {}),
+    lights: Array.isArray(raw.lights) ? clonePlain(raw.lights) : clonePlain(fallback?.lights ?? []),
     firmware: firmwareOr(raw.firmware, fallback?.firmware)
   };
 }

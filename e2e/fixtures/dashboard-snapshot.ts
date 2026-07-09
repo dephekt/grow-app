@@ -462,6 +462,7 @@ export const dashboardSnapshot = {
       ]
     }
   },
+  lights: [],
   firmware: {
     devices: {
       'atlas-hydro-monitor': {
