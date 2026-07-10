@@ -64,11 +64,16 @@
         {/each}
       </select>
     {:else if entity.writable && entity.component === 'time'}
+      <!-- Minute granularity (no step): seconds are meaningless for a photoperiod
+           schedule. Clearing the field commits nothing rather than erroring. -->
       <input
         type="time"
         value={toTimeInputValue(state.value)}
         disabled={pending}
-        onchange={(event) => onCommand(entity, event.currentTarget.value)}
+        onchange={(event) => {
+          const value = event.currentTarget.value;
+          if (value) onCommand(entity, value);
+        }}
       />
     {:else if entity.writable && entity.component === 'button'}
       <button type="button" class:danger={entity.dangerous} disabled={pending} onclick={() => onCommand(entity)}>

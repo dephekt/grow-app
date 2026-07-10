@@ -83,16 +83,6 @@ function pad(value: number): string {
 }
 
 /**
- * Render the wire value as a zero-padded `HH:MM:SS` clock string, or `null` if
- * it cannot be parsed.
- */
-export function timeStateToClock(raw: string | null | undefined): string | null {
-  const parts = parseTimeParts(raw);
-  if (parts === null) return null;
-  return `${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
-}
-
-/**
  * Render the wire value as a zero-padded `HH:MM` string suitable for the
  * `value` of an `<input type="time">`, or an empty string if unparseable.
  */

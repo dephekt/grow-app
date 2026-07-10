@@ -40,3 +40,24 @@ describe('entity state formatting', () => {
     ).toBe('2.756 kPa');
   });
 });
+
+describe('time entity formatting', () => {
+  const timeEntity = {
+    ...entity,
+    component: 'time',
+    objectId: 'light_on_time',
+    unit: undefined
+  } satisfies EntityConfig;
+
+  it('renders HH:MM from the ESPHome JSON blob (seconds dropped)', () => {
+    expect(formatEntityState(timeEntity, { value: '{"hour": 18, "minute": 0, "second": 30}', updatedAt: null })).toBe('18:00');
+  });
+
+  it('renders HH:MM from a clock string', () => {
+    expect(formatEntityState(timeEntity, { value: '06:00:00', updatedAt: null })).toBe('06:00');
+  });
+
+  it('shows "No state yet" for an unparseable payload instead of the raw blob', () => {
+    expect(formatEntityState(timeEntity, { value: '{bad', updatedAt: null })).toBe('No state yet');
+  });
+});
