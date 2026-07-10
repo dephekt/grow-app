@@ -55,6 +55,7 @@ function makeSnapshot(entities: EntityConfig[]): Snapshot {
   for (const e of entities) byNode.set(e.nodeId ?? '', [...(byNode.get(e.nodeId ?? '') ?? []), e]);
   return {
     site: 'daniel-home',
+    timezone: 'UTC',
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: new Date().toISOString(),

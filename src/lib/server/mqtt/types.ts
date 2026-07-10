@@ -175,6 +175,7 @@ export interface BrokerSnapshot {
 
 export interface Snapshot {
   site: string;
+  timezone: string;
   topicPrefix: string;
   discoveryPrefix: string;
   generatedAt: string;

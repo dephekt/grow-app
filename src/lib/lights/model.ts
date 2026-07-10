@@ -34,12 +34,15 @@ export interface LightScheduleWindow {
 /**
  * Replicate the firmware photoperiod window (`grow-light.yaml apply_light_schedule`):
  * half-open `[on, off)` in local wall time, may wrap midnight, `on == off` = always
- * off. `now` is the browser clock (assumes the browser and the plug share a timezone).
+ * off. The firmware's on/off times are the plug's wall clock, which is the site
+ * timezone (`tz`), so `now` is projected into that zone rather than read off the
+ * browser clock — the countdown is correct even when the viewer sits in another zone.
  */
 export function computeSchedule(
   onValue: string | null | undefined,
   offValue: string | null | undefined,
-  now: Date
+  now: Date,
+  tz: string
 ): LightScheduleWindow {
   const on = secondsOfDay(onValue);
   const off = secondsOfDay(offValue);
@@ -47,7 +50,15 @@ export function computeSchedule(
     return { hasWindow: false, inWindow: false, next: null, secondsUntil: null };
   }
 
-  const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const wall = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hourCycle: 'h23',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).formatToParts(now);
+  const part = (type: 'hour' | 'minute' | 'second') => Number(wall.find((p) => p.type === type)?.value ?? 0);
+  const nowSec = part('hour') * 3600 + part('minute') * 60 + part('second');
   const inWindow = on < off ? nowSec >= on && nowSec < off : nowSec >= on || nowSec < off;
   const boundary = inWindow ? off : on;
   const secondsUntil = (boundary - nowSec + 86400) % 86400;

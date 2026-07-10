@@ -184,6 +184,7 @@ const device = {
 function makeSnapshot(uiConfigs: Snapshot['uiConfigs'] = {}, overrides: Partial<Snapshot> = {}): Snapshot {
   const snapshot = {
     site: 'daniel-home',
+    timezone: 'UTC',
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: new Date().toISOString(),

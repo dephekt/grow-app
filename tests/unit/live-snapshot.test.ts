@@ -4,6 +4,7 @@ import type { Snapshot } from '../../src/lib/server/mqtt/types';
 
 const fallbackSnapshot = {
   site: 'daniel-home',
+  timezone: 'UTC',
   topicPrefix: 'grow/daniel-home',
   discoveryPrefix: 'grow/daniel-home/_discovery',
   generatedAt: '2026-06-21T18:00:00.000Z',

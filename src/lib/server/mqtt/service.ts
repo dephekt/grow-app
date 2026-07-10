@@ -6,6 +6,7 @@ import { getSiteMqttConfig, type SiteMqttConfig } from './config';
 import { matchStationTopic, normalizeStationState, stationStateTopic } from '$lib/server/opensprinkler/normalize';
 import { parseUiConfigPayload } from './ui-metadata';
 import { parseLightsConfigPayload } from './light-metadata';
+import { resolveSiteTimeZone } from '$lib/server/settings/site-timezone';
 import {
   buildFirmwareChannelConfig,
   parseFirmwareChannelPayload,
@@ -112,6 +113,7 @@ export class SiteMqttService {
 
     return {
       site: this.config.site,
+      timezone: resolveSiteTimeZone().zone,
       topicPrefix: this.config.topicPrefix,
       discoveryPrefix: this.config.discoveryPrefix,
       generatedAt: new Date().toISOString(),

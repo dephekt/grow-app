@@ -174,29 +174,50 @@ describe('SiteMqttService.mergedLights (cross-device fragment merge)', () => {
 });
 
 describe('computeSchedule (mirrors the firmware half-open window)', () => {
-  const at = (h: number, m = 0) => new Date(2026, 0, 1, h, m, 0);
+  // A UTC instant projected through tz:'UTC' reads its own wall clock, so these
+  // pin the original hour-of-day numbers independent of the runner's timezone.
+  const at = (h: number, m = 0) => new Date(Date.UTC(2026, 0, 1, h, m));
 
   it('same-day window, inside: counts down to off', () => {
-    const s = computeSchedule('06:00:00', '18:00:00', at(9));
+    const s = computeSchedule('06:00:00', '18:00:00', at(9), 'UTC');
     expect(s).toMatchObject({ hasWindow: true, inWindow: true, next: 'off' });
     expect(s.secondsUntil).toBe(9 * 3600); // 09:00 -> 18:00
   });
 
   it('same-day window, before on: counts down to on', () => {
-    const s = computeSchedule('06:00:00', '18:00:00', at(5));
+    const s = computeSchedule('06:00:00', '18:00:00', at(5), 'UTC');
     expect(s).toMatchObject({ inWindow: false, next: 'on' });
     expect(s.secondsUntil).toBe(3600);
   });
 
   it('wraps midnight (on 18:00, off 06:00)', () => {
-    expect(computeSchedule('18:00:00', '06:00:00', at(23))).toMatchObject({ inWindow: true, next: 'off' });
-    expect(computeSchedule('18:00:00', '06:00:00', at(12))).toMatchObject({ inWindow: false, next: 'on' });
+    expect(computeSchedule('18:00:00', '06:00:00', at(23), 'UTC')).toMatchObject({ inWindow: true, next: 'off' });
+    expect(computeSchedule('18:00:00', '06:00:00', at(12), 'UTC')).toMatchObject({ inWindow: false, next: 'on' });
   });
 
   it('on == off is an empty window; invalid/absent times have no window', () => {
-    expect(computeSchedule('06:00:00', '06:00:00', at(9)).hasWindow).toBe(false);
-    expect(computeSchedule('nope', '18:00:00', at(9)).hasWindow).toBe(false);
-    expect(computeSchedule(null, null, at(9)).hasWindow).toBe(false);
+    expect(computeSchedule('06:00:00', '06:00:00', at(9), 'UTC').hasWindow).toBe(false);
+    expect(computeSchedule('nope', '18:00:00', at(9), 'UTC').hasWindow).toBe(false);
+    expect(computeSchedule(null, null, at(9), 'UTC').hasWindow).toBe(false);
+  });
+
+  it('projects the instant into the site tz, not the runner clock (offset skew)', () => {
+    // 01:00 UTC is 19:00 the previous day in Chicago (CST, UTC-6). The window is
+    // the SAME-DAY 06:00–18:00, so 19:00 wall time is past off → counts down to
+    // the next on 11h away. Reading the raw 01:00 UTC hour would wrongly report
+    // "before on, 5h to go", so this asserts the tz projection is what drives it.
+    const s = computeSchedule('06:00:00', '18:00:00', new Date(Date.UTC(2026, 0, 1, 1, 0)), 'America/Chicago');
+    expect(s).toMatchObject({ inWindow: false, next: 'on' });
+    expect(s.secondsUntil).toBe(11 * 3600);
+  });
+
+  it('wraps midnight computed in the site tz', () => {
+    // 06:00 UTC is exactly 00:00 Chicago. With the wrap window on 18:00 / off
+    // 06:00, midnight is inside the lit stretch and off is 6h away — all judged
+    // against the tz-local wall clock, not UTC (which would read 06:00 = at off).
+    const s = computeSchedule('18:00:00', '06:00:00', new Date(Date.UTC(2026, 0, 1, 6, 0)), 'America/Chicago');
+    expect(s).toMatchObject({ hasWindow: true, inWindow: true, next: 'off' });
+    expect(s.secondsUntil).toBe(6 * 3600);
   });
 });
 

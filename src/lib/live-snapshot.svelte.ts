@@ -54,6 +54,7 @@ export function normalizeSnapshot(value: unknown, fallback?: Snapshot): Snapshot
   const raw = isRecord(value) ? value : {};
   return {
     site: typeof raw.site === 'string' ? raw.site : fallback?.site ?? 'grow',
+    timezone: typeof raw.timezone === 'string' ? raw.timezone : fallback?.timezone ?? 'UTC',
     topicPrefix: typeof raw.topicPrefix === 'string' ? raw.topicPrefix : fallback?.topicPrefix ?? '',
     discoveryPrefix: typeof raw.discoveryPrefix === 'string' ? raw.discoveryPrefix : fallback?.discoveryPrefix ?? '',
     generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : fallback?.generatedAt ?? new Date().toISOString(),
