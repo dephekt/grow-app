@@ -3,6 +3,8 @@ import { json, redirect } from '@sveltejs/kit';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { startOpenSprinklerDriver } from '$lib/server/opensprinkler/controller';
 import { startIrrigationScheduler } from '$lib/server/opensprinkler/scheduler';
+import { warmSiteTimeZone } from '$lib/server/settings/site-timezone';
+import { startSiteTimezoneReconciler } from '$lib/server/mqtt/tz-reconciler';
 import { getAuthDb } from '$lib/server/auth/db';
 import { ensureBootstrapAdmin, toAuthenticatedUser } from '$lib/server/auth/users';
 import { lookupSession, renewIfNeeded } from '$lib/server/auth/sessions';
@@ -23,6 +25,16 @@ startOpenSprinklerDriver();
 // site is OS-enabled; it recomputes next-due from persisted state, so a restart just
 // resumes scheduling with no catch-up backlog.
 startIrrigationScheduler();
+// Warm the persisted site time zone into its module cache and start the MQTT reconciler
+// that stamps the derived POSIX onto tz-capable devices (web app only — the read-only
+// recorder never opens the settings DB nor publishes). Warming is best-effort so a
+// missing/locked settings DB degrades to the env chain instead of blocking server start.
+try {
+  warmSiteTimeZone();
+} catch (error) {
+  console.error('[tz] warming site time zone failed', error);
+}
+startSiteTimezoneReconciler();
 const authDb = getAuthDb();
 await ensureBootstrapAdmin(authDb, getBootstrapAdmin());
 

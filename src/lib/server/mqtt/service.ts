@@ -186,6 +186,22 @@ export class SiteMqttService {
     return this.stateByEntity.get(entityId) ?? { value: null, updatedAt: null };
   }
 
+  /** Every discovered, writable ESPHome `time.timezone` text entity (component `text`,
+   *  objectId `time_zone`, with a command topic). The tz reconciler stamps the derived
+   *  site POSIX onto exactly these; a node that publishes no such entity is ignored. */
+  timeZoneEntities(): EntityConfig[] {
+    return [...this.entities.values()].filter(
+      (entity) => entity.component === 'text' && entity.objectId === 'time_zone' && Boolean(entity.commandTopic)
+    );
+  }
+
+  /** Push a full snapshot to subscribers. The tz reconciler and the timezone PUT use
+   *  this to fan a fresh snapshot to connected clients after a state change that isn't
+   *  itself carried by an MQTT message (e.g. a persisted-setting refresh). */
+  emitClientSnapshot(): void {
+    this.emit({ type: 'snapshot', snapshot: this.snapshot() });
+  }
+
   async setFirmwareChannel(nodeId: string, channel: FirmwareChannel): Promise<FirmwareChannelConfig> {
     const config = buildFirmwareChannelConfig(nodeId, channel);
     const topic = `${this.config.topicPrefix}/_app/firmware/${nodeId}/channel`;
