@@ -5,6 +5,12 @@ import {
   tzOffsetMs,
   zonedMinutesToInstant
 } from '../../src/lib/server/opensprinkler/schedule-time';
+import { openSettingsDb } from '../../src/lib/server/settings/db';
+import { setSetting } from '../../src/lib/server/settings/store';
+import {
+  resetSiteTimeZoneCache,
+  warmSiteTimeZone
+} from '../../src/lib/server/settings/site-timezone';
 
 const TZ = 'America/Toronto';
 
@@ -50,6 +56,7 @@ describe('getScheduleTimeZone', () => {
   const KEYS = ['GROW_SCHEDULE_TZ', 'TZ'];
   const saved: Record<string, string | undefined> = {};
   beforeEach(() => {
+    resetSiteTimeZoneCache();
     KEYS.forEach((k) => {
       saved[k] = process.env[k];
       delete process.env[k];
@@ -60,6 +67,7 @@ describe('getScheduleTimeZone', () => {
       if (saved[k] === undefined) delete process.env[k];
       else process.env[k] = saved[k];
     });
+    resetSiteTimeZoneCache();
     vi.restoreAllMocks();
   });
 
@@ -70,6 +78,27 @@ describe('getScheduleTimeZone', () => {
 
   it('degrades a typo to UTC (no throw) with a logged warning', () => {
     process.env.GROW_SCHEDULE_TZ = 'America/Teronto';
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(getScheduleTimeZone()).toBe('UTC');
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('lets a persisted zone override GROW_SCHEDULE_TZ', () => {
+    // Persisted setting is the source of truth; an env override present at the same
+    // time must lose to it once the cache is warm.
+    const db = openSettingsDb(':memory:');
+    setSetting(db, 'site_timezone', 'America/Chicago');
+    warmSiteTimeZone(db);
+    process.env.GROW_SCHEDULE_TZ = 'America/Toronto';
+    expect(getScheduleTimeZone()).toBe('America/Chicago');
+  });
+
+  it('degrades an invalid persisted zone to UTC (no fall-through to env)', () => {
+    // A stored typo is the first *present* candidate, so it is chosen and validated;
+    // like the env typo it degrades to UTC rather than falling through to the host.
+    const db = openSettingsDb(':memory:');
+    setSetting(db, 'site_timezone', 'America/Teronto');
+    warmSiteTimeZone(db);
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(getScheduleTimeZone()).toBe('UTC');
     expect(spy).toHaveBeenCalled();
