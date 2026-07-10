@@ -38,7 +38,12 @@
   });
 
   const sched = $derived(
-    computeSchedule(onTime ? live.stateFor(onTime).value : null, offTime ? live.stateFor(offTime).value : null, now)
+    computeSchedule(
+      onTime ? live.stateFor(onTime).value : null,
+      offTime ? live.stateFor(offTime).value : null,
+      now,
+      snap.timezone
+    )
   );
 
   const statusText = $derived.by(() => {
