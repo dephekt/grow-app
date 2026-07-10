@@ -1,4 +1,4 @@
-import { getSiteMqttService } from './service';
+import { getSiteMqttService, type SiteMqttService } from './service';
 import type { SnapshotEvent } from './types';
 import { deviceDesiredTimeZone } from '$lib/server/settings/site-timezone';
 import { posixTzFromIana, type PosixResult } from '$lib/server/tz/posix-tz';
@@ -96,12 +96,14 @@ export async function reconcileTimeZone(deps: ReconcileTimeZoneDeps): Promise<Re
 const lastPublished = new Map<string, string>();
 let lastWarnedIana: string | null = null;
 
-function runReconcilePass({ resetAttempts }: { resetAttempts: boolean }): Promise<ReconcileReport> {
+function runReconcilePass(
+  service: SiteMqttService,
+  { resetAttempts }: { resetAttempts: boolean }
+): Promise<ReconcileReport> {
   if (resetAttempts) {
     lastPublished.clear();
     lastWarnedIana = null;
   }
-  const service = getSiteMqttService();
   const entities: ReconcileTzEntity[] = service.timeZoneEntities().map((entity) => ({
     id: entity.id,
     currentValue: service.entityState(entity.id).value
@@ -125,8 +127,10 @@ function runReconcilePass({ resetAttempts }: { resetAttempts: boolean }): Promis
 
 /** Force a fresh reconcile of the current site zone (clears the loop guard). Called by
  *  the timezone PUT after persisting a new value so devices are re-stamped immediately. */
-export function reconcileSiteTimezone(): Promise<ReconcileReport> {
-  return runReconcilePass({ resetAttempts: true });
+export function reconcileSiteTimezone(
+  service: SiteMqttService = getSiteMqttService()
+): Promise<ReconcileReport> {
+  return runReconcilePass(service, { resetAttempts: true });
 }
 
 function isTimeZoneEntity(event: SnapshotEvent): boolean {
@@ -142,19 +146,29 @@ function isTimeZoneEntity(event: SnapshotEvent): boolean {
 
 /**
  * Wire the reconciler to broker/discovery events (web-app path only; never the recorder).
- * Reconnect resets the loop guard and re-pushes; a freshly discovered time_zone entity
- * triggers a no-reset pass so only the new node gets stamped. One boot pass covers
+ * A broker reconnect resets the whole loop guard and re-pushes. A (re)discovered time_zone
+ * entity clears just that entity's guard and runs a no-reset pass, so a node that reconnects
+ * after missing a change (its retained discovery re-publishes on connect) is re-stamped
+ * against its real echoed state while other entities keep their guard. One boot pass covers
  * whatever is already retained. There is no timer — the reconciler is purely event-driven,
  * and every pass is `.catch`-guarded so a publish failure can't escape into the emitter.
  */
-export function startSiteTimezoneReconciler(): void {
-  const service = getSiteMqttService();
+export function startSiteTimezoneReconciler(service: SiteMqttService = getSiteMqttService()): void {
   const guarded = (resetAttempts: boolean) =>
-    void runReconcilePass({ resetAttempts }).catch((error) => console.error('[tz] reconcile pass failed', error));
+    void runReconcilePass(service, { resetAttempts }).catch((error) =>
+      console.error('[tz] reconcile pass failed', error)
+    );
 
   service.subscribe((event: SnapshotEvent) => {
     if (event.type === 'broker' && event.broker?.connected) guarded(true);
-    else if (isTimeZoneEntity(event)) guarded(false);
+    else if (isTimeZoneEntity(event)) {
+      // A device re-publishing its retained discovery config is a (re)connect. Clear just
+      // this entity's loop guard so a node that was offline when the zone last changed is
+      // re-stamped against its real echoed state — without a global reset that would also
+      // re-attempt a device still (correctly) rejecting a value it already received.
+      if (event.entity) lastPublished.delete(event.entity.id);
+      guarded(false);
+    }
   });
 
   guarded(true);
