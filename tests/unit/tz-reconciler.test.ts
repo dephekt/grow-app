@@ -1,6 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
-import { reconcileTimeZone, type ReconcileTimeZoneDeps, type ReconcileTzEntity } from '../../src/lib/server/mqtt/tz-reconciler';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  reconcileTimeZone,
+  startSiteTimezoneReconciler,
+  type ReconcileTimeZoneDeps,
+  type ReconcileTzEntity
+} from '../../src/lib/server/mqtt/tz-reconciler';
 import { SiteMqttService } from '../../src/lib/server/mqtt/service';
+import type { SnapshotEvent } from '../../src/lib/server/mqtt/types';
+import { resetSiteTimeZoneCache } from '../../src/lib/server/settings/site-timezone';
 import type { PosixResult } from '../../src/lib/server/tz/posix-tz';
 
 const CHICAGO = 'America/Chicago';
@@ -128,6 +135,67 @@ describe('reconcileTimeZone — loop guard vs. reset across a session', () => {
     await reconcileTimeZone({ ...makeDeps({ toPosix, warn }).deps });
     await reconcileTimeZone({ ...makeDeps({ toPosix, warn }).deps });
     expect(sink).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('startSiteTimezoneReconciler — a reconnecting device is re-stamped', () => {
+  const KEYS = ['GROW_SCHEDULE_TZ', 'TZ'];
+  const saved: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    KEYS.forEach((k) => {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    });
+    // An explicit env source so deviceDesiredTimeZone() returns Chicago (a host/UTC guess
+    // would be withheld from the device push).
+    process.env.GROW_SCHEDULE_TZ = CHICAGO;
+    resetSiteTimeZoneCache();
+  });
+
+  afterEach(() => {
+    KEYS.forEach((k) => {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    });
+    resetSiteTimeZoneCache();
+  });
+
+  it('clears the entity loop guard on re-discovery so an offline-missed device converges', async () => {
+    const handlers: Array<(event: SnapshotEvent) => void> = [];
+    const published: Array<[string, string]> = [];
+    // The device stays on its build default ('') the whole time — it never echoes the
+    // pushed POSIX, modelling a node that was offline when the retain:false command went
+    // out and so never received it.
+    const fake = {
+      subscribe: (fn: (event: SnapshotEvent) => void) => {
+        handlers.push(fn);
+        return () => {};
+      },
+      timeZoneEntities: () => [{ id: 'plug_time_zone', component: 'text', objectId: 'time_zone', commandTopic: 'x' }],
+      entityState: () => ({ value: '' }),
+      publishCommand: (id: string, req: { value: string }) => {
+        published.push([id, req.value]);
+        return Promise.resolve();
+      }
+    } as unknown as SiteMqttService;
+
+    startSiteTimezoneReconciler(fake);
+    // The boot pass publishes once.
+    await vi.waitFor(() => expect(published).toHaveLength(1));
+    expect(published[0]).toEqual(['plug_time_zone', CHICAGO_POSIX]);
+
+    // The device reconnects and re-publishes its retained discovery config → an entity
+    // event. Its echoed state is still '' (it never got the command), so without clearing
+    // the guard it would be skipped as 'already-attempted'; the fix must re-send the POSIX.
+    handlers.forEach((h) =>
+      h({
+        type: 'entity',
+        entity: { id: 'plug_time_zone', component: 'text', objectId: 'time_zone', commandTopic: 'x' }
+      } as unknown as SnapshotEvent)
+    );
+    await vi.waitFor(() => expect(published).toHaveLength(2));
+    expect(published[1]).toEqual(['plug_time_zone', CHICAGO_POSIX]);
   });
 });
 

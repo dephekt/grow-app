@@ -17,10 +17,15 @@
 
   const zones = $derived(data.zones);
 
+  // The effective zone can be an IANA alias (e.g. US/Eastern) that Intl.supportedValuesOf
+  // omits; surface it as an option so the picker highlights the current selection instead
+  // of rendering blank.
+  const allZones = $derived(zones.includes(selected) ? zones : [selected, ...zones]);
+
   // Client-side type-to-narrow: the full IANA list is ~600 entries, so a plain filter box
   // over a native <select> keeps it usable without pulling in a combobox dependency.
   const visibleZones = $derived(
-    filter.trim() ? zones.filter((z) => z.toLowerCase().includes(filter.trim().toLowerCase())) : zones
+    filter.trim() ? allZones.filter((z) => z.toLowerCase().includes(filter.trim().toLowerCase())) : allZones
   );
 
   // Only meaningful when nothing is persisted — explains which env/host default is winning
