@@ -30,11 +30,12 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 # Default the SQLite DBs onto a writable, node-owned path so the image works even
-# without an explicit override; compose mounts a named volume here. Both live on the
-# same /data volume (created below); the code defaults are relative (./data), which is
-# not writable by the node user at /app.
+# without an explicit override; compose mounts a named volume here. All three live on
+# the same /data volume (created below); the code defaults are relative (./data), which
+# is not writable by the node user at /app.
 ENV GROW_AUTH_DB=/data/auth.db
 ENV GROW_IRRIGATION_DB=/data/irrigation.db
+ENV GROW_SETTINGS_DB=/data/settings.db
 
 WORKDIR /app
 
