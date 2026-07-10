@@ -9,6 +9,7 @@ import type { Snapshot } from '../../src/lib/server/mqtt/types';
  */
 export const liveSnapshot = {
   "site": "daniel-home",
+  "timezone": "UTC",
   "topicPrefix": "grow/daniel-home",
   "discoveryPrefix": "grow/daniel-home/_discovery",
   "generatedAt": "2026-06-29T10:05:27.283Z",
