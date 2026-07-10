@@ -62,7 +62,11 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
 
       unsubscribe = service.subscribe((event) => {
         try {
-          controller.enqueue(encode(event.type, event));
+          // A live `snapshot` event (e.g. a site-timezone change) must carry the raw
+          // snapshot as its payload, matching the initial push above and the client's
+          // `snapshot` listener, which reads snapshot fields off the top level. Only
+          // incremental events (entity/state/…) travel as the wrapped envelope.
+          controller.enqueue(encode(event.type, event.type === 'snapshot' ? event.snapshot : event));
         } catch {
           // Reader vanished between disconnect and cancel(); stop feeding it.
           closeStream();

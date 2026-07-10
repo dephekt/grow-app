@@ -24,8 +24,9 @@ const NUL = 0x00;
 
 /**
  * Extract the TZif v2+ POSIX footer for `iana`. Guard order matters: validate the zone
- * name with `Intl` first, then a strict charset guard (IANA names are `[A-Za-z0-9_+-/]`
- * only — no dot — so this also blocks `../../` path traversal before any fs read), then
+ * name with `Intl` first, then a strict charset guard (IANA names use only
+ * `[A-Za-z0-9_+/-]` — notably no `.` — so this rejects any dot-bearing input such as
+ * `../../` as a second layer of path-traversal defense before any fs read), then
  * read the file. A TZif v2+ file ends with `\n<POSIX-TZ>\n`; the footer is the bytes
  * between the final two newlines. Every rejection returns a distinct `reason` so the
  * reconciler's one-shot warning is diagnosable, and the byte-level checks ensure we
@@ -33,7 +34,8 @@ const NUL = 0x00;
  */
 export function posixTzFromIana(iana: string, readZoneinfo: ZoneinfoReader = defaultReader): PosixResult {
   if (!isValidTimeZone(iana)) return { ok: false, reason: 'invalid-zone' };
-  if (!/^[A-Za-z0-9_+-/]+$/.test(iana)) return { ok: false, reason: 'bad-charset' };
+  // `-` is last so it is a literal, not a `+`..`/` range that would admit `.` and `,`.
+  if (!/^[A-Za-z0-9_+/-]+$/.test(iana)) return { ok: false, reason: 'bad-charset' };
 
   let buf: Buffer;
   try {
