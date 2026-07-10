@@ -107,6 +107,7 @@
       <button class="menu-item" role="menuitem" onclick={openPasswordDialog}>{passwordAction}</button>
       {#if user.isAdmin}
         <a class="menu-item" role="menuitem" href="/settings/users" onclick={() => (menuOpen = false)}>Manage users</a>
+        <a class="menu-item" role="menuitem" href="/settings/site" onclick={() => (menuOpen = false)}>Site settings</a>
       {/if}
       <button class="menu-item danger" role="menuitem" onclick={signOut}>Sign out</button>
     </div>
