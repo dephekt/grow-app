@@ -1,5 +1,4 @@
-import { env } from '$lib/server/env';
-import { isValidTimeZone } from '$lib/server/tz/valid';
+import { resolveSiteTimeZone } from '$lib/server/settings/site-timezone';
 
 /**
  * DST-correct wall-clock ↔ UTC conversion with no tz library. Schedules store local
@@ -9,19 +8,13 @@ import { isValidTimeZone } from '$lib/server/tz/valid';
  * dependency — Node ships full-tz ICU, so `America/Toronto` resolves correctly.
  */
 
-/** The zone all schedule wall-clock times are interpreted in. Explicit override
- *  first, then the process TZ, then the host's resolved zone, then UTC. A typo'd
- *  override (e.g. `America/Teronto`) degrades to UTC with a logged warning rather
- *  than throwing deep in the tz math on every schedule read and every tick. */
+/** The zone all schedule wall-clock times are interpreted in. Delegates to the shared
+ *  site-timezone resolver so the scheduler, the snapshot, and the MQTT reconciler all
+ *  agree on one zone (persisted setting first, then the env chain, then UTC). A typo'd
+ *  override still degrades to UTC with a logged warning rather than throwing deep in
+ *  the tz math on every schedule read and every tick. */
 export function getScheduleTimeZone(): string {
-  const resolved =
-    env('GROW_SCHEDULE_TZ') ??
-    env('TZ') ??
-    Intl.DateTimeFormat().resolvedOptions().timeZone ??
-    'UTC';
-  if (isValidTimeZone(resolved)) return resolved;
-  console.error(`[schedule] invalid time zone "${resolved}" (GROW_SCHEDULE_TZ/TZ); falling back to UTC`);
-  return 'UTC';
+  return resolveSiteTimeZone().zone;
 }
 
 /** Read the year/month/day/hour/minute/second a UTC instant shows on the wall in `tz`. */
