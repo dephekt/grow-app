@@ -178,13 +178,15 @@
     <div class="row">
       <span class="row-label">Brightness</span>
       <div class="slider-wrap">
+        <!-- Not gated on `offline`: the dimmer lives on a different node (the DAC),
+             so the plug being offline doesn't apply to it. -->
         <input
           type="range"
           min="0"
           max="100"
           step="1"
           value={sliderValue}
-          disabled={offline || live.commandPending[dimmer.id]}
+          disabled={live.commandPending[dimmer.id]}
           oninput={(e) => onDimmerInput(Number(e.currentTarget.value))}
           onchange={(e) => onDimmerChange(Number(e.currentTarget.value))}
         />
