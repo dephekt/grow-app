@@ -1,4 +1,5 @@
 import { env } from '$lib/server/env';
+import { isValidTimeZone } from '$lib/server/tz/valid';
 
 /**
  * DST-correct wall-clock ↔ UTC conversion with no tz library. Schedules store local
@@ -7,18 +8,6 @@ import { env } from '$lib/server/env';
  * the platform's IANA tz database via `Intl.DateTimeFormat` rather than pulling in a
  * dependency — Node ships full-tz ICU, so `America/Toronto` resolves correctly.
  */
-
-/** Whether the platform's Intl accepts `tz` as an IANA zone. Constructing a formatter
- *  with a bad zone throws RangeError — which, if it reached the tz math, would 500 the
- *  schedules API and stall every tick — so we probe it here instead. */
-function isValidTimeZone(tz: string): boolean {
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /** The zone all schedule wall-clock times are interpreted in. Explicit override
  *  first, then the process TZ, then the host's resolved zone, then UTC. A typo'd
