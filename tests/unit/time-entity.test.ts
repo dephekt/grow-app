@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  parseTimeParts,
-  timeCommandPayload,
-  timeStateToClock,
-  toTimeInputValue
-} from '../../src/lib/time-entity';
+import { parseTimeParts, timeCommandPayload, toTimeInputValue } from '../../src/lib/time-entity';
 
 describe('parseTimeParts', () => {
   it('parses the ESPHome JSON state blob', () => {
@@ -60,21 +55,6 @@ describe('parseTimeParts', () => {
     expect(parseTimeParts('   ')).toBeNull();
     expect(parseTimeParts(null)).toBeNull();
     expect(parseTimeParts(undefined)).toBeNull();
-  });
-});
-
-describe('timeStateToClock', () => {
-  it('renders zero-padded HH:MM:SS from a blob', () => {
-    expect(timeStateToClock('{"hour": 6, "minute": 5, "second": 9}')).toBe('06:05:09');
-  });
-
-  it('renders zero-padded HH:MM:SS from a clock string', () => {
-    expect(timeStateToClock('6:05')).toBe('06:05:00');
-  });
-
-  it('returns null for unparseable input', () => {
-    expect(timeStateToClock('nonsense')).toBeNull();
-    expect(timeStateToClock(null)).toBeNull();
   });
 });
 

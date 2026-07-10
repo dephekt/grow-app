@@ -1,5 +1,5 @@
 import type { EntityConfig, EntityState } from '$lib/server/mqtt/types';
-import { timeStateToClock } from '$lib/time-entity';
+import { toTimeInputValue } from '$lib/time-entity';
 
 function formattedNumericValue(value: string, precision: number | undefined): string {
   if (precision === undefined) return value;
@@ -16,9 +16,13 @@ function formattedNumericValue(value: string, precision: number | undefined): st
 export function formatEntityState(entity: EntityConfig, state: EntityState): string {
   if (state.value === null || state.value === undefined || state.value === '') return 'No state yet';
 
+  // Time entities display at minute granularity (HH:MM), matching the
+  // <input type="time"> editor — seconds are meaningless for the photoperiod
+  // schedule. An unparseable payload reads as "No state yet" rather than falling
+  // through and re-rendering the raw JSON blob this codec exists to hide.
   if (entity.component === 'time') {
-    const clock = timeStateToClock(state.value);
-    if (clock !== null) return clock;
+    const display = toTimeInputValue(state.value);
+    return display === '' ? 'No state yet' : display;
   }
 
   const value = formattedNumericValue(state.value, entity.suggestedDisplayPrecision);
