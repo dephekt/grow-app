@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
+  import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
   import type { Zone } from '$lib/server/opensprinkler/zones';
   import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
 
@@ -303,6 +304,8 @@
     <a class="back" href="/">← Dashboard</a>
     <h1>Irrigation</h1>
   </header>
+
+  <IrrigationCard {live} />
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}
 
