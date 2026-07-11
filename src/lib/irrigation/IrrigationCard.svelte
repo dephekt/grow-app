@@ -1,0 +1,210 @@
+<script lang="ts">
+  import type { LiveSnapshot } from '$lib/live-snapshot-context';
+  import type { EntityConfig } from '$lib/server/mqtt/types';
+  import {
+    resolveEntity,
+    openSprinklerAvailability,
+    anyStationRunning,
+    computeFailsafe,
+    irrigationDrawing,
+    runoffRunning,
+    IRRIGATION_NODE,
+    RUNOFF_NODE
+  } from './model';
+
+  let { live }: { live: LiveSnapshot } = $props();
+  const snap = $derived(live.snapshot);
+
+  // Only render once at least one pump plug is discovered.
+  const hasPumps = $derived(snap.devices.some((d) => d.id === IRRIGATION_NODE || d.id === RUNOFF_NODE));
+
+  const osAvail = $derived(openSprinklerAvailability(snap));
+  const zoneOpen = $derived(anyStationRunning(snap));
+  const failsafe = $derived(computeFailsafe(snap));
+  const osText = $derived(
+    osAvail === 'online' ? (zoneOpen ? 'watering' : 'online') : osAvail === 'offline' ? 'offline' : 'not seen'
+  );
+
+  interface PumpView {
+    offline: boolean;
+    running: boolean;
+    power: EntityConfig | undefined;
+    voltage: EntityConfig | undefined;
+    current: EntityConfig | undefined;
+    daily: EntityConfig | undefined;
+  }
+
+  function deviceOffline(node: string): boolean {
+    return snap.devices.find((d) => d.id === node)?.availability === 'offline';
+  }
+
+  const irrigation = $derived<PumpView>({
+    offline: deviceOffline(IRRIGATION_NODE),
+    running: irrigationDrawing(snap),
+    power: resolveEntity(snap, { node: IRRIGATION_NODE, objectId: 'pump_power' }),
+    voltage: resolveEntity(snap, { node: IRRIGATION_NODE, objectId: 'voltage' }),
+    current: resolveEntity(snap, { node: IRRIGATION_NODE, objectId: 'current' }),
+    daily: resolveEntity(snap, { node: IRRIGATION_NODE, objectId: 'total_daily_energy' })
+  });
+  const runoff = $derived<PumpView>({
+    offline: deviceOffline(RUNOFF_NODE),
+    running: runoffRunning(snap),
+    power: resolveEntity(snap, { node: RUNOFF_NODE, objectId: 'runoff_pump_power' }),
+    voltage: resolveEntity(snap, { node: RUNOFF_NODE, objectId: 'voltage' }),
+    current: resolveEntity(snap, { node: RUNOFF_NODE, objectId: 'current' }),
+    daily: resolveEntity(snap, { node: RUNOFF_NODE, objectId: 'total_daily_energy' })
+  });
+
+  function fmt(entity: EntityConfig | undefined): string {
+    return entity ? live.formatState(entity) : '—';
+  }
+</script>
+
+{#snippet pumpRow(name: string, pump: PumpView)}
+  <div class="pump">
+    <div class="pump-head">
+      <span class="dot {pump.offline ? 'faint' : pump.running ? 'ok pulse' : ''}"></span>
+      <span class="pump-name">{name}</span>
+      <span class="pump-state mono" class:run={pump.running && !pump.offline} class:bad={pump.offline}>
+        {pump.offline ? 'offline' : pump.running ? 'running' : 'idle'}
+      </span>
+    </div>
+    <div class="metrics">
+      <div class="metric"><span class="metric-label">Power</span><span class="metric-value mono">{fmt(pump.power)}</span></div>
+      <div class="metric"><span class="metric-label">Voltage</span><span class="metric-value mono">{fmt(pump.voltage)}</span></div>
+      <div class="metric"><span class="metric-label">Current</span><span class="metric-value mono">{fmt(pump.current)}</span></div>
+      <div class="metric"><span class="metric-label">Today</span><span class="metric-value mono">{fmt(pump.daily)}</span></div>
+    </div>
+  </div>
+{/snippet}
+
+{#if hasPumps}
+  <article class="panel irrigation-card">
+    <div class="panel-head">
+      <span class="panel-title">Irrigation</span>
+      <span class="os mono" class:on={osAvail === 'online'} class:bad={osAvail === 'offline'}>
+        <span class="dot {osAvail === 'online' ? 'ok' : osAvail === 'offline' ? 'alert' : 'faint'}"></span>
+        OpenSprinkler {osText}
+      </span>
+    </div>
+
+    {@render pumpRow('Irrigation Pump', irrigation)}
+    {@render pumpRow('Runoff Pump', runoff)}
+
+    <div class="failsafe" class:ok={failsafe === 'ok'} class:fault={failsafe === 'fault'} class:idle={failsafe === 'idle'}>
+      <span class="dot {failsafe === 'ok' ? 'ok' : failsafe === 'fault' ? 'alert' : 'faint'}"></span>
+      {#if failsafe === 'fault'}
+        <span><b>No flow</b> — a zone is open but the irrigation pump is drawing ~0&nbsp;W. Check the pump.</span>
+      {:else if failsafe === 'ok'}
+        <span><b>Flow confirmed</b> — a zone is open and the irrigation pump is drawing.</span>
+      {:else}
+        <span>No zone open.</span>
+      {/if}
+    </div>
+  </article>
+{/if}
+
+<style>
+  .irrigation-card {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+  }
+
+  .os {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .os.on {
+    color: var(--ok);
+  }
+  .os.bad {
+    color: var(--alert);
+  }
+
+  .pump {
+    display: grid;
+    gap: 9px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+
+  .pump-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .pump-name {
+    font-size: 0.92rem;
+    color: var(--text);
+  }
+  .pump-state {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .pump-state.run {
+    color: var(--ok);
+  }
+  .pump-state.bad {
+    color: var(--alert);
+  }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px 16px;
+    padding-left: 17px;
+  }
+  .metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .metric-label {
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .metric-value {
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  .failsafe {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 12px;
+    border-radius: var(--r-control);
+    font-size: 0.74rem;
+    line-height: 1.35;
+  }
+  .failsafe b {
+    font-weight: 700;
+  }
+  .failsafe.ok {
+    background: rgba(63, 185, 80, 0.08);
+    border: 1px solid rgba(63, 185, 80, 0.25);
+    color: var(--text);
+  }
+  .failsafe.fault {
+    background: rgba(240, 86, 58, 0.09);
+    border: 1px solid rgba(240, 86, 58, 0.3);
+    color: var(--text);
+  }
+  .failsafe.idle {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+</style>
