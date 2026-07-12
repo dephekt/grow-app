@@ -5,6 +5,8 @@ import { buildCommandPublish, normalizeDiscoveryId, parseDiscoveryPayload } from
 import { getSiteMqttConfig, type SiteMqttConfig } from './config';
 import { matchStationTopic, normalizeStationState, stationStateTopic } from '$lib/server/opensprinkler/normalize';
 import { parseUiConfigPayload } from './ui-metadata';
+import { parseSpectrumPayload, type RawSpectrumFrame } from './spectrum-metadata';
+import { processSpectrum } from '$lib/spectrum/calibration';
 import { parseLightsConfigPayload } from './light-metadata';
 import { resolveSiteTimeZone } from '$lib/server/settings/site-timezone';
 import {
@@ -27,6 +29,7 @@ import type {
   FirmwareSnapshot,
   LightConfig,
   LightRoleRef,
+  LiveSpectrum,
   Snapshot,
   SnapshotEvent
 } from './types';
@@ -49,6 +52,7 @@ export class SiteMqttService {
   private readonly emitter = new EventEmitter();
   private readonly cameraFrames = new Map<string, { bytes: Uint8Array; contentType: string; fetchedAt: number }>();
   private readonly cameraFetches = new Map<string, Promise<{ bytes: Uint8Array; contentType: string } | null>>();
+  private readonly latestSpectrumByNode = new Map<string, LiveSpectrum>();
   private broker: BrokerSnapshot = {
     connected: false,
     connecting: false,
@@ -288,6 +292,43 @@ export class SiteMqttService {
     return await promise;
   }
 
+  private ingestSpectrum(nodeId: string, frame: RawSpectrumFrame | null): void {
+    if (!frame) {
+      this.latestSpectrumByNode.delete(nodeId);
+      this.emit({ type: 'spectrum', nodeId, spectrum: null });
+      return;
+    }
+    const processed = processSpectrum(frame.counts, {
+      integrationUs: frame.integrationUs,
+      saturated: frame.saturated,
+      adcFullScale: (1 << frame.adcBits) - 1
+    });
+    const live: LiveSpectrum = {
+      nodeId,
+      seq: frame.seq,
+      integrationUs: frame.integrationUs,
+      saturated: frame.saturated,
+      adcBits: frame.adcBits,
+      fw: frame.fw,
+      capturedAt: new Date().toISOString(),
+      counts: frame.counts,
+      processed
+    };
+    this.latestSpectrumByNode.set(nodeId, live);
+    this.emit({ type: 'spectrum', nodeId, spectrum: live });
+  }
+
+  /** Latest processed spectrum for `nodeId`, or the single spectrometer when omitted. */
+  latestSpectrum(nodeId?: string): LiveSpectrum | null {
+    if (nodeId) return this.latestSpectrumByNode.get(nodeId) ?? null;
+    const first = this.latestSpectrumByNode.values().next();
+    return first.done ? null : first.value;
+  }
+
+  spectrometerNodeIds(): string[] {
+    return [...this.latestSpectrumByNode.keys()];
+  }
+
   private handleMessage(topic: string, payload: string): void {
     this.broker = { ...this.broker, lastMessageAt: new Date().toISOString() };
     this.retainedByTopic.set(topic, payload);
@@ -330,6 +371,14 @@ export class SiteMqttService {
       if (firmwareChannel.config) this.firmwareChannelByNodeId.set(firmwareChannel.nodeId, firmwareChannel.config);
       else this.firmwareChannelByNodeId.delete(firmwareChannel.nodeId);
       this.emitFirmware();
+      return;
+    }
+
+    // Bulk spectrometer frame: kept out of the scalar state map (camera precedent),
+    // processed once here, and delivered via a dedicated `spectrum` event.
+    const spectrum = parseSpectrumPayload(topic, payload, this.config.topicPrefix);
+    if (spectrum) {
+      this.ingestSpectrum(spectrum.nodeId, spectrum.frame);
       return;
     }
 

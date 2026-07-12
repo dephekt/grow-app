@@ -1,3 +1,5 @@
+import type { ProcessedSpectrum } from '$lib/spectrum/calibration';
+
 export type EntityComponent =
   | 'sensor'
   | 'binary_sensor'
@@ -160,6 +162,21 @@ export interface FirmwareSnapshot {
   channels: Record<string, FirmwareChannelConfig>;
 }
 
+/** Latest spectrometer frame: raw counts (source of truth for re-processing) plus the
+ *  render-ready processed spectrum. Kept OUT of Snapshot (the MLX90640 camera precedent
+ *  for bulk payloads) — delivered via a dedicated `spectrum` event + /api/spectrum/live. */
+export interface LiveSpectrum {
+  nodeId: string;
+  seq: number;
+  integrationUs: number;
+  saturated: boolean;
+  adcBits: number;
+  fw: string | null;
+  capturedAt: string;
+  counts: number[];
+  processed: ProcessedSpectrum;
+}
+
 export interface EntityState {
   value: string | null;
   updatedAt: string | null;
@@ -189,7 +206,7 @@ export interface Snapshot {
 }
 
 export interface SnapshotEvent {
-  type: 'snapshot' | 'entity' | 'state' | 'availability' | 'broker' | 'ui' | 'firmware';
+  type: 'snapshot' | 'entity' | 'state' | 'availability' | 'broker' | 'ui' | 'firmware' | 'spectrum';
   snapshot?: Snapshot;
   entity?: EntityConfig;
   entityId?: string;
@@ -200,6 +217,7 @@ export interface SnapshotEvent {
   uiConfig?: DeviceUiConfig;
   nodeId?: string;
   firmware?: FirmwareSnapshot;
+  spectrum?: LiveSpectrum | null;
 }
 
 export interface CommandRequest {
