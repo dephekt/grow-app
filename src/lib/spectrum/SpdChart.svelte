@@ -2,16 +2,16 @@
   // Spectral Power Distribution: 0–100% relative power vs wavelength, filled with a
   // spectral rainbow gradient (Pulse-style). Forks the Sparkline SVG technique with a
   // wavelength x-axis + a fixed 0–100 y-domain + a per-wavelength gradient fill.
+  import { WAVELENGTHS } from '$lib/spectrum/calibration';
+
+  // The x-axis is the calibration's invariant wavelength grid (index-aligned to `relative`),
+  // so it's imported here rather than shipped in every frame's payload.
   let {
-    wavelengths,
     relative,
-    peakNm = 0,
     saturated = false,
     peaks = []
   }: {
-    wavelengths: number[];
     relative: number[];
-    peakNm?: number;
     saturated?: boolean;
     peaks?: number[];
   } = $props();
@@ -53,8 +53,8 @@
 
   const pts = $derived.by(() => {
     const out: Array<[number, number]> = [];
-    for (let i = 0; i < wavelengths.length; i++) {
-      const nm = wavelengths[i];
+    for (let i = 0; i < WAVELENGTHS.length; i++) {
+      const nm = WAVELENGTHS[i];
       if (nm < WL_MIN || nm > WL_MAX) continue;
       out.push([px(nm), py(relative[i] ?? 0)]);
     }

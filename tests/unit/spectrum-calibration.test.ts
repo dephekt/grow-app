@@ -54,4 +54,19 @@ describe('spectrum calibration', () => {
     const p = processSpectrum(counts, { adcFullScale: 16383 });
     expect(p.saturated).toBe(true);
   });
+
+  it('reports a null peak (not a phantom ~320 nm) for an all-dark frame', () => {
+    const p = processSpectrum(new Array(PIXEL_COUNT).fill(0), { adcFullScale: 16383 });
+    expect(p.peakWavelengthNm).toBeNull();
+    expect(Math.max(...p.relative)).toBe(0);
+  });
+
+  it('ignores saturation in the optically-black dummy pixels', () => {
+    const counts = new Array(PIXEL_COUNT).fill(1000);
+    counts[2] = 16383; // dummy region (0..4) — a dark-offset spike, not real saturation
+    expect(processSpectrum(counts, { adcFullScale: 16383 }).saturated).toBe(false);
+    counts[2] = 1000;
+    counts[120] = 16383; // a real body pixel
+    expect(processSpectrum(counts, { adcFullScale: 16383 }).saturated).toBe(true);
+  });
 });
