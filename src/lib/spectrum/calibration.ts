@@ -108,11 +108,12 @@ const EPAR: [number, number] = [400, 750];
 const DUMMY_PIXELS = 5;
 
 export interface ProcessedSpectrum {
-  /** 288 wavelengths (nm) for the active coefficients. */
-  wavelengths: number[];
-  /** 0..100 relative power (dark-subtracted, response-corrected), max→100. Pulse's "Relative Power %". */
+  /** 0..100 relative power (dark-subtracted, response-corrected), max→100. Pulse's "Relative
+   *  Power %". Index-aligned to the module's WAVELENGTHS constant — the x-axis is invariant for
+   *  a given calibration, so consumers derive it from WAVELENGTHS rather than shipping it per frame. */
   relative: number[];
-  peakWavelengthNm: number;
+  /** Peak wavelength (nm), or null for a blank/all-dark frame (no signal above the baseline). */
+  peakWavelengthNm: number | null;
   /** Photon-share %, summing to 100 across the four bands. */
   bands: { blue: number; green: number; red: number; farRed: number };
   /** Absolute µmol·m⁻²·s⁻¹ — null until an anchor is set (or when saturated). */
@@ -184,7 +185,8 @@ function toCorrected(rawCounts: number[], cfg: SpectroConfig, dark?: number[]): 
 export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}): ProcessedSpectrum {
   const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...opts.config };
   const adcFullScale = opts.adcFullScale ?? 16383;
-  const saturated = opts.saturated || rawCounts.some((v) => v >= adcFullScale);
+  // Skip the optically-black dummy pixels — a dark-offset spike there is not real saturation.
+  const saturated = opts.saturated || rawCounts.some((v, i) => i >= DUMMY_PIXELS && v >= adcFullScale);
 
   // 1+2. dark subtraction + response correction → photon-domain corrected counts
   const corrected = toCorrected(rawCounts, cfg, opts.dark);
@@ -224,9 +226,8 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   }
 
   return {
-    wavelengths: WAVELENGTHS,
     relative,
-    peakWavelengthNm: WAVELENGTHS[peakIdx],
+    peakWavelengthNm: mx > 0 ? WAVELENGTHS[peakIdx] : null,
     bands,
     par,
     epar,

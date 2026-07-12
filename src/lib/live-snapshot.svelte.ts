@@ -74,6 +74,10 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
   let commandPending = $state<Record<string, boolean>>({});
   let commandErrors = $state<Record<string, string>>({});
   let spectrum = $state<LiveSpectrum | null>(null);
+  // True once the SSE stream has delivered any spectrum event (frame OR clear). Lets a
+  // retained-clear (spectrum → null) win over the page loader's seed rather than reverting
+  // to a stale frame.
+  let spectrumReceived = $state(false);
 
   function connect(): () => void {
     const events = new EventSource('/api/events');
@@ -133,6 +137,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     events.addEventListener('spectrum', (event) => {
       const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
       spectrum = update.spectrum ?? null;
+      spectrumReceived = true;
     });
 
     events.onerror = () => {
@@ -262,6 +267,9 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     },
     get spectrum() {
       return spectrum;
+    },
+    get spectrumReceived() {
+      return spectrumReceived;
     },
     connect,
     stateFor,

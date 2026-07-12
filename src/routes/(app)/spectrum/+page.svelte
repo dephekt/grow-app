@@ -9,8 +9,10 @@
   let { data } = $props();
   const live = getLiveSnapshot();
 
-  // Live frame (SSE) with the loader's retained frame as first-paint fallback.
-  const liveSpectrum = $derived(live.spectrum ?? data.initialSpectrum);
+  // The loader's retained frame is only a first-paint seed; once the SSE stream has
+  // delivered anything (including a retained-clear → null) the live value is authoritative,
+  // so a clear doesn't fall back to the now-stale seed.
+  const liveSpectrum = $derived(live.spectrumReceived ? live.spectrum : data.initialSpectrum);
 
   let captures = $state<CaptureSummary[]>(untrack(() => data.captures));
   let selected = $state<CaptureDetail | null>(null);
@@ -80,11 +82,9 @@
       </div>
       {#if shown}
         <SpdChart
-          wavelengths={shown.processed.wavelengths}
           relative={shown.processed.relative}
-          peakNm={shown.processed.peakWavelengthNm}
           saturated={shown.processed.saturated}
-          peaks={[shown.processed.peakWavelengthNm]}
+          peaks={shown.processed.peakWavelengthNm == null ? [] : [shown.processed.peakWavelengthNm]}
         />
       {:else}
         <p class="empty">Waiting for the spectrometer to publish a frame…</p>
