@@ -22,7 +22,8 @@ describe('spectrum calibration', () => {
       const hi = WAVELENGTHS[Math.min(PIXEL_COUNT - 1, i + 1)];
       return Math.round(2000 * ((hi - lo) / 2));
     });
-    const p = processSpectrum(counts, { adcFullScale: 16383, dark: ZERO_DARK });
+    // Response correction OFF here — this tests the band-integration math, not the sensor de-tilt.
+    const p = processSpectrum(counts, { adcFullScale: 16383, dark: ZERO_DARK, config: { responseCorrection: null } });
     // ePAR window is 350 nm: blue/green/red 100 nm each (~28.6%), far-red 50 nm (~14.3%)
     expect(p.bands.blue).toBeCloseTo(28.6, 0);
     expect(p.bands.green).toBeCloseTo(28.6, 0);
@@ -33,7 +34,7 @@ describe('spectrum calibration', () => {
 
   it('normalizes to 0..100 with the peak at 100 and finds a blue peak', () => {
     const counts = WAVELENGTHS.map((nm) => 500 + Math.round(3000 * Math.exp(-((nm - 450) ** 2) / (2 * 30 ** 2))));
-    const p = processSpectrum(counts, { adcFullScale: 16383 });
+    const p = processSpectrum(counts, { adcFullScale: 16383, config: { responseCorrection: null } });
     expect(Math.max(...p.relative)).toBeCloseTo(100, 5);
     expect(Math.min(...p.relative)).toBeGreaterThanOrEqual(0);
     expect(p.peakWavelengthNm).toBeGreaterThan(430);
@@ -68,5 +69,34 @@ describe('spectrum calibration', () => {
     counts[2] = 1000;
     counts[120] = 16383; // a real body pixel
     expect(processSpectrum(counts, { adcFullScale: 16383 }).saturated).toBe(true);
+  });
+
+  it('response correction lifts red relative to blue (de-tilts the sensor response)', () => {
+    // Equal raw counts at a blue and a red pixel; after correction red reads higher, because the
+    // sensor under-reads 660 nm (S≈0.58) vs 450 nm (S≈0.97). Correction is ON by default.
+    const blueIdx = WAVELENGTHS.findIndex((nm) => nm >= 450);
+    const redIdx = WAVELENGTHS.findIndex((nm) => nm >= 660);
+    const counts = new Array(PIXEL_COUNT).fill(0);
+    counts[blueIdx] = 1000;
+    counts[redIdx] = 1000;
+    const p = processSpectrum(counts, { adcFullScale: 16383 });
+    expect(p.relative[redIdx]).toBeGreaterThan(p.relative[blueIdx]);
+    const ratio = p.relative[redIdx] / p.relative[blueIdx];
+    expect(ratio).toBeGreaterThan(1.4);
+    expect(ratio).toBeLessThan(2.0);
+  });
+
+  it('labels multiple prominent peaks — a blue and a red band, low→high', () => {
+    const counts = WAVELENGTHS.map(
+      (nm) =>
+        600 +
+        Math.round(3000 * Math.exp(-((nm - 450) ** 2) / (2 * 18 ** 2))) +
+        Math.round(2600 * Math.exp(-((nm - 655) ** 2) / (2 * 14 ** 2)))
+    );
+    const p = processSpectrum(counts, { adcFullScale: 16383, config: { responseCorrection: null } });
+    expect(p.peaks.length).toBeGreaterThanOrEqual(2);
+    expect(p.peaks.some((nm) => nm > 430 && nm < 470)).toBe(true);
+    expect(p.peaks.some((nm) => nm > 640 && nm < 675)).toBe(true);
+    expect([...p.peaks].sort((a, b) => a - b)).toEqual(p.peaks);
   });
 });

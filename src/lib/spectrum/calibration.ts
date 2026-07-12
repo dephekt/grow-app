@@ -68,14 +68,6 @@ export const WAVELENGTH_COEFFS: WavelengthCoeffs = {
   b5: 1.809281229e-12
 };
 
-export const SPECTRO_CONFIG: SpectroConfig = {
-  coeffs: WAVELENGTH_COEFFS,
-  responseCorrection: null,
-  responseDomain: 'photon',
-  darkFrame: null,
-  anchor: null
-};
-
 /** Pixel→wavelength (nm). p is 1-BASED per the Hamamatsu formula; counts[i] is pixel p=i+1. */
 export function pixelToWavelength(p: number, c: WavelengthCoeffs = WAVELENGTH_COEFFS): number {
   return c.a0 + c.b1 * p + c.b2 * p * p + c.b3 * p ** 3 + c.b4 * p ** 4 + c.b5 * p ** 5;
@@ -99,6 +91,57 @@ for (let i = 0; i < PIXEL_COUNT; i++) {
   DELTA_LAMBDA[i] = UPPER_EDGE[i] - LOWER_EDGE[i];
 }
 
+// C12880MA relative spectral sensitivity S(λ), digitized from the Hamamatsu datasheet
+// (KACC1226E, p.3 "Spectral response (typical example)", curve KACCB0381EA). The module is
+// blue-green peaked (~100% at 460–500 nm) and falls through the red — ~58% at 660 nm —
+// rolling off hard into the NIR (~20% at 800 nm). Anchor points read off the figure and
+// linearly interpolated onto the pixel grid. It is a "typical example" (per-unit variance),
+// so the correction is approximate — a reference-lamp calibration would refine it.
+const C12880MA_SENSITIVITY: ReadonlyArray<readonly [number, number]> = [
+  [340, 0.53], [360, 0.68], [380, 0.85], [400, 0.95], [420, 0.92], [440, 0.96],
+  [460, 0.99], [480, 1.0], [500, 0.99], [520, 0.96], [540, 0.93], [560, 0.88],
+  [580, 0.83], [600, 0.76], [620, 0.7], [640, 0.64], [660, 0.58], [680, 0.53],
+  [700, 0.48], [720, 0.42], [740, 0.37], [760, 0.31], [780, 0.26], [800, 0.2],
+  [820, 0.15], [840, 0.11], [850, 0.1]
+];
+
+function sensitivityAt(nm: number): number {
+  const pts = C12880MA_SENSITIVITY;
+  if (nm <= pts[0][0]) return pts[0][1];
+  const last = pts[pts.length - 1];
+  if (nm >= last[0]) return last[1];
+  for (let i = 1; i < pts.length; i++) {
+    if (nm <= pts[i][0]) {
+      const [x0, y0] = pts[i - 1];
+      const [x1, y1] = pts[i];
+      return y0 + ((y1 - y0) * (nm - x0)) / (x1 - x0);
+    }
+  }
+  return last[1];
+}
+
+// Per-pixel de-tilt multipliers = 1 / S(λ). Dividing measured counts by the sensor's
+// blue-green-peaked response recovers the true relative spectrum — notably lifting the
+// ~1.6× under-read red (S(660)≈0.58). Capped so the NIR tail (S→~0.1, no real signal there)
+// can't amplify noise without bound; the cap only bites beyond ~800 nm, past ePAR.
+const RESPONSE_CORRECTION_CAP = 4;
+export const C12880MA_RESPONSE_CORRECTION: number[] = WAVELENGTHS.map((nm) =>
+  Math.min(RESPONSE_CORRECTION_CAP, 1 / Math.max(sensitivityAt(nm), 1e-3))
+);
+
+// Runtime calibration/physics config. responseCorrection defaults ON (the datasheet C12880MA
+// curve) so the displayed spectrum isn't tilted by the sensor's own response; because captures
+// store raw counts, refining or disabling it reprocesses all history. responseDomain stays
+// 'photon' — the correction removes the instrument response; if the datasheet curve is later
+// confirmed to be an energy (per-watt) responsivity, flip to 'energy' to add the ×λ factor.
+export const SPECTRO_CONFIG: SpectroConfig = {
+  coeffs: WAVELENGTH_COEFFS,
+  responseCorrection: C12880MA_RESPONSE_CORRECTION,
+  responseDomain: 'photon',
+  darkFrame: null,
+  anchor: null
+};
+
 // Horticulture bands (nm), aligned to Pulse's Blue/Green/Red/IR tiles.
 const BANDS = { blue: [400, 500], green: [500, 600], red: [600, 700], farRed: [700, 750] } as const;
 const PAR: [number, number] = [400, 700];
@@ -114,6 +157,9 @@ export interface ProcessedSpectrum {
   relative: number[];
   /** Peak wavelength (nm), or null for a blank/all-dark frame (no signal above the baseline). */
   peakWavelengthNm: number | null;
+  /** Wavelengths (nm) of the prominent local maxima, low→high (e.g. the blue and red peaks of a
+   *  horticulture LED) — for chart labels. Empty for a blank frame. */
+  peaks: number[];
   /** Photon-share %, summing to 100 across the four bands. */
   bands: { blue: number; green: number; red: number; farRed: number };
   /** Absolute µmol·m⁻²·s⁻¹ — null until an anchor is set (or when saturated). */
@@ -181,6 +227,37 @@ function toCorrected(rawCounts: number[], cfg: SpectroConfig, dark?: number[]): 
   return corrected;
 }
 
+/** Prominent local maxima of the relative curve (the blue/red LED peaks, etc.), as wavelengths
+ *  low→high. Noise-robust: a candidate must be the max within ±WINDOW pixels, clear a height
+ *  floor, and sit ≥MIN_SEP_NM from any taller kept peak; capped at 3 so labels stay legible. */
+function findPeaks(relative: number[]): number[] {
+  const MIN_HEIGHT = 20;
+  const MIN_SEP_NM = 30;
+  const WINDOW = 6;
+  const candidates: Array<{ nm: number; h: number }> = [];
+  for (let i = DUMMY_PIXELS; i < relative.length; i++) {
+    const h = relative[i];
+    if (h < MIN_HEIGHT) continue;
+    const lo = Math.max(DUMMY_PIXELS, i - WINDOW);
+    const hi = Math.min(relative.length - 1, i + WINDOW);
+    let isMax = true;
+    for (let j = lo; j <= hi; j++) {
+      if (relative[j] > h) {
+        isMax = false;
+        break;
+      }
+    }
+    if (isMax) candidates.push({ nm: WAVELENGTHS[i], h });
+  }
+  candidates.sort((a, b) => b.h - a.h);
+  const kept: Array<{ nm: number; h: number }> = [];
+  for (const c of candidates) {
+    if (kept.every((k) => Math.abs(k.nm - c.nm) >= MIN_SEP_NM)) kept.push(c);
+    if (kept.length >= 3) break;
+  }
+  return kept.map((k) => k.nm).sort((a, b) => a - b);
+}
+
 /** Turn raw counts into a display-ready + (optionally) calibrated spectrum. */
 export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}): ProcessedSpectrum {
   const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...opts.config };
@@ -201,6 +278,7 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
     }
   }
   const relative = corrected.map((c) => (mx > 0 ? (100 * c) / mx : 0));
+  const peaks = findPeaks(relative);
 
   // 4. band photon-shares (denominator = ePAR total → four sum to 100, like Pulse)
   const iBlue = bandIntegral(corrected, BANDS.blue[0], BANDS.blue[1]);
@@ -228,6 +306,7 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   return {
     relative,
     peakWavelengthNm: mx > 0 ? WAVELENGTHS[peakIdx] : null,
+    peaks,
     bands,
     par,
     epar,

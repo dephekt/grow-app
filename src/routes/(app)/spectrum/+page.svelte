@@ -84,7 +84,7 @@
         <SpdChart
           relative={shown.processed.relative}
           saturated={shown.processed.saturated}
-          peaks={shown.processed.peakWavelengthNm == null ? [] : [shown.processed.peakWavelengthNm]}
+          peaks={shown.processed.peaks}
         />
       {:else}
         <p class="empty">Waiting for the spectrometer to publish a frame…</p>
