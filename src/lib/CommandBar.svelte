@@ -166,5 +166,12 @@
     .identity {
       flex-shrink: 0;
     }
+    /* Let the tabs flow onto a second row on narrow screens. Without this the
+       fixed-width tab strip is wider than a phone viewport (esp. once a 5th tab
+       is added), overflowing the page horizontally — which reads as a stray
+       horizontal scroll and, in tests, intercepts clicks on content below. */
+    .nav {
+      flex-wrap: wrap;
+    }
   }
 </style>
