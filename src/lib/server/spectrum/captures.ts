@@ -67,9 +67,8 @@ export function saveCapture(
   const p = live.processed;
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO captures (id, node_id, captured_at, seq, integration_us, saturated, adc_bits, fw, counts,
-       peak_nm, band_blue, band_green, band_red, band_far_red, par, epar, ppfd, calibrated, label, note)
-     VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?, ?,?,?, ?, ?, ?)`
+    `INSERT INTO captures (id, node_id, captured_at, seq, integration_us, saturated, adc_bits, fw, counts, label, note)
+     VALUES (?,?,?,?,?,?,?,?,?, ?,?)`
   ).run(
     id,
     live.nodeId,
@@ -80,15 +79,6 @@ export function saveCapture(
     live.adcBits,
     live.fw,
     JSON.stringify(live.counts),
-    p.peakWavelengthNm,
-    p.bands.blue,
-    p.bands.green,
-    p.bands.red,
-    p.bands.farRed,
-    p.par,
-    p.epar,
-    p.ppfd,
-    p.calibrated ? 1 : 0,
     input.label ?? null,
     input.note ?? null
   );

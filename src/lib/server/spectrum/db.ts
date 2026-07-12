@@ -3,10 +3,13 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { env } from '$lib/server/env';
 
-// Discrete saved spectrum captures. Stores the RAW counts (source of truth) plus
-// denormalized computed scalars for cheap listing; the raw array lets history be
-// reprocessed when calibration changes. Mirrors the opensprinkler/auth db pattern
-// (self-migrating node:sqlite). Separate DB file — the read-only recorder never opens it.
+// Discrete saved spectrum captures. Stores the RAW counts as the single source of
+// truth (plus a little frame metadata); every read reprocesses them through
+// processSpectrum, so history reflects the CURRENT calibration rather than freezing
+// at whatever scalars were computed when saved. That's why no computed columns
+// (peak/bands/par/ppfd/calibrated) are stored — they'd be stale the moment
+// SPECTRO_CONFIG changes. Mirrors the opensprinkler/auth db pattern (self-migrating
+// node:sqlite). Separate DB file — the read-only recorder never opens it.
 const MIGRATIONS: string[] = [
   // 1 — one row per saved capture
   `
@@ -19,16 +22,7 @@ const MIGRATIONS: string[] = [
     saturated      INTEGER NOT NULL DEFAULT 0,
     adc_bits       INTEGER,
     fw             TEXT,
-    counts         TEXT NOT NULL,          -- JSON number[288], source of truth
-    peak_nm        REAL,
-    band_blue      REAL,
-    band_green     REAL,
-    band_red       REAL,
-    band_far_red   REAL,
-    par            REAL,
-    epar           REAL,
-    ppfd           REAL,
-    calibrated     INTEGER NOT NULL DEFAULT 0,
+    counts         TEXT NOT NULL,          -- JSON number[288]; the single source of truth, reprocessed on read
     label          TEXT,
     note           TEXT
   );
