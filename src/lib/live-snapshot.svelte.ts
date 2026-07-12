@@ -1,4 +1,4 @@
-import type { BrokerSnapshot, EntityConfig, EntityState, FirmwareSnapshot, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
+import type { BrokerSnapshot, EntityConfig, EntityState, FirmwareSnapshot, LiveSpectrum, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
 import { formatEntityState } from '$lib/state-format';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -73,6 +73,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
   let error = $state<string | null>(null);
   let commandPending = $state<Record<string, boolean>>({});
   let commandErrors = $state<Record<string, string>>({});
+  let spectrum = $state<LiveSpectrum | null>(null);
 
   function connect(): () => void {
     const events = new EventSource('/api/events');
@@ -125,6 +126,13 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
       const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
       if (!update.firmware) return;
       snapshot = { ...snapshot, firmware: update.firmware };
+    });
+
+    // The spectrum event travels as the full SnapshotEvent envelope (generic SSE
+    // encoder), so read update.spectrum — matching the entity/state/firmware listeners.
+    events.addEventListener('spectrum', (event) => {
+      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
+      spectrum = update.spectrum ?? null;
     });
 
     events.onerror = () => {
@@ -251,6 +259,9 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     },
     get commandErrors() {
       return commandErrors;
+    },
+    get spectrum() {
+      return spectrum;
     },
     connect,
     stateFor,
