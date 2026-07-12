@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import type { CaptureDetail, CaptureSummary } from '$lib/server/spectrum/captures';
+  import { processSpectrum, type SpectrumView } from '$lib/spectrum/calibration';
   import SpdChart from '$lib/spectrum/SpdChart.svelte';
   import SpectrumTiles from '$lib/spectrum/SpectrumTiles.svelte';
   import SpectrumHistory from '$lib/spectrum/SpectrumHistory.svelte';
@@ -19,13 +20,47 @@
   let saving = $state(false);
   let saveError = $state<string | null>(null);
 
-  // Show the open historical reading if one is selected, else the live frame.
-  const shown = $derived(
+  // 'Photon' is the grower's lens (what plants count); Energy matches maker SPD charts; Raw is the
+  // sensor's untransformed view. The client re-derives the chosen view from the frame's raw counts.
+  const VIEWS: SpectrumView[] = ['photon', 'energy', 'raw'];
+  const VIEW_HINT: Record<SpectrumView, string> = {
+    photon: 'µmol — what the plant counts',
+    energy: 'W/nm — matches the maker chart',
+    raw: 'sensor counts, uncorrected'
+  };
+  let view = $state<SpectrumView>('photon');
+
+  // Open historical reading if selected, else the live frame — carry the RAW counts so the view
+  // toggle can reprocess client-side (calibration is a pure module) with no round-trip.
+  const source = $derived(
     selected
-      ? { processed: selected.processed, integrationUs: selected.integrationUs ?? 0 }
+      ? {
+          counts: selected.counts,
+          adcBits: selected.adcBits ?? 14,
+          integrationUs: selected.integrationUs ?? 0,
+          saturated: selected.saturated
+        }
       : liveSpectrum
-        ? { processed: liveSpectrum.processed, integrationUs: liveSpectrum.integrationUs }
+        ? {
+            counts: liveSpectrum.counts,
+            adcBits: liveSpectrum.adcBits,
+            integrationUs: liveSpectrum.integrationUs,
+            saturated: liveSpectrum.saturated
+          }
         : null
+  );
+  // Reprocess client-side for the chosen view, preserving the firmware's authoritative saturation
+  // flag (processSpectrum still ORs in the pixel-scan check) so the chart's SATURATED overlay — and,
+  // once anchored, the PPFD null-gate — match what the sensor reported, not just a full-scale scan.
+  const active = $derived(
+    source
+      ? processSpectrum(source.counts, {
+          view,
+          adcFullScale: (1 << source.adcBits) - 1,
+          integrationUs: source.integrationUs,
+          saturated: source.saturated
+        })
+      : null
   );
 
   async function refetchList() {
@@ -71,6 +106,11 @@
       <div class="chart-head">
         <span class="panel-title">// SPECTRAL POWER DISTRIBUTION{selected ? ' · SAVED READING' : ' · LIVE'}</span>
         <div class="actions">
+          <div class="views" role="group" aria-label="Spectrum view">
+            {#each VIEWS as v}
+              <button class="vbtn" class:on={view === v} onclick={() => (view = v)}>{v}</button>
+            {/each}
+          </div>
           {#if selected}
             <button class="btn" onclick={backToLive}>← Live</button>
           {:else}
@@ -80,12 +120,9 @@
           {/if}
         </div>
       </div>
-      {#if shown}
-        <SpdChart
-          relative={shown.processed.relative}
-          saturated={shown.processed.saturated}
-          peaks={shown.processed.peaks}
-        />
+      <p class="vhint">{view} · {VIEW_HINT[view]}</p>
+      {#if active}
+        <SpdChart relative={active.relative} saturated={active.saturated} peaks={active.peaks} />
       {:else}
         <p class="empty">Waiting for the spectrometer to publish a frame…</p>
       {/if}
@@ -94,8 +131,8 @@
   </div>
 
   <div class="tiles-area">
-    {#if shown}
-      <SpectrumTiles processed={shown.processed} integrationUs={shown.integrationUs} />
+    {#if active && source}
+      <SpectrumTiles processed={active} integrationUs={source.integrationUs} />
     {/if}
   </div>
 
@@ -132,6 +169,48 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     color: var(--muted);
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .views {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    overflow: hidden;
+  }
+  .vbtn {
+    padding: 5px 11px;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--panel-2);
+    border: none;
+    border-left: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .vbtn:first-child {
+    border-left: none;
+  }
+  .vbtn:hover {
+    color: var(--text);
+  }
+  .vbtn.on {
+    color: var(--amber);
+    background: var(--amber-dim);
+  }
+  .vhint {
+    margin: 0 0 8px;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+    text-transform: uppercase;
   }
   .btn {
     padding: 6px 12px;

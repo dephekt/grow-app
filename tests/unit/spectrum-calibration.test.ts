@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { processSpectrum, WAVELENGTHS, PIXEL_COUNT } from '$lib/spectrum/calibration';
+import { processSpectrum, pixelToWavelength, WAVELENGTHS, PIXEL_COUNT } from '$lib/spectrum/calibration';
 
 const ZERO_DARK = new Array(PIXEL_COUNT).fill(0);
 
@@ -22,7 +22,8 @@ describe('spectrum calibration', () => {
       const hi = WAVELENGTHS[Math.min(PIXEL_COUNT - 1, i + 1)];
       return Math.round(2000 * ((hi - lo) / 2));
     });
-    const p = processSpectrum(counts, { adcFullScale: 16383, dark: ZERO_DARK });
+    // 'raw' view — this tests the band-integration math, not the response transform.
+    const p = processSpectrum(counts, { adcFullScale: 16383, dark: ZERO_DARK, view: 'raw' });
     // ePAR window is 350 nm: blue/green/red 100 nm each (~28.6%), far-red 50 nm (~14.3%)
     expect(p.bands.blue).toBeCloseTo(28.6, 0);
     expect(p.bands.green).toBeCloseTo(28.6, 0);
@@ -33,7 +34,7 @@ describe('spectrum calibration', () => {
 
   it('normalizes to 0..100 with the peak at 100 and finds a blue peak', () => {
     const counts = WAVELENGTHS.map((nm) => 500 + Math.round(3000 * Math.exp(-((nm - 450) ** 2) / (2 * 30 ** 2))));
-    const p = processSpectrum(counts, { adcFullScale: 16383 });
+    const p = processSpectrum(counts, { adcFullScale: 16383, view: 'raw' });
     expect(Math.max(...p.relative)).toBeCloseTo(100, 5);
     expect(Math.min(...p.relative)).toBeGreaterThanOrEqual(0);
     expect(p.peakWavelengthNm).toBeGreaterThan(430);
@@ -82,5 +83,32 @@ describe('spectrum calibration', () => {
     expect(p.peaks.some((nm) => nm > 430 && nm < 470)).toBe(true);
     expect(p.peaks.some((nm) => nm > 640 && nm < 675)).toBe(true);
     expect([...p.peaks].sort((a, b) => a - b)).toEqual(p.peaks);
+  });
+
+  it('applies the Hg-line wavelength correction (scale 1.01341, offset -0.55)', () => {
+    for (const i of [10, 100, 200, 287]) {
+      expect(WAVELENGTHS[i]).toBeCloseTo(1.01341 * pixelToWavelength(i + 1) - 0.55, 4);
+    }
+  });
+
+  it('views: photon lifts red vs raw; energy pulls it back below photon', () => {
+    // Equal raw counts at a blue and a red pixel — the only difference between views is the transform.
+    const blueIdx = WAVELENGTHS.findIndex((nm) => nm >= 450);
+    const redIdx = WAVELENGTHS.findIndex((nm) => nm >= 660);
+    const counts = new Array(PIXEL_COUNT).fill(0);
+    counts[blueIdx] = 1000;
+    counts[redIdx] = 1000;
+    const redOverBlue = (v: 'raw' | 'photon' | 'energy') => {
+      const p = processSpectrum(counts, { adcFullScale: 16383, view: v });
+      return { ratio: p.relative[redIdx] / p.relative[blueIdx], view: p.view };
+    };
+    const raw = redOverBlue('raw');
+    const photon = redOverBlue('photon');
+    const energy = redOverBlue('energy');
+    expect(raw.ratio).toBeCloseTo(1, 5); // equal counts → equal in raw
+    expect(photon.ratio).toBeGreaterThan(1.4); // ÷S lifts red (S(660)≈0.58 vs S(450)≈0.97)
+    expect(energy.ratio).toBeLessThan(photon.ratio); // ÷λ pulls red back down
+    expect(energy.ratio).toBeGreaterThan(1); // …but red still leads in energy here
+    expect([raw.view, photon.view, energy.view]).toEqual(['raw', 'photon', 'energy']);
   });
 });

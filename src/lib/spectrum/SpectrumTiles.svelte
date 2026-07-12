@@ -21,6 +21,15 @@
     { label: 'FAR-RED', value: `${processed.bands.farRed.toFixed(0)} %`, status: 'ok' }
   ]);
 
+  // Band shares are expressed in whichever lens the chart is showing.
+  const bandTitle = $derived(
+    processed.view === 'energy'
+      ? 'SPECTRUM · ENERGY SHARE'
+      : processed.view === 'raw'
+        ? 'SPECTRUM · RAW SHARE'
+        : 'SPECTRUM · PHOTON SHARE'
+  );
+
   const fmt = (v: number | null) => (v == null ? '—' : `${v.toFixed(0)}`);
   const fluxRows = $derived<Row[]>([
     { label: 'PPFD', value: fmt(processed.ppfd), status: processed.calibrated ? 'ok' : 'none' },
@@ -30,7 +39,7 @@
 </script>
 
 <div class="tiles">
-  <ReadoutPanel title="SPECTRUM · PHOTON SHARE" rows={bandRows} />
+  <ReadoutPanel title={bandTitle} rows={bandRows} />
   <ReadoutPanel
     title="PHOTON FLUX · µmol/m²/s"
     rows={fluxRows}
