@@ -120,23 +120,28 @@ function sensitivityAt(nm: number): number {
   return last[1];
 }
 
-// Per-pixel de-tilt multipliers = 1 / S(λ). Dividing measured counts by the sensor's
-// blue-green-peaked response recovers the true relative spectrum — notably lifting the
-// ~1.6× under-read red (S(660)≈0.58). Capped so the NIR tail (S→~0.1, no real signal there)
-// can't amplify noise without bound; the cap only bites beyond ~800 nm, past ePAR.
+// Per-pixel multipliers = 1 / S(λ). Applying these divides out the sensor's PER-PHOTON response,
+// which turns raw counts (≈ the ENERGY SPD — see SPECTRO_CONFIG) into a PHOTON-flux spectrum:
+// red/amber rise because red photons are more numerous per unit energy. Kept available for an
+// opt-in photon/PPFD view, but NOT applied by default (it pushes the chart away from the
+// manufacturer's energy plot). Capped at 4× so the NIR tail (S→~0.1, no real signal) can't
+// amplify noise; the cap only bites beyond ~800 nm.
 const RESPONSE_CORRECTION_CAP = 4;
 export const C12880MA_RESPONSE_CORRECTION: number[] = WAVELENGTHS.map((nm) =>
   Math.min(RESPONSE_CORRECTION_CAP, 1 / Math.max(sensitivityAt(nm), 1e-3))
 );
 
-// Runtime calibration/physics config. responseCorrection defaults ON (the datasheet C12880MA
-// curve) so the displayed spectrum isn't tilted by the sensor's own response; because captures
-// store raw counts, refining or disabling it reprocesses all history. responseDomain stays
-// 'photon' — the correction removes the instrument response; if the datasheet curve is later
-// confirmed to be an energy (per-watt) responsivity, flip to 'energy' to add the ×λ factor.
+// Runtime calibration/physics config. responseCorrection defaults OFF (null): empirically the RAW
+// counts already track the manufacturer's energy SPD (mW/nm) well, because the C12880MA's per-photon
+// sensitivity falls roughly as 1/λ and that nearly cancels the photon↔energy λ factor
+// (counts ∝ Φ·S ∝ E·λ·S, and λ·S is roughly flat across 450–660 nm). Dividing by S over-converts
+// that into a PHOTON spectrum that over-weights red/amber and no longer matches the manufacturer
+// chart — so C12880MA_RESPONSE_CORRECTION is kept available (opt-in photon/PPFD view, or a gentler
+// energy-exact 1/(λ·S) tweak) but not on by default. Captures store raw counts, so toggling it
+// reprocesses all history.
 export const SPECTRO_CONFIG: SpectroConfig = {
   coeffs: WAVELENGTH_COEFFS,
-  responseCorrection: C12880MA_RESPONSE_CORRECTION,
+  responseCorrection: null,
   responseDomain: 'photon',
   darkFrame: null,
   anchor: null

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { processSpectrum, WAVELENGTHS, PIXEL_COUNT } from '$lib/spectrum/calibration';
+import { processSpectrum, WAVELENGTHS, PIXEL_COUNT, C12880MA_RESPONSE_CORRECTION } from '$lib/spectrum/calibration';
 
 const ZERO_DARK = new Array(PIXEL_COUNT).fill(0);
 
@@ -71,17 +71,25 @@ describe('spectrum calibration', () => {
     expect(processSpectrum(counts, { adcFullScale: 16383 }).saturated).toBe(true);
   });
 
-  it('response correction lifts red relative to blue (de-tilts the sensor response)', () => {
-    // Equal raw counts at a blue and a red pixel; after correction red reads higher, because the
-    // sensor under-reads 660 nm (S≈0.58) vs 450 nm (S≈0.97). Correction is ON by default.
+  it('response correction is OFF by default (raw ≈ energy) but lifts red when opted in', () => {
+    // Equal raw counts at a blue and a red pixel. Default: no de-tilt, so they stay equal — the raw
+    // reading already ≈ the manufacturer's energy SPD. Opting the correction in divides out the
+    // sensor's per-photon response (S(660)≈0.58 vs S(450)≈0.97) → red reads higher (a photon view).
     const blueIdx = WAVELENGTHS.findIndex((nm) => nm >= 450);
     const redIdx = WAVELENGTHS.findIndex((nm) => nm >= 660);
     const counts = new Array(PIXEL_COUNT).fill(0);
     counts[blueIdx] = 1000;
     counts[redIdx] = 1000;
-    const p = processSpectrum(counts, { adcFullScale: 16383 });
-    expect(p.relative[redIdx]).toBeGreaterThan(p.relative[blueIdx]);
-    const ratio = p.relative[redIdx] / p.relative[blueIdx];
+
+    const off = processSpectrum(counts, { adcFullScale: 16383 });
+    expect(off.relative[redIdx]).toBeCloseTo(off.relative[blueIdx], 5);
+
+    const on = processSpectrum(counts, {
+      adcFullScale: 16383,
+      config: { responseCorrection: C12880MA_RESPONSE_CORRECTION }
+    });
+    expect(on.relative[redIdx]).toBeGreaterThan(on.relative[blueIdx]);
+    const ratio = on.relative[redIdx] / on.relative[blueIdx];
     expect(ratio).toBeGreaterThan(1.4);
     expect(ratio).toBeLessThan(2.0);
   });
