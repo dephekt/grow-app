@@ -24,7 +24,7 @@
   // sensor's untransformed view. The client re-derives the chosen view from the frame's raw counts.
   const VIEWS: SpectrumView[] = ['photon', 'energy', 'raw'];
   const VIEW_HINT: Record<SpectrumView, string> = {
-    photon: 'µmol — what the plant counts',
+    photon: 'µmol — photon flux',
     energy: 'W/nm — radiant power',
     raw: 'sensor counts, uncorrected'
   };
