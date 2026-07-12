@@ -147,36 +147,47 @@ function bandIntegral(corrected: number[], a: number, b: number): number {
   return sum;
 }
 
+/** Raw counts → dark-subtracted, response-corrected, photon-domain per-pixel values
+ *  (dummy pixels forced to 0). The single "raw → corrected" implementation, shared by
+ *  processSpectrum and anchorIntegral so the baseline/correction logic can't drift
+ *  between the live and anchor-calibration paths. `dark` overrides cfg.darkFrame; with
+ *  neither set, an auto baseline (mean of the darkest 10% of the body) is subtracted. */
+function toCorrected(rawCounts: number[], cfg: SpectroConfig, dark?: number[]): number[] {
+  const counts =
+    rawCounts.length === PIXEL_COUNT
+      ? rawCounts
+      : Array.from({ length: PIXEL_COUNT }, (_, i) => rawCounts[i] ?? 0);
+
+  const darkFrame = dark ?? cfg.darkFrame;
+  let baseline = 0;
+  if (!darkFrame) {
+    const body = counts.slice(DUMMY_PIXELS).sort((a, b) => a - b);
+    const n = Math.max(1, Math.floor(body.length / 10));
+    baseline = body.slice(0, n).reduce((s, v) => s + v, 0) / n;
+  }
+
+  const corrected = new Array<number>(PIXEL_COUNT);
+  for (let i = 0; i < PIXEL_COUNT; i++) {
+    if (i < DUMMY_PIXELS) {
+      corrected[i] = 0;
+      continue;
+    }
+    let c = Math.max(0, counts[i] - (darkFrame ? darkFrame[i] : baseline));
+    if (cfg.responseCorrection) c *= cfg.responseCorrection[i] ?? 1;
+    if (cfg.responseDomain === 'energy') c *= WAVELENGTHS[i];
+    corrected[i] = c;
+  }
+  return corrected;
+}
+
 /** Turn raw counts into a display-ready + (optionally) calibrated spectrum. */
 export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}): ProcessedSpectrum {
   const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...opts.config };
   const adcFullScale = opts.adcFullScale ?? 16383;
   const saturated = opts.saturated || rawCounts.some((v) => v >= adcFullScale);
 
-  const counts =
-    rawCounts.length === PIXEL_COUNT
-      ? rawCounts
-      : Array.from({ length: PIXEL_COUNT }, (_, i) => rawCounts[i] ?? 0);
-
-  // 1. dark subtraction
-  const dark = opts.dark ?? cfg.darkFrame;
-  let baseline = 0;
-  if (!dark) {
-    // auto baseline: median-ish of the darkest 10% of the body (skip dummy pixels)
-    const body = counts.slice(DUMMY_PIXELS).sort((a, b) => a - b);
-    const n = Math.max(1, Math.floor(body.length / 10));
-    baseline = body.slice(0, n).reduce((s, v) => s + v, 0) / n;
-  }
-  const subtracted = counts.map((v, i) => Math.max(0, v - (dark ? dark[i] : baseline)));
-
-  // 2. response correction (identity by default); energy-domain ⇒ ×λ to reach photons
-  const corrected = new Array<number>(PIXEL_COUNT);
-  for (let i = 0; i < PIXEL_COUNT; i++) {
-    let c = subtracted[i];
-    if (cfg.responseCorrection) c *= cfg.responseCorrection[i] ?? 1;
-    if (cfg.responseDomain === 'energy') c *= WAVELENGTHS[i];
-    corrected[i] = i < DUMMY_PIXELS ? 0 : c;
-  }
+  // 1+2. dark subtraction + response correction → photon-domain corrected counts
+  const corrected = toCorrected(rawCounts, cfg, opts.dark);
 
   // 3. normalize (0..100) + peak
   let mx = 0;
@@ -234,15 +245,7 @@ export function anchorIntegral(
   config: Partial<SpectroConfig> = {}
 ): number {
   const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...config };
-  const body = rawCounts.slice(DUMMY_PIXELS).sort((a, b) => a - b);
-  const baseline = cfg.darkFrame ? 0 : body.slice(0, Math.max(1, Math.floor(body.length / 10))).reduce((s, v) => s + v, 0) / Math.max(1, Math.floor(body.length / 10));
-  const corrected = rawCounts.map((v, i) => {
-    if (i < DUMMY_PIXELS) return 0;
-    let c = Math.max(0, v - (cfg.darkFrame ? cfg.darkFrame[i] : baseline));
-    if (cfg.responseCorrection) c *= cfg.responseCorrection[i] ?? 1;
-    if (cfg.responseDomain === 'energy') c *= WAVELENGTHS[i];
-    return c;
-  });
+  const corrected = toCorrected(rawCounts, cfg);
   const win = range === 'par' ? PAR : EPAR;
   return bandIntegral(corrected, win[0], win[1]) / integrationUs;
 }
