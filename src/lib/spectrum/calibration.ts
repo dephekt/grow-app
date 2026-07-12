@@ -2,8 +2,8 @@
  * C12880MA spectral science — the single place all calibration/physics lives.
  *
  * The firmware ships raw ADC counts only; everything here (pixel→wavelength,
- * dark subtraction, optional response correction, normalization, band shares,
- * and — once anchored — absolute PPFD/PFD) is applied on ingest/read. Because
+ * dark subtraction, normalization, band shares, and — once anchored — absolute
+ * PPFD/PFD) is applied on ingest/read. Because
  * captures store the RAW counts, changing anything in SPECTRO_CONFIG reprocesses
  * all history rather than freezing it at placeholder calibration.
  *
@@ -15,9 +15,10 @@
  *    (red). So band metrics are a PLAIN fractional sum of per-bin counts, NOT
  *    Σ counts·Δλ (which would double-count dispersion and inflate blue:red ~24%).
  *    Δλ is used ONLY to apportion the two boundary pixels of a band.
- *  - Metrics are photon-based (PPFD/PAR are µmol of photons). Counts (after any
- *    response correction) must be ∝ photon flux; if the correction is sourced from
- *    an A/W energy responsivity, set responseDomain:'energy' to multiply by λ.
+ *  - The chart shows raw (dark-subtracted) counts, which already track the light's ENERGY
+ *    SPD (mW/nm) closely: the C12880MA's per-photon sensitivity falls ~as 1/λ, nearly
+ *    cancelling the photon↔energy λ factor. A true photon-flux view (µmol, for PPFD) would
+ *    divide by that sensitivity — deferred, and PPFD needs the anchor regardless.
  *  - Absolute integrals are per-µs normalized so frames at different exposures are
  *    comparable; a one-point anchor (Apogee reading) sets the scale.
  */
@@ -43,14 +44,9 @@ export interface AnchorCalibration {
   rawIntegral: number;
 }
 
-export type ResponseDomain = 'photon' | 'energy';
-
 /** The ONE place to edit when the real Hamamatsu sheet / Apogee anchor arrive. */
 export interface SpectroConfig {
   coeffs: WavelengthCoeffs;
-  /** Optional per-pixel sensitivity correction (datasheet typical curve). null = identity. */
-  responseCorrection: number[] | null;
-  responseDomain: ResponseDomain;
   /** Stored dark frame (LED off, same integration), subtracted per-pixel. null = auto baseline. */
   darkFrame: number[] | null;
   /** null ⇒ absolute PPFD/PFD stay null (relative-only). */
@@ -66,6 +62,16 @@ export const WAVELENGTH_COEFFS: WavelengthCoeffs = {
   b3: -8.28582189e-6,
   b4: 1.148981468e-8,
   b5: 1.809281229e-12
+};
+
+// Runtime calibration config — the single place to swap in real per-unit calibration.
+// No response correction: the raw (dark-subtracted) counts already ≈ the manufacturer's energy
+// SPD, because the C12880MA's per-photon sensitivity falls ~as 1/λ and cancels the photon↔energy
+// factor. Dividing by the sensor curve over-converts to a photon spectrum, so we keep it raw.
+export const SPECTRO_CONFIG: SpectroConfig = {
+  coeffs: WAVELENGTH_COEFFS,
+  darkFrame: null,
+  anchor: null
 };
 
 /** Pixel→wavelength (nm). p is 1-BASED per the Hamamatsu formula; counts[i] is pixel p=i+1. */
@@ -90,62 +96,6 @@ for (let i = 0; i < PIXEL_COUNT; i++) {
   UPPER_EDGE[i] = (w + next) / 2;
   DELTA_LAMBDA[i] = UPPER_EDGE[i] - LOWER_EDGE[i];
 }
-
-// C12880MA relative spectral sensitivity S(λ), digitized from the Hamamatsu datasheet
-// (KACC1226E, p.3 "Spectral response (typical example)", curve KACCB0381EA). The module is
-// blue-green peaked (~100% at 460–500 nm) and falls through the red — ~58% at 660 nm —
-// rolling off hard into the NIR (~20% at 800 nm). Anchor points read off the figure and
-// linearly interpolated onto the pixel grid. It is a "typical example" (per-unit variance),
-// so the correction is approximate — a reference-lamp calibration would refine it.
-const C12880MA_SENSITIVITY: ReadonlyArray<readonly [number, number]> = [
-  [340, 0.53], [360, 0.68], [380, 0.85], [400, 0.95], [420, 0.92], [440, 0.96],
-  [460, 0.99], [480, 1.0], [500, 0.99], [520, 0.96], [540, 0.93], [560, 0.88],
-  [580, 0.83], [600, 0.76], [620, 0.7], [640, 0.64], [660, 0.58], [680, 0.53],
-  [700, 0.48], [720, 0.42], [740, 0.37], [760, 0.31], [780, 0.26], [800, 0.2],
-  [820, 0.15], [840, 0.11], [850, 0.1]
-];
-
-function sensitivityAt(nm: number): number {
-  const pts = C12880MA_SENSITIVITY;
-  if (nm <= pts[0][0]) return pts[0][1];
-  const last = pts[pts.length - 1];
-  if (nm >= last[0]) return last[1];
-  for (let i = 1; i < pts.length; i++) {
-    if (nm <= pts[i][0]) {
-      const [x0, y0] = pts[i - 1];
-      const [x1, y1] = pts[i];
-      return y0 + ((y1 - y0) * (nm - x0)) / (x1 - x0);
-    }
-  }
-  return last[1];
-}
-
-// Per-pixel multipliers = 1 / S(λ). Applying these divides out the sensor's PER-PHOTON response,
-// which turns raw counts (≈ the ENERGY SPD — see SPECTRO_CONFIG) into a PHOTON-flux spectrum:
-// red/amber rise because red photons are more numerous per unit energy. Kept available for an
-// opt-in photon/PPFD view, but NOT applied by default (it pushes the chart away from the
-// manufacturer's energy plot). Capped at 4× so the NIR tail (S→~0.1, no real signal) can't
-// amplify noise; the cap only bites beyond ~800 nm.
-const RESPONSE_CORRECTION_CAP = 4;
-export const C12880MA_RESPONSE_CORRECTION: number[] = WAVELENGTHS.map((nm) =>
-  Math.min(RESPONSE_CORRECTION_CAP, 1 / Math.max(sensitivityAt(nm), 1e-3))
-);
-
-// Runtime calibration/physics config. responseCorrection defaults OFF (null): empirically the RAW
-// counts already track the manufacturer's energy SPD (mW/nm) well, because the C12880MA's per-photon
-// sensitivity falls roughly as 1/λ and that nearly cancels the photon↔energy λ factor
-// (counts ∝ Φ·S ∝ E·λ·S, and λ·S is roughly flat across 450–660 nm). Dividing by S over-converts
-// that into a PHOTON spectrum that over-weights red/amber and no longer matches the manufacturer
-// chart — so C12880MA_RESPONSE_CORRECTION is kept available (opt-in photon/PPFD view, or a gentler
-// energy-exact 1/(λ·S) tweak) but not on by default. Captures store raw counts, so toggling it
-// reprocesses all history.
-export const SPECTRO_CONFIG: SpectroConfig = {
-  coeffs: WAVELENGTH_COEFFS,
-  responseCorrection: null,
-  responseDomain: 'photon',
-  darkFrame: null,
-  anchor: null
-};
 
 // Horticulture bands (nm), aligned to Pulse's Blue/Green/Red/IR tiles.
 const BANDS = { blue: [400, 500], green: [500, 600], red: [600, 700], farRed: [700, 750] } as const;
@@ -199,11 +149,10 @@ function bandIntegral(corrected: number[], a: number, b: number): number {
   return sum;
 }
 
-/** Raw counts → dark-subtracted, response-corrected, photon-domain per-pixel values
- *  (dummy pixels forced to 0). The single "raw → corrected" implementation, shared by
- *  processSpectrum and anchorIntegral so the baseline/correction logic can't drift
- *  between the live and anchor-calibration paths. `dark` overrides cfg.darkFrame; with
- *  neither set, an auto baseline (mean of the darkest 10% of the body) is subtracted. */
+/** Raw counts → dark-subtracted per-pixel values (dummy pixels forced to 0). The single
+ *  dark-subtraction implementation, shared by processSpectrum and anchorIntegral so the
+ *  baseline logic can't drift between the live and anchor-calibration paths. `dark` overrides
+ *  cfg.darkFrame; with neither set, an auto baseline (mean of the darkest 10% of the body). */
 function toCorrected(rawCounts: number[], cfg: SpectroConfig, dark?: number[]): number[] {
   const counts =
     rawCounts.length === PIXEL_COUNT
@@ -220,14 +169,7 @@ function toCorrected(rawCounts: number[], cfg: SpectroConfig, dark?: number[]): 
 
   const corrected = new Array<number>(PIXEL_COUNT);
   for (let i = 0; i < PIXEL_COUNT; i++) {
-    if (i < DUMMY_PIXELS) {
-      corrected[i] = 0;
-      continue;
-    }
-    let c = Math.max(0, counts[i] - (darkFrame ? darkFrame[i] : baseline));
-    if (cfg.responseCorrection) c *= cfg.responseCorrection[i] ?? 1;
-    if (cfg.responseDomain === 'energy') c *= WAVELENGTHS[i];
-    corrected[i] = c;
+    corrected[i] = i < DUMMY_PIXELS ? 0 : Math.max(0, counts[i] - (darkFrame ? darkFrame[i] : baseline));
   }
   return corrected;
 }
@@ -270,7 +212,7 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   // Skip the optically-black dummy pixels — a dark-offset spike there is not real saturation.
   const saturated = opts.saturated || rawCounts.some((v, i) => i >= DUMMY_PIXELS && v >= adcFullScale);
 
-  // 1+2. dark subtraction + response correction → photon-domain corrected counts
+  // 1. dark subtraction → per-pixel corrected counts
   const corrected = toCorrected(rawCounts, cfg, opts.dark);
 
   // 3. normalize (0..100) + peak
