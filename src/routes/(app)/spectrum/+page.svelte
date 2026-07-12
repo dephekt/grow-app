@@ -25,7 +25,7 @@
   const VIEWS: SpectrumView[] = ['photon', 'energy', 'raw'];
   const VIEW_HINT: Record<SpectrumView, string> = {
     photon: 'µmol — what the plant counts',
-    energy: 'W/nm — matches the maker chart',
+    energy: 'W/nm — radiant power',
     raw: 'sensor counts, uncorrected'
   };
   let view = $state<SpectrumView>('photon');
