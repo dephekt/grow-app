@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { processSpectrum, WAVELENGTHS, PIXEL_COUNT, C12880MA_RESPONSE_CORRECTION } from '$lib/spectrum/calibration';
+import { processSpectrum, WAVELENGTHS, PIXEL_COUNT } from '$lib/spectrum/calibration';
 
 const ZERO_DARK = new Array(PIXEL_COUNT).fill(0);
 
@@ -22,8 +22,7 @@ describe('spectrum calibration', () => {
       const hi = WAVELENGTHS[Math.min(PIXEL_COUNT - 1, i + 1)];
       return Math.round(2000 * ((hi - lo) / 2));
     });
-    // Response correction OFF here — this tests the band-integration math, not the sensor de-tilt.
-    const p = processSpectrum(counts, { adcFullScale: 16383, dark: ZERO_DARK, config: { responseCorrection: null } });
+    const p = processSpectrum(counts, { adcFullScale: 16383, dark: ZERO_DARK });
     // ePAR window is 350 nm: blue/green/red 100 nm each (~28.6%), far-red 50 nm (~14.3%)
     expect(p.bands.blue).toBeCloseTo(28.6, 0);
     expect(p.bands.green).toBeCloseTo(28.6, 0);
@@ -34,7 +33,7 @@ describe('spectrum calibration', () => {
 
   it('normalizes to 0..100 with the peak at 100 and finds a blue peak', () => {
     const counts = WAVELENGTHS.map((nm) => 500 + Math.round(3000 * Math.exp(-((nm - 450) ** 2) / (2 * 30 ** 2))));
-    const p = processSpectrum(counts, { adcFullScale: 16383, config: { responseCorrection: null } });
+    const p = processSpectrum(counts, { adcFullScale: 16383 });
     expect(Math.max(...p.relative)).toBeCloseTo(100, 5);
     expect(Math.min(...p.relative)).toBeGreaterThanOrEqual(0);
     expect(p.peakWavelengthNm).toBeGreaterThan(430);
@@ -71,29 +70,6 @@ describe('spectrum calibration', () => {
     expect(processSpectrum(counts, { adcFullScale: 16383 }).saturated).toBe(true);
   });
 
-  it('response correction is OFF by default (raw ≈ energy) but lifts red when opted in', () => {
-    // Equal raw counts at a blue and a red pixel. Default: no de-tilt, so they stay equal — the raw
-    // reading already ≈ the manufacturer's energy SPD. Opting the correction in divides out the
-    // sensor's per-photon response (S(660)≈0.58 vs S(450)≈0.97) → red reads higher (a photon view).
-    const blueIdx = WAVELENGTHS.findIndex((nm) => nm >= 450);
-    const redIdx = WAVELENGTHS.findIndex((nm) => nm >= 660);
-    const counts = new Array(PIXEL_COUNT).fill(0);
-    counts[blueIdx] = 1000;
-    counts[redIdx] = 1000;
-
-    const off = processSpectrum(counts, { adcFullScale: 16383 });
-    expect(off.relative[redIdx]).toBeCloseTo(off.relative[blueIdx], 5);
-
-    const on = processSpectrum(counts, {
-      adcFullScale: 16383,
-      config: { responseCorrection: C12880MA_RESPONSE_CORRECTION }
-    });
-    expect(on.relative[redIdx]).toBeGreaterThan(on.relative[blueIdx]);
-    const ratio = on.relative[redIdx] / on.relative[blueIdx];
-    expect(ratio).toBeGreaterThan(1.4);
-    expect(ratio).toBeLessThan(2.0);
-  });
-
   it('labels multiple prominent peaks — a blue and a red band, low→high', () => {
     const counts = WAVELENGTHS.map(
       (nm) =>
@@ -101,7 +77,7 @@ describe('spectrum calibration', () => {
         Math.round(3000 * Math.exp(-((nm - 450) ** 2) / (2 * 18 ** 2))) +
         Math.round(2600 * Math.exp(-((nm - 655) ** 2) / (2 * 14 ** 2)))
     );
-    const p = processSpectrum(counts, { adcFullScale: 16383, config: { responseCorrection: null } });
+    const p = processSpectrum(counts, { adcFullScale: 16383 });
     expect(p.peaks.length).toBeGreaterThanOrEqual(2);
     expect(p.peaks.some((nm) => nm > 430 && nm < 470)).toBe(true);
     expect(p.peaks.some((nm) => nm > 640 && nm < 675)).toBe(true);
