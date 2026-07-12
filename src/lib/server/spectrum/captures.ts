@@ -55,7 +55,10 @@ function reprocess(row: Row): ProcessedSpectrum {
   const counts = JSON.parse(row.counts) as number[];
   return processSpectrum(counts, {
     adcFullScale: (1 << (row.adc_bits ?? 14)) - 1,
-    integrationUs: row.integration_us ?? undefined
+    integrationUs: row.integration_us ?? undefined,
+    // Preserve the firmware's saturation assertion; reprocess would otherwise only
+    // re-derive it from a full-scale pixel and could disagree with the stored flag.
+    saturated: Boolean(row.saturated)
   });
 }
 
