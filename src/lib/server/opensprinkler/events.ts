@@ -117,15 +117,6 @@ export function recordRunoffEvent(db: DatabaseSync, event: { startedAt: string }
   ).run(event.startedAt);
 }
 
-/** ISO ts of the most recent runoff event, or null. Lets the monitor suppress a duplicate insert
- *  for a run that spans a web-app restart (a fresh tracker would otherwise re-record it). */
-export function lastRunoffEventTs(db: DatabaseSync): string | null {
-  const row = db.prepare(`SELECT ts FROM irrigation_events WHERE kind = 'runoff' ORDER BY ts DESC LIMIT 1`).get() as
-    | { ts: string }
-    | undefined;
-  return row?.ts ?? null;
-}
-
 /** The Influx tag pair identifying the pump plug for a given event kind. Both tags must be
  *  filtered together: the two plugs publish colliding objectIds (see model.ts). */
 export function pumpTagsForKind(kind: EventKind): { node: string; entity: string } {
