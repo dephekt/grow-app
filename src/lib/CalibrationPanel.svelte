@@ -35,6 +35,12 @@
     steps: CalStep[];
     liveEntity: EntityConfig | null;
     clearEntity: EntityConfig | null;
+    /** The firmware's calibration-mode switch. While on, the probe polls + publishes at ~1s
+     *  instead of its normal ~15s, so the live reading updates fast enough to calibrate. */
+    calModeEntity: EntityConfig | null;
+    /** Read-only probe-health diagnostics (slope quality, asymmetry, calibration status, …)
+     *  the firmware files in the cal group — shown so you can judge the calibration curve. */
+    qualityEntities: EntityConfig[];
   }
 
   const PH_STEPS: Array<{ key: string; label: string; solution: string; instruction: string; target: number; isDry: boolean; patterns: string[] }> = [
@@ -251,16 +257,39 @@
         return e.component === 'button' && (oid.includes(`${type}_cal_clear`) || oid.includes('cal_clear'));
       }) ?? null;
 
+      // The calibration-mode switch: e.g. objectId "ph_calibration_mode" (component switch).
+      const calModeEntity = deviceEntities.find((e) => {
+        const oid = (e.objectId ?? e.id).toLowerCase();
+        return e.component === 'switch' && oid.includes(type) && (oid.includes('calibration_mode') || oid.includes('cal_mode'));
+      }) ?? null;
+
+      const qualityEntities = findQualityEntities(type, deviceEntities);
+
       probes.push({
         type,
         label: probeLabels[type],
         steps,
         liveEntity,
-        clearEntity
+        clearEntity,
+        calModeEntity,
+        qualityEntities
       });
     }
 
     return probes;
+  }
+
+  // Read-only probe-health diagnostics the firmware publishes alongside the reading: pH
+  // acid/alkaline slope quality (the calibration curve fit), asymmetry potential, calibration
+  // status; EC cell constant + status; etc. Matched by the probe prefix so they can't latch onto
+  // another probe's diagnostics.
+  const QUALITY_PATTERNS = ['slope', 'asymmetry', 'calibration_status', 'cal_status', 'cell_constant'];
+  function findQualityEntities(type: ProbeType, deviceEntities: EntityConfig[]): EntityConfig[] {
+    return deviceEntities.filter((e) => {
+      if (e.component !== 'sensor') return false;
+      const oid = (e.objectId ?? e.id).toLowerCase();
+      return oid.includes(`${type}_`) && QUALITY_PATTERNS.some((p) => oid.includes(p));
+    });
   }
 
   let probes = $derived(buildProbes(groups, deviceEntities));
@@ -282,6 +311,42 @@
 
   let activeStep = $derived(activeProbe?.steps[activeStepIndex] ?? null);
 
+  // ── Calibration-mode fast updates ────────────────────────────────────────────
+  // The probe publishes at its slow normal cadence (~15s) until its firmware calibration-mode
+  // switch is on, which drops it to ~1s. Driven by an explicit toggle (below) rather than the
+  // tab lifecycle, so it persists when you navigate away and back, and the button always mirrors
+  // the real switch state — no ambiguity, and you turn it off deliberately when done. The switch
+  // name contains "calibration", which the discovery heuristic flags dangerous, so command it
+  // directly with confirm:true rather than via live.sendCommand (which would pop a browser
+  // confirm on this benign rate switch).
+  async function setCalMode(entityId: string, on: boolean): Promise<void> {
+    try {
+      await fetch(`/api/entities/${entityId}/command`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ value: on, confirm: true })
+      });
+    } catch {
+      /* best-effort: on failure the panel just runs at the slow cadence */
+    }
+  }
+
+  let calModeEntity = $derived(activeProbe?.calModeEntity ?? null);
+  let calModeOn = $derived.by(() => {
+    if (!calModeEntity) return false;
+    return (live.snapshot.states[calModeEntity.id]?.value ?? null) === (calModeEntity.payloadOn ?? 'ON');
+  });
+  let calModeToggling = $state(false);
+  async function toggleCalMode(): Promise<void> {
+    if (!calModeEntity) return;
+    calModeToggling = true;
+    try {
+      await setCalMode(calModeEntity.id, !calModeOn);
+    } finally {
+      calModeToggling = false;
+    }
+  }
+
   // ── Live reading + stability ─────────────────────────────────────────────────
   interface Reading {
     value: number;
@@ -293,11 +358,10 @@
   let lastSampleAt: string | null = null; // plain — updatedAt of the last buffered reading
 
   const BUFFER_SIZE = 14;
-  // Bounds for the stability window. The device polls every 2s while its
-  // cal-mode switch is on (ezo_types CAL_MODE_UPDATE_INTERVAL_MS) but publishes
-  // every 15s (pH) to ~45s (EC, median send_every: 3) at the normal cadence —
-  // and this panel never toggles cal mode — so the window adapts to the
-  // observed cadence below instead of assuming the 2s poll.
+  // Bounds for the stability window. Cal mode (engaged above) drops the probe to ~1s updates;
+  // at the normal cadence it publishes every ~15s (pH) to ~45s (EC, median send_every: 3). The
+  // window adapts to the observed cadence below rather than assuming a fixed rate, so it still
+  // behaves if cal mode can't be engaged (no switch discovered / command rejected).
   const STABLE_WINDOW_MIN_MS = 8000;
   const STABLE_WINDOW_MAX_MS = 90000;
 
@@ -397,6 +461,21 @@
 
   let liveUnit = $derived(activeProbe?.liveEntity?.unit ?? '');
 
+  // ── Probe-health diagnostics ─────────────────────────────────────────────────
+  function qualityLabel(entity: EntityConfig): string {
+    const name = entity.name ?? entity.objectId ?? entity.id;
+    const prefix = activeProbe ? `${activeProbe.label} ` : '';
+    return name.startsWith(prefix) ? name.slice(prefix.length) : name;
+  }
+
+  function qualityValue(entity: EntityConfig): string {
+    const raw = live.snapshot.states[entity.id]?.value;
+    if (raw == null || raw === '') return '—';
+    const n = parseFloat(raw);
+    const val = Number.isNaN(n) ? raw : Number.isInteger(n) ? String(n) : n.toFixed(1);
+    return entity.unit ? `${val} ${entity.unit}` : val;
+  }
+
   // ── Commands ─────────────────────────────────────────────────────────────────
   async function calibrateStep(step: CalStep) {
     if (!step.entity || !isStable) return;
@@ -474,6 +553,24 @@
               </div>
               <p class="step-instruction">{activeStep.instruction}</p>
 
+              <!-- Calibration-mode toggle: speeds the probe's readings ~15s → ~1s -->
+              {#if calModeEntity}
+                <button
+                  type="button"
+                  class="cal-mode-toggle"
+                  class:on={calModeOn}
+                  disabled={calModeToggling}
+                  onclick={toggleCalMode}
+                  title="Calibration mode speeds the probe's readings from ~15s to ~1s. It stays on until you turn it off — do that when you're done calibrating."
+                >
+                  <span class="dot" class:ok={calModeOn}></span>
+                  <span class="cal-mode-label">Cal Mode {calModeOn ? 'ON' : 'OFF'}</span>
+                  <span class="cal-mode-hint">
+                    {calModeOn ? 'fast readings (~1s)' : 'readings are slow — turn on to calibrate'}
+                  </span>
+                </button>
+              {/if}
+
               <!-- Live Reading box -->
               <div class="live-box" class:no-sensor={!activeProbe.liveEntity}>
                 <div class="live-header">
@@ -529,6 +626,21 @@
                   <p class="cmd-error">{live.commandErrors[activeStep.entity.id]}</p>
                 {/if}
               {/if}
+            </div>
+          {/if}
+
+          <!-- Probe-health diagnostics (slope quality / asymmetry / cal status) -->
+          {#if activeProbe.qualityEntities.length > 0}
+            <div class="panel quality-panel">
+              <p class="panel-title">Probe Health</p>
+              <div class="quality-grid">
+                {#each activeProbe.qualityEntities as qe (qe.id)}
+                  <div class="quality-item">
+                    <span class="quality-label">{qualityLabel(qe)}</span>
+                    <span class="quality-value mono">{qualityValue(qe)}</span>
+                  </div>
+                {/each}
+              </div>
             </div>
           {/if}
         </div>
@@ -795,6 +907,82 @@
     margin: 0;
     font-size: 0.82rem;
     color: var(--alert);
+  }
+
+  /* ── Cal-mode toggle ── */
+  .cal-mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-control);
+    background: var(--panel-2);
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    transition: color 0.12s, border-color 0.12s, background 0.12s;
+  }
+
+  .cal-mode-toggle.on {
+    border-color: var(--amber);
+    background: var(--amber-dim);
+    color: var(--amber);
+  }
+
+  .cal-mode-toggle:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .cal-mode-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .cal-mode-hint {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .cal-mode-toggle.on .cal-mode-hint {
+    color: var(--amber);
+    opacity: 0.85;
+  }
+
+  /* ── Probe health ── */
+  .quality-panel {
+    display: grid;
+    gap: 10px;
+  }
+
+  .quality-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px 16px;
+  }
+
+  .quality-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .quality-label {
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  .quality-value {
+    font-size: 0.92rem;
+    color: var(--text);
   }
 
   /* ── Sidebar ── */
