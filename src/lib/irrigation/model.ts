@@ -2,9 +2,9 @@ import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
 /**
  * Pure client-side model for the irrigation card (grow-app #23). Resolves the two
- * always-on monitor plugs' entities and cross-checks the OpenSprinkler valves against
- * irrigation-pump draw for the failsafe. Type-only import from the server types keeps
- * this client-safe (mirrors entity-match.ts).
+ * always-on monitor plugs' entities and reports live pump draw + OpenSprinkler status
+ * for the monitoring card. Type-only import from the server types keeps this
+ * client-safe (mirrors entity-match.ts).
  */
 
 /** A (node, objectId) reference. Strict pairing is required: the two pump plugs publish
@@ -21,7 +21,7 @@ export const IRRIGATION_NODE = 'irrigation-pump';
 export const RUNOFF_NODE = 'runoff-monitor';
 
 /** Above the base package's 3 W standby suppression → the pump is genuinely drawing.
- *  Drives both the irrigation-pump row state and the failsafe "no flow" check. */
+ *  Drives the irrigation-pump row's running/idle state. */
 export const PUMP_DRAW_MIN_W = 5;
 
 /** Resolve a (node, objectId) ref to its discovered entity. Node is matched against the
@@ -53,9 +53,8 @@ export function openSprinklerAvailability(snapshot: Snapshot): 'online' | 'offli
   return snapshot.devices.find((device) => device.id === 'opensprinkler')?.availability ?? 'unknown';
 }
 
-/** True when any OpenSprinkler station is energized (a valve is open). Coarse by
- *  necessity: the data model has no zone→pump link, so the failsafe checks "any station
- *  ON", not a specific zone. */
+/** True when any OpenSprinkler station is energized (a valve is open). Drives the
+ *  card's "watering" status label. */
 export function anyStationRunning(snapshot: Snapshot): boolean {
   return snapshot.entities.some(
     (entity) =>
@@ -77,22 +76,4 @@ export function runoffRunning(snapshot: Snapshot): boolean {
   const entity = resolveEntity(snapshot, { node: RUNOFF_NODE, objectId: 'runoff_pump_running' });
   if (!entity) return false;
   return (snapshot.states[entity.id]?.value ?? null) === (entity.payloadOn ?? 'ON');
-}
-
-export type FailsafeState = 'ok' | 'fault' | 'dryrun' | 'idle';
-
-/**
- * Cross-check the OpenSprinkler valves against irrigation-pump draw — BOTH directions:
- *  - `ok`:     a zone is open and the pump is drawing (flow confirmed),
- *  - `fault`:  a zone is open but the pump reads below the draw threshold (no flow),
- *  - `dryrun`: NO zone open yet the pump is still drawing — it should be off. A dry tank
- *              (the pump can't build pressure, so it runs non-stop and overheats), a stuck
- *              relay, or a leak. The dangerous case; previously mis-reported as idle.
- *  - `idle`:   no zone open and the pump is off — nothing to verify.
- */
-export function computeFailsafe(snapshot: Snapshot): FailsafeState {
-  const zoneOpen = anyStationRunning(snapshot);
-  const drawing = irrigationDrawing(snapshot);
-  if (zoneOpen) return drawing ? 'ok' : 'fault';
-  return drawing ? 'dryrun' : 'idle';
 }
