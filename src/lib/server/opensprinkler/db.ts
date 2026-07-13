@@ -87,6 +87,14 @@ const MIGRATIONS: string[] = [
   ALTER TABLE irrigation_events ADD COLUMN kind TEXT NOT NULL DEFAULT 'irrigation';
   ALTER TABLE irrigation_events ADD COLUMN pump_energy_wh REAL;
   ALTER TABLE irrigation_events ADD COLUMN pump_peak_w REAL;
+  `,
+  // 5 — per-zone schedule pause. A single switch to disarm ALL of a zone's schedules at
+  // once (the scheduler skips a paused zone) without deleting them or toggling each one's
+  // `enabled`, so the individual schedule configs are preserved and resume unchanged.
+  // Distinct from zone `enabled`, which also blocks manual runs; a paused zone still runs
+  // on demand. Default 0 so existing zones keep firing.
+  `
+  ALTER TABLE zones ADD COLUMN schedules_paused INTEGER NOT NULL DEFAULT 0;
   `
 ];
 

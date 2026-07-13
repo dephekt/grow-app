@@ -190,6 +190,19 @@ describe('runSchedulerTick', () => {
     expect(ctrl.runs).toHaveLength(0);
   });
 
+  it('skips a paused zone: no fire, no audit, window not consumed (resumes when un-paused)', async () => {
+    const zone = createZone(db, { name: 'T', stationSid: 0, schedulesPaused: true });
+    const sched = createSchedule(db, { zoneId: zone.id, times: [360], shotSeconds: 30 });
+    const ctrl = new FakeController();
+
+    await runSchedulerTick(deps(ctrl));
+
+    expect(ctrl.runs).toHaveLength(0);
+    expect(events()).toHaveLength(0);
+    // The anchor is untouched (never consumed), so un-pausing resumes from the normal due calc.
+    expect(getSchedule(db, sched.id)?.lastFiredAt).toBeNull();
+  });
+
   it('does not let one failing schedule abort its siblings', async () => {
     // A percent shot on a zone with no substrate volume throws at resolve time.
     const bad = createZone(db, { name: 'Bad', stationSid: 0 });

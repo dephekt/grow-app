@@ -59,7 +59,8 @@ export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
     maxRunSeconds: body.maxRunSeconds == null ? 300 : requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds'),
     vwcEntityId: optString(body.vwcEntityId),
     pwecEntityId: optString(body.pwecEntityId),
-    enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled')
+    enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled'),
+    schedulesPaused: body.schedulesPaused == null ? false : requireBoolean(body.schedulesPaused, 'schedulesPaused')
   };
 }
 
@@ -75,6 +76,7 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('vwcEntityId' in body) patch.vwcEntityId = optString(body.vwcEntityId);
   if ('pwecEntityId' in body) patch.pwecEntityId = optString(body.pwecEntityId);
   if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
+  if ('schedulesPaused' in body) patch.schedulesPaused = requireBoolean(body.schedulesPaused, 'schedulesPaused');
   return patch;
 }
 
