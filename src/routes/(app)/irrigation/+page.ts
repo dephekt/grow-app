@@ -1,15 +1,17 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { Zone } from '$lib/server/opensprinkler/zones';
 import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
+import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
 
 export type ZoneJson = Zone & { stationEntityId: string };
-export type { ScheduleJson };
+export type { ScheduleJson, IrrigationEventJson };
 
 export const load = async ({ fetch }) => {
-  // Zones and their schedules are independent reads; fetch them in parallel.
-  const [zonesRes, schedulesRes] = await Promise.all([
+  // Zones, schedules, and the history feed are independent reads; fetch them in parallel.
+  const [zonesRes, schedulesRes, eventsRes] = await Promise.all([
     fetch('/api/irrigation/zones'),
-    fetch('/api/irrigation/schedules')
+    fetch('/api/irrigation/schedules'),
+    fetch('/api/irrigation/events')
   ]);
 
   if (zonesRes.status === 401 || zonesRes.status === 403) {
@@ -32,5 +34,11 @@ export const load = async ({ fetch }) => {
     scheduleTimeZone = body.tz ?? 'UTC';
   }
 
-  return { zones, schedules, scheduleTimeZone };
+  // History is non-critical too; degrade to empty on failure.
+  let events: IrrigationEventJson[] = [];
+  if (eventsRes.ok) {
+    events = ((await eventsRes.json()) as { events?: IrrigationEventJson[] }).events ?? [];
+  }
+
+  return { zones, schedules, scheduleTimeZone, events };
 };

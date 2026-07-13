@@ -3,6 +3,7 @@ import { json, redirect } from '@sveltejs/kit';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { startOpenSprinklerDriver } from '$lib/server/opensprinkler/controller';
 import { startIrrigationScheduler } from '$lib/server/opensprinkler/scheduler';
+import { startRunoffMonitor } from '$lib/server/opensprinkler/runoff-monitor';
 import { warmSiteTimeZone } from '$lib/server/settings/site-timezone';
 import { startSiteTimezoneReconciler } from '$lib/server/mqtt/tz-reconciler';
 import { getAuthDb } from '$lib/server/auth/db';
@@ -25,6 +26,10 @@ startOpenSprinklerDriver();
 // site is OS-enabled; it recomputes next-due from persisted state, so a restart just
 // resumes scheduling with no catch-up backlog.
 startIrrigationScheduler();
+// Persist runoff-pump runs to the irrigation history feed (web app only). Not gated on
+// OpenSprinkler: the runoff plug is an independent ESPHome device, so this runs whenever
+// MQTT is up and no-ops until the plug is discovered.
+startRunoffMonitor();
 // Warm the persisted site time zone into its module cache and start the MQTT reconciler
 // that stamps the derived POSIX onto tz-capable devices (web app only — the read-only
 // recorder never opens the settings DB nor publishes). Warming is best-effort so a
