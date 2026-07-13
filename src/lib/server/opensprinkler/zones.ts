@@ -16,6 +16,10 @@ export interface Zone {
   vwcEntityId: string | null;
   pwecEntityId: string | null;
   enabled: boolean;
+  /** When true, the scheduler skips ALL of this zone's schedules (they stay configured and
+   *  resume unchanged when un-paused). Manual runs are unaffected — that's the difference from
+   *  `enabled`, which also blocks manual actuation. */
+  schedulesPaused: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +35,7 @@ export interface ZoneCreate {
   vwcEntityId?: string | null;
   pwecEntityId?: string | null;
   enabled?: boolean;
+  schedulesPaused?: boolean;
 }
 
 export type ZonePatch = Partial<ZoneCreate>;
@@ -47,6 +52,7 @@ interface ZoneRow {
   vwc_entity_id: string | null;
   pwec_entity_id: string | null;
   enabled: number;
+  schedules_paused: number;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +70,7 @@ function toZone(row: ZoneRow): Zone {
     vwcEntityId: row.vwc_entity_id,
     pwecEntityId: row.pwec_entity_id,
     enabled: Boolean(row.enabled),
+    schedulesPaused: Boolean(row.schedules_paused),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -89,8 +96,8 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
   const id = randomUUID();
   db.prepare(
     `INSERT INTO zones (id, name, station_sid, substrate_type, substrate_volume_ml, drippers,
-       emitter_l_per_hr, max_run_seconds, vwc_entity_id, pwec_entity_id, enabled, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       emitter_l_per_hr, max_run_seconds, vwc_entity_id, pwec_entity_id, enabled, schedules_paused, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.name,
@@ -103,6 +110,7 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
     input.vwcEntityId ?? null,
     input.pwecEntityId ?? null,
     input.enabled === false ? 0 : 1,
+    input.schedulesPaused === true ? 1 : 0,
     now,
     now
   );
@@ -125,13 +133,14 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     ...('vwcEntityId' in patch ? { vwcEntityId: patch.vwcEntityId ?? null } : {}),
     ...('pwecEntityId' in patch ? { pwecEntityId: patch.pwecEntityId ?? null } : {}),
     ...('enabled' in patch ? { enabled: patch.enabled === true } : {}),
+    ...('schedulesPaused' in patch ? { schedulesPaused: patch.schedulesPaused === true } : {}),
     updatedAt: new Date().toISOString()
   };
 
   db.prepare(
     `UPDATE zones SET name = ?, station_sid = ?, substrate_type = ?, substrate_volume_ml = ?,
        drippers = ?, emitter_l_per_hr = ?, max_run_seconds = ?, vwc_entity_id = ?, pwec_entity_id = ?,
-       enabled = ?, updated_at = ? WHERE id = ?`
+       enabled = ?, schedules_paused = ?, updated_at = ? WHERE id = ?`
   ).run(
     merged.name,
     merged.stationSid,
@@ -143,6 +152,7 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     merged.vwcEntityId,
     merged.pwecEntityId,
     merged.enabled ? 1 : 0,
+    merged.schedulesPaused ? 1 : 0,
     merged.updatedAt,
     id
   );

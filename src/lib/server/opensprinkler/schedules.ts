@@ -124,14 +124,16 @@ export function listSchedules(db: DatabaseSync, zoneId?: string): Schedule[] {
   return rows.map(toSchedule);
 }
 
-/** Schedules eligible to fire: the schedule itself enabled AND its zone enabled. The
- *  JOIN drops schedules whose zone is disabled, so the tick never fires a paused zone.
- *  Ordered deterministically so that when two schedules share a station+slot, the same
- *  one wins the per-tick station claim every time (not left to the query planner). */
+/** Schedules eligible to fire: the schedule itself enabled, its zone enabled, and the zone's
+ *  schedules not paused. The JOIN drops schedules whose zone is disabled or whose schedules are
+ *  paused, so the tick simply never sees them (they stay configured and resume when un-paused,
+ *  with next-due recomputed from the persisted anchor). Ordered deterministically so that when
+ *  two schedules share a station+slot, the same one wins the per-tick station claim every time
+ *  (not left to the query planner). */
 export function listActiveSchedules(db: DatabaseSync): Schedule[] {
   const rows = db
     .prepare(
-      'SELECT s.* FROM schedules s JOIN zones z ON z.id = s.zone_id WHERE s.enabled = 1 AND z.enabled = 1 ORDER BY s.created_at, s.id'
+      'SELECT s.* FROM schedules s JOIN zones z ON z.id = s.zone_id WHERE s.enabled = 1 AND z.enabled = 1 AND z.schedules_paused = 0 ORDER BY s.created_at, s.id'
     )
     .all() as unknown as ScheduleRow[];
   return rows.map(toSchedule);

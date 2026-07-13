@@ -61,6 +61,24 @@ describe('irrigation zone store', () => {
     expect(toZoneJson(zone).stationEntityId).toBe('opensprinkler_station_2');
   });
 
+  it('defaults schedulesPaused to false and toggles it without touching other fields', () => {
+    const db = freshDb();
+    const zone = createZone(db, { name: 'Z', stationSid: 0, maxRunSeconds: 120 });
+    expect(zone.schedulesPaused).toBe(false);
+
+    const paused = updateZone(db, zone.id, { schedulesPaused: true });
+    expect(paused?.schedulesPaused).toBe(true);
+    expect(paused?.name).toBe('Z');
+    expect(paused?.maxRunSeconds).toBe(120); // untouched
+
+    expect(updateZone(db, zone.id, { schedulesPaused: false })?.schedulesPaused).toBe(false);
+  });
+
+  it('can create a zone already paused', () => {
+    const db = freshDb();
+    expect(createZone(db, { name: 'P', stationSid: 1, schedulesPaused: true }).schedulesPaused).toBe(true);
+  });
+
   it('records irrigation events', () => {
     const db = freshDb();
     const zone = createZone(db, { name: 'Z', stationSid: 0 });
