@@ -46,7 +46,8 @@ export function isHistoryRange(value: string | null | undefined): value is Histo
   return typeof value === 'string' && (HISTORY_RANGES as string[]).includes(value);
 }
 
-function escapeFluxString(value: string): string {
+/** Escape a value for safe interpolation into a Flux double-quoted string literal. */
+export function escapeFluxString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 

@@ -30,10 +30,15 @@
     return parts.join(' · ');
   }
 
-  // Wh: a 30 s pump run is ~0.5 Wh, a 5 min run ~5 Wh, so sub-1 gets an extra digit.
-  function fmtEnergy(wh: number | null): string {
-    if (wh == null) return '—';
-    return `${wh.toFixed(wh < 1 ? 3 : 2)} Wh`;
+  // Wh when integrable: a 30 s pump run is ~0.5 Wh, a 5 min run ~5 Wh, so sub-1 gets an extra
+  // digit. A window with a single sample has no interval to integrate (energy rounds to 0) — a
+  // runoff burst is often exactly this — so fall back to the measured peak power so the row still
+  // conveys the draw instead of a misleading "0 Wh".
+  function fmtDraw(e: IrrigationEventJson): string {
+    if (e.energyWh == null) return '—';
+    if (e.energyWh >= 0.005) return `${e.energyWh.toFixed(e.energyWh < 1 ? 3 : 2)} Wh`;
+    if (e.peakW != null && e.peakW > 0) return `~${e.peakW.toFixed(0)} W`;
+    return `${e.energyWh.toFixed(3)} Wh`;
   }
 </script>
 
@@ -56,7 +61,7 @@
             {#if eventDetail(e)}<span class="detail mono">{eventDetail(e)}</span>{/if}
             {#if e.source && e.source !== 'runoff'}<span class="src mono">{e.source}</span>{/if}
           </span>
-          <span class="energy mono" class:faint={e.energyWh == null}>{fmtEnergy(e.energyWh)}</span>
+          <span class="energy mono" class:faint={e.energyWh == null}>{fmtDraw(e)}</span>
           {#if e.noDraw}
             <span
               class="warn"

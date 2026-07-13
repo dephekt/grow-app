@@ -1,5 +1,5 @@
 import { getInfluxConfig, getInfluxDB } from './client';
-import { READING_MEASUREMENT } from './query';
+import { READING_MEASUREMENT, escapeFluxString } from './query';
 
 /**
  * Per-event pump energy from InfluxDB (grow-app #81). The recorder writes each pump-power
@@ -40,10 +40,6 @@ export function integratePower(samples: PowerSample[]): PumpWindowResult {
     }
   }
   return { energyWh: wattMs / 3_600_000, peakW, sampleCount: sorted.length };
-}
-
-function escapeFluxString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 /**
