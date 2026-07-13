@@ -74,6 +74,19 @@ const MIGRATIONS: string[] = [
   CREATE INDEX schedules_zone ON schedules(zone_id);
 
   ALTER TABLE irrigation_events ADD COLUMN schedule_id TEXT;
+  `,
+  // 4 — irrigation history feed. `kind` discriminates zone runs ('irrigation', the
+  // default so existing rows and every recordEvent() insert stay unchanged) from
+  // runoff-pump runs ('runoff') persisted by the runoff monitor, so the page renders one
+  // mixed newest-first feed. `pump_energy_wh` / `pump_peak_w` cache the per-event pump
+  // draw, integrated from InfluxDB over the run's [ts, ts+seconds] window; both stay NULL
+  // until measured (lazily, once the run has settled). A NULL peak means "not measured"
+  // and never warns; a measured peak below the draw floor is the soft "no pump activity"
+  // flag surfaced on the row.
+  `
+  ALTER TABLE irrigation_events ADD COLUMN kind TEXT NOT NULL DEFAULT 'irrigation';
+  ALTER TABLE irrigation_events ADD COLUMN pump_energy_wh REAL;
+  ALTER TABLE irrigation_events ADD COLUMN pump_peak_w REAL;
   `
 ];
 
