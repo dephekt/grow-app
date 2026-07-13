@@ -15,8 +15,10 @@
   let { live }: { live: LiveSnapshot } = $props();
   const snap = $derived(live.snapshot);
 
-  // Only render once at least one pump plug is discovered.
-  const hasPumps = $derived(snap.devices.some((d) => d.id === IRRIGATION_NODE || d.id === RUNOFF_NODE));
+  // Only render once at least one pump plug is discovered. Match on nodeId, not d.id: the ESPHome
+  // plugs ship HA-discovery configs with no device `ids`, so devices() can't set d.id to the node
+  // name (it lands on a uniq_id/slug), while d.nodeId reliably equals the constant.
+  const hasPumps = $derived(snap.devices.some((d) => d.nodeId === IRRIGATION_NODE || d.nodeId === RUNOFF_NODE));
 
   const osAvail = $derived(openSprinklerAvailability(snap));
   const zoneOpen = $derived(anyStationRunning(snap));
@@ -35,7 +37,7 @@
   }
 
   function deviceOffline(node: string): boolean {
-    return snap.devices.find((d) => d.id === node)?.availability === 'offline';
+    return snap.devices.find((d) => d.nodeId === node)?.availability === 'offline';
   }
 
   const irrigation = $derived<PumpView>({

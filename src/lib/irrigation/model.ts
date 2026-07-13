@@ -15,7 +15,8 @@ export interface EntityRef {
   objectId: string;
 }
 
-/** The plugs' `_ui/config` nodeIds (== entity.nodeId == device.identifiers[0]). */
+/** The plugs' nodeIds (== entity.nodeId). NOT necessarily == device.identifiers[0]: these ESPHome
+ *  plugs omit device `ids` in discovery, so match snapshot devices on `nodeId`, not `id`. */
 export const IRRIGATION_NODE = 'irrigation-pump';
 export const RUNOFF_NODE = 'runoff-monitor';
 
