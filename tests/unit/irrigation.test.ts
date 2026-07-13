@@ -93,16 +93,17 @@ describe('irrigation model — pump running', () => {
     expect(irrigationDrawing(snap({ ...base, states: { irrig_pump_power: { value: '4' } } }))).toBe(false);
   });
 
-  it('runoffRunning reads the binary sensor against payloadOn', () => {
-    const running = makeEntity(RUNOFF_NODE, {
-      id: 'runoff_run',
-      name: 'Runoff Pump Running',
-      objectId: 'runoff_pump_running',
-      component: 'binary_sensor',
-      payloadOn: 'ON'
+  it('runoffRunning crosses the draw threshold on runoff pump power (not the binary sensor)', () => {
+    const power = makeEntity(RUNOFF_NODE, {
+      id: 'runoff_pw',
+      name: 'Runoff Pump Power',
+      objectId: 'runoff_pump_power',
+      unit: 'W'
     });
-    expect(runoffRunning(snap({ entities: [running], states: { runoff_run: { value: 'ON' } } }))).toBe(true);
-    expect(runoffRunning(snap({ entities: [running], states: { runoff_run: { value: 'OFF' } } }))).toBe(false);
-    expect(runoffRunning(snap({ entities: [running] }))).toBe(false);
+    const base = { entities: [power] };
+    expect(runoffRunning(snap({ ...base, states: { runoff_pw: { value: '22.5' } } }))).toBe(true);
+    expect(runoffRunning(snap({ ...base, states: { runoff_pw: { value: '0' } } }))).toBe(false);
+    expect(runoffRunning(snap({ ...base, states: { runoff_pw: { value: '9' } } }))).toBe(false); // below the 10 W floor
+    expect(runoffRunning(snap(base))).toBe(false);
   });
 });

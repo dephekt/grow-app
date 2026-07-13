@@ -24,6 +24,11 @@ export const RUNOFF_NODE = 'runoff-monitor';
  *  Drives the irrigation-pump row's running/idle state. */
 export const PUMP_DRAW_MIN_W = 5;
 
+/** The runoff pump draws ~20-30 W when running vs ~0-3 W standby, so this floor (double the
+ *  irrigation floor) sits well clear of both standby and small power-meter glitches. Used by
+ *  both the live runoff indicator and the history monitor's rising-edge detection. */
+export const RUNOFF_DRAW_MIN_W = 10;
+
 /** Resolve a (node, objectId) ref to its discovered entity. Node is matched against the
  *  entity's own node (its `nodeId`, or the device's primary identifier as a fallback) —
  *  mirrors lights/model.entityByRef. */
@@ -71,9 +76,13 @@ export function irrigationDrawing(snapshot: Snapshot): boolean {
   return watts !== null && watts >= PUMP_DRAW_MIN_W;
 }
 
-/** The runoff bilge pump is running, per its firmware binary sensor. */
+/** The runoff bilge pump is running. Derived from measured power draw (like the irrigation
+ *  pump), NOT the firmware `runoff_pump_running` binary sensor: that sensor proved unreliable
+ *  in the field — it only trips above ~20 W, so it missed lower-power runs entirely (a ~20 W
+ *  run drew power and was audibly running, yet the sensor never reported ON), leaving both
+ *  this live indicator and the history monitor dark. The plug's power meter caught every run,
+ *  so we key off that instead. */
 export function runoffRunning(snapshot: Snapshot): boolean {
-  const entity = resolveEntity(snapshot, { node: RUNOFF_NODE, objectId: 'runoff_pump_running' });
-  if (!entity) return false;
-  return (snapshot.states[entity.id]?.value ?? null) === (entity.payloadOn ?? 'ON');
+  const watts = numericValue(snapshot, { node: RUNOFF_NODE, objectId: 'runoff_pump_power' });
+  return watts !== null && watts >= RUNOFF_DRAW_MIN_W;
 }
