@@ -305,8 +305,6 @@
     <h1>Irrigation</h1>
   </header>
 
-  <IrrigationCard {live} />
-
   {#if error}<p class="error" role="alert">{error}</p>{/if}
 
   {#if zones.length === 0}
@@ -314,6 +312,7 @@
   {/if}
 
   <div class="zones">
+    <IrrigationCard {live} />
     {#each zones as zone (zone.id)}
       {@const running = stationRunning(zone)}
       <article class="panel zone" class:disabled={!zone.enabled}>
@@ -497,6 +496,10 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--gap);
+    /* Cards keep their natural height instead of stretching to the tallest in the
+       row — the pump card is shorter than a zone card with a schedule, and a
+       stretched pump card would trail dead space below its content. */
+    align-items: start;
   }
   .zone {
     display: flex;

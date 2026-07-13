@@ -118,9 +118,6 @@
     display: grid;
     gap: 14px;
     align-content: start;
-    /* Cap the width so the card reads as an intentional panel instead of stretching
-       the full page — the status labels and metrics stay grouped, not flung apart. */
-    max-width: 760px;
   }
 
   .os {
