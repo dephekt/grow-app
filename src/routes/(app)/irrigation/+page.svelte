@@ -2,8 +2,10 @@
   import { untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
+  import IrrigationHistory from '$lib/irrigation/IrrigationHistory.svelte';
   import type { Zone } from '$lib/server/opensprinkler/zones';
   import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
+  import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
 
   type ZoneJson = Zone & { stationEntityId: string };
 
@@ -13,6 +15,7 @@
   // Seed once from load; manage locally as mutations happen.
   let zones = $state<ZoneJson[]>(untrack(() => data.zones));
   let schedules = $state<ScheduleJson[]>(untrack(() => data.schedules));
+  let history = $state<IrrigationEventJson[]>(untrack(() => data.events));
   let error = $state<string | null>(null);
   const isAdmin = $derived(Boolean(data.user?.isAdmin));
 
@@ -90,6 +93,23 @@
     }
   }
 
+  // The history feed is server-persisted; re-fetch it (rather than optimistically mutating)
+  // so runoff events and lazily-filled pump energy show up. Polled lightly, and nudged right
+  // after a manual run so the fresh event appears without waiting for the next tick.
+  async function refreshHistory(): Promise<void> {
+    try {
+      const response = await fetch('/api/irrigation/events');
+      if (response.ok) history = ((await response.json()) as { events: IrrigationEventJson[] }).events;
+    } catch {
+      /* leave feed as-is */
+    }
+  }
+
+  $effect(() => {
+    const id = setInterval(refreshHistory, 30_000);
+    return () => clearInterval(id);
+  });
+
   async function runShot(zone: ZoneJson): Promise<void> {
     const amount = Number(runValue[zone.id]);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -98,6 +118,7 @@
     }
     error = null;
     await live.runZoneShot(zone.id, { [unitFor(zone.id)]: amount });
+    await refreshHistory();
   }
 
   async function stopZone(zone: ZoneJson): Promise<void> {
@@ -415,6 +436,8 @@
       </article>
     {/each}
   </div>
+
+  <IrrigationHistory events={history} timeZone={scheduleTz} />
 
   {#if isAdmin}
     <form class="panel editor" onsubmit={saveZone}>
