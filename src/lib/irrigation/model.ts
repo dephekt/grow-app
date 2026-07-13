@@ -79,15 +79,20 @@ export function runoffRunning(snapshot: Snapshot): boolean {
   return (snapshot.states[entity.id]?.value ?? null) === (entity.payloadOn ?? 'ON');
 }
 
-export type FailsafeState = 'ok' | 'fault' | 'idle';
+export type FailsafeState = 'ok' | 'fault' | 'dryrun' | 'idle';
 
 /**
- * Cross-check the OpenSprinkler valves against irrigation-pump draw:
- *  - `fault`: a zone is open but the pump reads below the draw threshold (no flow),
- *  - `ok`:    a zone is open and the pump is drawing (flow confirmed),
- *  - `idle`:  no zone open — nothing to verify.
+ * Cross-check the OpenSprinkler valves against irrigation-pump draw — BOTH directions:
+ *  - `ok`:     a zone is open and the pump is drawing (flow confirmed),
+ *  - `fault`:  a zone is open but the pump reads below the draw threshold (no flow),
+ *  - `dryrun`: NO zone open yet the pump is still drawing — it should be off. A dry tank
+ *              (the pump can't build pressure, so it runs non-stop and overheats), a stuck
+ *              relay, or a leak. The dangerous case; previously mis-reported as idle.
+ *  - `idle`:   no zone open and the pump is off — nothing to verify.
  */
 export function computeFailsafe(snapshot: Snapshot): FailsafeState {
-  if (!anyStationRunning(snapshot)) return 'idle';
-  return irrigationDrawing(snapshot) ? 'ok' : 'fault';
+  const zoneOpen = anyStationRunning(snapshot);
+  const drawing = irrigationDrawing(snapshot);
+  if (zoneOpen) return drawing ? 'ok' : 'fault';
+  return drawing ? 'dryrun' : 'idle';
 }
