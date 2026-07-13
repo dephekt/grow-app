@@ -111,6 +111,9 @@
     display: grid;
     gap: 14px;
     align-content: start;
+    /* Cap the width so the card reads as an intentional panel instead of stretching
+       the full page — the status labels and metrics stay grouped, not flung apart. */
+    max-width: 760px;
   }
 
   .os {
@@ -159,7 +162,9 @@
 
   .metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    /* auto-FIT (not auto-fill): the 4 fields spread to fill the card width instead of
+       clustering left with empty trailing columns; wraps on very narrow screens. */
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
     gap: 8px 16px;
     padding-left: 17px;
   }
