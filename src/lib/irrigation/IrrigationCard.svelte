@@ -5,7 +5,6 @@
     resolveEntity,
     openSprinklerAvailability,
     anyStationRunning,
-    computeFailsafe,
     irrigationDrawing,
     runoffRunning,
     IRRIGATION_NODE,
@@ -22,7 +21,6 @@
 
   const osAvail = $derived(openSprinklerAvailability(snap));
   const zoneOpen = $derived(anyStationRunning(snap));
-  const failsafe = $derived(computeFailsafe(snap));
   const osText = $derived(
     osAvail === 'online' ? (zoneOpen ? 'watering' : 'online') : osAvail === 'offline' ? 'offline' : 'not seen'
   );
@@ -92,24 +90,6 @@
 
     {@render pumpRow('Irrigation Pump', irrigation)}
     {@render pumpRow('Runoff Pump', runoff)}
-
-    <div
-      class="failsafe"
-      class:ok={failsafe === 'ok'}
-      class:fault={failsafe === 'fault' || failsafe === 'dryrun'}
-      class:idle={failsafe === 'idle'}
-    >
-      <span class="dot {failsafe === 'ok' ? 'ok' : failsafe === 'fault' || failsafe === 'dryrun' ? 'alert' : 'faint'}"></span>
-      {#if failsafe === 'dryrun'}
-        <span><b>Pump running, no zone open</b> — it should be off. Likely a dry tank (running dry &amp; overheating), a stuck relay, or a leak. Check the pump.</span>
-      {:else if failsafe === 'fault'}
-        <span><b>No flow</b> — a zone is open but the irrigation pump is drawing ~0&nbsp;W. Check the pump.</span>
-      {:else if failsafe === 'ok'}
-        <span><b>Flow confirmed</b> — a zone is open and the irrigation pump is drawing.</span>
-      {:else}
-        <span>No zone open.</span>
-      {/if}
-    </div>
   </article>
 {/if}
 
@@ -189,33 +169,5 @@
   .metric-value {
     font-size: 0.9rem;
     color: var(--text);
-  }
-
-  .failsafe {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 10px 12px;
-    border-radius: var(--r-control);
-    font-size: 0.74rem;
-    line-height: 1.35;
-  }
-  .failsafe b {
-    font-weight: 700;
-  }
-  .failsafe.ok {
-    background: rgba(63, 185, 80, 0.08);
-    border: 1px solid rgba(63, 185, 80, 0.25);
-    color: var(--text);
-  }
-  .failsafe.fault {
-    background: rgba(240, 86, 58, 0.09);
-    border: 1px solid rgba(240, 86, 58, 0.3);
-    color: var(--text);
-  }
-  .failsafe.idle {
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    color: var(--muted);
   }
 </style>

@@ -7,7 +7,6 @@ import {
   anyStationRunning,
   irrigationDrawing,
   runoffRunning,
-  computeFailsafe,
   IRRIGATION_NODE,
   RUNOFF_NODE
 } from '../../src/lib/irrigation/model';
@@ -86,7 +85,7 @@ describe('irrigation model — OpenSprinkler status', () => {
   });
 });
 
-describe('irrigation model — pump running + failsafe', () => {
+describe('irrigation model — pump running', () => {
   it('irrigationDrawing crosses the draw threshold (5 W above the 3 W noise floor)', () => {
     const base = { entities: [pumpPower] };
     expect(irrigationDrawing(snap({ ...base, states: { irrig_pump_power: { value: '62.4' } } }))).toBe(true);
@@ -105,21 +104,5 @@ describe('irrigation model — pump running + failsafe', () => {
     expect(runoffRunning(snap({ entities: [running], states: { runoff_run: { value: 'ON' } } }))).toBe(true);
     expect(runoffRunning(snap({ entities: [running], states: { runoff_run: { value: 'OFF' } } }))).toBe(false);
     expect(runoffRunning(snap({ entities: [running] }))).toBe(false);
-  });
-
-  it('computeFailsafe: cross-checks zone vs pump draw in both directions', () => {
-    const withStates = (station: string, power: string) =>
-      snap({
-        entities: [station1, pumpPower],
-        states: { opensprinkler_station_1: { value: station }, irrig_pump_power: { value: power } }
-      });
-    // no zone open, pump off -> idle
-    expect(computeFailsafe(withStates('OFF', '0'))).toBe('idle');
-    // no zone open BUT pump drawing -> dryrun (dry tank / stuck relay — the dangerous case)
-    expect(computeFailsafe(withStates('OFF', '62'))).toBe('dryrun');
-    // zone open + pump drawing -> ok
-    expect(computeFailsafe(withStates('ON', '62'))).toBe('ok');
-    // zone open + pump ~0 -> fault (no flow)
-    expect(computeFailsafe(withStates('ON', '0'))).toBe('fault');
   });
 });
