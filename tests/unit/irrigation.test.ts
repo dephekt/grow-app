@@ -107,18 +107,19 @@ describe('irrigation model — pump running + failsafe', () => {
     expect(runoffRunning(snap({ entities: [running] }))).toBe(false);
   });
 
-  it('computeFailsafe: idle without an open zone; ok/fault by draw when a zone is open', () => {
+  it('computeFailsafe: cross-checks zone vs pump draw in both directions', () => {
     const withStates = (station: string, power: string) =>
       snap({
         entities: [station1, pumpPower],
         states: { opensprinkler_station_1: { value: station }, irrig_pump_power: { value: power } }
       });
-    // no zone open -> idle regardless of pump draw
+    // no zone open, pump off -> idle
     expect(computeFailsafe(withStates('OFF', '0'))).toBe('idle');
-    expect(computeFailsafe(withStates('OFF', '62'))).toBe('idle');
+    // no zone open BUT pump drawing -> dryrun (dry tank / stuck relay — the dangerous case)
+    expect(computeFailsafe(withStates('OFF', '62'))).toBe('dryrun');
     // zone open + pump drawing -> ok
     expect(computeFailsafe(withStates('ON', '62'))).toBe('ok');
-    // zone open + pump ~0 -> fault (the signal the card exists to catch)
+    // zone open + pump ~0 -> fault (no flow)
     expect(computeFailsafe(withStates('ON', '0'))).toBe('fault');
   });
 });
