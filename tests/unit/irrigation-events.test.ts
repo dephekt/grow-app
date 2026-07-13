@@ -65,15 +65,15 @@ describe('irrigation events feed — persistence + shaping', () => {
     expect(e.noDraw).toBe(false); // unmeasured never warns
   });
 
-  it('persists a runoff run as its own event kind', () => {
+  it('persists a runoff run as its own event kind, with no measured duration', () => {
     const db = freshDb();
-    recordRunoffEvent(db, { startedAt: '2026-07-12T10:00:00.000Z', seconds: 42 });
+    recordRunoffEvent(db, { startedAt: '2026-07-12T10:00:00.000Z' });
 
     const [e] = listEvents(db);
     expect(e.kind).toBe('runoff');
     expect(e.source).toBe('runoff');
     expect(e.actor).toBe('monitor');
-    expect(e.seconds).toBe(42);
+    expect(e.seconds).toBeNull();
     expect(e.zoneName).toBeNull();
   });
 
@@ -134,7 +134,7 @@ describe('irrigation events feed — no-draw warning derivation', () => {
 
   it('never flags a runoff event, even measured below the floor', () => {
     const db = freshDb();
-    recordRunoffEvent(db, { startedAt: '2026-07-12T10:00:00.000Z', seconds: 5 });
+    recordRunoffEvent(db, { startedAt: '2026-07-12T10:00:00.000Z' });
     const [row] = listEvents(db);
     markEventEnergy(db, row.id, 0.0, 1.0);
 

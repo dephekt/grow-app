@@ -106,13 +106,15 @@ export function listEvents(db: DatabaseSync, limit = 100): IrrigationEventJson[]
   return rows.map(toEventJson);
 }
 
-/** Persist a completed runoff-pump run (start + measured duration). Its energy is filled
- *  in later by the same lazy enrichment as zone runs. */
-export function recordRunoffEvent(db: DatabaseSync, event: { startedAt: string; seconds: number }): void {
+/** Persist a runoff-pump run at its start. Duration is left null — a runoff burst is often a
+ *  single power sample, so it can't be measured; the row leads with pump energy instead, filled
+ *  in by the same lazy enrichment as zone runs (over a fixed post-start window since seconds is
+ *  null). */
+export function recordRunoffEvent(db: DatabaseSync, event: { startedAt: string }): void {
   db.prepare(
     `INSERT INTO irrigation_events (kind, source, actor, seconds, ts)
-     VALUES ('runoff', 'runoff', 'monitor', ?, ?)`
-  ).run(event.seconds, event.startedAt);
+     VALUES ('runoff', 'runoff', 'monitor', NULL, ?)`
+  ).run(event.startedAt);
 }
 
 /** The Influx tag pair identifying the pump plug for a given event kind. Both tags must be
