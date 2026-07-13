@@ -2,7 +2,7 @@ import { getSiteMqttService } from '$lib/server/mqtt/service';
 import type { EntityConfig, SnapshotEvent } from '$lib/server/mqtt/types';
 import { RUNOFF_NODE, RUNOFF_DRAW_MIN_W } from '$lib/irrigation/model';
 import { getIrrigationDb } from './db';
-import { recordRunoffEvent, lastRunoffEventTs } from './events';
+import { recordRunoffEvent } from './events';
 
 /** The runoff plug's power meter (W). "Running" is keyed off measured power, not the firmware
  *  `runoff_pump_running` binary sensor: that sensor only trips above ~20 W and missed real,
@@ -24,17 +24,26 @@ function isRunoffPowerEntity(entity: EntityConfig): boolean {
 }
 
 /**
- * Debounced rising-edge detector for the runoff pump, driven by raw power samples. Runoff runs
- * are short bursts (~15 s, often just one or two power samples at the plug's ~10 s cadence), so
- * a run is recorded on the idle→drawing transition, and the detector then disarms until power
- * has stayed below the floor for RUNOFF_REARM_IDLE_MS. That debounce means a momentary sub-floor
- * sample mid-run neither ends a run early nor lets the following sample re-fire a duplicate; the
- * elevated floor (RUNOFF_DRAW_MIN_W) rejects standby noise and small meter glitches. Because a
- * burst is often a single sample, duration can't be measured, so a run carries only its start.
+ * Rising-edge detector for the runoff pump, driven by raw power samples. Runoff runs are short
+ * bursts (~15 s, often just one or two power samples at the plug's ~10 s cadence), so a run is
+ * recorded on the idle→drawing transition.
+ *
+ * Critically, the detector **starts disarmed and only arms after observing the pump idle** (a
+ * below-floor sample) — sustained for RUNOFF_REARM_IDLE_MS since the last draw, so a lone
+ * sub-floor dip mid-run doesn't count. A run is therefore recorded only after we've actually seen
+ * the pump idle since the previous one. Two consequences fall out of that one rule:
+ *   - A continuous run whose above-floor samples arrive far apart (sparse or dropped reports) is
+ *     never split into duplicates: with no intervening idle sample, the detector never re-arms.
+ *   - A run already in progress when the monitor starts (e.g. across a web-app restart, and almost
+ *     certainly already logged before it) is not recorded again: we never saw it start from idle.
+ * The tradeoff is a run that is already drawing when the plug (re)connects, with no idle sample
+ * ever observed, is missed — acceptable loss for a best-effort feed, and preferable to a spurious
+ * insert. The elevated floor (RUNOFF_DRAW_MIN_W) rejects standby noise and small meter glitches.
+ * A burst is often a single sample, so duration can't be measured and a run carries only its start.
  * Extracted for unit testing.
  */
 export class RunoffRunTracker {
-  private armed = true;
+  private armed = false;
   private lastAboveMs: number | null = null;
 
   constructor(
@@ -42,30 +51,24 @@ export class RunoffRunTracker {
     private readonly rearmIdleMs = RUNOFF_REARM_IDLE_MS
   ) {}
 
-  /** Feed a raw power reading (W). Returns the started run on a debounced rising edge, else null. */
+  /** Feed a raw power reading (W). Returns the started run on a rising edge (only while armed),
+   *  else null. */
   note(watts: number, nowMs: number): { startedAtMs: number } | null {
     if (Number.isFinite(watts) && watts >= this.floorW) {
-      // A long gap since the last above-floor sample means the previous run definitely ended,
-      // even if we never saw the intervening idle samples (e.g. the plug went offline). Treat
-      // this as a fresh run so an offline→reconnect burst isn't swallowed while still disarmed.
-      const gapReArmed = this.lastAboveMs !== null && nowMs - this.lastAboveMs >= this.rearmIdleMs;
       this.lastAboveMs = nowMs;
-      if (this.armed || gapReArmed) {
+      if (this.armed) {
         this.armed = false;
         return { startedAtMs: nowMs };
       }
       return null;
     }
-    // Below the floor: re-arm once the pump has been idle long enough that this isn't a brief
-    // mid-run dip.
-    if (!this.armed && this.lastAboveMs !== null && nowMs - this.lastAboveMs >= this.rearmIdleMs) {
+    // Below the floor: arm once the pump has been idle long enough to be sure any prior run has
+    // ended (a lone sub-floor dip mid-run stays inside the window and does not arm). `lastAboveMs
+    // === null` is the startup case — the first idle sample arms us with no wait.
+    if (!this.armed && (this.lastAboveMs === null || nowMs - this.lastAboveMs >= this.rearmIdleMs)) {
       this.armed = true;
     }
     return null;
-  }
-
-  get running(): boolean {
-    return !this.armed;
   }
 }
 
@@ -103,14 +106,7 @@ export function startRunoffMonitor(): void {
     const run = tracker.note(Number(event.state.value), Date.now());
     if (!run) return;
     try {
-      const db = getIrrigationDb();
-      // Suppress a duplicate for a run spanning a web-app restart: a fresh tracker re-fires for a
-      // run that was already logged moments ago. A genuinely separate run can't rising-edge within
-      // the re-arm window (the tracker merges bursts that close), so a runoff event this recent is
-      // the same physical run.
-      const last = lastRunoffEventTs(db);
-      if (last !== null && run.startedAtMs - Date.parse(last) < RUNOFF_REARM_IDLE_MS) return;
-      recordRunoffEvent(db, { startedAt: new Date(run.startedAtMs).toISOString() });
+      recordRunoffEvent(getIrrigationDb(), { startedAt: new Date(run.startedAtMs).toISOString() });
     } catch (error) {
       console.error('[runoff] recording runoff event failed', error);
     }

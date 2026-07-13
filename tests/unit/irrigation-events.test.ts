@@ -5,7 +5,6 @@ import { createZone, deleteZone, recordEvent } from '../../src/lib/server/opensp
 import {
   listEvents,
   recordRunoffEvent,
-  lastRunoffEventTs,
   markEventEnergy,
   listEnergyPending,
   isSettled,
@@ -183,17 +182,6 @@ describe('irrigation events feed — energy enrichment eligibility', () => {
     insertRaw(db, { ts: '2026-07-01T00:00:00.000Z', stationSid: 0, seconds: 30 }); // settled but ancient
     const now = Date.parse('2026-07-13T00:00:00.000Z'); // ~12 days later
     expect(listEnergyPending(db, now)).toHaveLength(0);
-  });
-});
-
-describe('lastRunoffEventTs', () => {
-  it('returns the newest runoff ts, ignoring irrigation rows; null when none', () => {
-    const db = freshDb();
-    expect(lastRunoffEventTs(db)).toBeNull();
-    recordRunoffEvent(db, { startedAt: '2026-07-12T10:00:00.000Z' });
-    recordRunoffEvent(db, { startedAt: '2026-07-12T11:00:00.000Z' });
-    insertRaw(db, { ts: '2026-07-12T12:00:00.000Z', stationSid: 0 }); // irrigation — must not count
-    expect(lastRunoffEventTs(db)).toBe('2026-07-12T11:00:00.000Z');
   });
 });
 
