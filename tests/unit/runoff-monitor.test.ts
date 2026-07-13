@@ -33,6 +33,13 @@ describe('RunoffRunTracker', () => {
     expect(t.note(25, 60_000)).toEqual({ startedAtMs: 60_000 });
   });
 
+  it('re-arms on a long gap with no intervening idle sample (plug went offline mid-idle)', () => {
+    const t = new RunoffRunTracker();
+    expect(t.note(22, 0)).toEqual({ startedAtMs: 0 }); // run 1
+    // Plug drops offline (no below-floor samples arrive), reconnects already drawing 100 s later.
+    expect(t.note(24, 100_000)).toEqual({ startedAtMs: 100_000 }); // gap ≥ 30 s → new run, not swallowed
+  });
+
   it('rejects sub-floor and non-numeric readings', () => {
     const t = new RunoffRunTracker();
     expect(t.note(9, 0)).toBeNull(); // below the 10 W floor

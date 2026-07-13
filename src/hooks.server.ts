@@ -4,6 +4,7 @@ import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { startOpenSprinklerDriver } from '$lib/server/opensprinkler/controller';
 import { startIrrigationScheduler } from '$lib/server/opensprinkler/scheduler';
 import { startRunoffMonitor } from '$lib/server/opensprinkler/runoff-monitor';
+import { startIrrigationEnergyBackfill } from '$lib/server/opensprinkler/energy-backfill';
 import { warmSiteTimeZone } from '$lib/server/settings/site-timezone';
 import { startSiteTimezoneReconciler } from '$lib/server/mqtt/tz-reconciler';
 import { getAuthDb } from '$lib/server/auth/db';
@@ -30,6 +31,9 @@ startIrrigationScheduler();
 // OpenSprinkler: the runoff plug is an independent ESPHome device, so this runs whenever
 // MQTT is up and no-ops until the plug is discovered.
 startRunoffMonitor();
+// Fill in per-event pump energy from InfluxDB on a timer, off the request path, so a slow
+// Influx never stalls the irrigation page render (web app only; no-op without Influx).
+startIrrigationEnergyBackfill();
 // Warm the persisted site time zone into its module cache and start the MQTT reconciler
 // that stamps the derived POSIX onto tz-capable devices (web app only — the read-only
 // recorder never opens the settings DB nor publishes). Warming is best-effort so a

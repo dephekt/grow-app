@@ -2,7 +2,7 @@ import { getSiteMqttService } from '$lib/server/mqtt/service';
 import type { EntityConfig, SnapshotEvent } from '$lib/server/mqtt/types';
 import { RUNOFF_NODE, RUNOFF_DRAW_MIN_W } from '$lib/irrigation/model';
 import { getIrrigationDb } from './db';
-import { recordRunoffEvent } from './events';
+import { recordRunoffEvent, lastRunoffEventTs } from './events';
 
 /** The runoff plug's power meter (W). "Running" is keyed off measured power, not the firmware
  *  `runoff_pump_running` binary sensor: that sensor only trips above ~20 W and missed real,
@@ -45,15 +45,19 @@ export class RunoffRunTracker {
   /** Feed a raw power reading (W). Returns the started run on a debounced rising edge, else null. */
   note(watts: number, nowMs: number): { startedAtMs: number } | null {
     if (Number.isFinite(watts) && watts >= this.floorW) {
+      // A long gap since the last above-floor sample means the previous run definitely ended,
+      // even if we never saw the intervening idle samples (e.g. the plug went offline). Treat
+      // this as a fresh run so an offline→reconnect burst isn't swallowed while still disarmed.
+      const gapReArmed = this.lastAboveMs !== null && nowMs - this.lastAboveMs >= this.rearmIdleMs;
       this.lastAboveMs = nowMs;
-      if (this.armed) {
+      if (this.armed || gapReArmed) {
         this.armed = false;
         return { startedAtMs: nowMs };
       }
       return null;
     }
-    // Below the floor: re-arm only once the pump has been idle long enough that this isn't a
-    // brief mid-run dip.
+    // Below the floor: re-arm once the pump has been idle long enough that this isn't a brief
+    // mid-run dip.
     if (!this.armed && this.lastAboveMs !== null && nowMs - this.lastAboveMs >= this.rearmIdleMs) {
       this.armed = true;
     }
@@ -99,7 +103,14 @@ export function startRunoffMonitor(): void {
     const run = tracker.note(Number(event.state.value), Date.now());
     if (!run) return;
     try {
-      recordRunoffEvent(getIrrigationDb(), { startedAt: new Date(run.startedAtMs).toISOString() });
+      const db = getIrrigationDb();
+      // Suppress a duplicate for a run spanning a web-app restart: a fresh tracker re-fires for a
+      // run that was already logged moments ago. A genuinely separate run can't rising-edge within
+      // the re-arm window (the tracker merges bursts that close), so a runoff event this recent is
+      // the same physical run.
+      const last = lastRunoffEventTs(db);
+      if (last !== null && run.startedAtMs - Date.parse(last) < RUNOFF_REARM_IDLE_MS) return;
+      recordRunoffEvent(db, { startedAt: new Date(run.startedAtMs).toISOString() });
     } catch (error) {
       console.error('[runoff] recording runoff event failed', error);
     }

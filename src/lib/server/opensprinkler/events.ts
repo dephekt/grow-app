@@ -117,6 +117,15 @@ export function recordRunoffEvent(db: DatabaseSync, event: { startedAt: string }
   ).run(event.startedAt);
 }
 
+/** ISO ts of the most recent runoff event, or null. Lets the monitor suppress a duplicate insert
+ *  for a run that spans a web-app restart (a fresh tracker would otherwise re-record it). */
+export function lastRunoffEventTs(db: DatabaseSync): string | null {
+  const row = db.prepare(`SELECT ts FROM irrigation_events WHERE kind = 'runoff' ORDER BY ts DESC LIMIT 1`).get() as
+    | { ts: string }
+    | undefined;
+  return row?.ts ?? null;
+}
+
 /** The Influx tag pair identifying the pump plug for a given event kind. Both tags must be
  *  filtered together: the two plugs publish colliding objectIds (see model.ts). */
 export function pumpTagsForKind(kind: EventKind): { node: string; entity: string } {
@@ -148,19 +157,29 @@ export interface PendingEnergyRow {
   seconds: number | null;
 }
 
-/** Settled, not-yet-measured rows needing an energy backfill (newest first, bounded). Pure
- *  and sync; the caller runs the async Influx integral and calls markEventEnergy(). */
+/** Stop retrying rows older than this. A row still unmeasured after this long is a permanent
+ *  data gap (Influx retention, an offline stretch, or a diagnostic-category sensor the recorder
+ *  skips), so it should drop out of the pending set instead of re-querying forever and crowding
+ *  out newer rows. */
+export const ENERGY_RETRY_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** Settled, not-yet-measured rows needing an energy backfill (newest first, bounded). Pure and
+ *  sync; the caller runs the async Influx integral and calls markEventEnergy(). Age-bounds in SQL
+ *  so ancient unmeasurable rows leave the candidate set, and applies `limit` AFTER the settled
+ *  filter so perpetually-pending rows can't starve older settled ones sorted behind them. */
 export function listEnergyPending(db: DatabaseSync, nowMs: number, limit = 100): PendingEnergyRow[] {
+  const minTs = new Date(nowMs - ENERGY_RETRY_MAX_AGE_MS).toISOString();
   const rows = db
     .prepare(
       `SELECT id, kind, ts, seconds FROM irrigation_events
-       WHERE pump_peak_w IS NULL
-       ORDER BY ts DESC LIMIT ?`
+       WHERE pump_peak_w IS NULL AND ts >= ?
+       ORDER BY ts DESC`
     )
-    .all(limit) as Array<{ id: number; kind: string; ts: string; seconds: number | null }>;
+    .all(minTs) as Array<{ id: number; kind: string; ts: string; seconds: number | null }>;
   return rows
     .map((r) => ({ id: r.id, kind: normalizeKind(r.kind), ts: r.ts, seconds: r.seconds }))
-    .filter((r) => isSettled(r.ts, r.seconds, nowMs));
+    .filter((r) => isSettled(r.ts, r.seconds, nowMs))
+    .slice(0, limit);
 }
 
 /** Cache a measured energy/peak onto a row. Writing a non-null peak (even a below-floor one)
