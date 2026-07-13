@@ -21,6 +21,7 @@ function zone(overrides: Partial<Zone> = {}): Zone {
     vwcEntityId: null,
     pwecEntityId: null,
     enabled: true,
+    schedulesPaused: false,
     createdAt: '2026-07-04T00:00:00.000Z',
     updatedAt: '2026-07-04T00:00:00.000Z',
     ...overrides

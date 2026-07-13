@@ -110,6 +110,28 @@
     return () => clearInterval(id);
   });
 
+  // Disarm/re-arm ALL of a zone's schedules with one switch, without deleting them or
+  // touching each schedule's enabled flag — the scheduler skips a paused zone, and manual
+  // runs still work. Persisted on the zone via the existing PATCH endpoint (admin-only).
+  async function toggleSchedulesPaused(zone: ZoneJson): Promise<void> {
+    error = null;
+    try {
+      const response = await fetch(`/api/irrigation/zones/${zone.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ schedulesPaused: !zone.schedulesPaused })
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        error = body.error ?? 'Could not update schedule pause';
+        return;
+      }
+      await refresh();
+    } catch {
+      error = 'Could not update schedule pause';
+    }
+  }
+
   async function runShot(zone: ZoneJson): Promise<void> {
     const amount = Number(runValue[zone.id]);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -377,18 +399,29 @@
         {#if isAdmin || zoneSchedules(zone.id).length > 0}
           <div class="schedule">
             <div class="schedule-head">
-              <span class="schedule-title mono">SCHEDULE</span>
-              {#if isAdmin}<button class="link" onclick={() => startScheduleCreate(zone)}>+ Add</button>{/if}
+              <span class="schedule-title mono"
+                >SCHEDULE{#if zone.schedulesPaused}<span class="tag paused-tag">PAUSED</span>{/if}</span
+              >
+              {#if isAdmin}
+                <span class="schedule-head-actions">
+                  {#if zoneSchedules(zone.id).length > 0}
+                    <button class="link" onclick={() => toggleSchedulesPaused(zone)}>
+                      {zone.schedulesPaused ? 'Resume' : 'Pause'}
+                    </button>
+                  {/if}
+                  <button class="link" onclick={() => startScheduleCreate(zone)}>+ Add</button>
+                </span>
+              {/if}
             </div>
 
             {#if zoneSchedules(zone.id).length === 0}
               <p class="empty mono small">No schedules.</p>
             {/if}
             {#each zoneSchedules(zone.id) as schedule (schedule.id)}
-              <div class="schedule-row" class:off={!schedule.enabled}>
+              <div class="schedule-row" class:off={!schedule.enabled || zone.schedulesPaused}>
                 <span class="mono times">{schedule.times.join(' · ')}</span>
                 <span class="mono muted">{shotLabel(schedule)}</span>
-                <span class="mono next">next {nextRunLabel(schedule)}</span>
+                <span class="mono next">{zone.schedulesPaused ? 'paused' : `next ${nextRunLabel(schedule)}`}</span>
                 {#if !schedule.enabled}<span class="tag">OFF</span>{/if}
                 {#if isAdmin}
                   <span class="schedule-actions">
@@ -676,6 +709,15 @@
     font-size: 0.6rem;
     letter-spacing: 0.1em;
     color: var(--faint);
+  }
+  .schedule-head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .paused-tag {
+    /* Amber "paused" reads as a deliberate hold, not the alert-red of a disabled/OFF row. */
+    color: var(--amber);
   }
   .schedule-row {
     display: flex;
