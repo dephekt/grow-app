@@ -2,13 +2,60 @@
   import { untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import type { CaptureDetail, CaptureSummary } from '$lib/server/spectrum/captures';
-  import { processSpectrum, type SpectrumView } from '$lib/spectrum/calibration';
+  import { processSpectrum, type SpectrumView, type SpectroConfig } from '$lib/spectrum/calibration';
   import SpdChart from '$lib/spectrum/SpdChart.svelte';
   import SpectrumTiles from '$lib/spectrum/SpectrumTiles.svelte';
   import SpectrumHistory from '$lib/spectrum/SpectrumHistory.svelte';
 
+  type Anchors = SpectroConfig['anchors'];
+
   let { data } = $props();
   const live = getLiveSnapshot();
+
+  // Active PPFD calibration anchors (lux estimate and/or Apogee reference). Seeded from the loader,
+  // then updated in place after a Calibrate action so the tile lights up without a reload.
+  let anchors = $state<Anchors>(untrack(() => data.anchors));
+
+  // The fleet's live illuminance (DLight/BH1750), found by device_class — what a lux calibration
+  // will use. Display-only; the anchor is actually computed from the authoritative frame server-side.
+  const liveLux = $derived.by(() => {
+    const snap = live.snapshot;
+    const ent = snap?.entities?.find((e) => e.deviceClass === 'illuminance' || e.unit === 'lx');
+    if (!ent) return null;
+    const raw = snap.states[ent.id]?.value;
+    const lux = Number(raw);
+    return raw != null && Number.isFinite(lux) ? lux : null;
+  });
+
+  let calibrating = $state(false);
+  let calibrateError = $state<string | null>(null);
+  let luxOverride = $state(''); // optional handheld-meter lux; blank ⇒ use the live DLight reading
+
+  async function calibrateFromLux() {
+    calibrating = true;
+    calibrateError = null;
+    try {
+      const override = Number(luxOverride);
+      const body: { source: 'lux'; lux?: number } = { source: 'lux' };
+      if (luxOverride.trim() && Number.isFinite(override) && override > 0) body.lux = override;
+      const res = await fetch('/api/spectrum/anchor', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => null)) as { message?: string } | null;
+        calibrateError = msg?.message ?? `Calibrate failed (${res.status})`;
+        return;
+      }
+      anchors = ((await res.json()) as { anchors: Anchors }).anchors;
+      await refetchList(); // history PPFD now reflects the new anchor
+    } catch {
+      calibrateError = 'Calibrate failed';
+    } finally {
+      calibrating = false;
+    }
+  }
 
   // The loader's retained frame is only a first-paint seed; once the SSE stream has
   // delivered anything (including a retained-clear → null) the live value is authoritative,
@@ -58,7 +105,8 @@
           view,
           adcFullScale: (1 << source.adcBits) - 1,
           integrationUs: source.integrationUs,
-          saturated: source.saturated
+          saturated: source.saturated,
+          config: { anchors }
         })
       : null
   );
@@ -134,6 +182,40 @@
     {#if active && source}
       <SpectrumTiles processed={active} integrationUs={source.integrationUs} />
     {/if}
+
+    <div class="panel calib">
+      <span class="panel-title">// CALIBRATE PPFD</span>
+      <p class="calib-line">
+        DLight <span class="mono">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span>
+        {#if anchors.lux}
+          · lux anchor @ <span class="mono">{anchors.lux.luxValue?.toFixed(0)} lx</span>
+        {/if}
+        {#if anchors.reference}
+          · <span class="ref-tag mono">REF SET</span>
+        {/if}
+      </p>
+      <div class="calib-row">
+        <input
+          class="lux-in mono"
+          type="number"
+          inputmode="numeric"
+          placeholder="lux override"
+          bind:value={luxOverride}
+        />
+        <button
+          class="btn primary"
+          onclick={calibrateFromLux}
+          disabled={calibrating || !liveSpectrum || selected != null || liveSpectrum?.saturated}
+        >
+          {calibrating ? 'Calibrating…' : 'Calibrate from lux'}
+        </button>
+      </div>
+      <p class="calib-hint">
+        Co-locate the DLight at the sensor aperture, then anchor. Blank = use the live DLight reading.
+        Estimate ≈±15% until an Apogee reference is set.
+      </p>
+      {#if calibrateError}<p class="err mono">{calibrateError}</p>{/if}
+    </div>
   </div>
 
   <div class="history-area">
@@ -245,6 +327,42 @@
     margin: 8px 0 0;
     color: var(--red, #d33);
     font-size: 0.72rem;
+  }
+  .calib {
+    margin-top: var(--gap);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .calib-line {
+    margin: 4px 0 0;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .ref-tag {
+    color: var(--amber);
+    font-size: 0.62rem;
+  }
+  .calib-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .lux-in {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+  }
+  .calib-hint {
+    margin: 0;
+    font-size: 0.64rem;
+    line-height: 1.35;
+    color: var(--faint);
   }
   @media (max-width: 960px) {
     .chart-area,

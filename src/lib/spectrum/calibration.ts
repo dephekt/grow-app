@@ -31,14 +31,40 @@ export interface WavelengthCoeffs {
   b5: number;
 }
 
+/** Where an anchor's absolute scale came from — a co-incident lux meter (an ESTIMATE,
+ *  ~±15%) or a quantum reference like the Apogee SQ-521 (~±5%). Carried through to the UI
+ *  so an estimate is never mistaken for a reference reading. */
+export type AnchorSource = 'lux' | 'reference';
+
 export interface AnchorCalibration {
-  /** Reference PPFD/ePAR reading, µmol·m⁻²·s⁻¹ (e.g. from an Apogee SQ-521). */
+  /** Reference PPFD/ePAR reading, µmol·m⁻²·s⁻¹ (measured by the Apogee, or DERIVED from a
+   *  lux reading via V(λ) for source:'lux'). */
   referenceUmol: number;
   /** Window the reference integrated over. */
   referenceRange: 'par' | 'epar';
   /** This module's per-µs PHOTON band integral over referenceRange for the anchor frame
    *  (units cancel into the scale factor). */
   rawIntegral: number;
+  /** Provenance of the scale. */
+  source: AnchorSource;
+  /** ISO time this anchor was captured. */
+  capturedAt: string;
+  /** For source:'lux' — the illuminance (lux) it was derived from. */
+  luxValue?: number;
+  /** Instrument label, e.g. 'bh1750-dlight' | 'apogee-sq521'. */
+  meter?: string;
+  /** ± tolerance (%) to surface in the UI (lux ≈15, reference ≈5). */
+  tolerancePct?: number;
+}
+
+/** One absolute flux reading, tagged by which anchor produced it. */
+export interface FluxReading {
+  source: AnchorSource;
+  /** µmol·m⁻²·s⁻¹ over PAR (≡ ppfd). */
+  ppfd: number;
+  par: number;
+  epar: number;
+  tolerancePct: number;
 }
 
 /** How to express the spectrum: raw sensor counts, photon flux (÷S), or energy (÷S·λ). */
@@ -49,8 +75,9 @@ export interface SpectroConfig {
   coeffs: WavelengthCoeffs;
   /** Stored dark frame (LED off, same integration), subtracted per-pixel. null = auto baseline. */
   darkFrame: number[] | null;
-  /** null ⇒ absolute PPFD/PFD stay null (relative-only). */
-  anchor: AnchorCalibration | null;
+  /** Absolute-scale anchors, by source. Either or both may be absent ⇒ that flux reading stays
+   *  null (relative-only). Both present ⇒ both readings show, reference is primary. */
+  anchors: { lux?: AnchorCalibration; reference?: AnchorCalibration };
 }
 
 // Placeholder wavelength coefficients from sample unit 24K00198 (same batch family,
@@ -70,7 +97,7 @@ export const WAVELENGTH_COEFFS: WavelengthCoeffs = {
 export const SPECTRO_CONFIG: SpectroConfig = {
   coeffs: WAVELENGTH_COEFFS,
   darkFrame: null,
-  anchor: null
+  anchors: {}
 };
 
 /** Pixel→wavelength (nm). p is 1-BASED per the Hamamatsu formula; counts[i] is pixel p=i+1. */
@@ -156,6 +183,48 @@ const EPAR: [number, number] = [400, 750];
 // First few pixels of the C12880MA are dummy/optically-black — never real signal.
 const DUMMY_PIXELS = 5;
 
+// CIE 1931 2° photopic luminosity function V(λ) — the eye's response that defines the lumen,
+// so a lux meter is really measuring ∫ E(λ)·V(λ)dλ. Peaks 1.0 at 555 nm, ~0 outside 400–700.
+// Lets us convert a co-incident lux reading into an absolute µmol PPFD using THIS spectrum's
+// shape, no quantum meter required (the lux→µmol ratio is a pure function of the SPD).
+const PHOTOPIC_V: ReadonlyArray<readonly [number, number]> = [
+  [380, 0.00004], [400, 0.0004], [420, 0.004], [440, 0.023], [460, 0.06],
+  [480, 0.139], [500, 0.323], [520, 0.71], [540, 0.954], [555, 1.0],
+  [560, 0.995], [580, 0.87], [600, 0.631], [620, 0.381], [640, 0.175],
+  [660, 0.061], [680, 0.017], [700, 0.0041], [720, 0.00105], [740, 0.00025],
+  [760, 0.00006], [780, 0.000015]
+];
+
+function photopicAt(nm: number): number {
+  const pts = PHOTOPIC_V;
+  if (nm <= pts[0][0]) return pts[0][1];
+  const last = pts[pts.length - 1];
+  if (nm >= last[0]) return last[1];
+  for (let i = 1; i < pts.length; i++) {
+    if (nm <= pts[i][0]) {
+      const [x0, y0] = pts[i - 1];
+      const [x1, y1] = pts[i];
+      return y0 + ((y1 - y0) * (nm - x0)) / (x1 - x0);
+    }
+  }
+  return last[1];
+}
+
+// lux = LUMENS_PER_WATT · (N_A·h·c) · 1e3 · Σ(photon·V/λ[nm]) / (sensor_gain·integ). The Σ is
+// scale-invariant, so the ratio lux/PPFD is fixed by the spectrum alone — that's the whole trick.
+// Sanity: a 555 nm monochromatic source gives 147.2 lux per µmol·m⁻²·s⁻¹ (see the unit test).
+const LUMENS_PER_WATT = 683; // peak luminous efficacy of radiation (at 555 nm)
+const NA_HC = 0.11962656; // N_A·h·c, J·m·mol⁻¹ — energy per mole of photons, times λ[m]
+const LUX_PER_UMOL_K = LUMENS_PER_WATT * NA_HC * 1e3; // ≈ 81705; the 1e3 folds µmol→mol (1e-6) and λ nm→m (1e9)
+
+/** Σ photon·V(λ)/λ over the frame — the luminous (photopic) weight whose ratio to the PAR photon
+ *  sum fixes lux↔µmol for this spectrum. Relative units are fine; the absolute scale cancels. */
+function photopicSum(photon: number[]): number {
+  let s = 0;
+  for (let i = DUMMY_PIXELS; i < PIXEL_COUNT; i++) s += (photon[i] * photopicAt(WAVELENGTHS[i])) / WAVELENGTHS[i];
+  return s;
+}
+
 export interface ProcessedSpectrum {
   /** 0..100 relative power in the active `view`, max→100. Pulse's "Relative Power %". Index-aligned
    *  to the module's WAVELENGTHS constant — the x-axis is invariant for a given calibration, so
@@ -170,7 +239,13 @@ export interface ProcessedSpectrum {
   view: SpectrumView;
   /** Band shares (%) in the active view, summing to 100 across the four bands. */
   bands: { blue: number; green: number; red: number; farRed: number };
-  /** Absolute µmol·m⁻²·s⁻¹ (photon) — null until an anchor is set (or when saturated). */
+  /** Estimated flux from the lux anchor (~±15%) — null until a lux anchor is set / when saturated. */
+  lux: FluxReading | null;
+  /** Reference flux from the Apogee anchor (~±5%) — null until a reference anchor is set / when saturated. */
+  reference: FluxReading | null;
+  /** Which source drives the primary (`par`/`epar`/`ppfd`) fields — reference wins when present. */
+  ppfdSource: AnchorSource | null;
+  /** Primary absolute µmol·m⁻²·s⁻¹ (reference if set, else lux estimate) — null until anchored/when saturated. */
   par: number | null;
   epar: number | null;
   ppfd: number | null;
@@ -298,16 +373,24 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
     farRed: total > 0 ? (100 * iFarRed) / total : 0
   };
 
-  // 4. absolute PPFD/ePAR — always the PHOTON view (µmol), per-µs normalized, anchor-gated
-  let par: number | null = null;
-  let epar: number | null = null;
+  // 4. absolute PPFD/ePAR — always the PHOTON view (µmol), per-µs normalized. One reading per
+  //    configured anchor (lux estimate and/or Apogee reference); reference is the primary.
+  let lux: FluxReading | null = null;
+  let reference: FluxReading | null = null;
   const integ = opts.integrationUs;
-  if (cfg.anchor && !saturated && integ && integ > 0) {
+  if (!saturated && integ && integ > 0) {
     const photon = view === 'photon' ? display : applyView(corrected, 'photon');
-    const scale = cfg.anchor.referenceUmol / cfg.anchor.rawIntegral;
-    par = (scale * bandIntegral(photon, PAR[0], PAR[1])) / integ;
-    epar = (scale * bandIntegral(photon, EPAR[0], EPAR[1])) / integ;
+    const flux = (a: AnchorCalibration): FluxReading | null => {
+      if (!(a.rawIntegral > 0)) return null;
+      const scale = a.referenceUmol / a.rawIntegral;
+      const par = (scale * bandIntegral(photon, PAR[0], PAR[1])) / integ;
+      const epar = (scale * bandIntegral(photon, EPAR[0], EPAR[1])) / integ;
+      return { source: a.source, ppfd: par, par, epar, tolerancePct: a.tolerancePct ?? (a.source === 'lux' ? 15 : 5) };
+    };
+    if (cfg.anchors.lux) lux = flux(cfg.anchors.lux);
+    if (cfg.anchors.reference) reference = flux(cfg.anchors.reference);
   }
+  const primary = reference ?? lux;
 
   return {
     relative,
@@ -315,10 +398,13 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
     peaks,
     view,
     bands,
-    par,
-    epar,
-    ppfd: par, // PPFD ≡ the PAR integral
-    calibrated: cfg.anchor != null && !saturated,
+    lux,
+    reference,
+    ppfdSource: primary?.source ?? null,
+    par: primary?.par ?? null,
+    epar: primary?.epar ?? null,
+    ppfd: primary?.ppfd ?? null, // PPFD ≡ the PAR integral
+    calibrated: primary != null,
     saturated
   };
 }
@@ -335,4 +421,61 @@ export function anchorIntegral(
   const photon = applyView(toCorrected(rawCounts, cfg), 'photon');
   const win = range === 'par' ? PAR : EPAR;
   return bandIntegral(photon, win[0], win[1]) / integrationUs;
+}
+
+/** Provenance metadata for a freshly-built anchor. */
+export interface AnchorMeta {
+  /** ISO time the anchor frame + reading were captured. */
+  capturedAt: string;
+  /** Instrument label (defaults per source). */
+  meter?: string;
+  /** Override the displayed ± tolerance (%). */
+  tolerancePct?: number;
+  /** Reprocess against a non-default calibration. */
+  config?: Partial<SpectroConfig>;
+}
+
+/**
+ * Build a lux-anchored calibration from a frame + a co-incident illuminance reading. Derives the
+ * true PAR PPFD that lux implies for THIS spectrum's shape (via V(λ)), then stores it as the same
+ * per-µs anchor scale an Apogee would — identical downstream, only the provenance differs
+ * (source:'lux', ~±15%). The lux and the frame MUST be measured at the same point/time.
+ */
+export function luxToAnchor(rawCounts: number[], integrationUs: number, lux: number, meta: AnchorMeta): AnchorCalibration {
+  const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...meta.config };
+  const photon = applyView(toCorrected(rawCounts, cfg), 'photon');
+  const pPar = bandIntegral(photon, PAR[0], PAR[1]);
+  const lumSum = photopicSum(photon);
+  // referenceUmol = true PPFD = lux · (PAR photon sum) / (K · luminous sum). Both sums scale with
+  // exposure/intensity, so their ratio — and thus the derived PPFD — is exposure-independent.
+  const referenceUmol = lumSum > 0 && integrationUs > 0 ? (lux * pPar) / (LUX_PER_UMOL_K * lumSum) : 0;
+  return {
+    referenceUmol,
+    referenceRange: 'par',
+    rawIntegral: integrationUs > 0 ? pPar / integrationUs : 0,
+    source: 'lux',
+    capturedAt: meta.capturedAt,
+    luxValue: lux,
+    meter: meta.meter ?? 'bh1750-dlight',
+    tolerancePct: meta.tolerancePct ?? 15
+  };
+}
+
+/** Build a reference-grade anchor from a quantum-meter µmol reading (e.g. Apogee SQ-521). */
+export function referenceAnchor(
+  rawCounts: number[],
+  integrationUs: number,
+  referenceUmol: number,
+  range: 'par' | 'epar',
+  meta: AnchorMeta
+): AnchorCalibration {
+  return {
+    referenceUmol,
+    referenceRange: range,
+    rawIntegral: anchorIntegral(rawCounts, integrationUs, range, meta.config),
+    source: 'reference',
+    capturedAt: meta.capturedAt,
+    meter: meta.meter ?? 'apogee-sq521',
+    tolerancePct: meta.tolerancePct ?? 5
+  };
 }
