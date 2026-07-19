@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { EntityConfig, LightConfig } from '$lib/server/mqtt/types';
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
-  import { computeSchedule, entityByRef, formatCountdown } from '$lib/lights/model';
-  import { toTimeInputValue, parseTimeParts } from '$lib/time-entity';
+  import { computeSchedule, entityByRef, formatCountdown, photoperiodHours } from '$lib/lights/model';
+  import { toTimeInputValue } from '$lib/time-entity';
 
   let {
     light,
@@ -54,16 +54,9 @@
   // on/off hour split derived from the window itself, so "20 / 4" is live off the schedule.
   const onClock = $derived(onTime ? toTimeInputValue(live.stateFor(onTime).value) : null);
   const offClock = $derived(offTime ? toTimeInputValue(live.stateFor(offTime).value) : null);
-  const photoperiod = $derived.by(() => {
-    const on = parseTimeParts(onTime ? live.stateFor(onTime).value : null);
-    const off = parseTimeParts(offTime ? live.stateFor(offTime).value : null);
-    if (!on || !off) return null;
-    const onSec = on.hour * 3600 + on.minute * 60 + on.second;
-    const offSec = off.hour * 3600 + off.minute * 60 + off.second;
-    const windowSec = (offSec - onSec + 86400) % 86400;
-    const onHours = Math.round(windowSec / 3600);
-    return { onHours, offHours: 24 - onHours };
-  });
+  const photoperiod = $derived(
+    photoperiodHours(onTime ? live.stateFor(onTime).value : null, offTime ? live.stateFor(offTime).value : null)
+  );
 
   const countdown = $derived(
     hasSchedule && armed && sched.hasWindow && sched.secondsUntil !== null
