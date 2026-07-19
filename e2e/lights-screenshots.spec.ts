@@ -49,13 +49,41 @@ const glLight = {
   }
 };
 
+// A registered spectrometer device (C12880MA) — one diagnostic entity so it lands in the device list,
+// and it's flagged in spectrometerNodeIds so the PPFD calibration tab attaches HERE (not the DAC's host).
+const specEntity = {
+  id: 'spec-integ',
+  uniqueId: 'spectrometer_integration_time',
+  component: 'sensor',
+  name: 'Integration time',
+  objectId: 'integration_time',
+  nodeId: 'spectrometer',
+  unit: 'µs',
+  entityCategory: 'diagnostic',
+  device: { identifiers: ['spectrometer'], name: 'Spectrometer', model: 'C12880MA' },
+  payloadAvailable: 'online',
+  payloadNotAvailable: 'offline',
+  dangerous: false,
+  writable: false,
+  raw: {}
+};
+
+const specDevice = {
+  id: 'spectrometer',
+  nodeId: 'spectrometer',
+  name: 'Spectrometer',
+  model: 'C12880MA',
+  availability: 'online',
+  entityIds: ['spec-integ']
+};
+
 const now = '2026-07-19T14:32:00.000Z';
 const st = (value: string) => ({ value, updatedAt: now });
 
 const snapshot = {
   ...liveSnapshot,
-  devices: [...liveSnapshot.devices, glDevice],
-  entities: [...liveSnapshot.entities, ...glEntities],
+  devices: [...liveSnapshot.devices, glDevice, specDevice],
+  entities: [...liveSnapshot.entities, ...glEntities, specEntity],
   states: {
     ...liveSnapshot.states,
     espsensorilluminance: st('4000'),
@@ -64,9 +92,11 @@ const snapshot = {
     'gl-on': st('06:00:00'),
     'gl-off': st('00:00:00'), // 18/6 — the seedling schedule; matches the seedling plan (no mismatch flag)
     'gl-arm': st('ON'),
-    'gl-load': st('375')
+    'gl-load': st('375'),
+    'spec-integ': st('546895')
   },
-  lights: [glLight]
+  lights: [glLight],
+  spectrometerNodeIds: ['spectrometer']
 };
 
 const frame = {
@@ -96,9 +126,9 @@ test('lights page — merged spectrum + control + grow plan', async ({ page }, t
   await page.screenshot({ path: testInfo.outputPath(`lights-${testInfo.project.name}.png`), fullPage: true });
 });
 
-test('grow-light calibration settings section', async ({ page }, testInfo) => {
-  await page.goto('/device-settings?device=grow-light&section=calibration');
-  await expect(page.getByRole('heading', { name: 'Grow Light' })).toBeVisible();
+test('spectrometer calibration settings section', async ({ page }, testInfo) => {
+  await page.goto('/device-settings?device=spectrometer&section=calibration');
+  await expect(page.getByRole('heading', { name: 'Spectrometer' })).toBeVisible();
   await expect(page.getByText('// PPFD calibration', { exact: false })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath(`grow-light-calibration-${testInfo.project.name}.png`), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath(`spectrometer-calibration-${testInfo.project.name}.png`), fullPage: true });
 });

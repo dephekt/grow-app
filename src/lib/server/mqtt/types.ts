@@ -203,6 +203,9 @@ export interface Snapshot {
   uiConfigs: Record<string, DeviceUiConfig>;
   lights: LightConfig[];
   firmware: FirmwareSnapshot;
+  /** Node ids that have published a spectrometer frame — the devices the PPFD calibration attaches to.
+   *  Always set by the service + normalizer; optional in the type so plain-object fixtures can omit it. */
+  spectrometerNodeIds?: string[];
 }
 
 export interface SnapshotEvent {
