@@ -1,6 +1,7 @@
 <script lang="ts">
   let {
     title,
+    unit,
     rows = [],
     deviceId,
     planned = false,
@@ -8,6 +9,7 @@
     badgeTone = 'amber'
   } = $props<{
     title: string;
+    unit?: string;
     rows?: Array<{ label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' }>;
     deviceId?: string;
     planned?: boolean;
@@ -18,7 +20,10 @@
 
 <div class="panel readout-panel" class:planned>
   <div class="panel-head">
-    <span class="panel-title">// {title}</span>
+    <span class="title-unit">
+      <span class="panel-title">// {title}</span>
+      {#if unit}<span class="unit mono">{unit}</span>{/if}
+    </span>
     <div class="head-right">
       {#if deviceId}
         <span class="device-id mono">{deviceId}</span>
@@ -52,6 +57,18 @@
   .readout-panel.planned {
     border-style: dashed;
     opacity: 0.88;
+  }
+
+  .title-unit {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+  .unit {
+    font-size: 0.62rem;
+    color: var(--faint);
+    letter-spacing: 0.03em;
   }
 
   .head-right {
