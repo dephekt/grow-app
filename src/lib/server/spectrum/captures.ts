@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { LiveSpectrum } from '$lib/server/mqtt/types';
 import { processSpectrum, type ProcessedSpectrum } from '$lib/spectrum/calibration';
+import { getAnchors } from '$lib/server/spectrum/anchor';
 
 export interface CaptureSummary {
   id: string;
@@ -58,7 +59,9 @@ function reprocess(row: Row): ProcessedSpectrum {
     integrationUs: row.integration_us ?? undefined,
     // Preserve the firmware's saturation assertion; reprocess would otherwise only
     // re-derive it from a full-scale pixel and could disagree with the stored flag.
-    saturated: Boolean(row.saturated)
+    saturated: Boolean(row.saturated),
+    // Current calibration → history reflects the live anchors, not whatever was set when saved.
+    config: { anchors: getAnchors() }
   });
 }
 
@@ -67,7 +70,14 @@ export function saveCapture(
   input: { live: LiveSpectrum; label?: string | null; note?: string | null }
 ): CaptureSummary {
   const { live } = input;
-  const p = live.processed;
+  // Recompute against the current anchors (the service — which the read-only recorder also runs —
+  // processes frames without the settings DB, so live.processed carries no absolute flux).
+  const p = processSpectrum(live.counts, {
+    adcFullScale: (1 << (live.adcBits ?? 14)) - 1,
+    integrationUs: live.integrationUs,
+    saturated: live.saturated,
+    config: { anchors: getAnchors() }
+  });
   const id = randomUUID();
   db.prepare(
     `INSERT INTO captures (id, node_id, captured_at, seq, integration_us, saturated, adc_bits, fw, counts, label, note)

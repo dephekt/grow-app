@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { processSpectrum, pixelToWavelength, WAVELENGTHS, PIXEL_COUNT } from '$lib/spectrum/calibration';
+import {
+  processSpectrum,
+  pixelToWavelength,
+  luxToAnchor,
+  referenceAnchor,
+  WAVELENGTHS,
+  PIXEL_COUNT
+} from '$lib/spectrum/calibration';
 
 const ZERO_DARK = new Array(PIXEL_COUNT).fill(0);
 
@@ -110,5 +117,114 @@ describe('spectrum calibration', () => {
     expect(energy.ratio).toBeLessThan(photon.ratio); // ÷λ pulls red back down
     expect(energy.ratio).toBeGreaterThan(1); // …but red still leads in energy here
     expect([raw.view, photon.view, energy.view]).toEqual(['raw', 'photon', 'energy']);
+  });
+});
+
+const AT = '2026-07-18T00:00:00Z';
+const BASELINE = 100;
+
+function nearest(nm: number): number {
+  let idx = 0;
+  let best = Infinity;
+  for (let i = 0; i < PIXEL_COUNT; i++) {
+    const d = Math.abs(WAVELENGTHS[i] - nm);
+    if (d < best) {
+      best = d;
+      idx = i;
+    }
+  }
+  return idx;
+}
+
+/** A near-monochromatic raw frame: flat dark baseline + one bright pixel at `nm`. */
+function monoFrame(nm: number, peak = 8000): number[] {
+  const counts = new Array<number>(PIXEL_COUNT).fill(BASELINE);
+  counts[nearest(nm)] = peak;
+  return counts;
+}
+
+describe('luxToAnchor — the lux↔µmol bridge', () => {
+  it('reproduces the textbook ~147 lux per µmol at 555 nm', () => {
+    // At 555 nm, 1 W/m² = 683 lux = 4.64 µmol·m⁻²·s⁻¹ ⇒ 147.2 lux per µmol. The whole constant
+    // (683 · N_A·h·c · unit factors) is pinned by this one physical fact.
+    const anchor = luxToAnchor(monoFrame(555), 8000, 10_000, { capturedAt: AT });
+    expect(anchor.source).toBe('lux');
+    expect(anchor.referenceUmol).toBeGreaterThan(0);
+    const luxPerUmol = 10_000 / anchor.referenceUmol;
+    expect(luxPerUmol).toBeGreaterThan(144);
+    expect(luxPerUmol).toBeLessThan(151);
+  });
+
+  it('carries lux provenance (source, meter, tolerance, the lux used)', () => {
+    const anchor = luxToAnchor(monoFrame(450), 8000, 20_000, { capturedAt: AT });
+    expect(anchor.source).toBe('lux');
+    expect(anchor.meter).toBe('bh1750-dlight');
+    expect(anchor.tolerancePct).toBe(15);
+    expect(anchor.luxValue).toBe(20_000);
+  });
+});
+
+describe('processSpectrum — absolute flux from an anchor', () => {
+  const frame = monoFrame(555);
+  const anchor = luxToAnchor(frame, 8000, 10_000, { capturedAt: AT });
+
+  it('reads back the anchor PPFD on the anchor frame', () => {
+    const p = processSpectrum(frame, { integrationUs: 8000, config: { anchors: { lux: anchor } } });
+    expect(p.ppfd).not.toBeNull();
+    expect(p.ppfd!).toBeCloseTo(anchor.referenceUmol, 5);
+  });
+
+  it('scales PPFD linearly with brightness (2× counts ⇒ 2× PPFD)', () => {
+    const p1 = processSpectrum(frame, { integrationUs: 8000, config: { anchors: { lux: anchor } } });
+    const p2 = processSpectrum(
+      frame.map((c) => c * 2),
+      { integrationUs: 8000, config: { anchors: { lux: anchor } } }
+    );
+    expect(p2.ppfd! / p1.ppfd!).toBeCloseTo(2, 1);
+  });
+
+  it('is exposure-independent (half the counts at half the integration ⇒ same PPFD)', () => {
+    const p1 = processSpectrum(frame, { integrationUs: 8000, config: { anchors: { lux: anchor } } });
+    const half = frame.map((c) => (c > BASELINE ? BASELINE + (c - BASELINE) / 2 : c));
+    const pHalf = processSpectrum(half, { integrationUs: 4000, config: { anchors: { lux: anchor } } });
+    expect(pHalf.ppfd! / p1.ppfd!).toBeCloseTo(1, 1);
+  });
+
+  it('gates flux to null on a saturated frame even with an anchor', () => {
+    const p = processSpectrum(frame, {
+      integrationUs: 8000,
+      saturated: true,
+      config: { anchors: { lux: anchor } }
+    });
+    expect(p.ppfd).toBeNull();
+    expect(p.calibrated).toBe(false);
+  });
+});
+
+describe('processSpectrum — estimate vs reference differentiation', () => {
+  const frame = monoFrame(555);
+  const luxAnchor = luxToAnchor(frame, 8000, 10_000, { capturedAt: AT });
+  const refAnchor = referenceAnchor(frame, 8000, 300, 'par', { capturedAt: AT });
+
+  it('exposes lux-only as the primary, tagged as an estimate', () => {
+    const p = processSpectrum(frame, { integrationUs: 8000, config: { anchors: { lux: luxAnchor } } });
+    expect(p.ppfdSource).toBe('lux');
+    expect(p.lux?.source).toBe('lux');
+    expect(p.lux?.tolerancePct).toBe(15);
+    expect(p.reference).toBeNull();
+    expect(p.calibrated).toBe(true);
+  });
+
+  it('lets the reference win as primary while keeping the lux estimate visible', () => {
+    const p = processSpectrum(frame, {
+      integrationUs: 8000,
+      config: { anchors: { lux: luxAnchor, reference: refAnchor } }
+    });
+    expect(p.reference?.ppfd).toBeCloseTo(300, 5); // reference reads back its input on its own frame
+    expect(p.lux).not.toBeNull();
+    expect(p.ppfdSource).toBe('reference');
+    expect(p.par).toBeCloseTo(300, 5);
+    expect(p.reference?.tolerancePct).toBe(5);
+    expect(p.lux?.tolerancePct).toBe(15);
   });
 });

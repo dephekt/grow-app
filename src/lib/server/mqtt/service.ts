@@ -325,6 +325,20 @@ export class SiteMqttService {
     return first.done ? null : first.value;
   }
 
+  /** Latest ambient illuminance (lux) from the fleet's DLight/BH1750-class sensor — used to
+   *  anchor PPFD from lux. Matches on device_class 'illuminance' (or unit 'lx'); null if none. */
+  latestIlluminance(): { lux: number; entityId: string; updatedAt: string | null } | null {
+    for (const entity of this.entities.values()) {
+      if (entity.deviceClass !== 'illuminance' && entity.unit !== 'lx') continue;
+      const state = this.stateByEntity.get(entity.id);
+      const lux = Number(state?.value);
+      if (state?.value != null && Number.isFinite(lux)) {
+        return { lux, entityId: entity.id, updatedAt: state.updatedAt };
+      }
+    }
+    return null;
+  }
+
   spectrometerNodeIds(): string[] {
     return [...this.latestSpectrumByNode.keys()];
   }

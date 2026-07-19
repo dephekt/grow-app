@@ -4,13 +4,15 @@
     rows = [],
     deviceId,
     planned = false,
-    badge
+    badge,
+    badgeTone = 'amber'
   } = $props<{
     title: string;
     rows?: Array<{ label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' }>;
     deviceId?: string;
     planned?: boolean;
     badge?: string;
+    badgeTone?: 'amber' | 'ok' | 'muted';
   }>();
 </script>
 
@@ -21,8 +23,8 @@
       {#if deviceId}
         <span class="device-id mono">{deviceId}</span>
       {/if}
-      {#if planned}
-        <span class="planned-badge mono">{badge ?? 'PLANNED'}</span>
+      {#if badge || planned}
+        <span class="badge mono {badgeTone}">{badge ?? 'PLANNED'}</span>
       {/if}
     </div>
   </div>
@@ -63,7 +65,7 @@
     color: var(--faint);
   }
 
-  .planned-badge {
+  .badge {
     font-size: 0.62rem;
     font-weight: 600;
     padding: 2px 6px;
@@ -71,6 +73,15 @@
     border-radius: var(--r-pill);
     color: var(--amber);
     letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .badge.ok {
+    border-color: var(--green, #3a9d7f);
+    color: var(--green, #3a9d7f);
+  }
+  .badge.muted {
+    border-color: var(--line);
+    color: var(--muted);
   }
 
   .rows {
