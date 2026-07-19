@@ -82,9 +82,10 @@
   <div class="plan-scroll">
     <div class="plan" style="grid-template-columns: repeat({growState.weekly.length}, minmax(52px, 1fr));">
       {#each growState.weekly as w (w.week)}
+        {@const barTarget = w.current ? growState.ppfdTarget : w.ppfdTarget}
         <div class="wk" class:cur={w.current}>
-          <span class="tgt-val">{w.ppfdTarget}</span>
-          <div class="col" style="height: {pct(w.ppfdTarget)};"></div>
+          <span class="tgt-val">{barTarget}</span>
+          <div class="col" style="height: {pct(barTarget)};"></div>
           {#if w.current && actualPct != null}
             <span class="act" style="bottom: {actualPct};"></span>
           {/if}

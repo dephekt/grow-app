@@ -97,6 +97,9 @@
           adcFullScale: (1 << source.adcBits) - 1,
           integrationUs: source.integrationUs,
           saturated: source.saturated,
+          // Live frames get the DLight lux for a frame-robust PPFD; a saved capture keeps its own
+          // frame-based value (the current lux doesn't belong to a past reading).
+          liveLux: selected ? undefined : (liveLux ?? undefined),
           config: { anchors }
         })
       : null
