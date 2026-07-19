@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { parseLightsConfigPayload } from '../../src/lib/server/mqtt/light-metadata';
-import { computeSchedule, entityByRef, formatCountdown } from '../../src/lib/lights/model';
+import { computeSchedule, entityByRef, formatCountdown, photoperiodHours } from '../../src/lib/lights/model';
 import { SiteMqttService } from '../../src/lib/server/mqtt/service';
 import type { EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';
 
 const PREFIX = 'grow/daniel-home';
+
+describe('photoperiodHours', () => {
+  it('computes the on/off split from schedule times (wraps midnight)', () => {
+    expect(photoperiodHours('06:00:00', '02:00:00')).toEqual({ onHours: 20, offHours: 4 }); // veg
+    expect(photoperiodHours('06:00:00', '00:00:00')).toEqual({ onHours: 18, offHours: 6 }); // seedling
+    expect(photoperiodHours('06:00', '18:00')).toEqual({ onHours: 12, offHours: 12 }); // flower
+  });
+
+  it('returns null when either time is unparseable', () => {
+    expect(photoperiodHours(null, '02:00:00')).toBeNull();
+    expect(photoperiodHours('06:00:00', '')).toBeNull();
+  });
+});
 
 describe('parseLightsConfigPayload', () => {
   it('parses a valid fragment and keeps string / string[] roles', () => {
