@@ -30,22 +30,44 @@
         : 'SPECTRUM · PHOTON SHARE'
   );
 
-  const fmt = (v: number | null) => (v == null ? '—' : `${v.toFixed(0)}`);
+  // Two sources, always shown so an estimate is never mistaken for a reference: the lux estimate
+  // (≈, ±tolerance, amber) and the Apogee reference (plain). When both exist, the estimate carries
+  // its delta vs the reference. PAR/ePAR follow the primary (reference if present, else lux).
+  const est = $derived(processed.lux);
+  const ref = $derived(processed.reference);
+  const anyFlux = $derived(est != null || ref != null);
+  const primary = $derived(ref ?? est);
+  const deltaPct = $derived(
+    est && ref && ref.ppfd > 0 ? ((est.ppfd - ref.ppfd) / ref.ppfd) * 100 : null
+  );
+
+  const fmtRef = (v: number | null) => (v == null ? '—' : v.toFixed(0));
+  const estValue = $derived(
+    est == null
+      ? '—'
+      : `≈${est.ppfd.toFixed(0)} ±${est.tolerancePct.toFixed(0)}%` +
+        (deltaPct == null ? '' : ` (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%)`)
+  );
+  const primPrefix = $derived(primary?.source === 'lux' ? '≈' : '');
+  const fmtPrim = (v: number | null) => (v == null ? '—' : `${primPrefix}${v.toFixed(0)}`);
+  const primStatus = $derived<Row['status']>(
+    !anyFlux ? 'none' : primary?.source === 'lux' ? 'warn' : 'ok'
+  );
+
   const fluxRows = $derived<Row[]>([
-    { label: 'PPFD', value: fmt(processed.ppfd), status: processed.calibrated ? 'ok' : 'none' },
-    { label: 'PAR', value: fmt(processed.par), status: processed.calibrated ? 'ok' : 'none' },
-    { label: 'ePAR', value: fmt(processed.epar), status: processed.calibrated ? 'ok' : 'none' }
+    { label: 'PPFD (ref)', value: fmtRef(ref?.ppfd ?? null), status: ref ? 'ok' : 'none' },
+    { label: 'PPFD (lux)', value: estValue, status: est ? 'warn' : 'none' },
+    { label: 'PAR', value: fmtPrim(processed.par), status: primStatus },
+    { label: 'ePAR', value: fmtPrim(processed.epar), status: primStatus }
   ]);
+
+  const fluxBadge = $derived(ref ? 'REF' : est ? 'EST · LUX' : 'UNCALIBRATED');
+  const fluxTone = $derived<'amber' | 'ok' | 'muted'>(ref ? 'ok' : 'amber');
 </script>
 
 <div class="tiles">
   <ReadoutPanel title={bandTitle} rows={bandRows} />
-  <ReadoutPanel
-    title="PHOTON FLUX · µmol/m²/s"
-    rows={fluxRows}
-    planned={!processed.calibrated}
-    badge={processed.calibrated ? undefined : 'UNCALIBRATED'}
-  />
+  <ReadoutPanel title="PHOTON FLUX · µmol/m²/s" rows={fluxRows} planned={!anyFlux} badge={fluxBadge} badgeTone={fluxTone} />
   {#if integrationUs > 0}
     <p class="integ mono">exposure {(integrationUs / 1000).toFixed(0)} ms</p>
   {/if}
