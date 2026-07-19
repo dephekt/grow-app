@@ -58,11 +58,11 @@ const snapshot = {
   entities: [...liveSnapshot.entities, ...glEntities],
   states: {
     ...liveSnapshot.states,
-    espsensorilluminance: st('21412'),
+    espsensorilluminance: st('4000'),
     'gl-power': st('ON'),
     'gl-dim': st('78'),
     'gl-on': st('06:00:00'),
-    'gl-off': st('00:00:00'), // 18/6 — deliberately off the veg 20/4 plan to exercise the mismatch flag
+    'gl-off': st('00:00:00'), // 18/6 — the seedling schedule; matches the seedling plan (no mismatch flag)
     'gl-arm': st('ON'),
     'gl-load': st('375')
   },
