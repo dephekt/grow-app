@@ -37,7 +37,7 @@ export interface GrowWeek {
  * 1 wk seedling → 1 wk veg → flip. Targets ramp through flower to a wk-7 peak, then ripen down.
  */
 export const WEEKLY_PLAN: GrowWeek[] = [
-  { week: 1, stage: 'seedling', ppfdTarget: 230 },
+  { week: 1, stage: 'seedling', ppfdTarget: 100 }, // under the humidity dome; climbs as they establish
   { week: 2, stage: 'veg', ppfdTarget: 555 },
   { week: 3, stage: 'flower', ppfdTarget: 925 },
   { week: 4, stage: 'flower', ppfdTarget: 1020 },
@@ -49,8 +49,9 @@ export const WEEKLY_PLAN: GrowWeek[] = [
   { week: 10, stage: 'ripen', ppfdTarget: 925 }
 ];
 
-/** Midnight of week-1 day 1 (local). weeksSince(now) drives the current stage/week. */
-export const GROW_START = '2026-07-12';
+/** Week-1 day 1 = when the seedlings go into their Root Riot plugs (local midnight). Before this the
+ *  plan clamps to seedling wk 1 (soak/germination); weeksSince(now) drives stage/week thereafter. */
+export const GROW_START = '2026-07-20';
 
 /** Fixture falloff model (this light, measured): peak PPFD at 100% at the peak distance, and a
  *  ~1/distance falloff (NOT inverse-square). Intensity scales ~linearly with the dimmer duty. */
