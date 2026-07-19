@@ -52,8 +52,8 @@
       <span class="v">{dliNow == null ? '—' : dliNow.toFixed(1)} <span class="t">/ {growState.dliTarget.toFixed(1)}</span></span>
     </div>
     <div class="pstat">
-      <span class="k">Canopy dist</span>
-      <span class="v">{guidance.targetDistanceCm == null ? '—' : `≈${round(guidance.targetDistanceCm)}`} <span class="t">cm</span></span>
+      <span class="k">Dimmer</span>
+      <span class="v">{dimmerPct == null ? '—' : round(dimmerPct)} <span class="t">%</span></span>
     </div>
     <div class="pstat">
       <span class="k">Photoperiod</span>
