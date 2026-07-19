@@ -37,7 +37,6 @@
   const onDashboard = $derived(pathname === '/');
   const onLights = $derived(pathname.startsWith('/lights'));
   const onIrrigation = $derived(pathname.startsWith('/irrigation'));
-  const onSpectrum = $derived(pathname.startsWith('/spectrum'));
   const onSettings = $derived(pathname.startsWith('/device-settings'));
 </script>
 
@@ -51,7 +50,6 @@
     <a class="tab" class:active={onDashboard} href="/">DASHBOARD</a>
     <a class="tab" class:active={onLights} href="/lights">LIGHTS</a>
     <a class="tab" class:active={onIrrigation} href="/irrigation">IRRIGATION</a>
-    <a class="tab" class:active={onSpectrum} href="/spectrum">SPECTRUM</a>
     <a class="tab" class:active={onSettings} href="/device-settings">
       <span>SETTINGS</span>
       {#if hasUpdates}<span class="update-dot" title="Update available"></span>{/if}

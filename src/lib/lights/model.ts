@@ -1,6 +1,17 @@
 import type { EntityConfig, LightRoleRef, Snapshot } from '$lib/server/mqtt/types';
 import { parseTimeParts } from '$lib/time-entity';
 
+/** The node that acts as "the grow light" for device-scoped UI (e.g. its calibration section):
+ *  the node owning a light's dimmer (the DAC / intensity controller), falling back to the node
+ *  owning power. Null when no light is configured. */
+export function growLightNodeId(snapshot: Snapshot): string | null {
+  const lights = snapshot.lights ?? [];
+  const withDimmer = lights.find((l) => l.roles.dimmer);
+  if (withDimmer?.roles.dimmer) return withDimmer.roles.dimmer.node;
+  const withPower = lights.find((l) => l.roles.power);
+  return withPower?.roles.power?.node ?? null;
+}
+
 /** Resolve a role reference (node + objectId) to the discovered entity, if any.
  *  Strict (node, objectId) pairing: the ref's node must match the entity's own
  *  node (its `nodeId`, or the device's primary identifier as a fallback), never a
