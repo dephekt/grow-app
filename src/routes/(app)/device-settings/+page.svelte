@@ -3,6 +3,8 @@
   import FirmwareUpdatesPanel from '$lib/FirmwareUpdatesPanel.svelte';
   import AlertsPanel from '$lib/AlertsPanel.svelte';
   import CalibrationPanel from '$lib/CalibrationPanel.svelte';
+  import PpfdCalibrationPanel from '$lib/lights/PpfdCalibrationPanel.svelte';
+  import { growLightNodeId } from '$lib/lights/model';
   import { deviceSettingsPresentation, DEVICE_SETTINGS_SECTIONS } from '$lib/device-presentation';
   import type { DeviceSettingsSectionId } from '$lib/device-presentation';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
@@ -36,6 +38,10 @@
 
   // Entity-based panels from device-presentation
   let entityPanels = $derived(selectedDevice ? deviceSettingsPresentation(live.snapshot, selectedDevice) : []);
+
+  // The grow light gets a bespoke PPFD calibration section (anchor the spectrometer's absolute
+  // scale). It isn't entity-derived, so it's injected as a synthetic Calibration tab.
+  const showPpfdCal = $derived(Boolean(selectedDevice) && growLightNodeId(live.snapshot) === selectedDevice?.nodeId);
 
   // Firmware info for selected device
   let firmwareConfig = $derived(
@@ -85,6 +91,11 @@
     // Add entity-based tabs
     for (const panel of entityPanels) {
       tabs.push({ id: panel.id, title: panel.title, count: panel.entryCount, hasUpdate: false });
+    }
+
+    // Synthetic PPFD calibration tab for the grow light (not entity-derived).
+    if (showPpfdCal && !tabs.some((t) => t.id === 'calibration')) {
+      tabs.push({ id: 'calibration', title: 'Calibration', count: 0, hasUpdate: false });
     }
 
     return tabs;
@@ -274,12 +285,15 @@
             {@render genericSectionList(activeEntityPanel.groups)}
           {/if}
 
-        {:else if activeTabId === 'calibration' && activeEntityPanel}
-          <!-- ── Calibration (curated if probe cal entities exist, else generic) ── -->
-          {#if isCalibrationCurated(activeEntityPanel)}
+        {:else if activeTabId === 'calibration'}
+          <!-- ── Calibration: probe cal (curated/generic) and/or the grow-light PPFD panel ── -->
+          {#if activeEntityPanel && isCalibrationCurated(activeEntityPanel)}
             <CalibrationPanel groups={activeEntityPanel.groups} {live} deviceEntities={deviceEntityList} />
-          {:else}
+          {:else if activeEntityPanel}
             {@render genericSectionList(activeEntityPanel.groups)}
+          {/if}
+          {#if showPpfdCal}
+            <PpfdCalibrationPanel {live} />
           {/if}
 
         {:else if activeEntityPanel}
