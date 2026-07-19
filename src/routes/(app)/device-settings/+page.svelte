@@ -4,7 +4,6 @@
   import AlertsPanel from '$lib/AlertsPanel.svelte';
   import CalibrationPanel from '$lib/CalibrationPanel.svelte';
   import PpfdCalibrationPanel from '$lib/lights/PpfdCalibrationPanel.svelte';
-  import { growLightNodeId } from '$lib/lights/model';
   import { deviceSettingsPresentation, DEVICE_SETTINGS_SECTIONS } from '$lib/device-presentation';
   import type { DeviceSettingsSectionId } from '$lib/device-presentation';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
@@ -39,9 +38,12 @@
   // Entity-based panels from device-presentation
   let entityPanels = $derived(selectedDevice ? deviceSettingsPresentation(live.snapshot, selectedDevice) : []);
 
-  // The grow light gets a bespoke PPFD calibration section (anchor the spectrometer's absolute
-  // scale). It isn't entity-derived, so it's injected as a synthetic Calibration tab.
-  const showPpfdCal = $derived(Boolean(selectedDevice) && growLightNodeId(live.snapshot) === selectedDevice?.nodeId);
+  // The spectrometer gets a bespoke PPFD calibration section (anchor its absolute scale). It isn't
+  // entity-derived, so it's injected as a synthetic Calibration tab on the device that publishes the
+  // spectrum frames.
+  const showPpfdCal = $derived(
+    Boolean(selectedDevice) && (live.snapshot.spectrometerNodeIds ?? []).includes(selectedDevice?.nodeId ?? '')
+  );
 
   // Firmware info for selected device
   let firmwareConfig = $derived(
