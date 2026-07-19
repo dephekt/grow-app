@@ -1,7 +1,0 @@
-# understand-anything working dir.
-# Track the durable knowledge graph + incremental baselines; ignore regenerable
-# scratch (per-batch analyzer output, layers/tour staging, validation, tmp, trash).
-tmp/
-.trash-*/
-intermediate/*
-!intermediate/scan-result.json
