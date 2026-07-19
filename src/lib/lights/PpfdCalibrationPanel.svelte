@@ -39,6 +39,7 @@
           adcFullScale: (1 << liveSpectrum.adcBits) - 1,
           integrationUs: liveSpectrum.integrationUs,
           saturated: liveSpectrum.saturated,
+          liveLux: liveLux ?? undefined,
           config: { anchors }
         })
       : null

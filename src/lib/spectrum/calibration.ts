@@ -278,6 +278,9 @@ export interface ProcessOptions {
   /** Lens for relative/peaks/bands: 'photon' (default, µmol), 'energy' (W/nm), or 'raw'. Absolute
    *  PPFD is always photon regardless. */
   view?: SpectrumView;
+  /** Live DLight illuminance (lux). With a lux anchor set, the lux flux reading is derived from
+   *  lux × (µmol/lux factor) — robust to a bad/stuck spectrometer frame — instead of frame counts. */
+  liveLux?: number;
   /** Re-process a stored raw frame under a different calibration without mutating the global. */
   config?: Partial<SpectroConfig>;
 }
@@ -393,6 +396,7 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   const integ = effectiveIntegrationUs(opts.integrationUs);
   if (!saturated) {
     const photon = view === 'photon' ? display : applyView(corrected, 'photon');
+    // Absolute flux from an anchor using THIS frame's per-µs photon rate (counts ÷ exposure).
     const flux = (a: AnchorCalibration): FluxReading | null => {
       if (!(a.rawIntegral > 0)) return null;
       const scale = a.referenceUmol / a.rawIntegral;
@@ -400,7 +404,22 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
       const epar = (scale * bandIntegral(photon, EPAR[0], EPAR[1])) / integ;
       return { source: a.source, ppfd: par, par, epar, tolerancePct: a.tolerancePct ?? (a.source === 'lux' ? 15 : 5) };
     };
-    if (cfg.anchors.lux) lux = flux(cfg.anchors.lux);
+    if (cfg.anchors.lux) {
+      const a = cfg.anchors.lux;
+      if (opts.liveLux != null && opts.liveLux > 0 && a.luxValue != null && a.luxValue > 0) {
+        // Frame-robust lux estimate: PPFD from live DLight lux × the anchor's µmol/lux, NOT this
+        // frame's counts/exposure. A bad or stuck auto-exposure frame (collapsed counts or a
+        // misreported integration time) can't drag the reading toward zero — the dedicated lux sensor
+        // tracks the real intensity, and dimming still lowers it. ePAR uses the frame's shape ratio
+        // (scale-invariant, so it survives a dim frame).
+        const ppfd = opts.liveLux * (a.referenceUmol / a.luxValue);
+        const pPar = bandIntegral(photon, PAR[0], PAR[1]);
+        const eparRatio = pPar > 0 ? bandIntegral(photon, EPAR[0], EPAR[1]) / pPar : 1;
+        lux = { source: 'lux', ppfd, par: ppfd, epar: ppfd * eparRatio, tolerancePct: a.tolerancePct ?? 15 };
+      } else {
+        lux = flux(a);
+      }
+    }
     if (cfg.anchors.reference) reference = flux(cfg.anchors.reference);
   }
   const primary = reference ?? lux;

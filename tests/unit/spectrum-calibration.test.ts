@@ -239,4 +239,25 @@ describe('processSpectrum — estimate vs reference differentiation', () => {
     expect(p.reference?.tolerancePct).toBe(5);
     expect(p.lux?.tolerancePct).toBe(15);
   });
+
+  it('derives a frame-robust lux PPFD from live lux × factor (survives a bad/stuck frame)', () => {
+    const factor = luxAnchor.referenceUmol / 10_000; // µmol per lux
+
+    // Same frame, live lux = anchor lux ⇒ PPFD ≈ the anchor's derived PPFD.
+    const same = processSpectrum(frame, { integrationUs: 8000, liveLux: 10_000, config: { anchors: { lux: luxAnchor } } });
+    expect(same.ppfd).toBeCloseTo(luxAnchor.referenceUmol, 6);
+    expect(same.ppfdSource).toBe('lux');
+
+    // Live lux halved ⇒ PPFD halves — dimming tracked via the lux sensor, not the frame.
+    const dim = processSpectrum(frame, { integrationUs: 8000, liveLux: 5_000, config: { anchors: { lux: luxAnchor } } });
+    expect(dim.ppfd).toBeCloseTo(luxAnchor.referenceUmol / 2, 6);
+
+    // A near-dark frame collapses the counts-based PPFD toward 0 (the stuck-reading symptom), but the
+    // live-lux path holds. Same integration time; only the counts are bad.
+    const badFrame = new Array(PIXEL_COUNT).fill(50);
+    const countsPath = processSpectrum(badFrame, { integrationUs: 8000, config: { anchors: { lux: luxAnchor } } });
+    expect(countsPath.ppfd ?? 0).toBeLessThan(luxAnchor.referenceUmol * 0.1);
+    const luxPath = processSpectrum(badFrame, { integrationUs: 8000, liveLux: 10_000, config: { anchors: { lux: luxAnchor } } });
+    expect(luxPath.ppfd).toBeCloseTo(10_000 * factor, 6);
+  });
 });
