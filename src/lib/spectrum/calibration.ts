@@ -183,6 +183,19 @@ const EPAR: [number, number] = [400, 750];
 // First few pixels of the C12880MA are dummy/optically-black — never real signal.
 const DUMMY_PIXELS = 5;
 
+// The firmware auto-exposes and reports `integration_us` as the ADDED delay only, so under a bright
+// light it can bottom out at 0 (no added delay) while the frame is still a valid short exposure.
+// Treat 0/missing as the sensor's minimum integration so PPFD isn't lost when the light is strong.
+// This is an estimate (refine once firmware reports the true integration incl. its base readout
+// period); at a fixed exposure it cancels out of the anchor scale, so absolute PPFD is unaffected by
+// its exact value — it only shifts cross-exposure (dimming) accuracy near the floor.
+export const MIN_INTEGRATION_US = 500;
+
+/** Integration time to normalize by: the reported value, or the sensor minimum when firmware reports 0. */
+function effectiveIntegrationUs(us: number | undefined): number {
+  return us && us > 0 ? us : MIN_INTEGRATION_US;
+}
+
 // CIE 1931 2° photopic luminosity function V(λ) — the eye's response that defines the lumen,
 // so a lux meter is really measuring ∫ E(λ)·V(λ)dλ. Peaks 1.0 at 555 nm, ~0 outside 400–700.
 // Lets us convert a co-incident lux reading into an absolute µmol PPFD using THIS spectrum's
@@ -377,8 +390,8 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   //    configured anchor (lux estimate and/or Apogee reference); reference is the primary.
   let lux: FluxReading | null = null;
   let reference: FluxReading | null = null;
-  const integ = opts.integrationUs;
-  if (!saturated && integ && integ > 0) {
+  const integ = effectiveIntegrationUs(opts.integrationUs);
+  if (!saturated) {
     const photon = view === 'photon' ? display : applyView(corrected, 'photon');
     const flux = (a: AnchorCalibration): FluxReading | null => {
       if (!(a.rawIntegral > 0)) return null;
@@ -420,7 +433,7 @@ export function anchorIntegral(
   const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...config };
   const photon = applyView(toCorrected(rawCounts, cfg), 'photon');
   const win = range === 'par' ? PAR : EPAR;
-  return bandIntegral(photon, win[0], win[1]) / integrationUs;
+  return bandIntegral(photon, win[0], win[1]) / effectiveIntegrationUs(integrationUs);
 }
 
 /** Provenance metadata for a freshly-built anchor. */
@@ -448,11 +461,11 @@ export function luxToAnchor(rawCounts: number[], integrationUs: number, lux: num
   const lumSum = photopicSum(photon);
   // referenceUmol = true PPFD = lux · (PAR photon sum) / (K · luminous sum). Both sums scale with
   // exposure/intensity, so their ratio — and thus the derived PPFD — is exposure-independent.
-  const referenceUmol = lumSum > 0 && integrationUs > 0 ? (lux * pPar) / (LUX_PER_UMOL_K * lumSum) : 0;
+  const referenceUmol = lumSum > 0 ? (lux * pPar) / (LUX_PER_UMOL_K * lumSum) : 0;
   return {
     referenceUmol,
     referenceRange: 'par',
-    rawIntegral: integrationUs > 0 ? pPar / integrationUs : 0,
+    rawIntegral: pPar / effectiveIntegrationUs(integrationUs),
     source: 'lux',
     capturedAt: meta.capturedAt,
     luxValue: lux,
