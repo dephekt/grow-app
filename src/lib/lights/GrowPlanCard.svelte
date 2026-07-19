@@ -4,10 +4,24 @@
   let {
     growState,
     livePpfd,
-    dimmerPct
-  }: { growState: GrowState; livePpfd: number | null; dimmerPct: number | null } = $props();
+    dimmerPct,
+    actualPhotoperiod = null
+  }: {
+    growState: GrowState;
+    livePpfd: number | null;
+    dimmerPct: number | null;
+    /** The light's actual on/off hours (from its schedule), for the plan-vs-light photoperiod check. */
+    actualPhotoperiod?: { onHours: number; offHours: number } | null;
+  } = $props();
 
   const guidance = $derived(buildGuidance(livePpfd, dimmerPct, growState.ppfdTarget));
+
+  // Flag when the fixture's schedule doesn't match the stage's planned photoperiod (e.g. still on the
+  // seedling 18/6 while the plan calls for veg 20/4).
+  const photoperiodMismatch = $derived(
+    actualPhotoperiod != null &&
+      (actualPhotoperiod.onHours !== growState.onHours || actualPhotoperiod.offHours !== growState.offHours)
+  );
   const dliNow = $derived(livePpfd == null ? null : dliFor(livePpfd, growState.onHours));
   const maxTarget = $derived(Math.max(...growState.weekly.map((w) => w.ppfdTarget)));
 
@@ -52,12 +66,11 @@
       <span class="v">{dliNow == null ? '—' : dliNow.toFixed(1)} <span class="t">/ {growState.dliTarget.toFixed(1)}</span></span>
     </div>
     <div class="pstat">
-      <span class="k">Dimmer</span>
-      <span class="v">{dimmerPct == null ? '—' : round(dimmerPct)} <span class="t">%</span></span>
-    </div>
-    <div class="pstat">
       <span class="k">Photoperiod</span>
-      <span class="v">{growState.onHours} / {growState.offHours}</span>
+      <span class="v">{growState.onHours} / {growState.offHours} <span class="t">plan</span></span>
+      {#if photoperiodMismatch}
+        <span class="pstat-note warn">⚠ light set to {actualPhotoperiod?.onHours} / {actualPhotoperiod?.offHours}</span>
+      {/if}
     </div>
   </div>
 
@@ -136,9 +149,17 @@
 
   .plan-stats {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     margin: 4px 0 12px;
+  }
+  .pstat-note {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+  }
+  .pstat-note.warn {
+    color: var(--amber);
   }
   .pstat {
     border: 1px solid var(--line);

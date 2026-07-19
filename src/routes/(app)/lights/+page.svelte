@@ -3,7 +3,7 @@
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import type { CaptureDetail, CaptureSummary } from '$lib/server/spectrum/captures';
   import { processSpectrum, type SpectrumView, type SpectroConfig } from '$lib/spectrum/calibration';
-  import { entityByRef } from '$lib/lights/model';
+  import { entityByRef, photoperiodHours } from '$lib/lights/model';
   import { resolveGrowState } from '$lib/lights/grow-plan';
   import { fluxRows, shareRows, shareTitle, fluxBadge } from '$lib/spectrum/readout-rows';
   import SpdChart from '$lib/spectrum/SpdChart.svelte';
@@ -33,6 +33,16 @@
     const raw = live.stateFor(dimmerEntity).value;
     const n = Number(raw);
     return raw != null && raw !== '' && Number.isFinite(n) ? n : null;
+  });
+
+  // The light's actual photoperiod (from its schedule) — the grow plan flags when it drifts from the
+  // stage target (e.g. still on the seedling 18/6 while the plan wants veg 20/4).
+  const actualPhotoperiod = $derived.by(() => {
+    if (!primaryLight) return null;
+    const onE = entityByRef(live.snapshot, primaryLight.roles.onTime);
+    const offE = entityByRef(live.snapshot, primaryLight.roles.offTime);
+    if (!onE || !offE) return null;
+    return photoperiodHours(live.stateFor(onE).value, live.stateFor(offE).value);
   });
 
   // Fleet illuminance (DLight/BH1750) — provenance shown on the canopy card.
@@ -238,7 +248,7 @@
   <!-- ── Grow plan ── -->
   <span class="section-label">Grow plan · center-canopy PPFD target by week</span>
   <section>
-    <GrowPlanCard {growState} {livePpfd} {dimmerPct} />
+    <GrowPlanCard {growState} {livePpfd} {dimmerPct} {actualPhotoperiod} />
   </section>
 
   <!-- ── Saved readings ── -->

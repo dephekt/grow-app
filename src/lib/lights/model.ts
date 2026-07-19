@@ -33,6 +33,21 @@ function secondsOfDay(value: string | null | undefined): number | null {
   return parts.hour * 3600 + parts.minute * 60 + parts.second;
 }
 
+/** A light's on/off hour split from its schedule times ("18 on / 6 off"), or null if unparseable.
+ *  Window length is the half-open [on, off) span, wrapping midnight. Shared by the light control and
+ *  the grow-plan card so the two can't compute the photoperiod differently. */
+export function photoperiodHours(
+  onValue: string | null | undefined,
+  offValue: string | null | undefined
+): { onHours: number; offHours: number } | null {
+  const on = secondsOfDay(onValue);
+  const off = secondsOfDay(offValue);
+  if (on === null || off === null) return null;
+  const windowSec = (off - on + 86400) % 86400;
+  const onHours = Math.round(windowSec / 3600);
+  return { onHours, offHours: 24 - onHours };
+}
+
 export interface LightScheduleWindow {
   /** Both times parsed and on != off — the firmware's "empty window" is on == off. */
   hasWindow: boolean;
