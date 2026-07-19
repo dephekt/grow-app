@@ -259,12 +259,15 @@
     selectedPackage: FirmwarePackageManifest | null,
     currentVersion: string
   ): string {
-    if (!entity) return 'Unavailable';
+    // A live update entity is authoritative when present…
     if (state.error) return 'Error';
     if (state.state) return state.state;
+    // …but version-based status still works without one, for poll-based / "dumb" devices (e.g. the
+    // spectrometer) that report a version via _firmware/config but publish no `update` component.
     if (selectedPackage?.version === currentVersion) return 'Current';
     if (state.latestVersion && selectedPackage && state.latestVersion === selectedPackage.version) return 'Update ready';
     if (state.latestVersion) return 'Checked';
+    if (!entity) return selectedPackage ? 'Update available' : 'Unavailable';
     return 'Idle';
   }
 
