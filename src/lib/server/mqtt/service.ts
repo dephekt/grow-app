@@ -127,7 +127,8 @@ export class SiteMqttService {
       states,
       uiConfigs,
       lights: this.mergedLights(),
-      firmware
+      firmware,
+      spectrometerNodeIds: this.spectrometerNodeIds()
     };
   }
 

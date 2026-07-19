@@ -64,7 +64,10 @@ export function normalizeSnapshot(value: unknown, fallback?: Snapshot): Snapshot
     states: recordOr(raw.states, fallback?.states ?? {}),
     uiConfigs: recordOr(raw.uiConfigs, fallback?.uiConfigs ?? {}),
     lights: Array.isArray(raw.lights) ? clonePlain(raw.lights) : clonePlain(fallback?.lights ?? []),
-    firmware: firmwareOr(raw.firmware, fallback?.firmware)
+    firmware: firmwareOr(raw.firmware, fallback?.firmware),
+    spectrometerNodeIds: Array.isArray(raw.spectrometerNodeIds)
+      ? clonePlain(raw.spectrometerNodeIds as string[])
+      : clonePlain(fallback?.spectrometerNodeIds ?? [])
   };
 }
 
