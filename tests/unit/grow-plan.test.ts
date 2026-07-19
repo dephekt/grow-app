@@ -47,25 +47,24 @@ describe('resolveGrowState', () => {
 });
 
 describe('buildGuidance', () => {
-  it('recommends full power + lowering the fixture when the dimmer alone cannot reach target', () => {
+  it('recommends full power + driving to the live target when the dimmer alone cannot reach it', () => {
     const g = buildGuidance(336, 78, 555); // needs 129% → dimmer alone is impossible
     expect(g.status).toBe('under');
     expect(g.deltaPct).toBeCloseTo(-39.5, 0);
     expect(g.dimmerForTargetPct ?? 0).toBeGreaterThan(100);
-    expect(g.message).toMatch(/raise to 100% and lower the fixture/i);
+    expect(g.message).toMatch(/raise to 100%/i);
+    expect(g.message).toMatch(/lower the fixture until PPFD reads ~555/i);
     expect(g.message).not.toMatch(/second fixture/i);
-    // targetDistanceCm is the 100% hang height for the target, not a current-dimmer figure.
-    expect(g.targetDistanceCm).toBeCloseTo(68.7, 0);
+    expect(g.message).not.toMatch(/from ≈/); // no shaky inferred current height in the copy
   });
 
-  it('reframes the low-dimmer case as full power + a specific hang height (the reported bad case)', () => {
+  it('reframes the low-dimmer case as full power + the live target, not an absolute height (reported bad case)', () => {
     const g = buildGuidance(108, 30, 555); // 30% reading 108 vs veg 555
     expect(g.status).toBe('under');
     expect(g.message).toMatch(/raise to 100%/i);
-    expect(g.message).toMatch(/lower the fixture to ≈69 cm/);
+    expect(g.message).toMatch(/until PPFD reads ~555/i);
     expect(g.message).not.toMatch(/second fixture/i);
-    expect(g.estDistanceCm).toBeCloseTo(105.9, 0); // current height inferred from 108 @ 30%
-    expect(g.targetDistanceCm).toBeCloseTo(68.7, 0); // 100% hang for 555
+    expect(g.message).not.toMatch(/cm/); // no absolute-distance claim
   });
 
   it('tells you to raise the dimmer when there is headroom', () => {
@@ -94,11 +93,11 @@ describe('buildGuidance', () => {
     expect(g.message).toMatch(/calibration anchor/i);
   });
 
-  it('recommends full power + lowering even when the dimmer duty is unknown', () => {
+  it('recommends full power + the live target even when the dimmer duty is unknown', () => {
     const g = buildGuidance(336, null, 555);
     expect(g.status).toBe('under');
     expect(g.estDistanceCm).toBeNull();
-    expect(g.message).toMatch(/raise to 100% and lower the fixture/i);
-    expect(g.targetDistanceCm).toBeCloseTo(68.7, 0);
+    expect(g.message).toMatch(/raise to 100%/i);
+    expect(g.message).toMatch(/until PPFD reads ~555/i);
   });
 });

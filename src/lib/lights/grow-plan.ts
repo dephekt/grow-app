@@ -166,18 +166,18 @@ export function buildGuidance(
 
   if (deltaPct < 0) {
     // Under target. First lever is the dimmer: if bumping it (≤100%) at the current height reaches
-    // target, say exactly that. Otherwise the fixture has to come down — recommend full power + the
-    // modelled 100% hang height. (One fixture in the tent, so never suggest adding another.)
+    // target, say exactly that — a fixed-height linear ratio, so it's reliable. Otherwise the fixture
+    // must come down; we DON'T claim an absolute height (the 1/distance model + lux anchor are far too
+    // rough to reconstruct one — see targetDistanceCm) and instead point at the live canopy PPFD, which
+    // is ground truth. (One fixture in the tent — never suggest adding another.)
     let message: string;
     if (dimmerForTargetPct != null && dimmerForTargetPct <= 100) {
       message = `Below target — raise intensity to ~${round(dimmerForTargetPct)}%.`;
     } else {
-      const from = estDistanceCm != null ? ` (from ≈${round(estDistanceCm)} cm)` : '';
       const alreadyFull = dimmerPct != null && dimmerPct >= 99;
-      const lead = alreadyFull
-        ? 'Below target — lower the fixture'
-        : 'Below target — raise to 100% and lower the fixture';
-      message = targetDistanceCm != null ? `${lead} to ≈${round(targetDistanceCm)} cm${from}.` : `${lead}.`;
+      message = alreadyFull
+        ? `Below target — lower the fixture until PPFD reads ~${round(target)} µmol.`
+        : `Below target — raise to 100%, then lower the fixture until PPFD reads ~${round(target)} µmol.`;
     }
     return { status: 'under', deltaPct, dimmerForTargetPct, estDistanceCm, targetDistanceCm, message };
   }
