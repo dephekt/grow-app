@@ -190,6 +190,18 @@ describe('processSpectrum — absolute flux from an anchor', () => {
     expect(pHalf.ppfd! / p1.ppfd!).toBeCloseTo(1, 1);
   });
 
+  it('handles a bright-light frame whose auto-exposure bottomed out to integration_us=0', () => {
+    // Firmware halves the exposure under strong light down to 0 ms; the frame is still valid.
+    const anchor0 = luxToAnchor(frame, 0, 10_000, { capturedAt: AT });
+    expect(anchor0.referenceUmol).toBeGreaterThan(0);
+    expect(anchor0.rawIntegral).toBeGreaterThan(0);
+    const p = processSpectrum(frame, { integrationUs: 0, config: { anchors: { lux: anchor0 } } });
+    expect(p.ppfd).not.toBeNull();
+    expect(p.ppfd!).toBeCloseTo(anchor0.referenceUmol, 5);
+    expect(10_000 / p.ppfd!).toBeGreaterThan(144); // still the 555 nm ~147 lux/µmol identity
+    expect(10_000 / p.ppfd!).toBeLessThan(151);
+  });
+
   it('gates flux to null on a saturated frame even with an anchor', () => {
     const p = processSpectrum(frame, {
       integrationUs: 8000,

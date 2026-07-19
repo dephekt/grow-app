@@ -23,7 +23,8 @@ export const POST: RequestHandler = async ({ request }) => {
   const live = getSiteMqttService().latestSpectrum();
   if (!live) throw error(404, 'No live spectrum to anchor against');
   if (live.saturated) throw error(409, 'Live frame is saturated — dim the light or shorten exposure, then retry');
-  if (!live.integrationUs || live.integrationUs <= 0) throw error(409, 'Live frame has no integration time yet');
+  // integrationUs may be 0 when the firmware's auto-exposure bottoms out under a bright light; that's a
+  // valid short exposure (calibration treats 0 as the sensor minimum), so it is NOT a blocker here.
 
   const body = (await request.json().catch(() => ({}))) as AnchorRequest;
   const source: AnchorSource = body.source ?? 'lux';
