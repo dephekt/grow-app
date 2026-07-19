@@ -17,19 +17,27 @@ describe('dliFor', () => {
 });
 
 describe('resolveGrowState', () => {
-  it('lands on veg week 2 seven days after the start', () => {
+  it('starts in seedling week 1 at the grow start (~100 PPFD under the dome)', () => {
+    const s = resolveGrowState(new Date('2026-07-20'));
+    expect(s.week).toBe(1);
+    expect(s.stage.key).toBe('seedling');
+    expect(s.ppfdTarget).toBe(100);
+    expect(s.onHours).toBe(18);
+  });
+
+  it('clamps to seedling week 1 before planting (soak / germination)', () => {
     const s = resolveGrowState(new Date('2026-07-19'));
+    expect(s.week).toBe(1);
+    expect(s.stage.key).toBe('seedling');
+  });
+
+  it('reaches veg week 2 seven days after the start', () => {
+    const s = resolveGrowState(new Date('2026-07-27'));
     expect(s.week).toBe(2);
     expect(s.stage.key).toBe('veg');
     expect(s.ppfdTarget).toBe(555);
     expect(s.onHours).toBe(20);
     expect(s.dliTarget).toBeCloseTo(39.96, 2);
-  });
-
-  it('clamps to week 1 before the grow starts', () => {
-    const s = resolveGrowState(new Date('2026-06-01'));
-    expect(s.week).toBe(1);
-    expect(s.stage.key).toBe('seedling');
   });
 
   it('clamps to the final week well past the end', () => {
@@ -39,7 +47,7 @@ describe('resolveGrowState', () => {
   });
 
   it('marks exactly one week current in the weekly series', () => {
-    const s = resolveGrowState(new Date('2026-07-19'), GROW_START);
+    const s = resolveGrowState(new Date('2026-07-27'), GROW_START);
     expect(s.weekly.filter((w) => w.current)).toHaveLength(1);
     expect(s.weekly.find((w) => w.current)?.week).toBe(2);
     expect(s.weekly).toHaveLength(WEEKLY_PLAN.length);
