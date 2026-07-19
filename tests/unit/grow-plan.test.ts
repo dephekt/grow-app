@@ -23,6 +23,20 @@ describe('resolveGrowState', () => {
     expect(s.stage.key).toBe('seedling');
     expect(s.ppfdTarget).toBe(100);
     expect(s.onHours).toBe(18);
+    expect(s.dayOfGrow).toBe(0);
+    expect(s.nextRamp).toEqual({ onDay: 3, ppfd: 250 });
+  });
+
+  it('steps the seedling target up over the first week (100 → 250 → 350)', () => {
+    expect(resolveGrowState(new Date('2026-07-22')).ppfdTarget).toBe(100); // day 2 — dome
+    const d3 = resolveGrowState(new Date('2026-07-23'));
+    expect(d3.dayOfGrow).toBe(3);
+    expect(d3.ppfdTarget).toBe(250); // day 3 — dome off
+    expect(d3.nextRamp).toEqual({ onDay: 5, ppfd: 350 });
+    const d5 = resolveGrowState(new Date('2026-07-25'));
+    expect(d5.ppfdTarget).toBe(350); // day 5 — gentle cap
+    expect(d5.nextRamp).toBeNull();
+    expect(resolveGrowState(new Date('2026-07-26')).ppfdTarget).toBe(350); // day 6 — holds at the cap
   });
 
   it('clamps to seedling week 1 before planting (soak / germination)', () => {

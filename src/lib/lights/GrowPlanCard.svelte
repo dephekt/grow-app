@@ -60,6 +60,9 @@
         {livePpfd == null ? '—' : round(livePpfd)} <span class="t">/ {growState.ppfdTarget}</span>
         {#if guidance.deltaPct != null}<span class="d" class:neg={guidance.deltaPct < 0} class:pos={guidance.deltaPct >= 0}>{signed(guidance.deltaPct)}</span>{/if}
       </span>
+      {#if growState.nextRamp}
+        <span class="pstat-note">day {growState.dayOfGrow + 1} · → {growState.nextRamp.ppfd} on day {growState.nextRamp.onDay + 1}</span>
+      {/if}
     </div>
     <div class="pstat">
       <span class="k">DLI now / tgt</span>
@@ -157,6 +160,7 @@
     font-family: var(--font-mono);
     font-size: 0.62rem;
     letter-spacing: 0.02em;
+    color: var(--muted);
   }
   .pstat-note.warn {
     color: var(--amber);
