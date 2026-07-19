@@ -107,10 +107,11 @@ export interface LightGuidance {
   status: GuidanceStatus;
   /** (live − target) / target · 100, or null when PPFD isn't calibrated. */
   deltaPct: number | null;
-  /** Dimmer duty that would hit the target at the current height (may exceed 100 = impossible). */
+  /** Dimmer duty that would hit the target at the current height (may exceed 100 = must also lower the fixture). */
   dimmerForTargetPct: number | null;
-  /** Model-inferred current center distance and the distance that would hit target — both need dimmer. */
+  /** Model-inferred CURRENT center distance (needs the live reading + dimmer). */
   estDistanceCm: number | null;
+  /** Full-power (100%) hang height for the target — the stable placement reference; always available. */
   targetDistanceCm: number | null;
   message: string;
 }
@@ -132,13 +133,17 @@ export function buildGuidance(
   dimmerPct: number | null | undefined,
   target: number
 ): LightGuidance {
+  // Hang height at full power (100%) for the week's target — independent of the live reading and the
+  // current dimmer, so it's always available as the reference placement.
+  const targetDistanceCm = target > 0 ? distanceForPpfd(target, 100) : null;
+
   if (livePpfd == null || !(livePpfd > 0) || !(target > 0)) {
     return {
       status: 'unknown',
       deltaPct: null,
       dimmerForTargetPct: null,
       estDistanceCm: null,
-      targetDistanceCm: null,
+      targetDistanceCm,
       message: 'Set a calibration anchor to see PPFD vs target guidance.'
     };
   }
@@ -147,7 +152,6 @@ export function buildGuidance(
   const hasDimmer = dimmerPct != null && dimmerPct > 0;
   const dimmerForTargetPct = hasDimmer ? (dimmerPct as number) * (target / livePpfd) : null;
   const estDistanceCm = hasDimmer ? distanceForPpfd(livePpfd, dimmerPct as number) : null;
-  const targetDistanceCm = hasDimmer ? distanceForPpfd(target, dimmerPct as number) : null;
 
   if (Math.abs(deltaPct) <= ON_TARGET_TOL_PCT) {
     return {
@@ -161,25 +165,27 @@ export function buildGuidance(
   }
 
   if (deltaPct < 0) {
-    // Under target: raise the dimmer if there's headroom, else lower the fixture.
+    // Under target. First lever is the dimmer: if bumping it (≤100%) at the current height reaches
+    // target, say exactly that. Otherwise the fixture has to come down — recommend full power + the
+    // modelled 100% hang height. (One fixture in the tent, so never suggest adding another.)
     let message: string;
     if (dimmerForTargetPct != null && dimmerForTargetPct <= 100) {
       message = `Below target — raise intensity to ~${round(dimmerForTargetPct)}%.`;
-    } else if (estDistanceCm != null && targetDistanceCm != null) {
-      const lowerBy = Math.max(0, round(estDistanceCm - targetDistanceCm));
-      message =
-        `Below target. At ${round(dimmerPct as number)}% this height reads ${round(livePpfd)}. ` +
-        `Lower the fixture ~${lowerBy} cm (→ ≈${round(targetDistanceCm)} cm) or add a second fixture.`;
     } else {
-      message = `Below target by ${Math.abs(round(deltaPct))}% — raise intensity or lower the fixture.`;
+      const from = estDistanceCm != null ? ` (from ≈${round(estDistanceCm)} cm)` : '';
+      const alreadyFull = dimmerPct != null && dimmerPct >= 99;
+      const lead = alreadyFull
+        ? 'Below target — lower the fixture'
+        : 'Below target — raise to 100% and lower the fixture';
+      message = targetDistanceCm != null ? `${lead} to ≈${round(targetDistanceCm)} cm${from}.` : `${lead}.`;
     }
     return { status: 'under', deltaPct, dimmerForTargetPct, estDistanceCm, targetDistanceCm, message };
   }
 
-  // Over target: dim down, or raise the fixture.
+  // Over target: dim down (raising the fixture is the alternative).
   const message =
-    dimmerForTargetPct != null && targetDistanceCm != null
-      ? `Above target — lower intensity to ~${round(dimmerForTargetPct)}% or raise the fixture (→ ≈${round(targetDistanceCm)} cm).`
+    dimmerForTargetPct != null
+      ? `Above target — lower intensity to ~${round(dimmerForTargetPct)}% (or raise the fixture).`
       : `Above target by ${round(deltaPct)}% — lower intensity or raise the fixture.`;
   return { status: 'over', deltaPct, dimmerForTargetPct, estDistanceCm, targetDistanceCm, message };
 }
