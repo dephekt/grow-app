@@ -24,12 +24,22 @@ export const STAGES: Record<StageKey, GrowStage> = {
   ripen: { key: 'ripen', label: 'Ripen', onHours: 12, offHours: 12 }
 };
 
+export interface RampStep {
+  /** Days since GROW_START (0-based; day 0 = planting) this step takes effect. */
+  fromDay: number;
+  /** Center-canopy PPFD target from this day, µmol·m⁻²·s⁻¹. */
+  ppfd: number;
+}
+
 export interface GrowWeek {
   /** 1-based overall grow week. */
   week: number;
   stage: StageKey;
-  /** Center-canopy PPFD target, µmol·m⁻²·s⁻¹. */
+  /** Center-canopy PPFD target, µmol·m⁻²·s⁻¹. For a week with a `ramp`, this is the week's ceiling
+   *  (what the weekly chart plots); the live target follows the day-stepped ramp. */
   ppfdTarget: number;
+  /** Optional within-week day-stepped ramp (e.g. the seedling week climbs off the dome). */
+  ramp?: RampStep[];
 }
 
 /**
@@ -37,7 +47,16 @@ export interface GrowWeek {
  * 1 wk seedling → 1 wk veg → flip. Targets ramp through flower to a wk-7 peak, then ripen down.
  */
 export const WEEKLY_PLAN: GrowWeek[] = [
-  { week: 1, stage: 'seedling', ppfdTarget: 100 }, // under the humidity dome; climbs as they establish
+  {
+    week: 1,
+    stage: 'seedling',
+    ppfdTarget: 350, // week ceiling for the chart; the live target follows the day-stepped ramp
+    ramp: [
+      { fromDay: 0, ppfd: 100 }, // days 1–3: under the humidity dome (ceiling ~100)
+      { fromDay: 3, ppfd: 250 }, // days 3–5: dome off
+      { fromDay: 5, ppfd: 350 } // days 5–7: gentle cap; veg does the rest of the climb
+    ]
+  },
   { week: 2, stage: 'veg', ppfdTarget: 555 },
   { week: 3, stage: 'flower', ppfdTarget: 925 },
   { week: 4, stage: 'flower', ppfdTarget: 1020 },
@@ -61,7 +80,8 @@ export const PEAK_DISTANCE_CM = 33;
 /** Within this |Δ%| of the week's target we call it on-target (guidance stops nagging). */
 export const ON_TARGET_TOL_PCT = 8;
 
-const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
 
 /** Daily Light Integral (mol·m⁻²·d⁻¹) for a steady PPFD held for `onHours`. */
 export function dliFor(ppfd: number, onHours: number): number {
@@ -78,26 +98,47 @@ export interface WeeklyPoint {
 export interface GrowState {
   week: number;
   stage: GrowStage;
+  /** The current live PPFD target — day-resolved when the week has a ramp, else the week's flat value. */
   ppfdTarget: number;
   dliTarget: number;
   onHours: number;
   offHours: number;
+  /** Days since planting (GROW_START), clamped ≥ 0. */
+  dayOfGrow: number;
+  /** The next ramp step within the current week, if any — for previewing "→ X on day Y". */
+  nextRamp: { onDay: number; ppfd: number } | null;
   weekly: WeeklyPoint[];
 }
 
 /** Resolve the current stage/week/targets from the wall clock, clamped to the plan's bounds. */
 export function resolveGrowState(now: Date, startIso: string = GROW_START): GrowState {
-  const weeksSince = Math.floor((now.getTime() - new Date(startIso).getTime()) / MS_PER_WEEK);
-  const idx = Math.min(Math.max(weeksSince, 0), WEEKLY_PLAN.length - 1);
+  const msSince = now.getTime() - new Date(startIso).getTime();
+  const dayOfGrow = Math.max(0, Math.floor(msSince / MS_PER_DAY));
+  const idx = Math.min(Math.max(Math.floor(msSince / MS_PER_WEEK), 0), WEEKLY_PLAN.length - 1);
   const wk = WEEKLY_PLAN[idx];
   const stage = STAGES[wk.stage];
+
+  // Within-week day-stepped ramp (seedling climbs off the dome): the live target follows the current
+  // day's step, and we surface the next step so the card can preview it. Flat weeks skip this.
+  let ppfdTarget = wk.ppfdTarget;
+  let nextRamp: { onDay: number; ppfd: number } | null = null;
+  if (wk.ramp && wk.ramp.length > 0) {
+    let current = wk.ramp[0];
+    for (const step of wk.ramp) if (dayOfGrow >= step.fromDay) current = step;
+    ppfdTarget = current.ppfd;
+    const next = wk.ramp.find((s) => s.fromDay > dayOfGrow);
+    if (next) nextRamp = { onDay: next.fromDay, ppfd: next.ppfd };
+  }
+
   return {
     week: wk.week,
     stage,
-    ppfdTarget: wk.ppfdTarget,
-    dliTarget: dliFor(wk.ppfdTarget, stage.onHours),
+    ppfdTarget,
+    dliTarget: dliFor(ppfdTarget, stage.onHours),
     onHours: stage.onHours,
     offHours: stage.offHours,
+    dayOfGrow,
+    nextRamp,
     weekly: WEEKLY_PLAN.map((w, i) => ({ week: w.week, stage: w.stage, ppfdTarget: w.ppfdTarget, current: i === idx }))
   };
 }
