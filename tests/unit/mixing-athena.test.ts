@@ -7,6 +7,7 @@ import {
   DOSE_TABLE,
   FEED_SCHEDULE,
   MEDIUM,
+  MIX_PROCEDURES,
   TANK
 } from '$lib/mixing/athena';
 
@@ -123,5 +124,30 @@ describe('FEED_SCHEDULE — CCI LED coco setpoints, dosed with Athena Pro', () =
       const core = s.core.match(/(\d+)/);
       if (/core/i.test(s.core) && core) expect(Number(core[1])).toBe(row!.core);
     }
+  });
+});
+
+describe('MIX_PROCEDURES — Balance is calibrate-once', () => {
+  const proc = (key: string) => MIX_PROCEDURES.find((p) => p.key === key)!;
+  const idx = (steps: { name: string }[], re: RegExp) => steps.findIndex((s) => re.test(s.name));
+
+  it('has a first-batch (calibrate) and a repeat procedure', () => {
+    expect(MIX_PROCEDURES.map((p) => p.key)).toEqual(['calibrate', 'repeat']);
+  });
+
+  it('first batch doses Balance AFTER the concentrates, and records the amount', () => {
+    const s = proc('calibrate').steps;
+    const balance = idx(s, /balance/i);
+    expect(balance).toBeGreaterThan(idx(s, /grow|bloom/i));
+    expect(balance).toBeGreaterThan(idx(s, /core/i));
+    expect(s.some((x) => /record|write down/i.test(`${x.name} ${x.detail}`))).toBe(true);
+  });
+
+  it('repeat batches add Balance UP FRONT, before the concentrates', () => {
+    const s = proc('repeat').steps;
+    const balance = idx(s, /balance/i);
+    expect(balance).toBeGreaterThanOrEqual(0);
+    expect(balance).toBeLessThan(idx(s, /grow|bloom/i));
+    expect(balance).toBeLessThan(idx(s, /core/i));
   });
 });

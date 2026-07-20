@@ -284,14 +284,56 @@ export interface MixStep {
   detail: string;
 }
 
-/** The batch mixing order (order matters — wrong order precipitates). */
-export const MIX_ORDER: MixStep[] = [
+export interface MixProcedure {
+  key: string;
+  title: string;
+  /** One-line framing for when this order applies. */
+  when: string;
+  steps: MixStep[];
+}
+
+/**
+ * Two procedures, because Balance is a pH buffer you calibrate ONCE per recipe. Balance holds the
+ * batch at target pH, but the concentrates themselves pull pH down — so you can't know the Balance
+ * dose until the nutrients are in. First batch: nutrients in, then dose Balance to pH LAST and write
+ * the mL down. Every batch after: that recorded dose goes in UP FRONT, and the pH lands on target
+ * once the (acidic) concentrates follow. Order still matters — concentrates go in separately.
+ */
+export const MIX_PROCEDURES: MixProcedure[] = [
   {
-    order: 1,
-    name: 'Balance',
-    detail: 'Into the water first. Dose to pH in ~1 mL steps (potassium-silicate buffer, adds Si). Target pH 6.0 for coco (5.5–5.6 for seedlings).'
+    key: 'calibrate',
+    title: 'First batch — find your Balance dose',
+    when: "You don't know the Balance dose yet, so dose it to pH last and record it.",
+    steps: [
+      { order: 1, name: 'RO water', detail: 'Start from your measured volume of RO / filtered water.' },
+      { order: 2, name: 'Pro Grow (veg) / Pro Bloom (flower)', detail: 'Add the stage concentrate — the mL measured below. Add separately.' },
+      { order: 3, name: 'Pro Core', detail: 'Add separately — never combine concentrates undiluted (they precipitate).' },
+      {
+        order: 4,
+        name: 'Balance — dose to pH, then record it',
+        detail: 'The concentrates pull pH down, so balance now: add in ~1 mL steps up to target pH (6.0 coco · 5.5–5.6 seedlings). Write down the total mL — that is your reusable Balance dose for this recipe.'
+      },
+      { order: 5, name: 'Cleanse', detail: '5–13 mL per 10 L (3 at pre-soak). Mix well, then confirm EC + pH.' }
+    ]
   },
-  { order: 2, name: 'Pro Grow (veg) / Pro Bloom (flower)', detail: 'Add the concentrate for the stage — measured for your EC and volume below.' },
-  { order: 3, name: 'Pro Core', detail: 'Add separately — never combine concentrates undiluted (they precipitate).' },
-  { order: 4, name: 'Cleanse', detail: '5–13 mL per 10 L (3 at pre-soak). Then mix well and check EC + pH.' }
+  {
+    key: 'repeat',
+    title: 'Every batch after — reuse it',
+    when: 'You know the Balance dose, so it goes in up front and the pH lands on target.',
+    steps: [
+      { order: 1, name: 'RO water', detail: 'Same measured volume as the batch you calibrated.' },
+      {
+        order: 2,
+        name: 'Balance — the recorded dose, up front',
+        detail: 'Add the mL you recorded straight into the water (scale it if the volume or EC target changed).'
+      },
+      { order: 3, name: 'Pro Grow (veg) / Pro Bloom (flower)', detail: 'Add the stage concentrate. Add separately.' },
+      { order: 4, name: 'Pro Core', detail: 'Add separately — never combine concentrates undiluted.' },
+      {
+        order: 5,
+        name: 'Cleanse',
+        detail: '5–13 mL per 10 L. Mix well, then check EC + pH — it should land on target; nudge with a little Balance if needed.'
+      }
+    ]
+  }
 ];
