@@ -1,6 +1,6 @@
 <script lang="ts">
   import MixCalculator from '$lib/mixing/MixCalculator.svelte';
-  import { mix, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER, MEDIUM } from '$lib/mixing/athena';
+  import { mix, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER, MEDIUM, WORKING_EC } from '$lib/mixing/athena';
   import { selectHydroReadings } from '$lib/mixing/hydro';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
 
@@ -12,9 +12,9 @@
     return s.endsWith('.0') ? s.slice(0, -2) : s;
   };
 
-  // Quick reference at the tank's working EC (3.0) — the numbers you reach for most.
-  const initial = mix(3.0, TANK.full);
-  const refill = mix(3.0, TANK.refill);
+  // Quick reference at the working feed EC (CCI LED coco veg / early flower) — the ones you pour most.
+  const initial = mix(WORKING_EC, TANK.full);
+  const refill = mix(WORKING_EC, TANK.refill);
   const scheduleEcs = new Set(FEED_SCHEDULE.map((s) => s.ec));
 </script>
 
@@ -25,7 +25,7 @@
 
   <!-- Quick reference @ EC 3.0 -->
   <div class="panel">
-    <div class="panel-head"><span class="panel-title">Quick reference · EC 3.0</span><span class="mono sub">the two you pour most</span></div>
+    <div class="panel-head"><span class="panel-title">Quick reference · EC {WORKING_EC.toFixed(1)}</span><span class="mono sub">the two you pour most</span></div>
     <div class="quick">
       <div class="qcard">
         <span class="q-when">Initial fill · {TANK.full} L</span>
@@ -50,11 +50,11 @@
   <div class="two">
     <!-- Feed schedule -->
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Your schedule · Athena Pro Line</span></div>
+      <div class="panel-head"><span class="panel-title">Your schedule · CCI LED coco</span><span class="mono sub">feed EC = what you mix</span></div>
       <div class="tbl-scroll">
         <table>
           <thead>
-            <tr><th>Stage</th><th>EC</th><th>Grow / Bloom</th><th>Core</th><th>Cleanse</th><th>pH</th></tr>
+            <tr><th>Stage</th><th>Feed EC</th><th>Grow / Bloom</th><th>Core</th><th>Cleanse</th><th>pH</th><th>Subst. EC</th></tr>
           </thead>
           <tbody>
             {#each FEED_SCHEDULE as s (s.key)}
@@ -65,17 +65,19 @@
                 <td class="mono">{s.core}</td>
                 <td class="mono">{s.cleanse}</td>
                 <td class="mono ph">{s.ph}</td>
+                <td class="mono">{s.substrateEc}</td>
               </tr>
             {/each}
           </tbody>
         </table>
       </div>
       <ul class="notes">
-        <li><b>Medium:</b> {MEDIUM.label} — {MEDIUM.detail} · coco EC {MEDIUM.bufferedEc} → batch pH {MEDIUM.ph.label} (coco/rockwool column).</li>
+        <li><b>Medium:</b> {MEDIUM.label} — {MEDIUM.detail} · coco EC {MEDIUM.bufferedEc} → batch pH {MEDIUM.ph.label} (CCI coco).</li>
+        <li><b>Feed EC vs substrate EC:</b> feed/drip EC is what you mix (this table + calculator). Substrate EC is the in-pot pour-through you steer toward via dryback — higher; never mix to it.</li>
         {#each FEED_SCHEDULE.filter((s) => s.note) as s (s.key)}
           <li><b>{s.label}:</b> {s.note}</li>
         {/each}
-        <li>All doses mL per 10 L, 226 g/L concentrate. Grow in veg, Bloom in flower (same dose).</li>
+        <li>Targets: CCI Black Book LED coco setpoints (p.57 / p.64); doses = Athena Pro 226 g/L. Grow in veg, Bloom in flower.</li>
       </ul>
     </div>
 
@@ -113,7 +115,7 @@
         </tbody>
       </table>
     </div>
-    <p class="chart-note mono">Highlighted rows are your schedule's targets (EC 2.0 clone · 3.0 veg/flower). The calculator interpolates in between.</p>
+    <p class="chart-note mono">Highlighted rows are your schedule's feed-EC targets (1.5 seedling · 3.5 veg/early-flower · 3.0 bulk · 2.5 finish). The calculator interpolates in between.</p>
   </div>
 </div>
 

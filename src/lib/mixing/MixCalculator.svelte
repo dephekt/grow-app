@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { mix, volumeForMode, TANK, EC_MIN, EC_MAX, MEDIUM, type MixMode } from '$lib/mixing/athena';
+  import { mix, volumeForMode, TANK, EC_MIN, EC_MAX, MEDIUM, WORKING_EC, type MixMode } from '$lib/mixing/athena';
   import type { HydroReadings } from '$lib/mixing/hydro';
 
   let { hydro = null }: { hydro?: HydroReadings | null } = $props();
 
   let mode = $state<MixMode>('full');
   let customL = $state(1);
-  let ec = $state(3.0);
+  let ec = $state(WORKING_EC);
 
   const EC_CHIPS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
 
@@ -80,7 +80,7 @@
             {/each}
           </div>
         </div>
-        <span class="hint">Your schedule: EC 3.0 veg & flower. Seedlings gentler — try 1.0–1.5.</span>
+        <span class="hint">CCI LED coco: 3.5 veg / early flower · 3.0 bulk · 2.5 finish · pH 6.0. Seedlings 1.5.</span>
         {#if result.extrapolated}
           <span class="hint warn">⚠ EC is outside the printed chart ({EC_MIN}–{EC_MAX}); this dose is extrapolated.</span>
         {/if}
