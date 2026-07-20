@@ -50,6 +50,19 @@ export const TANK = {
 
 export type MixMode = 'full' | 'refill' | 'custom';
 
+/**
+ * The substrate this grow runs. Fixes the batch pH target to Athena's coco/rockwool window
+ * (5.8–6.2) rather than the peat window, and records the coco's own buffered EC for context.
+ */
+export const MEDIUM = {
+  label: 'Coco block',
+  detail: '8×8×7 in · 3 gal · 80% coir / 20% chips · 58% WHC',
+  /** The medium's own buffered EC (its starting EC before feed). */
+  bufferedEc: '0.1–0.2',
+  /** Batch pH window for coco. A reading within ±0.2 of this reads "near"; further out is "off". */
+  ph: { min: 5.8, max: 6.2, label: '5.8–6.2' }
+} as const;
+
 export interface PerTenL {
   growBloom: number;
   core: number;
