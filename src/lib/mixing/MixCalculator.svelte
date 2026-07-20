@@ -137,7 +137,8 @@
   </div>
 
   <p class="order-note">
-    Balance first (dose to pH) → the concentrate for the stage → Core → Cleanse. Add each separately, then check EC + pH.
+    Balance is calibrate-once. <b>First batch:</b> water → Grow/Bloom → Core → Balance to pH (record the mL) → Cleanse.
+    <b>Every batch after:</b> water → that Balance dose up front → Grow/Bloom → Core → Cleanse. Add each separately; confirm EC + pH.
   </p>
 </div>
 
