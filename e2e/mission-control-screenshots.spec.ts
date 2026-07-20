@@ -66,6 +66,12 @@ test('dashboard', async ({ page }, testInfo) => {
   await page.screenshot({ path: testInfo.outputPath(`dashboard-${testInfo.project.name}.png`), fullPage: true });
 });
 
+test('mixing', async ({ page }, testInfo) => {
+  await page.goto('/mixing');
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: testInfo.outputPath(`mixing-${testInfo.project.name}.png`), fullPage: true });
+});
+
 test('device-settings-calibration', async ({ page }, testInfo) => {
   await page.goto('/device-settings?device=atlas-hydro-monitor&section=calibration');
   await page.waitForTimeout(900);
