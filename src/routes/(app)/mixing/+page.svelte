@@ -1,6 +1,6 @@
 <script lang="ts">
   import MixCalculator from '$lib/mixing/MixCalculator.svelte';
-  import { mix, fmtDose, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER, MEDIUM, feedTargetForStage } from '$lib/mixing/athena';
+  import { mix, fmtDose, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_PROCEDURES, MEDIUM, feedTargetForStage } from '$lib/mixing/athena';
   import { resolveGrowState } from '$lib/lights/grow-plan';
   import { selectHydroReadings } from '$lib/mixing/hydro';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
@@ -82,15 +82,20 @@
 
     <!-- Procedure -->
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Mixing procedure</span><span class="mono sub">order matters</span></div>
-      <ol class="steps">
-        {#each MIX_ORDER as step (step.order)}
-          <li>
-            <span class="s-num mono">{step.order}</span>
-            <span class="s-body"><b>{step.name}</b>{step.detail}</span>
-          </li>
-        {/each}
-      </ol>
+      <div class="panel-head"><span class="panel-title">Mixing procedure</span><span class="mono sub">Balance is calibrate-once</span></div>
+      {#each MIX_PROCEDURES as proc (proc.key)}
+        <div class="proc">
+          <div class="proc-head"><b>{proc.title}</b><span class="proc-when">{proc.when}</span></div>
+          <ol class="steps">
+            {#each proc.steps as step (step.order)}
+              <li>
+                <span class="s-num mono">{step.order}</span>
+                <span class="s-body"><b>{step.name}</b>{step.detail}</span>
+              </li>
+            {/each}
+          </ol>
+        </div>
+      {/each}
       <p class="warn mono">⚠ Combining concentrates undiluted precipitates — add each to the reservoir separately.</p>
     </div>
   </div>
@@ -230,6 +235,26 @@
   }
 
   /* Procedure steps */
+  .proc {
+    margin-bottom: 14px;
+  }
+  .proc-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 10px;
+  }
+  .proc-head b {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--amber);
+    letter-spacing: 0.02em;
+  }
+  .proc-when {
+    font-size: 0.66rem;
+    line-height: 1.4;
+    color: var(--faint);
+  }
   .steps {
     list-style: none;
     margin: 0 0 12px;
