@@ -64,10 +64,44 @@ export const MEDIUM = {
 } as const;
 
 /**
- * Primary working feed (drip) EC — CCI LED coco veg / early flower. The calculator + quick reference
- * default here; the other stages (seedling 1.5, bulk 3.0, finish 2.5) are one chip tap away.
+ * Primary working feed (drip) EC — CCI LED coco veg / early flower. The fallback default when the
+ * grow stage is unknown; other stages (seedling 1.5, bulk 3.0, finish 2.5) are one chip tap away.
  */
 export const WORKING_EC = 3.5;
+
+/** Grow stages — same string values as the light plan's StageKey. */
+export type FeedStageKey = 'seedling' | 'veg' | 'flower' | 'ripen';
+
+export interface FeedTarget {
+  stage: FeedStageKey;
+  stageLabel: string;
+  /** Feed (drip) EC for the stage — the calculator's default target. */
+  ec: number;
+  /** Batch pH target/window for the stage's live flag. */
+  ph: { min: number; max: number; target: number; label: string };
+}
+
+/** Seedlings run lower than the coco 6.0: CCI p.26 / Grodan target pH 5.5–5.6. */
+const SEEDLING_PH = { min: 5.5, max: 5.7, target: 5.6, label: '5.5–5.6' } as const;
+
+/**
+ * Feed EC + pH target for the current grow stage, so the mixing page defaults the calculator and
+ * flags the live pH against where the plant actually is. Flower defaults to the early-flower feed
+ * EC (3.5); it steps down to 3.0 (bulk) / 2.5 (finish) later — see FEED_SCHEDULE.
+ */
+export function feedTargetForStage(stage: FeedStageKey): FeedTarget {
+  switch (stage) {
+    case 'seedling':
+      return { stage, stageLabel: 'Seedling', ec: 1.5, ph: { ...SEEDLING_PH } };
+    case 'ripen':
+      return { stage, stageLabel: 'Ripen / fade', ec: 2.5, ph: { ...MEDIUM.ph } };
+    case 'flower':
+      return { stage, stageLabel: 'Flower', ec: WORKING_EC, ph: { ...MEDIUM.ph } };
+    case 'veg':
+    default:
+      return { stage: 'veg', stageLabel: 'Veg', ec: WORKING_EC, ph: { ...MEDIUM.ph } };
+  }
+}
 
 export interface PerTenL {
   growBloom: number;

@@ -1,31 +1,35 @@
 <script lang="ts">
   import MixCalculator from '$lib/mixing/MixCalculator.svelte';
-  import { mix, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER, MEDIUM, WORKING_EC } from '$lib/mixing/athena';
+  import { mix, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER, MEDIUM, feedTargetForStage } from '$lib/mixing/athena';
+  import { resolveGrowState } from '$lib/lights/grow-plan';
   import { selectHydroReadings } from '$lib/mixing/hydro';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
 
   const live = getLiveSnapshot();
   const hydro = $derived(selectHydroReadings(live.snapshot));
 
+  // Where the grow is right now → default the calculator + quick reference to this stage's feed target.
+  const feedTarget = feedTargetForStage(resolveGrowState(new Date()).stage.key);
+
   const fmt1 = (n: number) => {
     const s = (Math.round(n * 10) / 10).toFixed(1);
     return s.endsWith('.0') ? s.slice(0, -2) : s;
   };
 
-  // Quick reference at the working feed EC (CCI LED coco veg / early flower) — the ones you pour most.
-  const initial = mix(WORKING_EC, TANK.full);
-  const refill = mix(WORKING_EC, TANK.refill);
+  // Quick reference at the current stage's feed EC — what to pour for the batch you're mixing now.
+  const initial = mix(feedTarget.ec, TANK.full);
+  const refill = mix(feedTarget.ec, TANK.refill);
   const scheduleEcs = new Set(FEED_SCHEDULE.map((s) => s.ec));
 </script>
 
 <svelte:head><title>Mixing · Grow</title></svelte:head>
 
 <div class="mix">
-  <MixCalculator {hydro} />
+  <MixCalculator {hydro} {feedTarget} />
 
   <!-- Quick reference @ EC 3.0 -->
   <div class="panel">
-    <div class="panel-head"><span class="panel-title">Quick reference · EC {WORKING_EC.toFixed(1)}</span><span class="mono sub">the two you pour most</span></div>
+    <div class="panel-head"><span class="panel-title">Quick reference · {feedTarget.stageLabel} · EC {feedTarget.ec.toFixed(1)}</span><span class="mono sub">for the batch you're mixing now</span></div>
     <div class="quick">
       <div class="qcard">
         <span class="q-when">Initial fill · {TANK.full} L</span>

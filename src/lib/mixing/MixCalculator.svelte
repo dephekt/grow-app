@@ -1,12 +1,14 @@
 <script lang="ts">
-  import { mix, volumeForMode, TANK, EC_MIN, EC_MAX, MEDIUM, WORKING_EC, type MixMode } from '$lib/mixing/athena';
+  import { untrack } from 'svelte';
+  import { mix, volumeForMode, TANK, EC_MIN, EC_MAX, type MixMode, type FeedTarget } from '$lib/mixing/athena';
   import type { HydroReadings } from '$lib/mixing/hydro';
 
-  let { hydro = null }: { hydro?: HydroReadings | null } = $props();
+  let { hydro = null, feedTarget }: { hydro?: HydroReadings | null; feedTarget: FeedTarget } = $props();
 
   let mode = $state<MixMode>('full');
   let customL = $state(1);
-  let ec = $state(WORKING_EC);
+  // Seed the target to the current grow stage's feed EC (initial value only); the chips override it.
+  let ec = $state(untrack(() => feedTarget.ec));
 
   const EC_CHIPS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
 
@@ -20,12 +22,13 @@
   const livePh = $derived(hydro?.ph ?? null);
   const ecDelta = $derived(liveEc ? liveEc.mScm - ec : null);
   const ecClass = $derived(ecDelta == null ? '' : Math.abs(ecDelta) <= EC_TOL ? 'ok' : ecDelta < 0 ? 'under' : 'over');
-  // pH against the medium's target (coco 5.8–6.2): in-window ok · within ±0.2 near · beyond off.
+  // pH against the current stage's target (seedling 5.5–5.6 · coco 6.0): in-window ok · ±0.2 near · beyond off.
   const phStatus = $derived.by(() => {
     if (!livePh) return null;
     const v = livePh.value;
-    if (v >= MEDIUM.ph.min && v <= MEDIUM.ph.max) return 'ok';
-    if (v >= MEDIUM.ph.min - 0.2 && v <= MEDIUM.ph.max + 0.2) return 'near';
+    const { min, max } = feedTarget.ph;
+    if (v >= min && v <= max) return 'ok';
+    if (v >= min - 0.2 && v <= max + 0.2) return 'near';
     return 'off';
   });
   const signed2 = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}`;
@@ -41,7 +44,7 @@
 <div class="panel calc">
   <div class="panel-head">
     <span class="p-title">// Reservoir mix · Athena Pro Line</span>
-    <span class="basis mono">{fmtVol(volumeL)} L · EC {ec.toFixed(1)}</span>
+    <span class="basis mono">{feedTarget.stageLabel} · {fmtVol(volumeL)} L · EC {ec.toFixed(1)}</span>
   </div>
 
   <!-- Water volume -->
@@ -107,7 +110,7 @@
                 class:warn={phStatus === 'near'}
                 class:alert={phStatus === 'off'}
                 data-testid="live-ph">{livePh.value.toFixed(2)}</span>
-              <span class="ld mono muted">target {MEDIUM.ph.label} · coco</span>
+              <span class="ld mono muted">target {feedTarget.ph.label} · {feedTarget.stageLabel.toLowerCase()}</span>
             {:else}
               <span class="lv mono none" data-testid="live-ph">—</span>
             {/if}
