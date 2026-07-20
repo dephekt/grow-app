@@ -1,6 +1,6 @@
 <script lang="ts">
   import MixCalculator from '$lib/mixing/MixCalculator.svelte';
-  import { mix, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER, MEDIUM, feedTargetForStage } from '$lib/mixing/athena';
+  import { mix, fmtDose, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER, MEDIUM, feedTargetForStage } from '$lib/mixing/athena';
   import { resolveGrowState } from '$lib/lights/grow-plan';
   import { selectHydroReadings } from '$lib/mixing/hydro';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
@@ -10,11 +10,6 @@
 
   // Where the grow is right now → default the calculator + quick reference to this stage's feed target.
   const feedTarget = feedTargetForStage(resolveGrowState(new Date()).stage.key);
-
-  const fmt1 = (n: number) => {
-    const s = (Math.round(n * 10) / 10).toFixed(1);
-    return s.endsWith('.0') ? s.slice(0, -2) : s;
-  };
 
   // Quick reference at the current stage's feed EC — what to pour for the batch you're mixing now.
   const initial = mix(feedTarget.ec, TANK.full);
@@ -27,22 +22,22 @@
 <div class="mix">
   <MixCalculator {hydro} {feedTarget} />
 
-  <!-- Quick reference @ EC 3.0 -->
+  <!-- Quick reference at the current stage's feed EC -->
   <div class="panel">
     <div class="panel-head"><span class="panel-title">Quick reference · {feedTarget.stageLabel} · EC {feedTarget.ec.toFixed(1)}</span><span class="mono sub">for the batch you're mixing now</span></div>
     <div class="quick">
       <div class="qcard">
         <span class="q-when">Initial fill · {TANK.full} L</span>
         <div class="q-rows">
-          <span>Grow / Bloom</span><span class="mono v">{fmt1(initial.growBloom)} mL</span>
-          <span>Core</span><span class="mono v">{fmt1(initial.core)} mL</span>
+          <span>Grow / Bloom</span><span class="mono v">{fmtDose(initial.growBloom)} mL</span>
+          <span>Core</span><span class="mono v">{fmtDose(initial.core)} mL</span>
         </div>
       </div>
       <div class="qcard">
         <span class="q-when">Refill · {TANK.refill} L</span>
         <div class="q-rows">
-          <span>Grow / Bloom</span><span class="mono v">{fmt1(refill.growBloom)} mL</span>
-          <span>Core</span><span class="mono v">{fmt1(refill.core)} mL</span>
+          <span>Grow / Bloom</span><span class="mono v">{fmtDose(refill.growBloom)} mL</span>
+          <span>Core</span><span class="mono v">{fmtDose(refill.core)} mL</span>
         </div>
       </div>
     </div>

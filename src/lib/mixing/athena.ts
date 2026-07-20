@@ -180,6 +180,12 @@ export function volumeForMode(mode: MixMode, customL: number): number {
   return customL;
 }
 
+/** A dose in mL to 1 decimal, trailing `.0` trimmed — full tank (427.5) and a 1 L pitcher (2.7) alike. */
+export function fmtDose(n: number): string {
+  const s = (Math.round(n * 10) / 10).toFixed(1);
+  return s.endsWith('.0') ? s.slice(0, -2) : s;
+}
+
 /* --------------------------------------------------------------------------------------------- */
 /* Reference — this tank's Pro Feed Schedule (Metric, 226 g/L) and the batch procedure.          */
 /* Display data for the page; the numbers reconcile with DOSE_TABLE (Bloom 57 + Core 34 = EC 2.0, */
