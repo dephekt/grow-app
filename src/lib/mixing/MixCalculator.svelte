@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { mix, volumeForMode, TANK, EC_MIN, EC_MAX, type MixMode, type FeedTarget } from '$lib/mixing/athena';
+  import { mix, volumeForMode, fmtDose, TANK, EC_MIN, EC_MAX, type MixMode, type FeedTarget } from '$lib/mixing/athena';
   import type { HydroReadings } from '$lib/mixing/hydro';
 
   let { hydro = null, feedTarget }: { hydro?: HydroReadings | null; feedTarget: FeedTarget } = $props();
@@ -8,19 +8,22 @@
   let mode = $state<MixMode>('full');
   let customL = $state(1);
   // Seed the target to the current grow stage's feed EC (initial value only); the chips override it.
-  let ec = $state(untrack(() => feedTarget.ec));
+  // Nullable because clearing the number input binds `null` (Svelte) — read via `ecTarget` for math/format.
+  let ec = $state<number | null>(untrack(() => feedTarget.ec));
 
   const EC_CHIPS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
 
+  // The numeric target actually used for the dose + readouts; a blank/invalid input reads as 0.
+  const ecTarget = $derived(typeof ec === 'number' && Number.isFinite(ec) ? ec : 0);
   const volumeL = $derived(mode === 'custom' ? Math.max(0, customL || 0) : volumeForMode(mode, 0));
-  const result = $derived(mix(ec, volumeL));
+  const result = $derived(mix(ecTarget, volumeL));
 
   // Live batch readings (probes sitting in the tank you're mixing). EC compares to the target;
   // pH is flagged against a general acceptable window (the exact target depends on medium).
   const EC_TOL = 0.1; // mS/cm within target reads on-target
   const liveEc = $derived(hydro?.ec ?? null);
   const livePh = $derived(hydro?.ph ?? null);
-  const ecDelta = $derived(liveEc ? liveEc.mScm - ec : null);
+  const ecDelta = $derived(liveEc ? liveEc.mScm - ecTarget : null);
   const ecClass = $derived(ecDelta == null ? '' : Math.abs(ecDelta) <= EC_TOL ? 'ok' : ecDelta < 0 ? 'under' : 'over');
   // pH against the current stage's target (seedling 5.5–5.6 · coco 6.0): in-window ok · ±0.2 near · beyond off.
   const phStatus = $derived.by(() => {
@@ -32,19 +35,13 @@
     return 'off';
   });
   const signed2 = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}`;
-
-  // 1 decimal, trailing .0 trimmed — accurate for a full tank (427.5) and a 1 L pitcher (2.7) alike.
-  const fmt1 = (n: number) => {
-    const s = (Math.round(n * 10) / 10).toFixed(1);
-    return s.endsWith('.0') ? s.slice(0, -2) : s;
-  };
   const fmtVol = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 </script>
 
 <div class="panel calc">
   <div class="panel-head">
     <span class="p-title">// Reservoir mix · Athena Pro Line</span>
-    <span class="basis mono">{feedTarget.stageLabel} · {fmtVol(volumeL)} L · EC {ec.toFixed(1)}</span>
+    <span class="basis mono">{feedTarget.stageLabel} · {fmtVol(volumeL)} L · EC {ecTarget.toFixed(1)}</span>
   </div>
 
   <!-- Water volume -->
@@ -96,7 +93,7 @@
             <span class="lk mono">EC</span>
             {#if liveEc}
               <span class="lv mono" data-testid="live-ec">{liveEc.mScm.toFixed(2)}<i>mS/cm</i></span>
-              {#if ecDelta != null}<span class="ld mono {ecClass}">{signed2(ecDelta)} vs {ec.toFixed(1)}</span>{/if}
+              {#if ecDelta != null}<span class="ld mono {ecClass}">{signed2(ecDelta)} vs {ecTarget.toFixed(1)}</span>{/if}
             {:else}
               <span class="lv mono none" data-testid="live-ec">—</span>
             {/if}
@@ -124,14 +121,14 @@
   <div class="doses">
     <div class="dose">
       <span class="d-name">Pro Grow / Pro Bloom</span>
-      <span class="d-val mono" data-testid="dose-grow-bloom">{fmt1(result.growBloom)}<i>mL</i></span>
-      <span class="d-basis mono">{fmt1(result.perTenL.growBloom)} mL/10 L × {fmtVol(volumeL)} L</span>
+      <span class="d-val mono" data-testid="dose-grow-bloom">{fmtDose(result.growBloom)}<i>mL</i></span>
+      <span class="d-basis mono">{fmtDose(result.perTenL.growBloom)} mL/10 L × {fmtVol(volumeL)} L</span>
       <span class="d-note">Grow in veg · Bloom in flower — same dose</span>
     </div>
     <div class="dose">
       <span class="d-name">Pro Core</span>
-      <span class="d-val mono" data-testid="dose-core">{fmt1(result.core)}<i>mL</i></span>
-      <span class="d-basis mono">{fmt1(result.perTenL.core)} mL/10 L × {fmtVol(volumeL)} L</span>
+      <span class="d-val mono" data-testid="dose-core">{fmtDose(result.core)}<i>mL</i></span>
+      <span class="d-basis mono">{fmtDose(result.perTenL.core)} mL/10 L × {fmtVol(volumeL)} L</span>
       <span class="d-note">Add separately — never combine concentrates</span>
     </div>
   </div>
