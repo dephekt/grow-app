@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { mix, volumeForMode, fmtDose, TANK, EC_MIN, EC_MAX, type MixMode, type FeedTarget } from '$lib/mixing/athena';
-  import type { HydroReadings } from '$lib/mixing/hydro';
+  import { formatBatchEc, type HydroReadings } from '$lib/mixing/hydro';
 
   let { hydro = null, feedTarget }: { hydro?: HydroReadings | null; feedTarget: FeedTarget } = $props();
 
@@ -25,6 +25,9 @@
   const livePh = $derived(hydro?.ph ?? null);
   const ecDelta = $derived(liveEc ? liveEc.mScm - ecTarget : null);
   const ecClass = $derived(ecDelta == null ? '' : Math.abs(ecDelta) <= EC_TOL ? 'ok' : ecDelta < 0 ? 'under' : 'over');
+  // mS/cm at nutrient strength, but the probe's own µS/cm below 0.1 mS/cm — a fresh-water fill
+  // (a few µS/cm) would otherwise round to a misleading "0.00 mS/cm". The delta stays in mS/cm.
+  const batchEc = $derived(liveEc ? formatBatchEc(liveEc) : null);
   // pH against the current stage's target (seedling 5.5–5.6 · coco 6.0): in-window ok · ±0.2 near · beyond off.
   const phStatus = $derived.by(() => {
     if (!livePh) return null;
@@ -92,8 +95,8 @@
           <div class="lr">
             <span class="lk mono">EC</span>
             {#if liveEc}
-              <span class="lv mono" data-testid="live-ec">{liveEc.mScm.toFixed(2)}<i>mS/cm</i></span>
-              {#if ecDelta != null}<span class="ld mono {ecClass}">{signed2(ecDelta)} vs {ecTarget.toFixed(1)}</span>{/if}
+              <span class="lv mono" data-testid="live-ec">{batchEc?.value}<i>{batchEc?.unit}</i></span>
+              {#if ecDelta != null}<span class="ld mono {ecClass}">{signed2(ecDelta)} vs {ecTarget.toFixed(1)} mS/cm</span>{/if}
             {:else}
               <span class="lv mono none" data-testid="live-ec">—</span>
             {/if}
