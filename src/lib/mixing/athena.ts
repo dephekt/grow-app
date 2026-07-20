@@ -51,17 +51,23 @@ export const TANK = {
 export type MixMode = 'full' | 'refill' | 'custom';
 
 /**
- * The substrate this grow runs. Fixes the batch pH target to Athena's coco/rockwool window
- * (5.8–6.2) rather than the peat window, and records the coco's own buffered EC for context.
+ * The substrate this grow runs. Fixes the batch pH to the CCI coco target (6.0) and records the
+ * coco's own buffered EC for context. The live pH flag treats 5.8–6.2 (6.0 ± 0.2) as on-target.
  */
 export const MEDIUM = {
   label: 'Coco block',
   detail: '8×8×7 in · 3 gal · 80% coir / 20% chips · 58% WHC',
   /** The medium's own buffered EC (its starting EC before feed). */
   bufferedEc: '0.1–0.2',
-  /** Batch pH window for coco. A reading within ±0.2 of this reads "near"; further out is "off". */
-  ph: { min: 5.8, max: 6.2, label: '5.8–6.2' }
+  /** Batch pH for coco per the CCI book (6.0); the live flag treats 5.8–6.2 as on-target. */
+  ph: { min: 5.8, max: 6.2, target: 6.0, label: '6.0' }
 } as const;
+
+/**
+ * Primary working feed (drip) EC — CCI LED coco veg / early flower. The calculator + quick reference
+ * default here; the other stages (seedling 1.5, bulk 3.0, finish 2.5) are one chip tap away.
+ */
+export const WORKING_EC = 3.5;
 
 export interface PerTenL {
   growBloom: number;
@@ -147,65 +153,88 @@ export function volumeForMode(mode: MixMode, customL: number): number {
 /* --------------------------------------------------------------------------------------------- */
 
 export interface FeedStage {
-  key: 'clone' | 'veg' | 'flower' | 'fade';
+  key: string;
   label: string;
   weeks: string;
-  /** Target reservoir EC (mS/cm) for the stage. */
+  /** Reservoir feed (drip) EC — what you mix in the batch. */
   ec: number;
-  /** The Grow-or-Bloom concentrate used this stage, mL per 10 L. */
+  /** The Grow-or-Bloom concentrate for the stage, mL per 10 L (Athena 226 g/L chart at `ec`). */
   primary: { name: string; ml: number };
-  /** Pro Core (or its late-flower swap), described for the reference row. */
+  /** Pro Core (or its late-flower Fade swap), described for the reference row. */
   core: string;
   /** Athena Cleanse, mL per 10 L. */
   cleanse: string;
-  /** Batch pH target/range for the stage. */
+  /** Batch pH target for the stage. */
   ph: string;
+  /** In-substrate EC to steer toward (pour-through) — NOT the mix; climbs as coco holds salts. */
+  substrateEc: string;
   note?: string;
 }
 
-/** The schedule this grow follows (Athena Pro Feed Schedule, metric). */
+/**
+ * This grow's feed schedule — CCI Black Book LED crop-steering setpoints for coco (p.57 "4.A" +
+ * p.64), dosed with Athena Pro (226 g/L). `ec` is the drip/feed EC you MIX; `substrateEc` is the
+ * in-pot EC you steer toward via dryback (higher — never mix to it). pH 6.0 for coco (CCI p.64).
+ * Seedlings from seed start ~1.5 EC / pH 5.5–5.6 (CCI p.26, Grodan Grow Guide), not the clone column.
+ */
 export const FEED_SCHEDULE: FeedStage[] = [
   {
-    key: 'clone',
-    label: 'Clone / Pre-soak',
-    weeks: 'start',
-    ec: 2.0,
-    primary: { name: 'Pro Bloom', ml: 57 },
-    core: 'Core 34',
+    key: 'seedling',
+    label: 'Seedling',
+    weeks: 'from seed',
+    ec: 1.5,
+    primary: { name: 'Pro Grow', ml: 42 },
+    core: 'Core 25',
     cleanse: '3',
-    ph: '5.6',
-    note: 'Athena runs clones at EC 2.0 — seedlings from seed are gentler (dial EC 1.0–1.5 in the calculator).'
+    ph: '5.5–5.6',
+    substrateEc: '—',
+    note: 'From seed (CCI p.26 / Grodan): EC 1.5, pH 5.5–5.6 — gentler than Athena’s clone column (2.0).'
   },
   {
     key: 'veg',
     label: 'Veg',
-    weeks: 'W1–4',
-    ec: 3.0,
-    primary: { name: 'Pro Grow', ml: 90 },
-    core: 'Core 54',
+    weeks: 'wk1–2',
+    ec: 3.5,
+    primary: { name: 'Pro Grow', ml: 107 },
+    core: 'Core 64',
     cleanse: '5–13',
-    ph: '5.8–6.2 coco·rockwool (6.0–6.4 peat)'
+    ph: '6.0',
+    substrateEc: '4–6'
   },
   {
-    key: 'flower',
-    label: 'Flower',
-    weeks: 'W1–9',
+    key: 'flower-gen',
+    label: 'Flower · early',
+    weeks: 'wk1–3',
+    ec: 3.5,
+    primary: { name: 'Pro Bloom', ml: 107 },
+    core: 'Core 64',
+    cleanse: '5–13',
+    ph: '6.0',
+    substrateEc: '5–12',
+    note: 'Generative setting — feed 3.5 and let substrate EC climb (5→12) on a hard dryback.'
+  },
+  {
+    key: 'flower-bulk',
+    label: 'Flower · bulk',
+    weeks: 'wk4–7',
     ec: 3.0,
     primary: { name: 'Pro Bloom', ml: 90 },
     core: 'Core 54',
     cleanse: '5–13',
-    ph: '5.8–6.2 coco·rockwool (6.0–6.4 peat)'
+    ph: '6.0',
+    substrateEc: '4–7'
   },
   {
-    key: 'fade',
-    label: 'Fade',
-    weeks: 'late flower W8–9',
-    ec: 3.0,
-    primary: { name: 'Pro Bloom', ml: 90 },
-    core: 'Fade 51 (swap for Core)',
+    key: 'finish',
+    label: 'Finish / fade',
+    weeks: 'last 1–2 wk',
+    ec: 2.5,
+    primary: { name: 'Pro Bloom', ml: 73 },
+    core: 'Fade (swap Core)',
     cleanse: '5–13',
-    ph: '6.0–6.4',
-    note: 'Swap Core→Fade in late flower (cultivar-dependent) — verify pH after switching.'
+    ph: '6.0',
+    substrateEc: '6–8',
+    note: 'Drip EC steps down 2.5 → 2.0 into harvest; swap Core→Fade (cultivar-dependent), verify pH.'
   }
 ];
 
@@ -220,7 +249,7 @@ export const MIX_ORDER: MixStep[] = [
   {
     order: 1,
     name: 'Balance',
-    detail: 'Into the water first. Dose to pH in ~1 mL steps (potassium-silicate buffer, adds Si). Target pH 5.6 clone · 5.8–6.2 coco·rockwool (6.0–6.4 peat).'
+    detail: 'Into the water first. Dose to pH in ~1 mL steps (potassium-silicate buffer, adds Si). Target pH 6.0 for coco (5.5–5.6 for seedlings).'
   },
   { order: 2, name: 'Pro Grow (veg) / Pro Bloom (flower)', detail: 'Add the concentrate for the stage — measured for your EC and volume below.' },
   { order: 3, name: 'Pro Core', detail: 'Add separately — never combine concentrates undiluted (they precipitate).' },
