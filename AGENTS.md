@@ -35,25 +35,3 @@ the right-hand column:
   app-owned session. The app enforces login itself; a proxy only routes. Do not
   add central mode, multi-site tenancy, AC Infinity, Pulse, or `grow-rules`.
 - App command publishes are not retained.
-
-## Codebase knowledge graph
-
-A committed `understand-anything` knowledge graph maps this codebase — every
-file, function, import, and a 6-layer architecture (MQTT & State Core, Firmware
-OTA Server, Client Presentation & State, Routes & API Surface, Test Suites,
-Build/Infra/Docs) plus a 13-step guided tour. Use it to orient before changing
-code instead of re-deriving structure by hand.
-
-- Graph: `.understand-anything/knowledge-graph.json`. Read it directly, ask
-  questions with `/understand-anything:understand-chat`, or explore visually with
-  `/understand-anything:understand-dashboard`.
-- It is kept fresh automatically (`autoUpdate: true` in
-  `.understand-anything/config.json`): a commit triggers an incremental refresh
-  and session start flags a stale graph. Incremental updates spend no LLM tokens
-  on cosmetic changes — only on structural ones (new/removed
-  functions/classes/imports/exports).
-- If you make structural changes and the auto-update hook does not fire, run
-  `/understand-anything:understand` to refresh; it updates only changed files.
-- Tracked: the graph, `meta.json`, `fingerprints.json`, `config.json`,
-  `.understandignore`, and `intermediate/scan-result.json`. Regenerable scratch
-  is gitignored — do not commit it.
