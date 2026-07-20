@@ -3,6 +3,7 @@ import {
   perTenLitres,
   mix,
   volumeForMode,
+  feedTargetForStage,
   DOSE_TABLE,
   FEED_SCHEDULE,
   MEDIUM,
@@ -67,6 +68,29 @@ describe('volumeForMode', () => {
     expect(volumeForMode('full', 999)).toBe(47.5);
     expect(volumeForMode('refill', 999)).toBe(38);
     expect(volumeForMode('custom', 1)).toBe(1);
+  });
+});
+
+describe('feedTargetForStage', () => {
+  it('seedling → feed EC 1.5, pH 5.5–5.6', () => {
+    const t = feedTargetForStage('seedling');
+    expect(t.ec).toBe(1.5);
+    expect(t.ph).toMatchObject({ min: 5.5, target: 5.6 });
+    expect(t.stageLabel).toMatch(/seedling/i);
+  });
+
+  it('veg + flower → feed EC 3.5, coco pH 6.0', () => {
+    for (const stage of ['veg', 'flower'] as const) {
+      const t = feedTargetForStage(stage);
+      expect(t.ec).toBe(3.5);
+      expect(t.ph.target).toBe(6.0);
+    }
+  });
+
+  it('ripen → feed EC 2.5, coco pH 6.0', () => {
+    const t = feedTargetForStage('ripen');
+    expect(t.ec).toBe(2.5);
+    expect(t.ph.target).toBe(6.0);
   });
 });
 
