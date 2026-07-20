@@ -24,7 +24,8 @@ export interface HydroReadings {
 export function ecToMilliSiemens(raw: number, unit: string | undefined): number {
   const u = (unit ?? '').toLowerCase();
   if (u.includes('ms')) return raw; // already mS/cm
-  if (u.includes('µs') || u.includes('us')) return raw / 1000; // µS/cm
+  // µS/cm — accept the micro sign (µ, U+00B5), the Greek mu (μ, U+03BC), and the ASCII "us" fallback.
+  if (u.includes('µs') || u.includes('μs') || u.includes('us')) return raw / 1000;
   return raw;
 }
 
@@ -34,7 +35,7 @@ export function selectHydroReadings(snapshot: Snapshot): HydroReadings {
     const entity = snapshot.entities.find((e) => e.component === 'sensor' && e.deviceClass === deviceClass);
     if (!entity) return null;
     const state = snapshot.states[entity.id];
-    if (!state || state.value == null) return null;
+    if (!state || state.value == null || state.value.trim() === '') return null;
     const value = Number(state.value);
     if (!Number.isFinite(value)) return null;
     return { value, unit: entity.unit ?? '', updatedAt: state.updatedAt };
