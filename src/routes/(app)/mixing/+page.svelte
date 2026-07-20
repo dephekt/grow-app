@@ -1,6 +1,11 @@
 <script lang="ts">
   import MixCalculator from '$lib/mixing/MixCalculator.svelte';
   import { mix, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER } from '$lib/mixing/athena';
+  import { selectHydroReadings } from '$lib/mixing/hydro';
+  import { getLiveSnapshot } from '$lib/live-snapshot-context';
+
+  const live = getLiveSnapshot();
+  const hydro = $derived(selectHydroReadings(live.snapshot));
 
   const fmt1 = (n: number) => {
     const s = (Math.round(n * 10) / 10).toFixed(1);
@@ -16,7 +21,7 @@
 <svelte:head><title>Mixing · Grow</title></svelte:head>
 
 <div class="mix">
-  <MixCalculator />
+  <MixCalculator {hydro} />
 
   <!-- Quick reference @ EC 3.0 -->
   <div class="panel">

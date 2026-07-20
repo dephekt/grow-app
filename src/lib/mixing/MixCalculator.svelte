@@ -1,5 +1,8 @@
 <script lang="ts">
   import { mix, volumeForMode, TANK, EC_MIN, EC_MAX, type MixMode } from '$lib/mixing/athena';
+  import type { HydroReadings } from '$lib/mixing/hydro';
+
+  let { hydro = null }: { hydro?: HydroReadings | null } = $props();
 
   let mode = $state<MixMode>('full');
   let customL = $state(1);
@@ -9,6 +12,16 @@
 
   const volumeL = $derived(mode === 'custom' ? Math.max(0, customL || 0) : volumeForMode(mode, 0));
   const result = $derived(mix(ec, volumeL));
+
+  // Live batch readings (probes sitting in the tank you're mixing). EC compares to the target;
+  // pH is flagged against a general acceptable window (the exact target depends on medium).
+  const EC_TOL = 0.1; // mS/cm within target reads on-target
+  const liveEc = $derived(hydro?.ec ?? null);
+  const livePh = $derived(hydro?.ph ?? null);
+  const ecDelta = $derived(liveEc ? liveEc.mScm - ec : null);
+  const ecClass = $derived(ecDelta == null ? '' : Math.abs(ecDelta) <= EC_TOL ? 'ok' : ecDelta < 0 ? 'under' : 'over');
+  const phInRange = $derived(livePh ? livePh.value >= 5.6 && livePh.value <= 6.4 : null);
+  const signed2 = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}`;
 
   // 1 decimal, trailing .0 trimmed — accurate for a full tank (427.5) and a 1 L pitcher (2.7) alike.
   const fmt1 = (n: number) => {
@@ -47,21 +60,49 @@
     <span class="hint">Full = fresh fill from empty · Refill = a normal top-up (drain-to-valve back to full).</span>
   </div>
 
-  <!-- Target EC -->
+  <!-- Target EC + live batch readings -->
   <div class="field">
-    <span class="lbl">Target EC <span class="mono">mS/cm</span></span>
-    <div class="ec-row">
-      <input class="ec-input mono" type="number" min="0" step="0.1" bind:value={ec} aria-label="Target EC" />
-      <div class="chips" role="group" aria-label="EC presets">
-        {#each EC_CHIPS as v (v)}
-          <button type="button" class="chip mono" class:on={ec === v} onclick={() => (ec = v)}>{v.toFixed(1)}</button>
-        {/each}
+    <div class="ec-field">
+      <div class="ec-main">
+        <span class="lbl">Target EC <span class="mono">mS/cm</span></span>
+        <div class="ec-row">
+          <input class="ec-input mono" type="number" min="0" step="0.1" bind:value={ec} aria-label="Target EC" />
+          <div class="chips" role="group" aria-label="EC presets">
+            {#each EC_CHIPS as v (v)}
+              <button type="button" class="chip mono" class:on={ec === v} onclick={() => (ec = v)}>{v.toFixed(1)}</button>
+            {/each}
+          </div>
+        </div>
+        <span class="hint">Your schedule: EC 3.0 veg & flower. Seedlings gentler — try 1.0–1.5.</span>
+        {#if result.extrapolated}
+          <span class="hint warn">⚠ EC is outside the printed chart ({EC_MIN}–{EC_MAX}); this dose is extrapolated.</span>
+        {/if}
+      </div>
+
+      <div class="live" aria-label="Live batch readings">
+        <span class="live-title mono">Batch now · hydro kit</span>
+        <div class="live-grid">
+          <div class="lr">
+            <span class="lk mono">EC</span>
+            {#if liveEc}
+              <span class="lv mono" data-testid="live-ec">{liveEc.mScm.toFixed(2)}<i>mS/cm</i></span>
+              {#if ecDelta != null}<span class="ld mono {ecClass}">{signed2(ecDelta)} vs {ec.toFixed(1)}</span>{/if}
+            {:else}
+              <span class="lv mono none" data-testid="live-ec">—</span>
+            {/if}
+          </div>
+          <div class="lr">
+            <span class="lk mono">pH</span>
+            {#if livePh}
+              <span class="lv mono" class:ok={phInRange} class:warn={phInRange === false} data-testid="live-ph">{livePh.value.toFixed(2)}</span>
+              <span class="ld mono muted">target 5.8–6.2</span>
+            {:else}
+              <span class="lv mono none" data-testid="live-ph">—</span>
+            {/if}
+          </div>
+        </div>
       </div>
     </div>
-    <span class="hint">Your schedule: EC 3.0 veg & flower. Seedlings gentler — try 1.0–1.5.</span>
-    {#if result.extrapolated}
-      <span class="hint warn">⚠ EC is outside the printed chart ({EC_MIN}–{EC_MAX}); this dose is extrapolated.</span>
-    {/if}
   </div>
 
   <!-- Result -->
@@ -198,6 +239,91 @@
     outline-offset: 1px;
   }
 
+  /* EC picker + live readings side by side */
+  .ec-field {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: start;
+  }
+  .ec-main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  /* Live batch readout */
+  .live {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    min-width: 158px;
+  }
+  .live-title {
+    display: block;
+    font-size: 0.56rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 8px;
+  }
+  .live-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .lr {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .lk {
+    width: 20px;
+    flex: none;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .lv {
+    font-size: 1.05rem;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .lv i {
+    font-style: normal;
+    font-size: 0.64rem;
+    color: var(--faint);
+    margin-left: 3px;
+  }
+  .lv.ok {
+    color: var(--ok);
+  }
+  .lv.warn {
+    color: var(--amber);
+  }
+  .lv.none {
+    color: var(--faint);
+  }
+  .ld {
+    font-size: 0.62rem;
+    color: var(--muted);
+  }
+  .ld.ok {
+    color: var(--ok);
+  }
+  .ld.under {
+    color: var(--amber);
+  }
+  .ld.over {
+    color: var(--cyan);
+  }
+  .ld.muted {
+    color: var(--faint);
+  }
+
   /* EC input + chips */
   .ec-row {
     display: flex;
@@ -296,6 +422,9 @@
       grid-template-columns: 1fr;
     }
     .seg {
+      grid-template-columns: 1fr;
+    }
+    .ec-field {
       grid-template-columns: 1fr;
     }
   }
