@@ -71,28 +71,33 @@ describe('volumeForMode', () => {
 });
 
 describe('MEDIUM', () => {
-  it('pins the coco batch pH window to 5.8–6.2', () => {
-    expect(MEDIUM.ph).toMatchObject({ min: 5.8, max: 6.2 });
+  it('pins the coco batch pH target to 6.0 (window 5.8–6.2)', () => {
+    expect(MEDIUM.ph).toMatchObject({ min: 5.8, max: 6.2, target: 6.0 });
     expect(MEDIUM.label).toMatch(/coco/i);
   });
 });
 
-describe('FEED_SCHEDULE reconciles with the dosage chart', () => {
-  const row = (ec: number) => DOSE_TABLE.find((r) => r.ec === ec)!;
+describe('FEED_SCHEDULE — CCI LED coco setpoints, dosed with Athena Pro', () => {
+  const rowFor = (ec: number) => DOSE_TABLE.find((r) => r.ec === ec);
 
-  it('clone EC 2.0 = Pro Bloom 57 + Core 34', () => {
-    const clone = FEED_SCHEDULE.find((s) => s.key === 'clone')!;
-    expect(clone.ec).toBe(2.0);
-    expect(clone.primary.ml).toBe(row(2.0).growBloom); // 57
-    expect(clone.core).toContain(String(row(2.0).core)); // 34
+  it('follows the CCI LED feed-EC path (seedling 1.5 → veg/early-flower 3.5 → bulk 3.0 → finish 2.5)', () => {
+    expect(FEED_SCHEDULE.map((s) => s.ec)).toEqual([1.5, 3.5, 3.5, 3.0, 2.5]);
   });
 
-  it('veg + flower EC 3.0 = Grow/Bloom 90 + Core 54', () => {
-    for (const key of ['veg', 'flower'] as const) {
-      const s = FEED_SCHEDULE.find((x) => x.key === key)!;
-      expect(s.ec).toBe(3.0);
-      expect(s.primary.ml).toBe(row(3.0).growBloom); // 90
-      expect(s.core).toContain(String(row(3.0).core)); // 54
+  it('targets coco pH 6.0 for veg + flower (seedling 5.5–5.6)', () => {
+    for (const s of FEED_SCHEDULE) {
+      if (s.key === 'seedling') expect(s.ph).toMatch(/5\.5|5\.6/);
+      else expect(s.ph).toBe('6.0');
+    }
+  });
+
+  it('doses each stage to its feed EC off the 226 g/L chart', () => {
+    for (const s of FEED_SCHEDULE) {
+      const row = rowFor(s.ec);
+      expect(row, `no chart row for EC ${s.ec}`).toBeTruthy();
+      expect(s.primary.ml).toBe(row!.growBloom);
+      const core = s.core.match(/(\d+)/);
+      if (/core/i.test(s.core) && core) expect(Number(core[1])).toBe(row!.core);
     }
   });
 });

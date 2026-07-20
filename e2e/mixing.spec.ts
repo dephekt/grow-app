@@ -11,7 +11,8 @@ test('mixing page calculates Athena Pro Line concentrate pours', async ({ page }
   const growBloom = page.getByTestId('dose-grow-bloom');
   const core = page.getByTestId('dose-core');
 
-  // Default: Full tank (47.5 L) @ EC 3.0 → the known initial-fill preset.
+  // Full tank (47.5 L) @ EC 3.0 → the known initial-fill preset (set the chip; default is 3.5).
+  await page.getByRole('button', { name: '3.0', exact: true }).click();
   await expect(growBloom).toContainText('427.5');
   await expect(core).toContainText('256.5');
 
