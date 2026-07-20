@@ -1,6 +1,6 @@
 <script lang="ts">
   import MixCalculator from '$lib/mixing/MixCalculator.svelte';
-  import { mix, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER } from '$lib/mixing/athena';
+  import { mix, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_ORDER, MEDIUM } from '$lib/mixing/athena';
   import { selectHydroReadings } from '$lib/mixing/hydro';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
 
@@ -71,6 +71,7 @@
         </table>
       </div>
       <ul class="notes">
+        <li><b>Medium:</b> {MEDIUM.label} — {MEDIUM.detail} · coco EC {MEDIUM.bufferedEc} → batch pH {MEDIUM.ph.label} (coco/rockwool column).</li>
         {#each FEED_SCHEDULE.filter((s) => s.note) as s (s.key)}
           <li><b>{s.label}:</b> {s.note}</li>
         {/each}

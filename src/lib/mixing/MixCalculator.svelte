@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { mix, volumeForMode, TANK, EC_MIN, EC_MAX, type MixMode } from '$lib/mixing/athena';
+  import { mix, volumeForMode, TANK, EC_MIN, EC_MAX, MEDIUM, type MixMode } from '$lib/mixing/athena';
   import type { HydroReadings } from '$lib/mixing/hydro';
 
   let { hydro = null }: { hydro?: HydroReadings | null } = $props();
@@ -20,7 +20,14 @@
   const livePh = $derived(hydro?.ph ?? null);
   const ecDelta = $derived(liveEc ? liveEc.mScm - ec : null);
   const ecClass = $derived(ecDelta == null ? '' : Math.abs(ecDelta) <= EC_TOL ? 'ok' : ecDelta < 0 ? 'under' : 'over');
-  const phInRange = $derived(livePh ? livePh.value >= 5.6 && livePh.value <= 6.4 : null);
+  // pH against the medium's target (coco 5.8–6.2): in-window ok · within ±0.2 near · beyond off.
+  const phStatus = $derived.by(() => {
+    if (!livePh) return null;
+    const v = livePh.value;
+    if (v >= MEDIUM.ph.min && v <= MEDIUM.ph.max) return 'ok';
+    if (v >= MEDIUM.ph.min - 0.2 && v <= MEDIUM.ph.max + 0.2) return 'near';
+    return 'off';
+  });
   const signed2 = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}`;
 
   // 1 decimal, trailing .0 trimmed — accurate for a full tank (427.5) and a 1 L pitcher (2.7) alike.
@@ -94,8 +101,13 @@
           <div class="lr">
             <span class="lk mono">pH</span>
             {#if livePh}
-              <span class="lv mono" class:ok={phInRange} class:warn={phInRange === false} data-testid="live-ph">{livePh.value.toFixed(2)}</span>
-              <span class="ld mono muted">target 5.8–6.2</span>
+              <span
+                class="lv mono"
+                class:ok={phStatus === 'ok'}
+                class:warn={phStatus === 'near'}
+                class:alert={phStatus === 'off'}
+                data-testid="live-ph">{livePh.value.toFixed(2)}</span>
+              <span class="ld mono muted">target {MEDIUM.ph.label} · coco</span>
             {:else}
               <span class="lv mono none" data-testid="live-ph">—</span>
             {/if}
@@ -303,6 +315,9 @@
   }
   .lv.warn {
     color: var(--amber);
+  }
+  .lv.alert {
+    color: var(--alert);
   }
   .lv.none {
     color: var(--faint);

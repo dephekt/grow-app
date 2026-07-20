@@ -5,6 +5,7 @@ import {
   volumeForMode,
   DOSE_TABLE,
   FEED_SCHEDULE,
+  MEDIUM,
   TANK
 } from '$lib/mixing/athena';
 
@@ -66,6 +67,13 @@ describe('volumeForMode', () => {
     expect(volumeForMode('full', 999)).toBe(47.5);
     expect(volumeForMode('refill', 999)).toBe(38);
     expect(volumeForMode('custom', 1)).toBe(1);
+  });
+});
+
+describe('MEDIUM', () => {
+  it('pins the coco batch pH window to 5.8–6.2', () => {
+    expect(MEDIUM.ph).toMatchObject({ min: 5.8, max: 6.2 });
+    expect(MEDIUM.label).toMatch(/coco/i);
   });
 });
 
