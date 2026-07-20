@@ -20,6 +20,22 @@ export interface HydroReadings {
   ph: HydroReading | null;
 }
 
+export interface BatchEcDisplay {
+  value: string;
+  unit: string;
+}
+
+/**
+ * How to show a live batch EC next to the mS/cm mix target. At nutrient strength it reads in mS/cm
+ * (matching the target), but below 0.1 mS/cm a fresh-water fill (a few µS/cm) would round to a
+ * misleading "0.00 mS/cm" — so show the probe's own reading verbatim (e.g. "2.89 µS/cm"), matching
+ * the water card. The target-delta stays in mS/cm regardless.
+ */
+export function formatBatchEc(reading: HydroReading & { mScm: number }): BatchEcDisplay {
+  if (reading.mScm < 0.1) return { value: String(Math.round(reading.value * 100) / 100), unit: reading.unit };
+  return { value: reading.mScm.toFixed(2), unit: 'mS/cm' };
+}
+
 /** µS/cm → mS/cm; pass mS/cm through. Unknown unit is assumed mS/cm. */
 export function ecToMilliSiemens(raw: number, unit: string | undefined): number {
   const u = (unit ?? '').toLowerCase();

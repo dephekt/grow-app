@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectHydroReadings, ecToMilliSiemens } from '$lib/mixing/hydro';
+import { selectHydroReadings, ecToMilliSiemens, formatBatchEc } from '$lib/mixing/hydro';
 import type { Snapshot } from '$lib/server/mqtt/types';
 
 const ecEnt = { id: 'ec1', component: 'sensor', deviceClass: 'conductivity', unit: 'µS/cm', name: 'Water EC' };
@@ -48,5 +48,29 @@ describe('selectHydroReadings', () => {
   it('passes an mS/cm-native EC reading through unscaled', () => {
     const s = snap([{ ...ecEnt, unit: 'mS/cm' }], { ec1: { value: '3.05', updatedAt: null } });
     expect(selectHydroReadings(s).ec?.mScm).toBeCloseTo(3.05, 5);
+  });
+});
+
+describe('formatBatchEc', () => {
+  it('shows a fresh-water reading in its native µS/cm, not a collapsed 0.00 mS/cm', () => {
+    // The bug: 2.89 µS/cm → 0.00289 mS/cm → "0.00 mS/cm" looked like a dead sensor.
+    expect(formatBatchEc({ value: 2.89, unit: 'µS/cm', mScm: 0.00289, updatedAt: null })).toEqual({
+      value: '2.89',
+      unit: 'µS/cm'
+    });
+  });
+
+  it('shows nutrient-strength EC in mS/cm to match the target', () => {
+    expect(formatBatchEc({ value: 1500, unit: 'µS/cm', mScm: 1.5, updatedAt: null })).toEqual({
+      value: '1.50',
+      unit: 'mS/cm'
+    });
+  });
+
+  it('keeps a legible mS/cm reading in mS/cm (0.1 threshold)', () => {
+    expect(formatBatchEc({ value: 0.5, unit: 'mS/cm', mScm: 0.5, updatedAt: null })).toEqual({
+      value: '0.50',
+      unit: 'mS/cm'
+    });
   });
 });
