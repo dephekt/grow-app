@@ -5,7 +5,7 @@
   import { processSpectrum, type SpectrumView, type SpectroConfig } from '$lib/spectrum/calibration';
   import { entityByRef, photoperiodHours } from '$lib/lights/model';
   import { resolveGrowState } from '$lib/lights/grow-plan';
-  import { fluxRows, shareRows, shareTitle, fluxBadge } from '$lib/spectrum/readout-rows';
+  import { shareRows, shareTitle } from '$lib/spectrum/readout-rows';
   import { liveQuantumPpfd } from '$lib/entity-match';
   import SpdChart from '$lib/spectrum/SpdChart.svelte';
   import SpectrumHistory from '$lib/spectrum/SpectrumHistory.svelte';
@@ -111,29 +111,43 @@
       : null
   );
 
-  // Canopy PPFD (center reference). A live Apogee quantum reading is ground truth (MEASURED, no ≈);
-  // otherwise fall back to the spectrometer's reference / lux-estimate provenance.
+  // Canopy PPFD (center reference). A live Apogee reading is ground truth — shown plain, no badge
+  // (a measurement is presumed the reference). Only fall back to a BADGED estimate when the Apogee is
+  // offline: the lux estimate (≈, EST · LUX) or an uncalibrated state. A spectrometer reference is a
+  // measurement too, so it stays unbadged.
   const canopy = $derived.by(() => {
+    type Badge = { text: string; tone: 'amber' | 'ok' | 'muted' } | null;
     if (liveApogeePpfd != null) {
       return {
         ppfd: liveApogeePpfd,
         prefix: '',
         dot: 'ok' as '' | 'ok' | 'warn',
-        badge: { text: 'MEASURED', tone: 'ok' as const },
+        badge: null as Badge,
         tol: 5 as number | null,
         provenance: 'Apogee SQ-521' as string | null
       };
     }
+    const src = active?.ppfdSource ?? null;
     return {
       ppfd: active?.ppfd ?? null,
-      prefix: active?.ppfdSource === 'lux' ? '≈' : '',
-      dot: (active?.ppfdSource === 'reference' ? 'ok' : active?.ppfd != null ? 'warn' : '') as '' | 'ok' | 'warn',
-      badge: active ? fluxBadge(active) : { text: 'UNCALIBRATED', tone: 'muted' as const },
+      prefix: src === 'lux' ? '≈' : '',
+      dot: (src === 'reference' ? 'ok' : active?.ppfd != null ? 'warn' : '') as '' | 'ok' | 'warn',
+      badge: (src === 'lux'
+        ? { text: 'EST · LUX', tone: 'amber' }
+        : active?.ppfd == null
+          ? { text: 'UNCALIBRATED', tone: 'muted' }
+          : null) as Badge,
       tol: (active?.reference?.tolerancePct ?? active?.lux?.tolerancePct ?? null) as number | null,
       provenance: null as string | null
     };
   });
   const livePpfd = $derived(canopy.ppfd);
+  // Secondary flux shown under the Apogee number: the DLight lux estimate, and ePAR = the Apogee PAR
+  // extended into 400–750 nm by the spectrometer's (dimming-independent) far-red share.
+  const canopyLux = $derived(active?.lux?.ppfd ?? null);
+  const canopyEpar = $derived(
+    liveApogeePpfd != null && active?.farRedRatio != null ? liveApogeePpfd * active.farRedRatio : (active?.epar ?? null)
+  );
   const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
   const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
 
@@ -178,46 +192,8 @@
 </svelte:head>
 
 <div class="lights-page">
-  <!-- ── Live canopy output: PPFD · flux · share ── -->
-  <span class="section-label">Live canopy output · center reference</span>
-  <section class="grid12 row-stretch">
-    <div class="c4">
-      <div class="panel stat primary">
-        <div class="eyebrow">
-          <span class="dot {canopy.dot}"></span>
-          <span class="panel-title">Canopy PPFD</span>
-          <span class="badge {canopy.badge.tone}">{canopy.badge.text}</span>
-        </div>
-        <div class="val">
-          {livePpfd == null ? '—' : `${canopy.prefix}${livePpfd.toFixed(0)}`}<span class="unit">µmol·m⁻²·s⁻¹</span>
-        </div>
-        <div class="sub">
-          {canopy.tol != null ? `±${canopy.tol.toFixed(0)}% · ` : ''}{canopy.provenance ?? 'from DLight'}
-          {#if canopy.provenance == null}<span class="mono">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span>{/if}
-        </div>
-        <div class="tgt-row">
-          <span class="tgt-lab">{growState.stage.label} {growState.ppfdTarget}</span>
-          <div class="bar"><i style="width: {fillPct}%;"></i></div>
-          {#if deltaPct != null}<span class="delta mono" class:neg={deltaPct < 0} class:pos={deltaPct >= 0}>{deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(0)}%</span>{/if}
-        </div>
-      </div>
-    </div>
-
-    <div class="c4">
-      {#if active}
-        <ReadoutPanel title="Photon flux" unit="µmol·m⁻²·s⁻¹" rows={fluxRows(active, liveApogeePpfd)} badge={fluxBadge(active, liveApogeePpfd).text} badgeTone={fluxBadge(active, liveApogeePpfd).tone} planned={liveApogeePpfd == null && !active.calibrated} />
-      {:else}
-        <ReadoutPanel title="Photon flux" unit="µmol·m⁻²·s⁻¹" rows={[]} />
-      {/if}
-    </div>
-
-    <div class="c4">
-      <ReadoutPanel title={active ? shareTitle(active).replace('SPECTRUM · ', 'Spectrum · ') : 'Spectrum · photon share'} rows={active ? shareRows(active) : []} />
-    </div>
-  </section>
-
-  <!-- ── Spectrum chart + light control (owns photoperiod) ── -->
-  <span class="section-label">Spectrometer · C12880MA · light control</span>
+  <!-- ── Row 1: Spectrometer — SPD chart + saved readings ── -->
+  <span class="section-label">Spectrometer · C12880MA</span>
   <section class="grid12">
     <div class="c8">
       <div class="panel">
@@ -249,6 +225,44 @@
     </div>
 
     <div class="c4">
+      <SpectrumHistory {captures} selectedId={selected?.id ?? null} onSelect={openCapture} />
+    </div>
+  </section>
+
+  <!-- ── Row 2: Canopy PPFD · spectrum share · main light ── -->
+  <span class="section-label">Live canopy output · light control</span>
+  <section class="grid12">
+    <div class="c4">
+      <div class="panel stat primary">
+        <div class="eyebrow">
+          <span class="dot {canopy.dot}"></span>
+          <span class="panel-title">Canopy PPFD</span>
+          {#if canopy.badge}<span class="badge {canopy.badge.tone}">{canopy.badge.text}</span>{/if}
+        </div>
+        <div class="val">
+          {livePpfd == null ? '—' : `${canopy.prefix}${livePpfd.toFixed(0)}`}<span class="unit">µmol·m⁻²·s⁻¹</span>
+        </div>
+        <div class="sub">
+          {canopy.tol != null ? `±${canopy.tol.toFixed(0)}% · ` : ''}{canopy.provenance ?? 'from DLight'}
+          {#if canopy.provenance == null}<span class="mono">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span>{/if}
+        </div>
+        <div class="flux-mini">
+          <div class="kv"><span class="k">PPFD (lux)</span><span class="v">{canopyLux == null ? '—' : `≈${canopyLux.toFixed(0)}`}</span></div>
+          <div class="kv"><span class="k">ePAR</span><span class="v">{canopyEpar == null ? '—' : canopyEpar.toFixed(0)}</span></div>
+        </div>
+        <div class="tgt-row">
+          <span class="tgt-lab">{growState.stage.label} {growState.ppfdTarget}</span>
+          <div class="bar"><i style="width: {fillPct}%;"></i></div>
+          {#if deltaPct != null}<span class="delta mono" class:neg={deltaPct < 0} class:pos={deltaPct >= 0}>{deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(0)}%</span>{/if}
+        </div>
+      </div>
+    </div>
+
+    <div class="c4">
+      <ReadoutPanel title={active ? shareTitle(active).replace('SPECTRUM · ', 'Spectrum · ') : 'Spectrum · photon share'} rows={active ? shareRows(active) : []} />
+    </div>
+
+    <div class="c4">
       {#if primaryLight}
         <LightControl light={primaryLight} {live} stageLabel={growState.stage.label} />
       {:else}
@@ -272,16 +286,10 @@
     </section>
   {/if}
 
-  <!-- ── Grow plan ── -->
+  <!-- ── Row 3: Grow plan ── -->
   <span class="section-label">Grow plan · center-canopy PPFD target by week</span>
   <section>
     <GrowPlanCard {growState} {livePpfd} {dimmerPct} {actualPhotoperiod} />
-  </section>
-
-  <!-- ── Saved readings ── -->
-  <span class="section-label">Spectrometer · saved readings</span>
-  <section>
-    <SpectrumHistory {captures} selectedId={selected?.id ?? null} onSelect={openCapture} />
   </section>
 </div>
 
@@ -359,6 +367,33 @@
     color: var(--muted);
   }
   .stat .sub .mono {
+    color: var(--text);
+  }
+  .flux-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .flux-mini .kv {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .flux-mini .k {
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .flux-mini .v {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.78rem;
     color: var(--text);
   }
   .tgt-row {
