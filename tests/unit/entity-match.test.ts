@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { isAirQualityMetric, resolveAirQualityDevice, resolveClimateDevice } from '../../src/lib/entity-match';
+import {
+  isAirQualityMetric,
+  isQuantumPpfd,
+  liveQuantumPpfd,
+  resolveAirQualityDevice,
+  resolveClimateDevice
+} from '../../src/lib/entity-match';
 import type { DeviceSnapshot, EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';
 
 function makeEntity(
@@ -122,5 +128,62 @@ describe('resolveClimateDevice', () => {
   it('leaves CLIMATE unresolved when only the air monitor exists — it owns AIR QUALITY instead', () => {
     const snapshot = makeSnapshot([airqCo2, airqPm25, airqVoc, airqHumidity]);
     expect(resolveClimateDevice(snapshot)).toBeUndefined();
+  });
+});
+
+describe('isQuantumPpfd', () => {
+  it('matches the Apogee PPFD sensor by objectId (PPFD has no HA device_class)', () => {
+    const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+    expect(isQuantumPpfd(ppfd)).toBe(true);
+  });
+
+  it('falls back to a µmol unit when the objectId differs', () => {
+    const alt = makeEntity('quantum-sensor', { id: 'qs_par', name: 'PAR', objectId: 'canopy_par', unit: 'µmol/m²/s' });
+    expect(isQuantumPpfd(alt)).toBe(true);
+  });
+
+  it('does not match the historised detector-mV / tilt diagnostics that share the device', () => {
+    const mv = makeEntity('quantum-sensor', { id: 'qs_mv', name: 'Detector signal', objectId: 'detector_mv', unit: 'mV' });
+    const tilt = makeEntity('quantum-sensor', { id: 'qs_tilt', name: 'Sensor tilt', objectId: 'tilt', unit: '°' });
+    expect(isQuantumPpfd(mv)).toBe(false);
+    expect(isQuantumPpfd(tilt)).toBe(false);
+  });
+
+  it('ignores a diagnostic-category entity even if named ppfd', () => {
+    const diag = makeEntity('quantum-sensor', {
+      id: 'qs_ppfd_diag',
+      name: 'ppfd',
+      objectId: 'ppfd',
+      unit: 'µmol/s/m²',
+      entityCategory: 'diagnostic'
+    });
+    expect(isQuantumPpfd(diag)).toBe(false);
+  });
+});
+
+describe('liveQuantumPpfd', () => {
+  const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+
+  it('reads the live value when the owning device is online', () => {
+    const snap = makeSnapshot([ppfd]);
+    snap.states = { [ppfd.id]: { value: '156.9', updatedAt: null } };
+    expect(liveQuantumPpfd(snap)).toBeCloseTo(156.9);
+  });
+
+  it('returns null when the owning device is offline (its retained value is stale)', () => {
+    const snap = makeSnapshot([ppfd]);
+    snap.states = { [ppfd.id]: { value: '156.9', updatedAt: null } };
+    snap.devices = snap.devices.map((d) => ({ ...d, availability: 'offline' as const }));
+    expect(liveQuantumPpfd(snap)).toBeNull();
+  });
+
+  it('clamps dark-offset noise (a slightly-negative reading) to 0', () => {
+    const snap = makeSnapshot([ppfd]);
+    snap.states = { [ppfd.id]: { value: '-0.3', updatedAt: null } };
+    expect(liveQuantumPpfd(snap)).toBe(0);
+  });
+
+  it('returns null when no quantum sensor is present', () => {
+    expect(liveQuantumPpfd(makeSnapshot([]))).toBeNull();
   });
 });

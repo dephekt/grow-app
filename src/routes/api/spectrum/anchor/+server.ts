@@ -44,10 +44,28 @@ export const POST: RequestHandler = async ({ request }) => {
     if (!(lux > 0)) throw error(400, 'lux must be a positive number');
     anchor = luxToAnchor(live.counts, live.integrationUs, lux, { capturedAt, meter, tolerancePct: body.tolerancePct });
   } else {
-    const umol = Number(body.referenceUmol);
-    if (!Number.isFinite(umol) || umol <= 0) throw error(400, 'referenceUmol must be a positive number');
-    anchor = referenceAnchor(live.counts, live.integrationUs, umol, body.range ?? 'par', {
+    // Explicit µmol wins (a typed reading); otherwise read the live Apogee SQ-521 server-side —
+    // never trust a client-sent value, mirroring the lux branch's latestIlluminance() fallback.
+    let umol = Number(body.referenceUmol);
+    let meter: string | undefined;
+    // A typed reading may be against either window; the live Apogee value is definitionally PAR.
+    let range: 'par' | 'epar' = body.range ?? 'par';
+    if (!Number.isFinite(umol) || umol <= 0) {
+      const live_ppfd = getSiteMqttService().latestQuantumPpfd();
+      if (!live_ppfd) throw error(409, 'No live Apogee reading available — pass an explicit `referenceUmol`');
+      umol = live_ppfd.ppfd;
+      meter = 'apogee-sq521';
+      range = 'par'; // the SQ-521 is a PAR (400–700 nm) sensor — never bind it to a client ePAR window
+    }
+    if (!(umol > 0)) {
+      throw error(
+        400,
+        meter ? 'Live Apogee reading is not positive (sensor dark?) — anchor under light' : 'referenceUmol must be a positive number'
+      );
+    }
+    anchor = referenceAnchor(live.counts, live.integrationUs, umol, range, {
       capturedAt,
+      meter,
       tolerancePct: body.tolerancePct
     });
   }

@@ -85,6 +85,37 @@ export function isAirQualityMetric(e: EntityConfig): boolean {
   return /(^|_)pm(_|\d)/.test(oid) || /(^|_)(voc|nox)(_|$)/.test(oid);
 }
 
+/**
+ * The Apogee SQ-521 quantum (PAR) sensor's live PPFD reading — the direct canopy-light
+ * measurement surfaced on the Light page and used as the spectrometer's calibration
+ * reference. Keyed on objectId 'ppfd' (there is no HA device_class for PPFD) with a µmol-unit
+ * fallback. isNumericSensor already excludes the sibling diagnostic entities, and the historised
+ * detector-mV/tilt siblings carry different objectIds and units, so none of them can match.
+ */
+export function isQuantumPpfd(e: EntityConfig): boolean {
+  if (!isNumericSensor(e)) return false;
+  if (e.objectId === 'ppfd') return true;
+  const u = (e.unit ?? '').toLowerCase();
+  return u.includes('µmol') || u.includes('umol');
+}
+
+/**
+ * The live Apogee PPFD (µmol·m⁻²·s⁻¹) from the snapshot, or null when the sensor is absent, its
+ * value is unparseable, or its owning device is offline — a crashed publisher leaves its retained
+ * PPFD scalar on the broker, and treating that as live would pin the canopy readout to a stale
+ * number. Dark-offset noise (quantum sensors read slightly negative in darkness) is clamped to 0.
+ */
+export function liveQuantumPpfd(snapshot: Snapshot): number | null {
+  const ent = snapshot.entities.find(isQuantumPpfd);
+  if (!ent) return null;
+  const device = ent.nodeId ? snapshot.devices.find((d) => d.nodeId === ent.nodeId) : undefined;
+  if (device?.availability === 'offline') return null;
+  const raw = snapshot.states[ent.id]?.value;
+  const ppfd = Number(raw);
+  if (raw == null || !Number.isFinite(ppfd)) return null;
+  return Math.max(0, ppfd);
+}
+
 /** The device that owns the first entity matching `pred` (resolved by nodeId). */
 export function deviceOwning(
   snapshot: Snapshot,
