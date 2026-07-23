@@ -106,15 +106,9 @@ export function pixelToWavelength(p: number, c: WavelengthCoeffs = WAVELENGTH_CO
   return c.a0 + c.b1 * p + c.b2 * p * p + c.b3 * p ** 3 + c.b4 * p ** 4 + c.b5 * p ** 5;
 }
 
-// Identity now that the real per-unit Hamamatsu sheet (24K00807) is loaded above — the empirical
-// Hg-line fit that corrected the borrowed sibling (24K00198) coefficients is no longer needed.
-// If this unit's known lines (Hg 365/405/436/546/577, or the grow light's 451/660 diodes) ever read
-// off, re-introduce a small scale/offset here rather than editing the factory coefficients.
-const WAVELENGTH_FIT = { scale: 1, offset: 0 };
-
-export const WAVELENGTHS: number[] = Array.from({ length: PIXEL_COUNT }, (_, i) =>
-  WAVELENGTH_FIT.scale * pixelToWavelength(i + 1) + WAVELENGTH_FIT.offset
-);
+// The per-unit Hamamatsu coefficients are authoritative, so the wavelength axis is a direct
+// application of pixelToWavelength — no empirical post-fit.
+export const WAVELENGTHS: number[] = Array.from({ length: PIXEL_COUNT }, (_, i) => pixelToWavelength(i + 1));
 
 // Per-pixel bin edges (midpoints between neighbouring wavelengths; extrapolated at
 // the two ends) and widths — the correct use of Δλ: boundary apportionment.

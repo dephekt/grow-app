@@ -92,9 +92,9 @@ describe('spectrum calibration', () => {
     expect([...p.peaks].sort((a, b) => a - b)).toEqual(p.peaks);
   });
 
-  it('applies the per-unit Hamamatsu 24K00807 coefficients directly (fit is identity)', () => {
+  it('maps the wavelength axis directly from the per-unit Hamamatsu 24K00807 coefficients', () => {
     for (const i of [0, 10, 100, 200, 287]) {
-      expect(WAVELENGTHS[i]).toBeCloseTo(pixelToWavelength(i + 1), 6);
+      expect(WAVELENGTHS[i]).toBe(pixelToWavelength(i + 1));
     }
     // Anchored against the 24K00807 sheet: pixel 1 ≈ 317.76 nm.
     expect(WAVELENGTHS[0]).toBeCloseTo(317.76, 1);
