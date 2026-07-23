@@ -92,10 +92,12 @@ describe('spectrum calibration', () => {
     expect([...p.peaks].sort((a, b) => a - b)).toEqual(p.peaks);
   });
 
-  it('applies the Hg-line wavelength correction (scale 1.01341, offset -0.55)', () => {
-    for (const i of [10, 100, 200, 287]) {
-      expect(WAVELENGTHS[i]).toBeCloseTo(1.01341 * pixelToWavelength(i + 1) - 0.55, 4);
+  it('applies the per-unit Hamamatsu 24K00807 coefficients directly (fit is identity)', () => {
+    for (const i of [0, 10, 100, 200, 287]) {
+      expect(WAVELENGTHS[i]).toBeCloseTo(pixelToWavelength(i + 1), 6);
     }
+    // Anchored against the 24K00807 sheet: pixel 1 ≈ 317.76 nm.
+    expect(WAVELENGTHS[0]).toBeCloseTo(317.76, 1);
   });
 
   it('views: photon lifts red vs raw; energy pulls it back below photon', () => {
