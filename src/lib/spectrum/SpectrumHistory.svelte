@@ -63,6 +63,11 @@
     padding: 0;
     display: flex;
     flex-direction: column;
+    /* When the card is height-constrained (beside the SPD chart) the list scrolls instead of
+       stretching the card; min-height:0 lets a flex child actually shrink so overflow engages. */
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
   .row {
     width: 100%;

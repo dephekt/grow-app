@@ -194,7 +194,7 @@
 <div class="lights-page">
   <!-- ── Row 1: Spectrometer — SPD chart + saved readings ── -->
   <span class="section-label">Spectrometer · C12880MA</span>
-  <section class="grid12">
+  <section class="grid12 row-stretch">
     <div class="c8">
       <div class="panel">
         <div class="chart-head">
@@ -224,7 +224,7 @@
       </div>
     </div>
 
-    <div class="c4">
+    <div class="c4 hist-fill">
       <SpectrumHistory {captures} selectedId={selected?.id ?? null} onSelect={openCapture} />
     </div>
   </section>
@@ -324,6 +324,20 @@
   }
   .c4 {
     grid-column: span 4;
+  }
+  /* Saved readings sit beside the SPD chart and must match its height rather than driving the row
+     taller (which left a dead gap under the chart). Taking the card out of flow means only the chart
+     sizes the row; the card then stretches to it and scrolls its list internally. */
+  .hist-fill {
+    position: relative;
+    min-height: 0;
+  }
+  .hist-fill > :global(.panel) {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .lights-grid {
     display: grid;
@@ -569,6 +583,11 @@
     .c8,
     .c4 {
       grid-column: span 12;
+    }
+    /* Stacked single-column: let the card flow at its natural height again. */
+    .hist-fill > :global(.panel) {
+      position: static;
+      max-height: 60vh;
     }
   }
 </style>
