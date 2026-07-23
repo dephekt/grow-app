@@ -1,9 +1,10 @@
 /**
- * Pure derivation of the Lights-page readout rows from a ProcessedSpectrum. Extracted from the old
- * SpectrumTiles component so the flux and share panels can live in separate cards (the redesign
- * splits them) and so the row logic is unit-testable. Two flux sources are always shown so an
- * estimate is never mistaken for a reference: the lux estimate (≈, ±tolerance) and the Apogee
- * reference (plain). When both exist, the estimate carries its delta vs the reference.
+ * Pure derivation of the Lights-page readout rows from a ProcessedSpectrum (+ the live Apogee PPFD).
+ * The flux panel shows three numbers: PPFD (PAR) — the reference-grade 400–700 nm flux, the live Apogee
+ * when present else the spectrometer's own reference anchor; PPFD (lux) — the DLight-scaled estimate,
+ * marked ≈ with its delta vs the reference; and ePAR — the 400–750 nm flux, a trusted PAR extended by
+ * the spectrometer's (dimming-independent) far-red shape ratio. This keeps the absolute number on the
+ * Apogee and uses the spectrometer only for the far-red the Apogee can't see.
  */
 import type { ProcessedSpectrum } from '$lib/spectrum/calibration';
 
@@ -42,32 +43,37 @@ export function shareRows(p: ProcessedSpectrum): ReadoutRow[] {
   ];
 }
 
-export function fluxRows(p: ProcessedSpectrum): ReadoutRow[] {
+export function fluxRows(p: ProcessedSpectrum, apogeePpfd: number | null = null): ReadoutRow[] {
   const est = p.lux;
   const ref = p.reference;
-  const anyFlux = est != null || ref != null;
-  const primary = ref ?? est;
-  const deltaPct = est && ref && ref.ppfd > 0 ? ((est.ppfd - ref.ppfd) / ref.ppfd) * 100 : null;
+  // PPFD (PAR): reference-grade 400–700 nm flux — the live Apogee (trusted, time-averaging) first, else
+  // the spectrometer's own reference anchor. PPFD ≡ PAR: the same photon flux over 400–700 nm.
+  const parPpfd = apogeePpfd ?? ref?.ppfd ?? null;
+  // ePAR (400–750 nm): extend the reference PAR by the spectrometer's far-red shape ratio (dimming- and
+  // exposure-independent) so a trusted Apogee PAR gains the 700–750 nm packets it can't see. Without a
+  // live Apogee, fall back to the spectrometer's own anchored ePAR (reference or lux estimate).
+  const epar = apogeePpfd != null ? (p.farRedRatio != null ? apogeePpfd * p.farRedRatio : null) : p.epar;
 
-  const fmtRef = (v: number | null) => (v == null ? '—' : v.toFixed(0));
+  const deltaPct = est && parPpfd != null && parPpfd > 0 ? ((est.ppfd - parPpfd) / parPpfd) * 100 : null;
   const estValue =
     est == null
       ? '—'
       : `≈${est.ppfd.toFixed(0)} ±${est.tolerancePct.toFixed(0)}%` +
         (deltaPct == null ? '' : ` (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%)`);
-  const primPrefix = primary?.source === 'lux' ? '≈' : '';
-  const fmtPrim = (v: number | null) => (v == null ? '—' : `${primPrefix}${v.toFixed(0)}`);
-  const primStatus: RowStatus = !anyFlux ? 'none' : primary?.source === 'lux' ? 'warn' : 'ok';
+
+  // ePAR is an estimate (≈) only when it derives from the lux path — no Apogee and no reference anchor.
+  const eparIsEstimate = apogeePpfd == null && ref == null && est != null;
+  const fmtEpar = (v: number | null) => (v == null ? '—' : `${eparIsEstimate ? '≈' : ''}${v.toFixed(0)}`);
 
   return [
-    { label: 'PPFD (ref)', value: fmtRef(ref?.ppfd ?? null), status: ref ? 'ok' : 'none' },
+    { label: 'PPFD (PAR)', value: parPpfd == null ? '—' : parPpfd.toFixed(0), status: parPpfd != null ? 'ok' : 'none' },
     { label: 'PPFD (lux)', value: estValue, status: est ? 'warn' : 'none' },
-    { label: 'PAR', value: fmtPrim(p.par), status: primStatus },
-    { label: 'ePAR', value: fmtPrim(p.epar), status: primStatus }
+    { label: 'ePAR', value: fmtEpar(epar), status: epar == null ? 'none' : eparIsEstimate ? 'warn' : 'ok' }
   ];
 }
 
-export function fluxBadge(p: ProcessedSpectrum): { text: string; tone: BadgeTone } {
+export function fluxBadge(p: ProcessedSpectrum, apogeePpfd: number | null = null): { text: string; tone: BadgeTone } {
+  if (apogeePpfd != null) return { text: 'MEASURED', tone: 'ok' };
   if (p.reference) return { text: 'REF', tone: 'ok' };
   if (p.lux) return { text: 'EST · LUX', tone: 'amber' };
   return { text: 'UNCALIBRATED', tone: 'muted' };

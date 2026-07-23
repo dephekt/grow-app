@@ -15,6 +15,7 @@ function processed(over: Partial<ProcessedSpectrum> = {}): ProcessedSpectrum {
     par: null,
     epar: null,
     ppfd: null,
+    farRedRatio: null,
     calibrated: false,
     saturated: false,
     ...over
@@ -51,20 +52,23 @@ describe('fluxRows / fluxBadge', () => {
     expect(hasFlux(p)).toBe(false);
     expect(fluxBadge(p)).toEqual({ text: 'UNCALIBRATED', tone: 'muted' });
     const rows = fluxRows(p);
-    expect(rows.find((r) => r.label === 'PPFD (ref)')?.value).toBe('—');
+    expect(rows.map((r) => r.label)).toEqual(['PPFD (PAR)', 'PPFD (lux)', 'ePAR']);
+    expect(rows.find((r) => r.label === 'PPFD (PAR)')?.value).toBe('—');
     expect(rows.find((r) => r.label === 'PPFD (lux)')?.value).toBe('—');
+    expect(rows.find((r) => r.label === 'ePAR')?.value).toBe('—');
   });
 
-  it('shows a lux estimate with ≈, tolerance and warn status', () => {
+  it('shows a lux estimate with ≈ (and a lux-derived ePAR) when only lux is anchored', () => {
     const p = processed({ lux: flux(), par: 336, epar: 360, ppfd: 336, ppfdSource: 'lux', calibrated: true });
     expect(fluxBadge(p)).toEqual({ text: 'EST · LUX', tone: 'amber' });
     const rows = fluxRows(p);
+    expect(rows.find((r) => r.label === 'PPFD (PAR)')?.value).toBe('—'); // no reference-grade PAR yet
     expect(rows.find((r) => r.label === 'PPFD (lux)')?.value).toBe('≈336 ±15%');
     expect(rows.find((r) => r.label === 'PPFD (lux)')?.status).toBe('warn');
-    expect(rows.find((r) => r.label === 'PAR')?.value).toBe('≈336');
+    expect(rows.find((r) => r.label === 'ePAR')?.value).toBe('≈360'); // lux-derived estimate
   });
 
-  it('prefers the reference and shows the estimate delta vs it', () => {
+  it('uses the spectrometer reference for PPFD (PAR) and shows the estimate delta vs it', () => {
     const p = processed({
       lux: flux({ ppfd: 336 }),
       reference: flux({ source: 'reference', ppfd: 320, par: 320, epar: 345, tolerancePct: 5 }),
@@ -76,11 +80,28 @@ describe('fluxRows / fluxBadge', () => {
     });
     expect(fluxBadge(p)).toEqual({ text: 'REF', tone: 'ok' });
     const rows = fluxRows(p);
-    expect(rows.find((r) => r.label === 'PPFD (ref)')?.value).toBe('320');
+    expect(rows.find((r) => r.label === 'PPFD (PAR)')?.value).toBe('320');
     // estimate 336 vs reference 320 → +5.0%
     expect(rows.find((r) => r.label === 'PPFD (lux)')?.value).toBe('≈336 ±15% (+5.0%)');
-    // PAR follows the reference (no ≈ prefix)
-    expect(rows.find((r) => r.label === 'PAR')?.value).toBe('320');
-    expect(rows.find((r) => r.label === 'PAR')?.status).toBe('ok');
+    expect(rows.find((r) => r.label === 'ePAR')?.value).toBe('345'); // reference-grade, no ≈
+  });
+
+  it('prefers the live Apogee as PPFD (PAR) and extends ePAR by the far-red ratio', () => {
+    // The stale spectrometer reference (12) is ignored in favour of the live Apogee (145).
+    const p = processed({
+      lux: flux({ ppfd: 128 }),
+      reference: flux({ source: 'reference', ppfd: 12, par: 12, epar: 12, tolerancePct: 5 }),
+      farRedRatio: 1.05,
+      par: 12,
+      epar: 12,
+      ppfd: 12,
+      ppfdSource: 'reference',
+      calibrated: true
+    });
+    expect(fluxBadge(p, 145)).toEqual({ text: 'MEASURED', tone: 'ok' });
+    const rows = fluxRows(p, 145);
+    expect(rows.find((r) => r.label === 'PPFD (PAR)')?.value).toBe('145');
+    expect(rows.find((r) => r.label === 'PPFD (lux)')?.value).toBe('≈128 ±15% (-11.7%)'); // vs Apogee 145
+    expect(rows.find((r) => r.label === 'ePAR')?.value).toBe('152'); // 145 × 1.05 = 152.25
   });
 });
