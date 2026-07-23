@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
   import { processSpectrum, type SpectroConfig } from '$lib/spectrum/calibration';
+  import { liveQuantumPpfd } from '$lib/entity-match';
 
   type Anchors = SpectroConfig['anchors'];
 
@@ -31,6 +32,10 @@
     const lux = Number(raw);
     return raw != null && Number.isFinite(lux) ? lux : null;
   });
+
+  // The Apogee SQ-521 quantum sensor's live PPFD — the reference a one-click anchor captures.
+  // Null when the publisher is offline (so its retained value can't be anchored as if live).
+  const liveApogeePpfd = $derived(liveQuantumPpfd(live.snapshot));
 
   const liveSpectrum = $derived(live.spectrumReceived ? live.spectrum : null);
   const processed = $derived(
@@ -93,6 +98,11 @@
     void post({ source: 'reference', referenceUmol: v }, 'reference');
   }
 
+  function anchorFromApogee() {
+    // No referenceUmol — the server reads the live Apogee value authoritatively (never trust the client).
+    void post({ source: 'reference' }, 'apogee');
+  }
+
   async function clearAnchor(source: 'lux' | 'reference') {
     busy = `clear:${source}`;
     err = null;
@@ -120,14 +130,16 @@
   </div>
 
   <p class="lead">
-    Anchor the spectrometer's absolute PPFD scale to a co-incident meter reading. A lux anchor (from
-    the DLight, ≈±15%) is a stand-in until an Apogee quantum-meter reference (±5%) is set. Place the
-    meter at the canopy sensor aperture, then anchor against the live frame.
+    Anchor the spectrometer's absolute PPFD scale to a co-incident meter reading. Anchor straight from
+    the live Apogee SQ-521 (±5%) when it's online, or type a reading; a lux anchor (from the DLight,
+    ≈±15%) is the stand-in until then. Place the meter at the canopy sensor aperture, then anchor
+    against the live frame.
   </p>
 
   <div class="rows">
     <div class="kv"><span class="k">Live DLight</span><span class="v">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span></div>
     <div class="kv"><span class="k">Live PPFD</span><span class="v">{processed?.ppfd == null ? '—' : `${processed.ppfdSource === 'reference' ? '' : '≈'}${processed.ppfd.toFixed(0)} µmol`}</span></div>
+    <div class="kv"><span class="k">Live Apogee</span><span class="v">{liveApogeePpfd == null ? '—' : `${liveApogeePpfd.toFixed(0)} µmol`}</span></div>
     <div class="kv"><span class="k">Derived factor</span><span class="v">{luxFactor == null ? '—' : `${luxFactor.toFixed(1)} lux / µmol`}</span></div>
     <div class="kv">
       <span class="k">Lux anchor</span>
@@ -157,15 +169,20 @@
   </div>
 
   <div class="control">
-    <label class="ctl-label" for="ref-umol">Set Apogee reference</label>
+    <label class="ctl-label" for="ref-umol">Apogee reference</label>
     <div class="ctl-row">
-      <input id="ref-umol" class="in mono" type="number" inputmode="numeric" placeholder="quantum meter µmol·m⁻²·s⁻¹" bind:value={refUmol} />
-      <button class="btn" onclick={setReference} disabled={!canAnchor || busy != null}>
-        {busy === 'reference' ? 'Setting…' : 'Set reference'}
+      <button class="btn primary" onclick={anchorFromApogee} disabled={!canAnchor || liveApogeePpfd == null || liveApogeePpfd <= 0 || busy != null}>
+        {busy === 'apogee' ? 'Anchoring…' : `Anchor from live Apogee${liveApogeePpfd != null ? ` · ${liveApogeePpfd.toFixed(0)} µmol` : ''}`}
       </button>
       {#if anchors.reference}
         <button class="btn ghost" onclick={() => clearAnchor('reference')} disabled={busy != null}>Clear</button>
       {/if}
+    </div>
+    <div class="ctl-row">
+      <input id="ref-umol" class="in mono" type="number" inputmode="numeric" placeholder="or type µmol·m⁻²·s⁻¹ manually" bind:value={refUmol} />
+      <button class="btn" onclick={setReference} disabled={!canAnchor || busy != null}>
+        {busy === 'reference' ? 'Setting…' : 'Set manually'}
+      </button>
     </div>
   </div>
 
