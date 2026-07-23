@@ -9,6 +9,7 @@ import { parseSpectrumPayload, type RawSpectrumFrame } from './spectrum-metadata
 import { processSpectrum } from '$lib/spectrum/calibration';
 import { parseLightsConfigPayload } from './light-metadata';
 import { resolveSiteTimeZone } from '$lib/server/settings/site-timezone';
+import { isQuantumPpfd } from '$lib/entity-match';
 import {
   buildFirmwareChannelConfig,
   parseFirmwareChannelPayload,
@@ -335,6 +336,25 @@ export class SiteMqttService {
       const lux = Number(state?.value);
       if (state?.value != null && Number.isFinite(lux)) {
         return { lux, entityId: entity.id, updatedAt: state.updatedAt };
+      }
+    }
+    return null;
+  }
+
+  /** Latest quantum-sensor PPFD (µmol·m⁻²·s⁻¹) from the Apogee SQ-521 — the live canopy
+   *  measurement, and the authoritative reading a reference anchor captures. Matches
+   *  isQuantumPpfd (objectId 'ppfd'); null if the sensor hasn't reported. Mirrors
+   *  latestIlluminance() so the anchor server never trusts a client-sent µmol value. */
+  latestQuantumPpfd(): { ppfd: number; entityId: string; updatedAt: string | null } | null {
+    for (const entity of this.entities.values()) {
+      if (!isQuantumPpfd(entity)) continue;
+      // Skip an offline publisher: its retained PPFD scalar lingers on the broker and must not be
+      // anchored as a live reading (the LWT flips availability, but the state topic stays retained).
+      if (this.availabilityByDevice.get(entity.device.identifiers[0]) === 'offline') continue;
+      const state = this.stateByEntity.get(entity.id);
+      const ppfd = Number(state?.value);
+      if (state?.value != null && Number.isFinite(ppfd)) {
+        return { ppfd, entityId: entity.id, updatedAt: state.updatedAt };
       }
     }
     return null;

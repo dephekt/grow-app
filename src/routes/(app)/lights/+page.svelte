@@ -6,6 +6,7 @@
   import { entityByRef, photoperiodHours } from '$lib/lights/model';
   import { resolveGrowState } from '$lib/lights/grow-plan';
   import { fluxRows, shareRows, shareTitle, fluxBadge } from '$lib/spectrum/readout-rows';
+  import { liveQuantumPpfd } from '$lib/entity-match';
   import SpdChart from '$lib/spectrum/SpdChart.svelte';
   import SpectrumHistory from '$lib/spectrum/SpectrumHistory.svelte';
   import ReadoutPanel from '$lib/dashboard/ReadoutPanel.svelte';
@@ -45,7 +46,7 @@
     return photoperiodHours(live.stateFor(onE).value, live.stateFor(offE).value);
   });
 
-  // Fleet illuminance (DLight/BH1750) — provenance shown on the canopy card.
+  // Fleet illuminance (DLight/BH1750) — provenance shown on the canopy card when there's no Apogee.
   const liveLux = $derived.by(() => {
     const snap = live.snapshot;
     const ent = snap?.entities?.find((e) => e.deviceClass === 'illuminance' || e.unit === 'lx');
@@ -54,6 +55,11 @@
     const lux = Number(raw);
     return raw != null && Number.isFinite(lux) ? lux : null;
   });
+
+  // The Apogee SQ-521 quantum sensor — a DIRECT canopy PPFD measurement (the DLight lux above is
+  // only an estimate). Drives the Canopy PPFD card as ground truth; null when the publisher is
+  // offline (so its retained value can't linger) or in darkness noise (clamped to 0).
+  const liveApogeePpfd = $derived(liveQuantumPpfd(live.snapshot));
 
   // ── Spectrum (merged in from the retired /spectrum page) ──
   const VIEWS: SpectrumView[] = ['photon', 'energy', 'raw'];
@@ -105,13 +111,31 @@
       : null
   );
 
-  // Canopy PPFD (center reference): the primary flux — reference if set, else the lux estimate.
-  const livePpfd = $derived(active?.ppfd ?? null);
-  const canopyBadge = $derived(active ? fluxBadge(active) : { text: 'UNCALIBRATED', tone: 'muted' as const });
-  const canopyPrefix = $derived(active?.ppfdSource === 'lux' ? '≈' : '');
-  const canopyTol = $derived(active?.reference?.tolerancePct ?? active?.lux?.tolerancePct ?? null);
+  // Canopy PPFD (center reference). A live Apogee quantum reading is ground truth (MEASURED, no ≈);
+  // otherwise fall back to the spectrometer's reference / lux-estimate provenance.
+  const canopy = $derived.by(() => {
+    if (liveApogeePpfd != null) {
+      return {
+        ppfd: liveApogeePpfd,
+        prefix: '',
+        dot: 'ok' as '' | 'ok' | 'warn',
+        badge: { text: 'MEASURED', tone: 'ok' as const },
+        tol: 5 as number | null,
+        provenance: 'Apogee SQ-521' as string | null
+      };
+    }
+    return {
+      ppfd: active?.ppfd ?? null,
+      prefix: active?.ppfdSource === 'lux' ? '≈' : '',
+      dot: (active?.ppfdSource === 'reference' ? 'ok' : active?.ppfd != null ? 'warn' : '') as '' | 'ok' | 'warn',
+      badge: active ? fluxBadge(active) : { text: 'UNCALIBRATED', tone: 'muted' as const },
+      tol: (active?.reference?.tolerancePct ?? active?.lux?.tolerancePct ?? null) as number | null,
+      provenance: null as string | null
+    };
+  });
+  const livePpfd = $derived(canopy.ppfd);
   const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
-  const fillPct = $derived(livePpfd != null ? Math.min(100, (livePpfd / growState.ppfdTarget) * 100) : 0);
+  const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
 
   async function refetchList() {
     const res = await fetch('/api/spectrum');
@@ -160,16 +184,16 @@
     <div class="c4">
       <div class="panel stat primary">
         <div class="eyebrow">
-          <span class="dot {active?.ppfdSource === 'reference' ? 'ok' : livePpfd != null ? 'warn' : ''}"></span>
+          <span class="dot {canopy.dot}"></span>
           <span class="panel-title">Canopy PPFD</span>
-          <span class="badge {canopyBadge.tone}">{canopyBadge.text}</span>
+          <span class="badge {canopy.badge.tone}">{canopy.badge.text}</span>
         </div>
         <div class="val">
-          {livePpfd == null ? '—' : `${canopyPrefix}${livePpfd.toFixed(0)}`}<span class="unit">µmol·m⁻²·s⁻¹</span>
+          {livePpfd == null ? '—' : `${canopy.prefix}${livePpfd.toFixed(0)}`}<span class="unit">µmol·m⁻²·s⁻¹</span>
         </div>
         <div class="sub">
-          {canopyTol != null ? `±${canopyTol.toFixed(0)}% · ` : ''}from DLight
-          <span class="mono">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span>
+          {canopy.tol != null ? `±${canopy.tol.toFixed(0)}% · ` : ''}{canopy.provenance ?? 'from DLight'}
+          {#if canopy.provenance == null}<span class="mono">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span>{/if}
         </div>
         <div class="tgt-row">
           <span class="tgt-lab">{growState.stage.label} {growState.ppfdTarget}</span>
