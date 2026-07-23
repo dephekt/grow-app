@@ -257,6 +257,10 @@ export interface ProcessedSpectrum {
   par: number | null;
   epar: number | null;
   ppfd: number | null;
+  /** Far-red extension factor ∫photon(400–750)/∫photon(400–700) for this frame (≥ 1), scale-invariant
+   *  so a trusted absolute PAR (e.g. the Apogee's) can be rescaled into ePAR without the spectrometer's
+   *  fragile absolute anchor. null when saturated or there's no PAR-band signal. */
+  farRedRatio: number | null;
   calibrated: boolean;
   saturated: boolean;
 }
@@ -388,9 +392,14 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   //    configured anchor (lux estimate and/or Apogee reference); reference is the primary.
   let lux: FluxReading | null = null;
   let reference: FluxReading | null = null;
+  let farRedRatio: number | null = null;
   const integ = effectiveIntegrationUs(opts.integrationUs);
   if (!saturated) {
     const photon = view === 'photon' ? display : applyView(corrected, 'photon');
+    // ePAR/PAR shape ratio — scale-invariant (exposure/dimming cancel), so it rescales a trusted
+    // absolute PAR (the Apogee's) into ePAR by adding the 700–750 nm share the Apogee can't see.
+    const parPhoton = bandIntegral(photon, PAR[0], PAR[1]);
+    farRedRatio = parPhoton > 0 ? bandIntegral(photon, EPAR[0], EPAR[1]) / parPhoton : null;
     // Absolute flux from an anchor using THIS frame's per-µs photon rate (counts ÷ exposure).
     const flux = (a: AnchorCalibration): FluxReading | null => {
       if (!(a.rawIntegral > 0)) return null;
@@ -431,6 +440,7 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
     par: primary?.par ?? null,
     epar: primary?.epar ?? null,
     ppfd: primary?.ppfd ?? null, // PPFD ≡ the PAR integral
+    farRedRatio,
     calibrated: primary != null,
     saturated
   };

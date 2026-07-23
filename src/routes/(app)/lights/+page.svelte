@@ -205,7 +205,7 @@
 
     <div class="c4">
       {#if active}
-        <ReadoutPanel title="Photon flux" unit="µmol·m⁻²·s⁻¹" rows={fluxRows(active)} badge={fluxBadge(active).text} badgeTone={fluxBadge(active).tone} planned={!active.calibrated} />
+        <ReadoutPanel title="Photon flux" unit="µmol·m⁻²·s⁻¹" rows={fluxRows(active, liveApogeePpfd)} badge={fluxBadge(active, liveApogeePpfd).text} badgeTone={fluxBadge(active, liveApogeePpfd).tone} planned={liveApogeePpfd == null && !active.calibrated} />
       {:else}
         <ReadoutPanel title="Photon flux" unit="µmol·m⁻²·s⁻¹" rows={[]} />
       {/if}
