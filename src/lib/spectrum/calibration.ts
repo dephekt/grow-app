@@ -80,15 +80,16 @@ export interface SpectroConfig {
   anchors: { lux?: AnchorCalibration; reference?: AnchorCalibration };
 }
 
-// Placeholder wavelength coefficients from sample unit 24K00198 (same batch family,
-// within ~1–2 nm). Swap for the real per-unit Hamamatsu final-inspection sheet.
+// Per-unit wavelength calibration from THIS sensor's Hamamatsu final-inspection sheet
+// (C12880MA serial 24K00807): Wavelength[nm] = A0 + B1·pix + B2·pix² + B3·pix³ + B4·pix⁴ + B5·pix⁵,
+// pix 1-based. Measured wavelength resolution (FWHM) 9.5 nm (spec ≤ 15 nm).
 export const WAVELENGTH_COEFFS: WavelengthCoeffs = {
-  a0: 3.044679549e2,
-  b1: 2.696353743,
-  b2: -1.045712658e-3,
-  b3: -8.28582189e-6,
-  b4: 1.148981468e-8,
-  b5: 1.809281229e-12
+  a0: 3.150586915e2,
+  b1: 2.69975988,
+  b2: -1.273387434e-3,
+  b3: -5.969853279e-6,
+  b4: 8.036360792e-10,
+  b5: 1.888117397e-11
 };
 
 // Runtime calibration config — the single place to swap in real per-unit calibration (the
@@ -105,11 +106,11 @@ export function pixelToWavelength(p: number, c: WavelengthCoeffs = WAVELENGTH_CO
   return c.a0 + c.b1 * p + c.b2 * p * p + c.b3 * p ** 3 + c.b4 * p ** 4 + c.b5 * p ** 5;
 }
 
-// Per-unit wavelength correction from the Coleman fluorescent's mercury lines (365/405/436/546/577):
-// the placeholder coeffs (borrowed from sibling 24K00198) read ~5 nm low with a slight stretch; this
-// linear fit lands all five Hg lines within ±0.6 nm (and the grow light's blue pump→451, red diode→660).
-// Reset to {scale:1, offset:0} once this unit's real Hamamatsu coefficient sheet is loaded above.
-const WAVELENGTH_FIT = { scale: 1.01341, offset: -0.55 };
+// Identity now that the real per-unit Hamamatsu sheet (24K00807) is loaded above — the empirical
+// Hg-line fit that corrected the borrowed sibling (24K00198) coefficients is no longer needed.
+// If this unit's known lines (Hg 365/405/436/546/577, or the grow light's 451/660 diodes) ever read
+// off, re-introduce a small scale/offset here rather than editing the factory coefficients.
+const WAVELENGTH_FIT = { scale: 1, offset: 0 };
 
 export const WAVELENGTHS: number[] = Array.from({ length: PIXEL_COUNT }, (_, i) =>
   WAVELENGTH_FIT.scale * pixelToWavelength(i + 1) + WAVELENGTH_FIT.offset
