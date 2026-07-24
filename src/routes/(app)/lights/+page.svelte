@@ -6,7 +6,7 @@
   import { entityByRef, photoperiodHours } from '$lib/lights/model';
   import { resolveGrowState } from '$lib/lights/grow-plan';
   import { shareRows, shareTitle } from '$lib/spectrum/readout-rows';
-  import { liveQuantumPpfd, hasQuantumPpfd } from '$lib/entity-match';
+  import { liveQuantumPpfd, hasQuantumPpfd, liveQuantumMetric } from '$lib/entity-match';
   import { resolveCanopy } from '$lib/lights/canopy';
   import SpdChart from '$lib/spectrum/SpdChart.svelte';
   import SpectrumHistory from '$lib/spectrum/SpectrumHistory.svelte';
@@ -144,6 +144,10 @@
   );
   const livePpfd = $derived(canopy.par);
   const canopyEpar = $derived(canopy.epar);
+  // Live Apogee diagnostics shown alongside PAR — the raw detector signal (mV) and the sensor's tilt
+  // from vertical. Present only while the sensor is online; hidden otherwise.
+  const canopyDetector = $derived(liveQuantumMetric(live.snapshot, 'detector_mv'));
+  const canopyTilt = $derived(liveQuantumMetric(live.snapshot, 'tilt'));
   const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
   const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
 
@@ -248,6 +252,12 @@
               {#if canopyEpar == null}<span class="none">unavailable</span>{:else}{canopyEpar.toFixed(0)}{/if}
             </span>
           </div>
+          {#if canopyDetector}
+            <div class="kv"><span class="k">Detector</span><span class="v">{canopyDetector.value.toFixed(2)} mV</span></div>
+          {/if}
+          {#if canopyTilt}
+            <div class="kv"><span class="k">Tilt</span><span class="v">{canopyTilt.value.toFixed(1)}°</span></div>
+          {/if}
         </div>
         <div class="tgt-row">
           <span class="tgt-lab">{growState.stage.label} {growState.ppfdTarget}</span>
