@@ -2,11 +2,12 @@
   import { untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import type { CaptureDetail, CaptureSummary } from '$lib/server/spectrum/captures';
-  import { processSpectrum, type SpectrumView, type SpectroConfig } from '$lib/spectrum/calibration';
+  import { processSpectrum, luxToPpfd, type SpectrumView, type SpectroConfig } from '$lib/spectrum/calibration';
   import { entityByRef, photoperiodHours } from '$lib/lights/model';
   import { resolveGrowState } from '$lib/lights/grow-plan';
   import { shareRows, shareTitle } from '$lib/spectrum/readout-rows';
-  import { liveQuantumPpfd } from '$lib/entity-match';
+  import { liveQuantumPpfd, hasQuantumPpfd } from '$lib/entity-match';
+  import { resolveCanopy } from '$lib/lights/canopy';
   import SpdChart from '$lib/spectrum/SpdChart.svelte';
   import SpectrumHistory from '$lib/spectrum/SpectrumHistory.svelte';
   import ReadoutPanel from '$lib/dashboard/ReadoutPanel.svelte';
@@ -80,11 +81,13 @@
   // Once the columns stack, the saved-readings card turns into a collapsed drawer so a long history
   // doesn't dominate the scroll on a phone (it's rarely what you open the Lights page for). matchMedia
   // keeps this on exactly the same breakpoint as the stylesheet below.
-  let stacked = $state(false);
+  // Initialise synchronously (SSR-guarded) so the first client paint is already correct — the (app)
+  // group is ssr=false, so there's no server HTML, and this avoids painting the card expanded then
+  // collapsing it (a layout shift) on a phone.
+  let stacked = $state(typeof window !== 'undefined' && window.matchMedia('(max-width: 980px)').matches);
   $effect(() => {
     const mq = window.matchMedia('(max-width: 980px)');
     const apply = () => (stacked = mq.matches);
-    apply();
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   });
@@ -123,59 +126,24 @@
       : null
   );
 
-  // PAR estimated from a DLight's lux via the µmol/lux factor banked in the stored lux anchor. That
-  // factor was derived against a spectrometer frame when the anchor was taken, so this still works
-  // with the spectrometer absent — but not without an anchor to supply the factor.
-  const luxParEstimate = $derived.by(() => {
-    const a = anchors.lux;
-    if (!a || !a.luxValue || a.luxValue <= 0 || !(a.referenceUmol > 0)) return null;
-    if (liveLux == null || liveLux <= 0) return null;
-    return liveLux * (a.referenceUmol / a.luxValue);
-  });
+  // PAR estimated from a DLight's lux via the µmol/lux factor banked in the stored lux anchor — see
+  // luxToPpfd. Works with the spectrometer absent, but not without an anchor to supply the factor.
+  const luxParEstimate = $derived(luxToPpfd(liveLux, anchors.lux));
 
-  // Canopy PAR (400–700 nm) in descending order of trust: a selected saved reading populates from its
-  // own data; else the live Apogee quantum sensor (the measurement, unbadged); else a DLight lux
-  // estimate (badged ≈ EST · LUX); else nothing can measure it and we say so.
-  const canopy = $derived.by(() => {
-    type Badge = { text: string; tone: 'amber' | 'ok' | 'muted' } | null;
-    if (selected) {
-      return {
-        par: active?.ppfd ?? null,
-        prefix: active?.ppfdSource === 'lux' ? '≈' : '',
-        dot: active?.ppfd != null ? 'ok' : '',
-        badge: null as Badge,
-        tol: active?.reference?.tolerancePct ?? active?.lux?.tolerancePct ?? null,
-        provenance: 'saved reading'
-      };
-    }
-    if (liveApogeePpfd != null) {
-      return { par: liveApogeePpfd, prefix: '', dot: 'ok', badge: null as Badge, tol: 5, provenance: 'Apogee SQ-521' };
-    }
-    if (luxParEstimate != null) {
-      return {
-        par: luxParEstimate,
-        prefix: '≈',
-        dot: 'warn',
-        badge: { text: 'EST · LUX', tone: 'amber' } as Badge,
-        tol: anchors.lux?.tolerancePct ?? 15,
-        provenance: 'estimated from DLight lux'
-      };
-    }
-    return {
-      par: null,
-      prefix: '',
-      dot: '',
-      badge: { text: 'UNAVAILABLE', tone: 'muted' } as Badge,
-      tol: null,
-      provenance: 'no quantum sensor'
-    };
-  });
-  const livePpfd = $derived(canopy.par);
-  // ePAR (400–750 nm) = the PAR reading extended by the spectrometer's far-red share. Needs a
-  // spectrometer frame (live, or the selected reading's) — unavailable without one.
-  const canopyEpar = $derived(
-    canopy.par != null && active?.farRedRatio != null ? canopy.par * active.farRedRatio : null
+  // Canopy PAR resolved by descending trust (saved reading → live Apogee → DLight-lux estimate →
+  // unavailable); see resolveCanopy. hasQuantumPpfd separates "sensor offline" from "no sensor".
+  const canopy = $derived(
+    resolveCanopy({
+      selected: selected != null,
+      apogeePpfd: liveApogeePpfd,
+      luxPar: luxParEstimate,
+      active,
+      luxAnchor: anchors.lux,
+      hasQuantumSensor: hasQuantumPpfd(live.snapshot)
+    })
   );
+  const livePpfd = $derived(canopy.par);
+  const canopyEpar = $derived(canopy.epar);
   const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
   const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
 

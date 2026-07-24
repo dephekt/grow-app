@@ -16,9 +16,12 @@
     collapsible?: boolean;
   } = $props();
 
-  // Closed by default as a drawer, open as a plain card. This re-defaults when the layout crosses the
-  // breakpoint; a manual toggle within one layout sticks (the effect only re-runs when `collapsible` flips).
-  let open = $state(true);
+  // Closed by default as a drawer, open as a plain card. Seeded from the prop's INITIAL value on
+  // purpose so the first paint is already correct (no expand-then-collapse flash); the effect below
+  // then re-defaults it whenever the layout crosses the breakpoint. A manual toggle within one layout
+  // sticks (the effect only re-runs when `collapsible` flips).
+  // svelte-ignore state_referenced_locally
+  let open = $state(!collapsible);
   $effect(() => {
     open = !collapsible;
   });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  findQuantumPpfdEntity,
+  hasQuantumPpfd,
   isAirQualityMetric,
   isQuantumPpfd,
   liveQuantumPpfd,
@@ -185,5 +187,46 @@ describe('liveQuantumPpfd', () => {
 
   it('returns null when no quantum sensor is present', () => {
     expect(liveQuantumPpfd(makeSnapshot([]))).toBeNull();
+  });
+
+  it('returns null for an empty/cleared retained value (not a live 0)', () => {
+    const snap = makeSnapshot([ppfd]);
+    snap.states = { [ppfd.id]: { value: '', updatedAt: null } };
+    expect(liveQuantumPpfd(snap)).toBeNull();
+  });
+
+  it('catches an offline device even when the entity carries no nodeId', () => {
+    const noNode = makeEntity('quantum-sensor', {
+      id: 'qs_ppfd',
+      name: 'Canopy PPFD',
+      objectId: 'ppfd',
+      unit: 'µmol/s/m²',
+      nodeId: undefined
+    });
+    const snap = makeSnapshot([noNode]);
+    snap.states = { [noNode.id]: { value: '146', updatedAt: null } };
+    // Owner resolved via the entity's device identifier ('quantum-sensor'), which is offline.
+    snap.devices = [{ ...makeDevice('quantum-sensor', [noNode]), availability: 'offline' as const }];
+    expect(liveQuantumPpfd(snap)).toBeNull();
+  });
+});
+
+describe('findQuantumPpfdEntity / hasQuantumPpfd', () => {
+  it('prefers the exact objectId ppfd over a µmol-unit sensor, regardless of order', () => {
+    const par = makeEntity('n', { id: 'par', name: 'PAR', objectId: 'ppfd', unit: 'µmol/s/m²' });
+    const other = makeEntity('n', { id: 'other', name: 'Umol thing', objectId: 'canopy_umol', unit: 'µmol/m²/s' });
+    expect(findQuantumPpfdEntity([other, par])?.id).toBe('par');
+    expect(findQuantumPpfdEntity([par, other])?.id).toBe('par');
+  });
+
+  it('falls back to the first µmol-unit sensor when no ppfd objectId exists', () => {
+    const other = makeEntity('n', { id: 'other', name: 'Umol thing', objectId: 'canopy_umol', unit: 'µmol/m²/s' });
+    expect(findQuantumPpfdEntity([other])?.id).toBe('other');
+  });
+
+  it('distinguishes a registered quantum sensor from none', () => {
+    const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+    expect(hasQuantumPpfd(makeSnapshot([ppfd]))).toBe(true);
+    expect(hasQuantumPpfd(makeSnapshot([]))).toBe(false);
   });
 });

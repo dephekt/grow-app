@@ -351,6 +351,15 @@ function findPeaks(relative: number[]): number[] {
   return kept.map((k) => k.nm).sort((a, b) => a - b);
 }
 
+/** PAR PPFD (µmol·m⁻²·s⁻¹) implied by a live lux reading via a lux anchor's banked µmol/lux factor,
+ *  or null when the anchor/lux can't supply it. Frame-robust — needs no spectrometer frame, so it
+ *  works with the spectrometer absent (as long as a lux anchor exists to carry the factor). */
+export function luxToPpfd(lux: number | null | undefined, anchor: AnchorCalibration | undefined): number | null {
+  if (!anchor || !(anchor.luxValue != null && anchor.luxValue > 0) || !(anchor.referenceUmol > 0)) return null;
+  if (lux == null || lux <= 0) return null;
+  return lux * (anchor.referenceUmol / anchor.luxValue);
+}
+
 /** Turn raw counts into a display-ready + (optionally) calibrated spectrum. */
 export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}): ProcessedSpectrum {
   const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...opts.config };
@@ -410,16 +419,16 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
     };
     if (cfg.anchors.lux) {
       const a = cfg.anchors.lux;
-      if (opts.liveLux != null && opts.liveLux > 0 && a.luxValue != null && a.luxValue > 0) {
+      const liveLuxPpfd = luxToPpfd(opts.liveLux, a);
+      if (liveLuxPpfd != null) {
         // Frame-robust lux estimate: PPFD from live DLight lux × the anchor's µmol/lux, NOT this
         // frame's counts/exposure. A bad or stuck auto-exposure frame (collapsed counts or a
         // misreported integration time) can't drag the reading toward zero — the dedicated lux sensor
         // tracks the real intensity, and dimming still lowers it. ePAR uses the frame's shape ratio
         // (scale-invariant, so it survives a dim frame).
-        const ppfd = opts.liveLux * (a.referenceUmol / a.luxValue);
         const pPar = bandIntegral(photon, PAR[0], PAR[1]);
         const eparRatio = pPar > 0 ? bandIntegral(photon, EPAR[0], EPAR[1]) / pPar : 1;
-        lux = { source: 'lux', ppfd, par: ppfd, epar: ppfd * eparRatio, tolerancePct: a.tolerancePct ?? 15 };
+        lux = { source: 'lux', ppfd: liveLuxPpfd, par: liveLuxPpfd, epar: liveLuxPpfd * eparRatio, tolerancePct: a.tolerancePct ?? 15 };
       } else {
         lux = flux(a);
       }
