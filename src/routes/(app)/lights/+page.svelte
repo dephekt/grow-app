@@ -77,6 +77,18 @@
   let saving = $state(false);
   let saveError = $state<string | null>(null);
 
+  // Once the columns stack, the saved-readings card turns into a collapsed drawer so a long history
+  // doesn't dominate the scroll on a phone (it's rarely what you open the Lights page for). matchMedia
+  // keeps this on exactly the same breakpoint as the stylesheet below.
+  let stacked = $state(false);
+  $effect(() => {
+    const mq = window.matchMedia('(max-width: 980px)');
+    const apply = () => (stacked = mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  });
+
   // Open a saved reading if selected, else the live frame — carry RAW counts so the view toggle
   // reprocesses client-side (calibration is a pure module) with no round-trip.
   const source = $derived(
@@ -225,7 +237,7 @@
     </div>
 
     <div class="c4 hist-fill">
-      <SpectrumHistory {captures} selectedId={selected?.id ?? null} onSelect={openCapture} />
+      <SpectrumHistory {captures} selectedId={selected?.id ?? null} onSelect={openCapture} collapsible={stacked} />
     </div>
   </section>
 
