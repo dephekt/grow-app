@@ -144,6 +144,28 @@ export function liveQuantumPpfd(snapshot: Snapshot): number | null {
   return Number.isFinite(ppfd) ? Math.max(0, ppfd) : null;
 }
 
+/**
+ * A live numeric reading (value + unit) from the quantum sensor's OWN device, by objectId — the
+ * diagnostics that ride alongside PPFD (detector millivolts, tilt angle). Resolved on the same
+ * device as the PPFD entity and availability-gated, so an offline publisher's retained value isn't
+ * shown as live, and a sibling with the same objectId on another device can't be picked up.
+ */
+export function liveQuantumMetric(snapshot: Snapshot, objectId: string): { value: number; unit: string | null } | null {
+  const ppfd = findQuantumPpfdEntity(snapshot.entities);
+  if (!ppfd) return null;
+  const deviceKey = ppfd.nodeId ?? ppfd.device.identifiers[0];
+  const device = snapshot.devices.find((d) => d.nodeId === deviceKey || d.id === deviceKey);
+  if (device?.availability === 'offline') return null;
+  const ent = snapshot.entities.find(
+    (e) => e.objectId === objectId && (e.nodeId ?? e.device.identifiers[0]) === deviceKey
+  );
+  if (!ent) return null;
+  const raw = snapshot.states[ent.id]?.value;
+  if (raw == null || raw.trim() === '') return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? { value, unit: ent.unit ?? null } : null;
+}
+
 /** The device that owns the first entity matching `pred` (resolved by nodeId). */
 export function deviceOwning(
   snapshot: Snapshot,

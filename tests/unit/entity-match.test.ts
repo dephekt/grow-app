@@ -4,6 +4,7 @@ import {
   hasQuantumPpfd,
   isAirQualityMetric,
   isQuantumPpfd,
+  liveQuantumMetric,
   liveQuantumPpfd,
   resolveAirQualityDevice,
   resolveClimateDevice
@@ -228,5 +229,36 @@ describe('findQuantumPpfdEntity / hasQuantumPpfd', () => {
     const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
     expect(hasQuantumPpfd(makeSnapshot([ppfd]))).toBe(true);
     expect(hasQuantumPpfd(makeSnapshot([]))).toBe(false);
+  });
+});
+
+describe('liveQuantumMetric', () => {
+  const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+  const mv = makeEntity('quantum-sensor', { id: 'qs_mv', name: 'Detector', objectId: 'detector_mv', unit: 'mV' });
+  const tilt = makeEntity('quantum-sensor', { id: 'qs_tilt', name: 'Tilt', objectId: 'tilt', unit: '°' });
+
+  it('reads a sibling metric (value + unit) on the quantum device', () => {
+    const snap = makeSnapshot([ppfd, mv, tilt]);
+    snap.states = {
+      [mv.id]: { value: '1.8972', updatedAt: null },
+      [tilt.id]: { value: '5.70', updatedAt: null }
+    };
+    expect(liveQuantumMetric(snap, 'detector_mv')).toEqual({ value: 1.8972, unit: 'mV' });
+    expect(liveQuantumMetric(snap, 'tilt')).toEqual({ value: 5.7, unit: '°' });
+  });
+
+  it('returns null when the quantum device is offline', () => {
+    const snap = makeSnapshot([ppfd, mv]);
+    snap.states = { [mv.id]: { value: '1.9', updatedAt: null } };
+    snap.devices = snap.devices.map((d) => ({ ...d, availability: 'offline' as const }));
+    expect(liveQuantumMetric(snap, 'detector_mv')).toBeNull();
+  });
+
+  it('returns null when the metric is absent, empty, or there is no quantum sensor', () => {
+    const snap = makeSnapshot([ppfd, mv]);
+    snap.states = { [mv.id]: { value: '', updatedAt: null } };
+    expect(liveQuantumMetric(snap, 'detector_mv')).toBeNull(); // empty value
+    expect(liveQuantumMetric(snap, 'tilt')).toBeNull(); // no such entity on the device
+    expect(liveQuantumMetric(makeSnapshot([]), 'detector_mv')).toBeNull(); // no quantum sensor at all
   });
 });
