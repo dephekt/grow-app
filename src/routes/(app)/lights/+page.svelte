@@ -160,6 +160,14 @@
   const canopyEpar = $derived(
     liveApogeePpfd != null && active?.farRedRatio != null ? liveApogeePpfd * active.farRedRatio : (active?.epar ?? null)
   );
+  // How far the DLight lux estimate sits from the trusted Apogee measurement — i.e. the estimate's
+  // error. Only meaningful against a live Apogee; without one the headline may BE the lux estimate,
+  // so a delta would be a meaningless 0.
+  const canopyLuxDelta = $derived(
+    canopyLux != null && liveApogeePpfd != null && liveApogeePpfd > 0
+      ? ((canopyLux - liveApogeePpfd) / liveApogeePpfd) * 100
+      : null
+  );
   const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
   const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
 
@@ -259,7 +267,13 @@
           {#if canopy.provenance == null}<span class="mono">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span>{/if}
         </div>
         <div class="flux-mini">
-          <div class="kv"><span class="k">PPFD (lux)</span><span class="v">{canopyLux == null ? '—' : `≈${canopyLux.toFixed(0)}`}</span></div>
+          <div class="kv">
+            <span class="k">PPFD (lux)</span>
+            <span class="v">
+              {canopyLux == null ? '—' : `≈${canopyLux.toFixed(0)}`}
+              {#if canopyLuxDelta != null}<span class="lux-delta">({canopyLuxDelta >= 0 ? '+' : ''}{canopyLuxDelta.toFixed(0)}%)</span>{/if}
+            </span>
+          </div>
           <div class="kv"><span class="k">ePAR</span><span class="v">{canopyEpar == null ? '—' : canopyEpar.toFixed(0)}</span></div>
         </div>
         <div class="tgt-row">
@@ -421,6 +435,11 @@
     font-variant-numeric: tabular-nums;
     font-size: 0.78rem;
     color: var(--text);
+  }
+  /* The lux estimate's deviation from the Apogee — informational, so deliberately neutral rather than
+     the red/green the target delta uses (an estimate reading low isn't a fault condition). */
+  .flux-mini .lux-delta {
+    color: var(--muted);
   }
   .tgt-row {
     display: flex;
