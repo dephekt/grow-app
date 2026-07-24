@@ -270,8 +270,8 @@
           <div class="kv">
             <span class="k">PPFD (lux)</span>
             <span class="v">
-              {canopyLux == null ? '—' : `≈${canopyLux.toFixed(0)}`}
               {#if canopyLuxDelta != null}<span class="lux-delta">({canopyLuxDelta >= 0 ? '+' : ''}{canopyLuxDelta.toFixed(0)}%)</span>{/if}
+              {canopyLux == null ? '—' : `≈${canopyLux.toFixed(0)}`}
             </span>
           </div>
           <div class="kv"><span class="k">ePAR</span><span class="v">{canopyEpar == null ? '—' : canopyEpar.toFixed(0)}</span></div>
