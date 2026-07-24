@@ -86,11 +86,10 @@ export function isAirQualityMetric(e: EntityConfig): boolean {
 }
 
 /**
- * The Apogee SQ-521 quantum (PAR) sensor's live PPFD reading — the direct canopy-light
- * measurement surfaced on the Light page and used as the spectrometer's calibration
- * reference. Keyed on objectId 'ppfd' (there is no HA device_class for PPFD) with a µmol-unit
- * fallback. isNumericSensor already excludes the sibling diagnostic entities, and the historised
- * detector-mV/tilt siblings carry different objectIds and units, so none of them can match.
+ * The Apogee SQ-521 quantum (PAR) sensor's PPFD entity. Keyed on objectId 'ppfd' (there is no HA
+ * device_class for PPFD) with a µmol-unit fallback. isNumericSensor already excludes the sibling
+ * diagnostic entities, and the historised detector-mV/tilt siblings carry different objectIds and
+ * units, so none of them can match.
  */
 export function isQuantumPpfd(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
@@ -100,20 +99,49 @@ export function isQuantumPpfd(e: EntityConfig): boolean {
 }
 
 /**
+ * The single quantum-PPFD entity, resolved deterministically so the client display and the
+ * server-side anchor bind to the SAME sensor regardless of iteration order: an exact objectId
+ * 'ppfd' match wins (there is only one), and only in its absence does the first µmol-unit sensor
+ * apply as a fallback.
+ */
+export function findQuantumPpfdEntity(entities: Iterable<EntityConfig>): EntityConfig | undefined {
+  let byUnit: EntityConfig | undefined;
+  for (const e of entities) {
+    if (!isNumericSensor(e)) continue;
+    if (e.objectId === 'ppfd') return e;
+    if (byUnit === undefined) {
+      const u = (e.unit ?? '').toLowerCase();
+      if (u.includes('µmol') || u.includes('umol')) byUnit = e;
+    }
+  }
+  return byUnit;
+}
+
+/** Whether a quantum-PPFD sensor is registered at all — regardless of liveness. Lets the UI tell
+ *  "sensor offline" apart from "no sensor". */
+export function hasQuantumPpfd(snapshot: Snapshot): boolean {
+  return findQuantumPpfdEntity(snapshot.entities) !== undefined;
+}
+
+/**
  * The live Apogee PPFD (µmol·m⁻²·s⁻¹) from the snapshot, or null when the sensor is absent, its
- * value is unparseable, or its owning device is offline — a crashed publisher leaves its retained
- * PPFD scalar on the broker, and treating that as live would pin the canopy readout to a stale
- * number. Dark-offset noise (quantum sensors read slightly negative in darkness) is clamped to 0.
+ * value is missing / empty / unparseable, or its owning device is offline — a crashed publisher
+ * leaves its retained PPFD scalar on the broker, and treating that as live would pin the canopy
+ * readout to a stale number. Dark-offset noise (quantum sensors read slightly negative in darkness)
+ * is clamped to 0.
  */
 export function liveQuantumPpfd(snapshot: Snapshot): number | null {
-  const ent = snapshot.entities.find(isQuantumPpfd);
+  const ent = findQuantumPpfdEntity(snapshot.entities);
   if (!ent) return null;
-  const device = ent.nodeId ? snapshot.devices.find((d) => d.nodeId === ent.nodeId) : undefined;
+  // Resolve the owning device by nodeId OR its device identifier (the server keys availability on
+  // the latter), so an offline publisher is caught even when the entity carries no nodeId.
+  const deviceKey = ent.nodeId ?? ent.device.identifiers[0];
+  const device = snapshot.devices.find((d) => d.nodeId === deviceKey || d.id === deviceKey);
   if (device?.availability === 'offline') return null;
   const raw = snapshot.states[ent.id]?.value;
+  if (raw == null || raw.trim() === '') return null; // '' → Number('') === 0 would read as a live 0
   const ppfd = Number(raw);
-  if (raw == null || !Number.isFinite(ppfd)) return null;
-  return Math.max(0, ppfd);
+  return Number.isFinite(ppfd) ? Math.max(0, ppfd) : null;
 }
 
 /** The device that owns the first entity matching `pred` (resolved by nodeId). */

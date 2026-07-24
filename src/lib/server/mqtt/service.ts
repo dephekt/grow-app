@@ -9,7 +9,7 @@ import { parseSpectrumPayload, type RawSpectrumFrame } from './spectrum-metadata
 import { processSpectrum } from '$lib/spectrum/calibration';
 import { parseLightsConfigPayload } from './light-metadata';
 import { resolveSiteTimeZone } from '$lib/server/settings/site-timezone';
-import { isQuantumPpfd } from '$lib/entity-match';
+import { findQuantumPpfdEntity } from '$lib/entity-match';
 import {
   buildFirmwareChannelConfig,
   parseFirmwareChannelPayload,
@@ -346,18 +346,18 @@ export class SiteMqttService {
    *  isQuantumPpfd (objectId 'ppfd'); null if the sensor hasn't reported. Mirrors
    *  latestIlluminance() so the anchor server never trusts a client-sent µmol value. */
   latestQuantumPpfd(): { ppfd: number; entityId: string; updatedAt: string | null } | null {
-    for (const entity of this.entities.values()) {
-      if (!isQuantumPpfd(entity)) continue;
-      // Skip an offline publisher: its retained PPFD scalar lingers on the broker and must not be
-      // anchored as a live reading (the LWT flips availability, but the state topic stays retained).
-      if (this.availabilityByDevice.get(entity.device.identifiers[0]) === 'offline') continue;
-      const state = this.stateByEntity.get(entity.id);
-      const ppfd = Number(state?.value);
-      if (state?.value != null && Number.isFinite(ppfd)) {
-        return { ppfd, entityId: entity.id, updatedAt: state.updatedAt };
-      }
-    }
-    return null;
+    // Same resolver the client uses, so the live display and this anchor bind to the same sensor.
+    const entity = findQuantumPpfdEntity(this.entities.values());
+    if (!entity) return null;
+    // Skip an offline publisher: its retained PPFD scalar lingers on the broker and must not be
+    // anchored as a live reading (the LWT flips availability, but the state topic stays retained).
+    if (this.availabilityByDevice.get(entity.device.identifiers[0]) === 'offline') return null;
+    const state = this.stateByEntity.get(entity.id);
+    const raw = state?.value;
+    if (raw == null || raw.trim() === '') return null; // '' → Number('') === 0 would anchor a live 0
+    const ppfd = Number(raw);
+    if (!Number.isFinite(ppfd)) return null;
+    return { ppfd, entityId: entity.id, updatedAt: state?.updatedAt ?? null };
   }
 
   spectrometerNodeIds(): string[] {
