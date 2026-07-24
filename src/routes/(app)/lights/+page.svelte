@@ -254,10 +254,10 @@
             </span>
           </div>
           {#if canopyDetector != null}
-            <div class="kv"><span class="k">Detector</span><span class="v">{canopyDetector.toFixed(2)} mV</span></div>
+            <div class="kv"><span class="k">Detector (raw)</span><span class="v">{canopyDetector.toFixed(2)} mV</span></div>
           {/if}
           {#if canopyTilt != null}
-            <div class="kv"><span class="k">Tilt</span><span class="v">{canopyTilt.toFixed(1)}°</span></div>
+            <div class="kv"><span class="k">Sensor Tilt</span><span class="v">{canopyTilt.toFixed(1)}°</span></div>
           {/if}
         </div>
         <div class="tgt-row">
