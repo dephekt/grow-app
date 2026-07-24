@@ -123,50 +123,58 @@
       : null
   );
 
-  // Canopy PPFD (center reference). A live Apogee reading is ground truth — shown plain, no badge
-  // (a measurement is presumed the reference). Only fall back to a BADGED estimate when the Apogee is
-  // offline: the lux estimate (≈, EST · LUX) or an uncalibrated state. A spectrometer reference is a
-  // measurement too, so it stays unbadged.
+  // PAR estimated from a DLight's lux via the µmol/lux factor banked in the stored lux anchor. That
+  // factor was derived against a spectrometer frame when the anchor was taken, so this still works
+  // with the spectrometer absent — but not without an anchor to supply the factor.
+  const luxParEstimate = $derived.by(() => {
+    const a = anchors.lux;
+    if (!a || !a.luxValue || a.luxValue <= 0 || !(a.referenceUmol > 0)) return null;
+    if (liveLux == null || liveLux <= 0) return null;
+    return liveLux * (a.referenceUmol / a.luxValue);
+  });
+
+  // Canopy PAR (400–700 nm) in descending order of trust: a selected saved reading populates from its
+  // own data; else the live Apogee quantum sensor (the measurement, unbadged); else a DLight lux
+  // estimate (badged ≈ EST · LUX); else nothing can measure it and we say so.
   const canopy = $derived.by(() => {
     type Badge = { text: string; tone: 'amber' | 'ok' | 'muted' } | null;
-    if (liveApogeePpfd != null) {
+    if (selected) {
       return {
-        ppfd: liveApogeePpfd,
-        prefix: '',
-        dot: 'ok' as '' | 'ok' | 'warn',
+        par: active?.ppfd ?? null,
+        prefix: active?.ppfdSource === 'lux' ? '≈' : '',
+        dot: active?.ppfd != null ? 'ok' : '',
         badge: null as Badge,
-        tol: 5 as number | null,
-        provenance: 'Apogee SQ-521' as string | null
+        tol: active?.reference?.tolerancePct ?? active?.lux?.tolerancePct ?? null,
+        provenance: 'saved reading'
       };
     }
-    const src = active?.ppfdSource ?? null;
+    if (liveApogeePpfd != null) {
+      return { par: liveApogeePpfd, prefix: '', dot: 'ok', badge: null as Badge, tol: 5, provenance: 'Apogee SQ-521' };
+    }
+    if (luxParEstimate != null) {
+      return {
+        par: luxParEstimate,
+        prefix: '≈',
+        dot: 'warn',
+        badge: { text: 'EST · LUX', tone: 'amber' } as Badge,
+        tol: anchors.lux?.tolerancePct ?? 15,
+        provenance: 'estimated from DLight lux'
+      };
+    }
     return {
-      ppfd: active?.ppfd ?? null,
-      prefix: src === 'lux' ? '≈' : '',
-      dot: (src === 'reference' ? 'ok' : active?.ppfd != null ? 'warn' : '') as '' | 'ok' | 'warn',
-      badge: (src === 'lux'
-        ? { text: 'EST · LUX', tone: 'amber' }
-        : active?.ppfd == null
-          ? { text: 'UNCALIBRATED', tone: 'muted' }
-          : null) as Badge,
-      tol: (active?.reference?.tolerancePct ?? active?.lux?.tolerancePct ?? null) as number | null,
-      provenance: null as string | null
+      par: null,
+      prefix: '',
+      dot: '',
+      badge: { text: 'UNAVAILABLE', tone: 'muted' } as Badge,
+      tol: null,
+      provenance: 'no quantum sensor'
     };
   });
-  const livePpfd = $derived(canopy.ppfd);
-  // Secondary flux shown under the Apogee number: the DLight lux estimate, and ePAR = the Apogee PAR
-  // extended into 400–750 nm by the spectrometer's (dimming-independent) far-red share.
-  const canopyLux = $derived(active?.lux?.ppfd ?? null);
+  const livePpfd = $derived(canopy.par);
+  // ePAR (400–750 nm) = the PAR reading extended by the spectrometer's far-red share. Needs a
+  // spectrometer frame (live, or the selected reading's) — unavailable without one.
   const canopyEpar = $derived(
-    liveApogeePpfd != null && active?.farRedRatio != null ? liveApogeePpfd * active.farRedRatio : (active?.epar ?? null)
-  );
-  // How far the DLight lux estimate sits from the trusted Apogee measurement — i.e. the estimate's
-  // error. Only meaningful against a live Apogee; without one the headline may BE the lux estimate,
-  // so a delta would be a meaningless 0.
-  const canopyLuxDelta = $derived(
-    canopyLux != null && liveApogeePpfd != null && liveApogeePpfd > 0
-      ? ((canopyLux - liveApogeePpfd) / liveApogeePpfd) * 100
-      : null
+    canopy.par != null && active?.farRedRatio != null ? canopy.par * active.farRedRatio : null
   );
   const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
   const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
@@ -256,25 +264,22 @@
       <div class="panel stat primary">
         <div class="eyebrow">
           <span class="dot {canopy.dot}"></span>
-          <span class="panel-title">Canopy PPFD</span>
+          <span class="panel-title">Canopy PAR</span>
           {#if canopy.badge}<span class="badge {canopy.badge.tone}">{canopy.badge.text}</span>{/if}
         </div>
         <div class="val">
-          {livePpfd == null ? '—' : `${canopy.prefix}${livePpfd.toFixed(0)}`}<span class="unit">µmol·m⁻²·s⁻¹</span>
+          {canopy.par == null ? '—' : `${canopy.prefix}${canopy.par.toFixed(0)}`}<span class="unit">µmol·m⁻²·s⁻¹</span>
         </div>
         <div class="sub">
-          {canopy.tol != null ? `±${canopy.tol.toFixed(0)}% · ` : ''}{canopy.provenance ?? 'from DLight'}
-          {#if canopy.provenance == null}<span class="mono">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span>{/if}
+          {canopy.tol != null ? `±${canopy.tol.toFixed(0)}% · ` : ''}{canopy.provenance}
         </div>
         <div class="flux-mini">
           <div class="kv">
-            <span class="k">PPFD (lux)</span>
+            <span class="k">ePAR (C12880MA)</span>
             <span class="v">
-              {#if canopyLuxDelta != null}<span class="lux-delta">({canopyLuxDelta >= 0 ? '+' : ''}{canopyLuxDelta.toFixed(0)}%)</span>{/if}
-              {canopyLux == null ? '—' : `≈${canopyLux.toFixed(0)}`}
+              {#if canopyEpar == null}<span class="none">unavailable</span>{:else}{canopyEpar.toFixed(0)}{/if}
             </span>
           </div>
-          <div class="kv"><span class="k">ePAR</span><span class="v">{canopyEpar == null ? '—' : canopyEpar.toFixed(0)}</span></div>
         </div>
         <div class="tgt-row">
           <span class="tgt-lab">{growState.stage.label} {growState.ppfdTarget}</span>
@@ -406,9 +411,6 @@
     font-size: 0.72rem;
     color: var(--muted);
   }
-  .stat .sub .mono {
-    color: var(--text);
-  }
   .flux-mini {
     display: flex;
     flex-direction: column;
@@ -436,10 +438,8 @@
     font-size: 0.78rem;
     color: var(--text);
   }
-  /* The lux estimate's deviation from the Apogee — informational, so deliberately neutral rather than
-     the red/green the target delta uses (an estimate reading low isn't a fault condition). */
-  .flux-mini .lux-delta {
-    color: var(--muted);
+  .flux-mini .none {
+    color: var(--faint);
   }
   .tgt-row {
     display: flex;
