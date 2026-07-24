@@ -5,19 +5,44 @@
   let {
     captures,
     selectedId = null,
-    onSelect
-  }: { captures: CaptureSummary[]; selectedId?: string | null; onSelect: (id: string) => void } = $props();
+    onSelect,
+    collapsible = false
+  }: {
+    captures: CaptureSummary[];
+    selectedId?: string | null;
+    onSelect: (id: string) => void;
+    /** Render the header as a drawer toggle, collapsed by default — used once the page's columns
+     *  stack so a long history doesn't dominate the scroll on a phone. */
+    collapsible?: boolean;
+  } = $props();
+
+  // Closed by default as a drawer, open as a plain card. This re-defaults when the layout crosses the
+  // breakpoint; a manual toggle within one layout sticks (the effect only re-runs when `collapsible` flips).
+  let open = $state(true);
+  $effect(() => {
+    open = !collapsible;
+  });
 
   const fmtTime = (iso: string) => new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
 </script>
 
 <div class="panel history">
-  <div class="panel-head">
-    <span class="panel-title">// HISTORICAL READINGS</span>
-    <span class="count mono">{captures.length}</span>
-  </div>
+  {#if collapsible}
+    <button type="button" class="head-toggle" aria-expanded={open} onclick={() => (open = !open)}>
+      <span class="chev" class:open>▸</span>
+      <span class="panel-title">// HISTORICAL READINGS</span>
+      <span class="count mono">{captures.length}</span>
+    </button>
+  {:else}
+    <div class="panel-head">
+      <span class="panel-title">// HISTORICAL READINGS</span>
+      <span class="count mono">{captures.length}</span>
+    </div>
+  {/if}
 
-  {#if captures.length === 0}
+  {#if !open}
+    <!-- collapsed drawer — the toggle above is the whole card -->
+  {:else if captures.length === 0}
     <p class="empty">No saved readings yet — press Save on a live spectrum.</p>
   {:else}
     <ul class="rows">
@@ -51,6 +76,32 @@
   .count {
     font-size: 0.68rem;
     color: var(--faint);
+  }
+  /* Drawer header (stacked/mobile) — mirrors the fixture card's drawer toggle. */
+  .head-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    text-align: left;
+  }
+  .head-toggle:hover {
+    color: var(--text);
+  }
+  .head-toggle .count {
+    margin-left: auto;
+  }
+  .chev {
+    color: var(--faint);
+    transition: transform 0.12s ease;
+  }
+  .chev.open {
+    transform: rotate(90deg);
   }
   .empty {
     margin: 8px 0 0;
