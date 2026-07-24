@@ -237,14 +237,20 @@ describe('liveQuantumMetric', () => {
   const mv = makeEntity('quantum-sensor', { id: 'qs_mv', name: 'Detector', objectId: 'detector_mv', unit: 'mV' });
   const tilt = makeEntity('quantum-sensor', { id: 'qs_tilt', name: 'Tilt', objectId: 'tilt', unit: '°' });
 
-  it('reads a sibling metric (value + unit) on the quantum device', () => {
+  it('reads a sibling metric value on the quantum device', () => {
     const snap = makeSnapshot([ppfd, mv, tilt]);
     snap.states = {
       [mv.id]: { value: '1.8972', updatedAt: null },
       [tilt.id]: { value: '5.70', updatedAt: null }
     };
-    expect(liveQuantumMetric(snap, 'detector_mv')).toEqual({ value: 1.8972, unit: 'mV' });
-    expect(liveQuantumMetric(snap, 'tilt')).toEqual({ value: 5.7, unit: '°' });
+    expect(liveQuantumMetric(snap, 'detector_mv')).toBe(1.8972);
+    expect(liveQuantumMetric(snap, 'tilt')).toBe(5.7);
+  });
+
+  it('reads a legitimate 0 reading (tilt level / detector dark), not null', () => {
+    const snap = makeSnapshot([ppfd, tilt]);
+    snap.states = { [tilt.id]: { value: '0', updatedAt: null } };
+    expect(liveQuantumMetric(snap, 'tilt')).toBe(0);
   });
 
   it('returns null when the quantum device is offline', () => {
@@ -260,5 +266,12 @@ describe('liveQuantumMetric', () => {
     expect(liveQuantumMetric(snap, 'detector_mv')).toBeNull(); // empty value
     expect(liveQuantumMetric(snap, 'tilt')).toBeNull(); // no such entity on the device
     expect(liveQuantumMetric(makeSnapshot([]), 'detector_mv')).toBeNull(); // no quantum sensor at all
+  });
+
+  it('ignores a same-objectId sibling on a DIFFERENT device', () => {
+    const otherTilt = makeEntity('other-rig', { id: 'other_tilt', name: 'Tilt', objectId: 'tilt', unit: '°' });
+    const snap = makeSnapshot([ppfd, otherTilt]);
+    snap.states = { [otherTilt.id]: { value: '9.9', updatedAt: null } };
+    expect(liveQuantumMetric(snap, 'tilt')).toBeNull();
   });
 });
