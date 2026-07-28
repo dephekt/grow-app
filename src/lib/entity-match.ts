@@ -87,13 +87,21 @@ export function isAirQualityMetric(e: EntityConfig): boolean {
 
 /**
  * The Apogee SQ-521 quantum (PAR) sensor's PPFD entity. Keyed on objectId 'ppfd' (there is no HA
- * device_class for PPFD) with a µmol-unit fallback. isNumericSensor already excludes the sibling
- * diagnostic entities, and the historised detector-mV/tilt siblings carry different objectIds and
- * units, so none of them can match.
+ * device_class for PPFD) with a µmol-unit fallback.
+ *
+ * The unit fallback needs the aggregate guard because the publisher's own daily peak
+ * ('peak_ppfd') carries the IDENTICAL unit as the live reading — unit alone cannot tell a
+ * measurement from a summary of measurements. detector-mV and tilt are excluded by their units,
+ * and the sensor_serial/cal_factor siblings by isNumericSensor, but nothing here can be assumed
+ * about a device that adds another µmol entity later.
  */
 export function isQuantumPpfd(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
   if (e.objectId === 'ppfd') return true;
+  // Anchored to whole id segments, exactly as isAmbientTemperature does, so a legitimate sensor
+  // whose id merely contains "max"/"peak" as a substring is not rejected.
+  const oid = (e.objectId ?? '').toLowerCase();
+  if (/(^|_)(peak|daily|moving|average|avg|min|max|mean|total)(_|$)/.test(oid)) return false;
   const u = (e.unit ?? '').toLowerCase();
   return u.includes('µmol') || u.includes('umol');
 }
@@ -107,12 +115,11 @@ export function isQuantumPpfd(e: EntityConfig): boolean {
 export function findQuantumPpfdEntity(entities: Iterable<EntityConfig>): EntityConfig | undefined {
   let byUnit: EntityConfig | undefined;
   for (const e of entities) {
-    if (!isNumericSensor(e)) continue;
-    if (e.objectId === 'ppfd') return e;
-    if (byUnit === undefined) {
-      const u = (e.unit ?? '').toLowerCase();
-      if (u.includes('µmol') || u.includes('umol')) byUnit = e;
-    }
+    if (e.objectId === 'ppfd' && isNumericSensor(e)) return e;
+    // Delegated rather than re-tested. This used to carry its own copy of the µmol check, which
+    // is how it and isQuantumPpfd could disagree about the same entity — the two are supposed to
+    // be one predicate, and only the exact-id short-circuit is genuinely local to this function.
+    if (byUnit === undefined && isQuantumPpfd(e)) byUnit = e;
   }
   return byUnit;
 }
