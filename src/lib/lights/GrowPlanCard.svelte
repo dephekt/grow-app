@@ -22,7 +22,12 @@
     actualPhotoperiod != null &&
       (actualPhotoperiod.onHours !== growState.onHours || actualPhotoperiod.offHours !== growState.offHours)
   );
-  const dliNow = $derived(livePpfd == null ? null : dliFor(livePpfd, growState.onHours));
+  // A PROJECTION, not a measurement: this instant's PPFD held across the whole planned
+  // photoperiod. It answers "what would today total if nothing changed", so it swings with every
+  // dimmer move and shadow, and it uses the PLANNED hours even when photoperiodMismatch above says
+  // the fixture is running different ones. The measured counterpart — the day's actual integral so
+  // far — is DLI (current) on the Canopy PAR card, fed by the publisher's own integrator.
+  const dliProjected = $derived(livePpfd == null ? null : dliFor(livePpfd, growState.onHours));
   const maxTarget = $derived(Math.max(...growState.weekly.map((w) => w.ppfdTarget)));
 
   const round = (n: number) => Math.round(n);
@@ -65,8 +70,8 @@
       {/if}
     </div>
     <div class="pstat">
-      <span class="k">DLI now / tgt</span>
-      <span class="v">{dliNow == null ? '—' : dliNow.toFixed(1)} <span class="t">/ {growState.dliTarget.toFixed(1)}</span></span>
+      <span class="k">DLI (proj.) / tgt</span>
+      <span class="v">{dliProjected == null ? '—' : dliProjected.toFixed(1)} <span class="t">/ {growState.dliTarget.toFixed(1)}</span></span>
     </div>
     <div class="pstat">
       <span class="k">Photoperiod</span>
