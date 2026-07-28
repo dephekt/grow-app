@@ -149,6 +149,12 @@
   // historical) and whenever the sensor is offline.
   const canopyDetector = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'detector_mv'));
   const canopyTilt = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'tilt'));
+  // The day's light so far, integrated by the publisher rather than extrapolated here. Hidden on a
+  // saved reading for the same reason as the diagnostics above — it is a running total of *now*,
+  // not a property of the historical frame. Its counterpart is the Grow Plan card's DLI (proj.),
+  // which is this instant's PPFD stretched over the planned photoperiod; the two are not the same
+  // quantity and the labels have to say so.
+  const canopyDli = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'dli'));
   const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
   const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
 
@@ -247,6 +253,9 @@
           {canopy.tol != null ? `±${canopy.tol.toFixed(0)}% · ` : ''}{canopy.provenance}
         </div>
         <div class="flux-mini">
+          {#if canopyDli != null}
+            <div class="kv"><span class="k">DLI (current)</span><span class="v">{canopyDli.toFixed(2)} mol</span></div>
+          {/if}
           <div class="kv">
             <span class="k">ePAR (C12880MA)</span>
             <span class="v">
