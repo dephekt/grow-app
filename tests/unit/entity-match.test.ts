@@ -162,6 +162,61 @@ describe('isQuantumPpfd', () => {
     });
     expect(isQuantumPpfd(diag)).toBe(false);
   });
+
+  // The regression. The Apogee publisher emits a daily peak alongside the live reading, and it
+  // carries the identical unit — so the unit fallback, on its own, cannot tell a measurement from
+  // a summary of measurements.
+  it('does not match the daily peak, which shares the live entity\'s exact unit', () => {
+    const peak = makeEntity('quantum-sensor', {
+      id: 'qs_peak',
+      name: 'Peak PPFD today',
+      objectId: 'peak_ppfd',
+      unit: 'µmol/s/m²'
+    });
+    expect(isQuantumPpfd(peak)).toBe(false);
+  });
+
+  it('rejects aggregate ids by whole segment, not by substring', () => {
+    const mk = (objectId: string) =>
+      makeEntity('quantum-sensor', { id: `qs_${objectId}`, name: objectId, objectId, unit: 'µmol/s/m²' });
+    for (const oid of ['peak_ppfd', 'ppfd_max', 'daily_ppfd', 'avg_ppfd', 'ppfd_total']) {
+      expect(isQuantumPpfd(mk(oid)), oid).toBe(false);
+    }
+    // "peakiness" and "maximal" merely CONTAIN an aggregate word; they are not aggregates.
+    for (const oid of ['canopy_par', 'peakiness_par', 'maximal_par']) {
+      expect(isQuantumPpfd(mk(oid)), oid).toBe(true);
+    }
+  });
+});
+
+describe('findQuantumPpfdEntity', () => {
+  const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+  const peak = makeEntity('quantum-sensor', {
+    id: 'qs_peak',
+    name: 'Peak PPFD today',
+    objectId: 'peak_ppfd',
+    unit: 'µmol/s/m²'
+  });
+
+  // Discovery configs arrive retained, in broker order, and the two callers iterate different
+  // collections — the client a name-sorted array, the server an insertion-ordered Map. The
+  // resolver must not depend on which one it got.
+  it('binds to the live reading regardless of iteration order', () => {
+    expect(findQuantumPpfdEntity([ppfd, peak])?.objectId).toBe('ppfd');
+    expect(findQuantumPpfdEntity([peak, ppfd])?.objectId).toBe('ppfd');
+  });
+
+  // The window that mattered: during the retained-discovery burst the peak can arrive first and
+  // be the only µmol entity present. Resolving to it there would anchor a spectrum calibration
+  // against the day's peak instead of the live value — a persisted wrong number, not a glitch.
+  it('resolves to nothing rather than to the peak when the live reading has not arrived yet', () => {
+    expect(findQuantumPpfdEntity([peak])).toBeUndefined();
+  });
+
+  it('still honours the unit fallback for a differently-named live sensor', () => {
+    const alt = makeEntity('quantum-sensor', { id: 'qs_par', name: 'PAR', objectId: 'canopy_par', unit: 'µmol/m²/s' });
+    expect(findQuantumPpfdEntity([alt])?.objectId).toBe('canopy_par');
+  });
 });
 
 describe('liveQuantumPpfd', () => {
