@@ -7,6 +7,7 @@ import { matchStationTopic, normalizeStationState, stationStateTopic } from '$li
 import { parseUiConfigPayload } from './ui-metadata';
 import { parseSpectrumPayload, type RawSpectrumFrame } from './spectrum-metadata';
 import { processSpectrum } from '$lib/spectrum/calibration';
+import { toDialSpectrum } from '$lib/spectrum/dial';
 import { parseLightsConfigPayload } from './light-metadata';
 import { resolveSiteTimeZone } from '$lib/server/settings/site-timezone';
 import { findQuantumPpfdEntity } from '$lib/entity-match';
@@ -54,6 +55,10 @@ export class SiteMqttService {
   private readonly cameraFrames = new Map<string, { bytes: Uint8Array; contentType: string; fetchedAt: number }>();
   private readonly cameraFetches = new Map<string, Promise<{ bytes: Uint8Array; contentType: string } | null>>();
   private readonly latestSpectrumByNode = new Map<string, LiveSpectrum>();
+  /** Last time the dial spectrum was republished, for throttling (see `publishDialSpectrum`). */
+  private lastDialSpectrumAt = 0;
+  /** Whether a non-empty dial spectrum is currently retained, so the "gone" blank is sent once. */
+  private dialSpectrumPresent = false;
   private broker: BrokerSnapshot = {
     connected: false,
     connecting: false,
@@ -297,6 +302,7 @@ export class SiteMqttService {
   private ingestSpectrum(nodeId: string, frame: RawSpectrumFrame | null): void {
     if (!frame) {
       this.latestSpectrumByNode.delete(nodeId);
+      this.publishDialSpectrum(null);
       this.emit({ type: 'spectrum', nodeId, spectrum: null });
       return;
     }
@@ -317,7 +323,44 @@ export class SiteMqttService {
       processed
     };
     this.latestSpectrumByNode.set(nodeId, live);
+    this.publishDialSpectrum(live);
     this.emit({ type: 'spectrum', nodeId, spectrum: live });
+  }
+
+  /**
+   * Republish a compact, wavelength-binned spectrum for the M5Dial's chart screen.
+   *
+   * grow-app is normally a consumer, but the alternative is baking this unit's Hamamatsu
+   * coefficients into ESP32 firmware and splitting calibration in two — so the derived topic wins.
+   * The OpenSprinkler station-state normalization above is the precedent for the app producing a
+   * derived retained topic.
+   *
+   * Retained, because the dial must be able to draw immediately on connect rather than waiting up to
+   * a second for the next frame. Throttled to ~1 Hz: the source publishes at ~1.25 Hz (800 ms/frame)
+   * and the panel cannot usefully show more.
+   *
+   * `null` publishes an EMPTY retained payload, deleting the value from the broker so the dial shows
+   * "no data" instead of a frozen curve — the same convention the Apogee publisher uses when its
+   * sensor goes silent. Guarded by `dialSpectrumPresent` so a persistently absent spectrometer does
+   * not re-publish the blank on every parse failure.
+   */
+  private publishDialSpectrum(live: LiveSpectrum | null): void {
+    const topic = `${this.config.topicPrefix}/_app/spectrum/dial`;
+
+    if (!live) {
+      if (!this.dialSpectrumPresent) return;
+      this.dialSpectrumPresent = false;
+      void this.publishRaw(topic, '', true).catch(() => {});
+      return;
+    }
+
+    const now = Date.now();
+    if (now - this.lastDialSpectrumAt < 1000) return;
+    this.lastDialSpectrumAt = now;
+    this.dialSpectrumPresent = true;
+
+    const payload = JSON.stringify(toDialSpectrum(live.processed, live.seq));
+    void this.publishRaw(topic, payload, true).catch(() => {});
   }
 
   /** Latest processed spectrum for `nodeId`, or the single spectrometer when omitted. */
