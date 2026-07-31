@@ -57,8 +57,8 @@ export class SiteMqttService {
   private readonly latestSpectrumByNode = new Map<string, LiveSpectrum>();
   /** Last time the dial spectrum was republished, for throttling (see `publishDialSpectrum`). */
   private lastDialSpectrumAt = 0;
-  /** Whether a non-empty dial spectrum is currently retained, so the "gone" blank is sent once. */
-  private dialSpectrumPresent = false;
+  /** Node whose spectrum is currently retained on the dial topic, or null if nothing is. */
+  private dialSpectrumOwner: string | null = null;
   private broker: BrokerSnapshot = {
     connected: false,
     connecting: false,
@@ -302,7 +302,7 @@ export class SiteMqttService {
   private ingestSpectrum(nodeId: string, frame: RawSpectrumFrame | null): void {
     if (!frame) {
       this.latestSpectrumByNode.delete(nodeId);
-      this.publishDialSpectrum(null);
+      this.publishDialSpectrum(nodeId, null);
       this.emit({ type: 'spectrum', nodeId, spectrum: null });
       return;
     }
@@ -323,7 +323,7 @@ export class SiteMqttService {
       processed
     };
     this.latestSpectrumByNode.set(nodeId, live);
-    this.publishDialSpectrum(live);
+    this.publishDialSpectrum(nodeId, live);
     this.emit({ type: 'spectrum', nodeId, spectrum: live });
   }
 
@@ -341,21 +341,27 @@ export class SiteMqttService {
    *
    * `null` publishes an EMPTY retained payload, deleting the value from the broker so the dial shows
    * "no data" instead of a frozen curve — the same convention the Apogee publisher uses when its
-   * sensor goes silent. Guarded by `dialSpectrumPresent` so a persistently absent spectrometer does
-   * not re-publish the blank on every parse failure.
+   * sensor goes silent.
+   *
+   * One node owns the topic at a time, tracked in `dialSpectrumOwner`. That keeps a persistently
+   * absent spectrometer from re-publishing the blank on every parse failure, and means a second
+   * spectrometer neither overwrites the owner's curve nor clears it by going silent — it takes over
+   * only once the owner has released the topic.
    */
-  private publishDialSpectrum(live: LiveSpectrum | null): void {
+  private publishDialSpectrum(nodeId: string, live: LiveSpectrum | null): void {
     const topic = `${this.config.topicPrefix}/_app/spectrum/dial`;
 
     if (!live) {
-      if (!this.dialSpectrumPresent) return;
+      if (this.dialSpectrumOwner !== nodeId) return;
       void this.publishRaw(topic, '', true)
         .then(() => {
-          this.dialSpectrumPresent = false;
+          this.dialSpectrumOwner = null;
         })
         .catch(() => {});
       return;
     }
+
+    if (this.dialSpectrumOwner !== null && this.dialSpectrumOwner !== nodeId) return;
 
     const now = Date.now();
     if (now - this.lastDialSpectrumAt < 1000) return;
@@ -364,7 +370,7 @@ export class SiteMqttService {
     const payload = JSON.stringify(toDialSpectrum(live.processed, live.seq));
     void this.publishRaw(topic, payload, true)
       .then(() => {
-        this.dialSpectrumPresent = true;
+        this.dialSpectrumOwner = nodeId;
       })
       .catch(() => {});
   }
