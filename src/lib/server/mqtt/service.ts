@@ -336,8 +336,8 @@ export class SiteMqttService {
    * derived retained topic.
    *
    * Retained, because the dial must be able to draw immediately on connect rather than waiting up to
-   * a second for the next frame. Throttled to ~1 Hz: the source publishes at ~1.25 Hz (800 ms/frame)
-   * and the panel cannot usefully show more.
+   * a second for the next frame. Throttled to at most one publish per second, which against the
+   * source's ~800 ms frames lands every other frame — so the panel updates about every 1.6 s.
    *
    * `null` publishes an EMPTY retained payload, deleting the value from the broker so the dial shows
    * "no data" instead of a frozen curve — the same convention the Apogee publisher uses when its
@@ -349,18 +349,24 @@ export class SiteMqttService {
 
     if (!live) {
       if (!this.dialSpectrumPresent) return;
-      this.dialSpectrumPresent = false;
-      void this.publishRaw(topic, '', true).catch(() => {});
+      void this.publishRaw(topic, '', true)
+        .then(() => {
+          this.dialSpectrumPresent = false;
+        })
+        .catch(() => {});
       return;
     }
 
     const now = Date.now();
     if (now - this.lastDialSpectrumAt < 1000) return;
     this.lastDialSpectrumAt = now;
-    this.dialSpectrumPresent = true;
 
     const payload = JSON.stringify(toDialSpectrum(live.processed, live.seq));
-    void this.publishRaw(topic, payload, true).catch(() => {});
+    void this.publishRaw(topic, payload, true)
+      .then(() => {
+        this.dialSpectrumPresent = true;
+      })
+      .catch(() => {});
   }
 
   /** Latest processed spectrum for `nodeId`, or the single spectrometer when omitted. */
