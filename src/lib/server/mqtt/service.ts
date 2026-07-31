@@ -347,17 +347,20 @@ export class SiteMqttService {
    * absent spectrometer from re-publishing the blank on every parse failure, and means a second
    * spectrometer neither overwrites the owner's curve nor clears it by going silent — it takes over
    * only once the owner has released the topic.
+   *
+   * Ownership moves synchronously and is rolled back if the publish rejects. Doing it in `.then()`
+   * instead would let two in-flight publishes settle out of order and leave the owner disagreeing
+   * with what is actually retained.
    */
   private publishDialSpectrum(nodeId: string, live: LiveSpectrum | null): void {
     const topic = `${this.config.topicPrefix}/_app/spectrum/dial`;
 
     if (!live) {
       if (this.dialSpectrumOwner !== nodeId) return;
-      void this.publishRaw(topic, '', true)
-        .then(() => {
-          this.dialSpectrumOwner = null;
-        })
-        .catch(() => {});
+      this.dialSpectrumOwner = null;
+      void this.publishRaw(topic, '', true).catch(() => {
+        if (this.dialSpectrumOwner === null) this.dialSpectrumOwner = nodeId;
+      });
       return;
     }
 
@@ -367,12 +370,13 @@ export class SiteMqttService {
     if (now - this.lastDialSpectrumAt < 1000) return;
     this.lastDialSpectrumAt = now;
 
+    const previousOwner = this.dialSpectrumOwner;
+    this.dialSpectrumOwner = nodeId;
+
     const payload = JSON.stringify(toDialSpectrum(live.processed, live.seq));
-    void this.publishRaw(topic, payload, true)
-      .then(() => {
-        this.dialSpectrumOwner = nodeId;
-      })
-      .catch(() => {});
+    void this.publishRaw(topic, payload, true).catch(() => {
+      if (this.dialSpectrumOwner === nodeId) this.dialSpectrumOwner = previousOwner;
+    });
   }
 
   /** Latest processed spectrum for `nodeId`, or the single spectrometer when omitted. */
