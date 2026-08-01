@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { defineConfig, devices } from '@playwright/test';
 
 // The setup project logs in through the real UI and writes a storage state that

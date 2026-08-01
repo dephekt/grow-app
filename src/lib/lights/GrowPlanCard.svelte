@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Daniel Snider -->
+
 <script lang="ts">
   import { dliFor, buildGuidance, STAGES, type GrowState, type StageKey } from '$lib/lights/grow-plan';
 

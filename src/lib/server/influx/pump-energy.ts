@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { getInfluxConfig, getInfluxDB } from './client';
 import { READING_MEASUREMENT, escapeFluxString } from './query';
 

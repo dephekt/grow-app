@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import type { DatabaseSync } from 'node:sqlite';
 import type { BootstrapAdmin } from '$lib/server/auth/config';
 import { hashPassword } from '$lib/server/auth/passwords';

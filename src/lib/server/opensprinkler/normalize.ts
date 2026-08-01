@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * OpenSprinkler status normalization. OS publishes station state as JSON
  * (`{"state":1,"duration":5}`), but grow-app's discovery pipeline stores the raw

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { expect, test } from '@playwright/test';
 
 // Exercises the OIDC auth-code flow against the mock OpenID Provider configured in

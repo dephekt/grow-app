@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * Trend domains + the chart's data contract, shared by the dashboard panel
  * (`TrendsPanel`), the chart (`TrendsChart`), and the server-side resolver

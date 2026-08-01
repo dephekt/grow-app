@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { describe, expect, it } from 'vitest';
 import { dashboardPresentation, deviceSettingsPresentation } from '../../src/lib/device-presentation';
 import type { EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';

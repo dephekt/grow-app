@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { error, redirect } from '@sveltejs/kit';
 import type { UserSummary } from '$lib/server/auth/users';
 

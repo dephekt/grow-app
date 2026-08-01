@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * OpenSprinkler MQTT command strings. OS parses commands from its Subscribe Topic
  * as HTTP-API query strings, dispatching on the first two chars: `cm`=manual run,

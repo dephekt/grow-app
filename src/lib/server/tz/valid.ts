@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * Whether the platform's `Intl` accepts `tz` as an IANA zone. Constructing a formatter
  * with a bad zone throws `RangeError` — which, if it reached tz math or the POSIX

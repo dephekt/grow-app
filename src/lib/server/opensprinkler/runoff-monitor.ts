@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 import type { EntityConfig, SnapshotEvent } from '$lib/server/mqtt/types';
 import { RUNOFF_NODE, RUNOFF_DRAW_MIN_W } from '$lib/irrigation/model';

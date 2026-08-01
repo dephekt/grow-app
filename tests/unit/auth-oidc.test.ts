@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { afterEach, describe, expect, it } from 'vitest';
 import { openAuthDb } from '$lib/server/auth/db';
 import { createLocalUser, getUserByOidc, getUserByUsername, upsertOidcUser } from '$lib/server/auth/users';

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { dev } from '$app/environment';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';

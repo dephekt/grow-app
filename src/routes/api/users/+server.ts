@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAuthDb } from '$lib/server/auth/db';

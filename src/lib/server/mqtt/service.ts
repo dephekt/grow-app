@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import mqtt, { type MqttClient } from 'mqtt';
 import { EventEmitter } from 'node:events';
 import { randomBytes } from 'node:crypto';

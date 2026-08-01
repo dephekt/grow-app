@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Daniel Snider -->
+
 <script lang="ts">
   import MixCalculator from '$lib/mixing/MixCalculator.svelte';
   import { mix, fmtDose, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_PROCEDURES, MEDIUM, feedTargetForStage } from '$lib/mixing/athena';

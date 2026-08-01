@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { getSiteMqttService, type SiteMqttService } from '$lib/server/mqtt/service';
 import type { SnapshotEvent } from '$lib/server/mqtt/types';
 import { getOpenSprinklerConfig, type OpenSprinklerConfig } from './config';

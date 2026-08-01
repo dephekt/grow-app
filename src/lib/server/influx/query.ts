@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { getInfluxConfig, getInfluxDB } from './client';
 
 export type HistoryRange = '1h' | '3h' | '6h' | '12h' | '24h';

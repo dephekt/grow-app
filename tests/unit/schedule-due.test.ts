@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { describe, expect, it } from 'vitest';
 import { computeScheduleDue } from '../../src/lib/server/opensprinkler/schedule-due';
 import { zonedMinutesToInstant } from '../../src/lib/server/opensprinkler/schedule-time';

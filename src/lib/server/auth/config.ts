@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { env, intEnv, secretEnv } from '$lib/server/env';
 
 /** Session cookie name. Distinct per app; not `__Host-` prefixed because the LAN

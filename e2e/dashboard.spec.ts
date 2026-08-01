@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dashboardSnapshot as snapshot } from './fixtures/dashboard-snapshot';
 import { liveSnapshot } from './fixtures/live-snapshot';

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { describe, expect, it } from 'vitest';
 import { buildCommandPublish, parseDiscoveryPayload, parseDiscoveryTopic } from '../../src/lib/server/mqtt/discovery';
 import { SiteMqttService } from '../../src/lib/server/mqtt/service';

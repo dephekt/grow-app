@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import type { DatabaseSync } from 'node:sqlite';
 import { IRRIGATION_NODE, RUNOFF_NODE, PUMP_DRAW_MIN_W } from '$lib/irrigation/model';
 

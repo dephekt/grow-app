@@ -146,3 +146,18 @@ grow Compose file or secrets need to be synced first.
 If a change also edits `grow-fleet` device UI metadata, deploy the app first,
 then update or republish the affected device discovery/UI config so the retained
 MQTT metadata matches the new layout.
+
+## License
+
+Copyright (c) 2026 Daniel Snider.
+
+Licensed under the **GNU Affero General Public License, version 3 or later**
+(AGPL-3.0-or-later). The full text is in [LICENSE](LICENSE).
+
+The AGPL is the copyleft license written for network-delivered software: if you
+run a modified version of this app and let anyone reach it over a network, you
+must offer those users the corresponding source. Plain GPL would not require
+that, because hosting is not distribution.
+
+Contributions require an explicit license grant beyond the AGPL — see
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.

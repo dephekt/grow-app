@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { createHash } from 'node:crypto';
 import { env, secretEnv } from '$lib/server/env';
 import type { FirmwareChannel, FirmwareDeviceConfig } from '$lib/server/mqtt/types';

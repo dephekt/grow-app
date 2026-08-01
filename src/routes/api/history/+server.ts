@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { json } from '@sveltejs/kit';
 import { isInfluxConfigured } from '$lib/server/influx/client';
 import { DEFAULT_HISTORY_RANGE, isHistoryRange, queryHistory } from '$lib/server/influx/query';

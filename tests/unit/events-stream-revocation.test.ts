@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // The events route opens a live MQTT-backed SSE stream and, in dev, may short out

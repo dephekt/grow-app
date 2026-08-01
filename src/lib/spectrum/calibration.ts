@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * C12880MA spectral science — the single place all calibration/physics lives.
  *

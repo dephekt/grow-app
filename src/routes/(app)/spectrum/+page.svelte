@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Daniel Snider -->
+
 <!-- Retired: the spectrum view now lives on the Lights page. +page.ts redirects to /lights before
      this renders; this stub exists only so the route resolves. -->
 <script lang="ts">

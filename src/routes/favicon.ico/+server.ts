@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="grow-app">
   <rect width="64" height="64" rx="14" fill="#17211d"/>
   <path d="M18 39c0-14 10-24 28-25 1 18-8 30-24 31 3-9 9-16 18-22-12 4-20 12-22 24" fill="#7ccf7a"/>

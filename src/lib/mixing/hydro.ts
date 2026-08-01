@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * Live batch readings for the Mixing page — the hydro kit's EC + pH, pulled from the shared
  * snapshot. Matched by device_class (`conductivity` / `ph`) so it doesn't hinge on a specific

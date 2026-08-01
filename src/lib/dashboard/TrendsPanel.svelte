@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Daniel Snider -->
+
 <script lang="ts">
   import TrendsChart from '$lib/TrendsChart.svelte';
   import { DEFAULT_TREND_DOMAIN, TREND_DOMAINS, type TrendDomain, type TrendSeries } from '$lib/trends';

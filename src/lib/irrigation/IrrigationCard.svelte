@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Daniel Snider -->
+
 <script lang="ts">
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
   import type { EntityConfig } from '$lib/server/mqtt/types';

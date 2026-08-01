@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * The grow's light plan: per-week center-canopy PPFD targets, photoperiod by stage, and the
  * derived DLI + fixture-placement guidance. This is the ONE config to edit per grow — everything

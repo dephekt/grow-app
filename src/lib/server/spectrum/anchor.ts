@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { getSettingsDb } from '$lib/server/settings/db';
 import type { AnchorCalibration, AnchorSource, SpectroConfig } from '$lib/spectrum/calibration';
 

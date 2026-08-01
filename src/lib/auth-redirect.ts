@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * Only allow same-site absolute paths as a post-login redirect target, to avoid
  * an open redirect via `?next=`. Rejects protocol-relative (`//host`) and its

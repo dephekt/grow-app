@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Daniel Snider -->
+
 <script lang="ts">
   // Spectral Power Distribution: 0–100% relative power vs wavelength, filled with a
   // spectral rainbow gradient (Pulse-style). Forks the Sparkline SVG technique with a

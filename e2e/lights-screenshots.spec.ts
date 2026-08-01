@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { expect, test } from '@playwright/test';
 import { liveSnapshot } from './fixtures/live-snapshot';
 import glData from './fixtures/grow-light-data.json' assert { type: 'json' };

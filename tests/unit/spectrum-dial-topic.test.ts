@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteMqttService } from '../../src/lib/server/mqtt/service';
 import type { LiveSpectrum } from '../../src/lib/server/mqtt/types';

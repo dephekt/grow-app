@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { describe, it, expect } from 'vitest';
 import { WAVELENGTHS, PIXEL_COUNT } from '$lib/spectrum/calibration';
 import { toDialSpectrum, DIAL_BIN_COUNT, DIAL_RANGE_NM } from '$lib/spectrum/dial';

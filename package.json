@@ -2,6 +2,12 @@
   "name": "grow-app",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
+  "author": "Daniel Snider <dan@dephekt.net>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dephekt/grow-app.git"
+  },
   "type": "module",
   "packageManager": "pnpm@11.5.3",
   "engines": {

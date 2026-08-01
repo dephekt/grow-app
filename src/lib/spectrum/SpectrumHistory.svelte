@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Daniel Snider -->
+
 <script lang="ts">
   import Sparkline from '$lib/Sparkline.svelte';
   import type { CaptureSummary } from '$lib/server/spectrum/captures';

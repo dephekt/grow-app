@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * Pure resolution of the Lights-page Canopy PAR card from the available sources, in descending
  * order of trust. Extracted from the page component so the fallback/badging logic is unit-testable

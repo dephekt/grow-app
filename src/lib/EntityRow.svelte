@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Daniel Snider -->
+
 <script lang="ts">
   import type { PresentedEntity } from '$lib/device-presentation';
   import type { EntityConfig, EntityState } from '$lib/server/mqtt/types';

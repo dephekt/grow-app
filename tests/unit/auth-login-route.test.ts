@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { beforeAll, describe, expect, it } from 'vitest';
 import { POST } from '../../src/routes/auth/login/+server';
 import { getAuthDb } from '$lib/server/auth/db';

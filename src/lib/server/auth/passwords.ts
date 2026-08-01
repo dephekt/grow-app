@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 
 // scrypt cost parameters. N=2^15 is comfortably above interactive-login guidance

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import type { BrokerSnapshot, EntityConfig, EntityState, FirmwareSnapshot, LiveSpectrum, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
 import { formatEntityState } from '$lib/state-format';
 

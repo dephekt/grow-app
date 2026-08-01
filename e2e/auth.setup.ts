@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { expect, test as setup } from '@playwright/test';
 
 const authFile = '.playwright/state.json';

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 /**
  * Pure derivation of the Lights-page "spectrum photon-share" readout rows from a ProcessedSpectrum —
  * the peak wavelength and the blue/green/red/far-red band shares. Kept out of the components so the

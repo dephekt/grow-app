@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import { describe, expect, it } from 'vitest';
 import { normalizeSnapshot } from '../../src/lib/live-snapshot.svelte';
 import type { Snapshot } from '../../src/lib/server/mqtt/types';

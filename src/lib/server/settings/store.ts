@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 import type { DatabaseSync } from 'node:sqlite';
 
 /** Generic KV read: the stored string for `key`, or undefined when absent. Takes
