@@ -4,6 +4,11 @@
 import type { EntityConfig, EntityState } from '$lib/server/mqtt/types';
 import { toTimeInputValue } from '$lib/time-entity';
 
+// ESPHome publishes these literals when a numeric sensor cannot produce a reading — an unplugged
+// probe, a bus error, a divide-by-zero in a template. The payload is retained, so it outlives the
+// condition and is indistinguishable from a real value until parsed.
+const NO_READING_MARKERS = new Set(['nan', 'inf', '+inf', '-inf', 'infinity', '+infinity', '-infinity']);
+
 function formattedNumericValue(value: string, precision: number | undefined): string {
   if (precision === undefined) return value;
 
@@ -27,6 +32,10 @@ export function formatEntityState(entity: EntityConfig, state: EntityState): str
     const display = toTimeInputValue(state.value);
     return display === '' ? 'No state yet' : display;
   }
+
+  // Checked before the numeric path because formattedNumericValue passes an unparseable value
+  // through verbatim, which then collects the unit and renders as "nan lx".
+  if (NO_READING_MARKERS.has(state.value.trim().toLowerCase())) return '—';
 
   const value = formattedNumericValue(state.value, entity.suggestedDisplayPrecision);
   return entity.unit ? `${value} ${entity.unit}` : value;
