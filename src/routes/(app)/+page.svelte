@@ -3,7 +3,14 @@
 
 <script lang="ts">
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
-  import { resolveAirQualityDevice, resolveClimateDevice, resolveWaterDevice } from '$lib/entity-match';
+  import {
+    findQuantumPpfdEntity,
+    hasLiveReading,
+    liveQuantumPpfd,
+    resolveAirQualityDevice,
+    resolveClimateDevice,
+    resolveWaterDevice
+  } from '$lib/entity-match';
   import { presentedNumericMetrics } from '$lib/device-presentation';
   import type { DeviceSnapshot } from '$lib/server/mqtt/types';
   import TrendsPanel from '$lib/dashboard/TrendsPanel.svelte';
@@ -24,15 +31,34 @@
 
   function metricRows(device: DeviceSnapshot | undefined, stripPrefix = ''): Row[] {
     if (!device) return [];
-    return presentedNumericMetrics(live.snapshot, device, stripPrefix).map((m) => ({
-      label: m.label,
-      value: live.formatState(m.entity),
-      status: 'ok'
-    }));
+    return presentedNumericMetrics(live.snapshot, device, stripPrefix)
+      .filter((m) => hasLiveReading(live.snapshot, m.entity))
+      .map((m) => ({
+        label: m.label,
+        value: live.formatState(m.entity),
+        status: 'ok'
+      }));
   }
 
   let waterRows = $derived(metricRows(waterDevice, 'Water '));
-  let climateRows = $derived(metricRows(climateDevice));
+
+  // Canopy PAR from the Apogee SQ-521. It lives on its own publisher node rather than the climate
+  // rig, so it cannot arrive through presentedNumericMetrics and is appended here instead.
+  // liveQuantumPpfd gates on that publisher's availability (a crashed one leaves a retained scalar)
+  // and clamps the dark-offset noise quantum sensors read in darkness.
+  //
+  // The DLight's illuminance row still arrives with the climate device's own metrics, so the pair
+  // is independent by construction: PAR alone, lux alone, both, or — once the filter above drops
+  // an unplugged sensor's `nan` — neither.
+  let parRow = $derived.by<Row | null>(() => {
+    const ppfd = liveQuantumPpfd(live.snapshot);
+    if (ppfd === null) return null;
+    const entity = findQuantumPpfdEntity(live.snapshot.entities);
+    const decimals = entity?.suggestedDisplayPrecision ?? 0;
+    return { label: 'PAR', value: `${ppfd.toFixed(decimals)} ${entity?.unit ?? 'µmol'}`, status: 'ok' };
+  });
+
+  let climateRows = $derived([...metricRows(climateDevice), ...(parRow ? [parRow] : [])]);
 
   // The particulate/gas monitor (PM, VOC, NOx) feeds AIR QUALITY. Resolved by its
   // air-quality metrics so it gets its own card even though it also reports CO₂.

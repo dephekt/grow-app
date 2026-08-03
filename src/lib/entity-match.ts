@@ -134,6 +134,19 @@ export function hasQuantumPpfd(snapshot: Snapshot): boolean {
 }
 
 /**
+ * Whether a numeric entity currently carries a usable reading. Registration is not enough: a probe
+ * that has been unplugged keeps its discovery config and its last retained state, and ESPHome
+ * publishes `nan` rather than clearing the topic — so the entity looks present and reads as a
+ * value until it is parsed. Callers that render a row per entity use this to drop the row instead
+ * of printing the marker.
+ */
+export function hasLiveReading(snapshot: Snapshot, entity: EntityConfig): boolean {
+  const raw = snapshot.states[entity.id]?.value;
+  if (raw == null || raw.trim() === '') return false;
+  return Number.isFinite(Number(raw));
+}
+
+/**
  * The live Apogee PPFD (µmol·m⁻²·s⁻¹) from the snapshot, or null when the sensor is absent, its
  * value is missing / empty / unparseable, or its owning device is offline — a crashed publisher
  * leaves its retained PPFD scalar on the broker, and treating that as live would pin the canopy

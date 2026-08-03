@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   findQuantumPpfdEntity,
+  hasLiveReading,
   hasQuantumPpfd,
   isAirQualityMetric,
   isQuantumPpfd,
@@ -331,5 +332,38 @@ describe('liveQuantumMetric', () => {
     const snap = makeSnapshot([ppfd, otherTilt]);
     snap.states = { [otherTilt.id]: { value: '9.9', updatedAt: null } };
     expect(liveQuantumMetric(snap, 'tilt')).toBeNull();
+  });
+});
+
+describe('hasLiveReading', () => {
+  const lux = makeEntity('climate-rig', {
+    id: 'rig_illuminance',
+    name: 'Illuminance',
+    objectId: 'illuminance',
+    deviceClass: 'illuminance',
+    unit: 'lx'
+  });
+
+  function snapshotWithLux(value: string | undefined): Snapshot {
+    const snap = makeSnapshot([climateRigCo2, lux]);
+    return value === undefined ? snap : { ...snap, states: { [lux.id]: { value, updatedAt: null } } };
+  }
+
+  it('accepts a real reading, including zero', () => {
+    expect(hasLiveReading(snapshotWithLux('812.4'), lux)).toBe(true);
+    expect(hasLiveReading(snapshotWithLux('0'), lux)).toBe(true);
+  });
+
+  // The unplugged-probe case: the entity is still registered and still retained, so presence of the
+  // entity says nothing about whether there is anything to show.
+  it('rejects the markers ESPHome publishes when a sensor cannot read', () => {
+    expect(hasLiveReading(snapshotWithLux('nan'), lux)).toBe(false);
+    expect(hasLiveReading(snapshotWithLux('-inf'), lux)).toBe(false);
+  });
+
+  it('rejects a missing or blank state without reading blank as zero', () => {
+    expect(hasLiveReading(snapshotWithLux(undefined), lux)).toBe(false);
+    expect(hasLiveReading(snapshotWithLux(''), lux)).toBe(false);
+    expect(hasLiveReading(snapshotWithLux('   '), lux)).toBe(false);
   });
 });
