@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   findQuantumPpfdEntity,
-  hasLiveReading,
+  hasUnreadableState,
   hasQuantumPpfd,
   isAirQualityMetric,
   isQuantumPpfd,
@@ -335,7 +335,7 @@ describe('liveQuantumMetric', () => {
   });
 });
 
-describe('hasLiveReading', () => {
+describe('hasUnreadableState', () => {
   const lux = makeEntity('climate-rig', {
     id: 'rig_illuminance',
     name: 'Illuminance',
@@ -349,21 +349,21 @@ describe('hasLiveReading', () => {
     return value === undefined ? snap : { ...snap, states: { [lux.id]: { value, updatedAt: null } } };
   }
 
-  it('accepts a real reading, including zero', () => {
-    expect(hasLiveReading(snapshotWithLux('812.4'), lux)).toBe(true);
-    expect(hasLiveReading(snapshotWithLux('0'), lux)).toBe(true);
+  it('flags the markers ESPHome publishes when a sensor cannot read', () => {
+    expect(hasUnreadableState(snapshotWithLux('nan'), lux)).toBe(true);
+    expect(hasUnreadableState(snapshotWithLux('-inf'), lux)).toBe(true);
+    expect(hasUnreadableState(snapshotWithLux(' NaN '), lux)).toBe(true);
   });
 
-  // The unplugged-probe case: the entity is still registered and still retained, so presence of the
-  // entity says nothing about whether there is anything to show.
-  it('rejects the markers ESPHome publishes when a sensor cannot read', () => {
-    expect(hasLiveReading(snapshotWithLux('nan'), lux)).toBe(false);
-    expect(hasLiveReading(snapshotWithLux('-inf'), lux)).toBe(false);
+  it('does not flag a real reading, including zero', () => {
+    expect(hasUnreadableState(snapshotWithLux('812.4'), lux)).toBe(false);
+    expect(hasUnreadableState(snapshotWithLux('0'), lux)).toBe(false);
   });
 
-  it('rejects a missing or blank state without reading blank as zero', () => {
-    expect(hasLiveReading(snapshotWithLux(undefined), lux)).toBe(false);
-    expect(hasLiveReading(snapshotWithLux(''), lux)).toBe(false);
-    expect(hasLiveReading(snapshotWithLux('   '), lux)).toBe(false);
+  // "Has not reported yet" is a different statement from "cannot read": a booting device should
+  // keep its rows and show the placeholder, not look like it has no sensors.
+  it('does not flag an entity that has simply not reported yet', () => {
+    expect(hasUnreadableState(snapshotWithLux(undefined), lux)).toBe(false);
+    expect(hasUnreadableState(snapshotWithLux(''), lux)).toBe(false);
   });
 });

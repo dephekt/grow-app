@@ -5,12 +5,13 @@
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import {
     findQuantumPpfdEntity,
-    hasLiveReading,
+    hasUnreadableState,
     liveQuantumPpfd,
     resolveAirQualityDevice,
     resolveClimateDevice,
     resolveWaterDevice
   } from '$lib/entity-match';
+  import { formatEntityState } from '$lib/state-format';
   import { presentedNumericMetrics } from '$lib/device-presentation';
   import type { DeviceSnapshot } from '$lib/server/mqtt/types';
   import TrendsPanel from '$lib/dashboard/TrendsPanel.svelte';
@@ -32,7 +33,7 @@
   function metricRows(device: DeviceSnapshot | undefined, stripPrefix = ''): Row[] {
     if (!device) return [];
     return presentedNumericMetrics(live.snapshot, device, stripPrefix)
-      .filter((m) => hasLiveReading(live.snapshot, m.entity))
+      .filter((m) => !hasUnreadableState(live.snapshot, m.entity))
       .map((m) => ({
         label: m.label,
         value: live.formatState(m.entity),
@@ -54,8 +55,13 @@
     const ppfd = liveQuantumPpfd(live.snapshot);
     if (ppfd === null) return null;
     const entity = findQuantumPpfdEntity(live.snapshot.entities);
-    const decimals = entity?.suggestedDisplayPrecision ?? 0;
-    return { label: 'PAR', value: `${ppfd.toFixed(decimals)} ${entity?.unit ?? 'µmol'}`, status: 'ok' };
+    if (!entity) return null;
+    // Formatted through the shared path rather than by hand: it clamps precision before calling
+    // toFixed, so a discovery config carrying an out-of-range value degrades instead of throwing a
+    // RangeError inside this derivation. The publisher declares no precision, so PPFD defaults to
+    // whole µmol — matching how the Lights page renders the same sensor.
+    const display = { ...entity, suggestedDisplayPrecision: entity.suggestedDisplayPrecision ?? 0 };
+    return { label: 'PAR', value: formatEntityState(display, { value: String(ppfd), updatedAt: null }), status: 'ok' };
   });
 
   let climateRows = $derived([...metricRows(climateDevice), ...(parRow ? [parRow] : [])]);

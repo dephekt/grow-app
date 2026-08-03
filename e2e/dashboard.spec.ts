@@ -615,7 +615,16 @@ test('shows neither readout, and never the nan marker, when neither sensor reads
   const climate = await climatePanel(page, { lux: 'nan', par: null });
   await expect(climate).not.toContainText('Illuminance');
   await expect(climate).not.toContainText('PAR');
-  await expect(climate).not.toContainText('nan');
+  await expect(climate).not.toContainText(/\bnan\b/i);
   // The panel still exists for the rest of the climate rig's metrics.
   await expect(climate).toContainText('827');
+});
+
+// Regression for the narrowed predicate: dropping rows on "cannot read" must not also drop rows on
+// "has not reported yet", or a freshly-booted device reads as having no sensors at all.
+test('keeps a not-yet-reported metric visible instead of dropping its row', async ({ page }) => {
+  const climate = await climatePanel(page, { lux: null, par: null });
+  await expect(climate).toContainText('Illuminance');
+  await expect(climate).toContainText('No state yet');
+  await expect(climate).not.toContainText(/\bnan\b/i);
 });

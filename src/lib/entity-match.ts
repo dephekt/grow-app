@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import type { DeviceSnapshot, EntityConfig, Snapshot } from '$lib/server/mqtt/types';
+import { isNoReadingValue } from '$lib/state-format';
 
 /**
  * Shared entity recognisers + device resolvers used by both the dashboard
@@ -134,16 +135,21 @@ export function hasQuantumPpfd(snapshot: Snapshot): boolean {
 }
 
 /**
- * Whether a numeric entity currently carries a usable reading. Registration is not enough: a probe
- * that has been unplugged keeps its discovery config and its last retained state, and ESPHome
- * publishes `nan` rather than clearing the topic — so the entity looks present and reads as a
- * value until it is parsed. Callers that render a row per entity use this to drop the row instead
- * of printing the marker.
+ * Whether an entity has published a value it cannot actually report. A probe that has been
+ * unplugged keeps its discovery config and its last retained state, and ESPHome republishes `nan`
+ * rather than clearing the topic — so the entity looks present and reads as a value until parsed.
+ * Callers that render a row per entity use this to drop the row instead of printing the marker.
+ *
+ * Deliberately narrower than "has no usable number": an entity that has simply not reported yet is
+ * not unreadable, and keeps rendering its own "No state yet" placeholder. Dropping those too would
+ * make a freshly-booted device look like it had no sensors rather than like it was still starting.
+ *
+ * Shares isNoReadingValue with the formatter so row-dropping and placeholder-rendering cannot
+ * disagree about what counts as unreadable.
  */
-export function hasLiveReading(snapshot: Snapshot, entity: EntityConfig): boolean {
+export function hasUnreadableState(snapshot: Snapshot, entity: EntityConfig): boolean {
   const raw = snapshot.states[entity.id]?.value;
-  if (raw == null || raw.trim() === '') return false;
-  return Number.isFinite(Number(raw));
+  return raw != null && isNoReadingValue(raw);
 }
 
 /**
