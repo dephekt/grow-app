@@ -536,3 +536,95 @@ test('blocks apply until the device-side latest version matches the package', as
   await expect(updates.getByRole('button', { name: 'Apply' })).toBeDisabled();
   await expect(updates).toContainText('Run Check first');
 });
+
+// The CLIMATE panel's two light readouts come from different nodes: the DLight's illuminance rides
+// in with the climate rig's own declared metrics, while the Apogee SQ-521's PAR lives on its own
+// publisher and is appended separately. Each appears only when it has a live reading, so all four
+// combinations are pinned here rather than just the happy path.
+const apogeeEntity = {
+  id: 'quantum-ppfd',
+  uniqueId: 'quantum_sensor_ppfd',
+  component: 'sensor',
+  name: 'PPFD',
+  objectId: 'ppfd',
+  nodeId: 'quantum-sensor',
+  unit: 'µmol',
+  suggestedDisplayPrecision: 0,
+  device: { identifiers: ['quantum-sensor'], name: 'Quantum Sensor', model: 'Apogee SQ-521' },
+  payloadAvailable: 'online',
+  payloadNotAvailable: 'offline',
+  dangerous: false,
+  writable: false,
+  raw: {}
+};
+
+const apogeeDevice = {
+  id: 'quantum-sensor',
+  nodeId: 'quantum-sensor',
+  name: 'Quantum Sensor',
+  model: 'Apogee SQ-521',
+  availability: 'online',
+  entityIds: ['quantum-ppfd']
+};
+
+// `lux: 'nan'` is the real unplugged-DLight payload: ESPHome keeps republishing the retained topic
+// with a marker rather than clearing it, which is what used to render as "nan lx".
+function climateSnapshot(opts: { lux: string | null; par: string | null }) {
+  const at = '2026-07-19T14:32:00.000Z';
+  const states: Record<string, { value: string; updatedAt: string }> = { ...liveSnapshot.states };
+  if (opts.lux === null) delete states.espsensorilluminance;
+  else states.espsensorilluminance = { value: opts.lux, updatedAt: at };
+  if (opts.par !== null) states['quantum-ppfd'] = { value: opts.par, updatedAt: at };
+
+  return {
+    ...liveSnapshot,
+    devices: opts.par === null ? liveSnapshot.devices : [...liveSnapshot.devices, apogeeDevice],
+    entities: opts.par === null ? liveSnapshot.entities : [...liveSnapshot.entities, apogeeEntity],
+    states
+  };
+}
+
+async function climatePanel(page: Page, opts: { lux: string | null; par: string | null }) {
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: climateSnapshot(opts) }));
+  await page.goto('/');
+  await expect(page.getByText('DANIEL-HOME')).toBeVisible();
+  return page.locator('.climate-area');
+}
+
+test('shows illuminance alone when only the DLight reads', async ({ page }) => {
+  const climate = await climatePanel(page, { lux: '41.3', par: null });
+  await expect(climate).toContainText('Illuminance');
+  await expect(climate).not.toContainText('PAR');
+});
+
+test('shows PAR alone when only the Apogee reads', async ({ page }) => {
+  const climate = await climatePanel(page, { lux: 'nan', par: '412' });
+  await expect(climate).toContainText('PAR');
+  await expect(climate).toContainText('412 µmol');
+  await expect(climate).not.toContainText('Illuminance');
+});
+
+test('shows both readouts when both sensors read', async ({ page }) => {
+  const climate = await climatePanel(page, { lux: '41.3', par: '412' });
+  await expect(climate).toContainText('Illuminance');
+  await expect(climate).toContainText('PAR');
+});
+
+test('shows neither readout, and never the nan marker, when neither sensor reads', async ({ page }) => {
+  const climate = await climatePanel(page, { lux: 'nan', par: null });
+  await expect(climate).not.toContainText('Illuminance');
+  await expect(climate).not.toContainText('PAR');
+  await expect(climate).not.toContainText(/\bnan\b/i);
+  // The panel still exists for the rest of the climate rig's metrics.
+  await expect(climate).toContainText('827');
+});
+
+// Regression for the narrowed predicate: dropping rows on "cannot read" must not also drop rows on
+// "has not reported yet", or a freshly-booted device reads as having no sensors at all.
+test('keeps a not-yet-reported metric visible instead of dropping its row', async ({ page }) => {
+  const climate = await climatePanel(page, { lux: null, par: null });
+  await expect(climate).toContainText('Illuminance');
+  await expect(climate).toContainText('No state yet');
+  await expect(climate).not.toContainText(/\bnan\b/i);
+});

@@ -64,3 +64,23 @@ describe('time entity formatting', () => {
     expect(formatEntityState(timeEntity, { value: '{bad', updatedAt: null })).toBe('No state yet');
   });
 });
+
+describe('sensors with no reading', () => {
+  // A DLight unplugged from the AtomS3U keeps its discovery config and its retained state; ESPHome
+  // republishes `nan` rather than clearing the topic, which used to reach the panel as "nan lx".
+  it('renders the no-reading markers as a placeholder, not as a value with a unit', () => {
+    for (const marker of ['nan', 'NaN', ' nan ', 'inf', '-inf', 'Infinity', '-Infinity']) {
+      expect(formatEntityState(entity, { value: marker, updatedAt: null })).toBe('—');
+    }
+  });
+
+  it('still formats a real zero rather than treating it as absent', () => {
+    expect(formatEntityState(entity, { value: '0', updatedAt: null })).toBe('0.00 kPa');
+  });
+
+  it('leaves text states that merely contain a marker alone', () => {
+    expect(formatEntityState({ ...entity, unit: undefined }, { value: 'nanometers', updatedAt: null })).toBe(
+      'nanometers'
+    );
+  });
+});

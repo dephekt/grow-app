@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import type { DeviceSnapshot, EntityConfig, Snapshot } from '$lib/server/mqtt/types';
+import { isNoReadingValue } from '$lib/state-format';
 
 /**
  * Shared entity recognisers + device resolvers used by both the dashboard
@@ -131,6 +132,24 @@ export function findQuantumPpfdEntity(entities: Iterable<EntityConfig>): EntityC
  *  "sensor offline" apart from "no sensor". */
 export function hasQuantumPpfd(snapshot: Snapshot): boolean {
   return findQuantumPpfdEntity(snapshot.entities) !== undefined;
+}
+
+/**
+ * Whether an entity has published a value it cannot actually report. A probe that has been
+ * unplugged keeps its discovery config and its last retained state, and ESPHome republishes `nan`
+ * rather than clearing the topic — so the entity looks present and reads as a value until parsed.
+ * Callers that render a row per entity use this to drop the row instead of printing the marker.
+ *
+ * Deliberately narrower than "has no usable number": an entity that has simply not reported yet is
+ * not unreadable, and keeps rendering its own "No state yet" placeholder. Dropping those too would
+ * make a freshly-booted device look like it had no sensors rather than like it was still starting.
+ *
+ * Shares isNoReadingValue with the formatter so row-dropping and placeholder-rendering cannot
+ * disagree about what counts as unreadable.
+ */
+export function hasUnreadableState(snapshot: Snapshot, entity: EntityConfig): boolean {
+  const raw = snapshot.states[entity.id]?.value;
+  return raw != null && isNoReadingValue(raw);
 }
 
 /**

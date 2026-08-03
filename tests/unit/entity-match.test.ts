@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   findQuantumPpfdEntity,
+  hasUnreadableState,
   hasQuantumPpfd,
   isAirQualityMetric,
   isQuantumPpfd,
@@ -331,5 +332,38 @@ describe('liveQuantumMetric', () => {
     const snap = makeSnapshot([ppfd, otherTilt]);
     snap.states = { [otherTilt.id]: { value: '9.9', updatedAt: null } };
     expect(liveQuantumMetric(snap, 'tilt')).toBeNull();
+  });
+});
+
+describe('hasUnreadableState', () => {
+  const lux = makeEntity('climate-rig', {
+    id: 'rig_illuminance',
+    name: 'Illuminance',
+    objectId: 'illuminance',
+    deviceClass: 'illuminance',
+    unit: 'lx'
+  });
+
+  function snapshotWithLux(value: string | undefined): Snapshot {
+    const snap = makeSnapshot([climateRigCo2, lux]);
+    return value === undefined ? snap : { ...snap, states: { [lux.id]: { value, updatedAt: null } } };
+  }
+
+  it('flags the markers ESPHome publishes when a sensor cannot read', () => {
+    expect(hasUnreadableState(snapshotWithLux('nan'), lux)).toBe(true);
+    expect(hasUnreadableState(snapshotWithLux('-inf'), lux)).toBe(true);
+    expect(hasUnreadableState(snapshotWithLux(' NaN '), lux)).toBe(true);
+  });
+
+  it('does not flag a real reading, including zero', () => {
+    expect(hasUnreadableState(snapshotWithLux('812.4'), lux)).toBe(false);
+    expect(hasUnreadableState(snapshotWithLux('0'), lux)).toBe(false);
+  });
+
+  // "Has not reported yet" is a different statement from "cannot read": a booting device should
+  // keep its rows and show the placeholder, not look like it has no sensors.
+  it('does not flag an entity that has simply not reported yet', () => {
+    expect(hasUnreadableState(snapshotWithLux(undefined), lux)).toBe(false);
+    expect(hasUnreadableState(snapshotWithLux(''), lux)).toBe(false);
   });
 });
