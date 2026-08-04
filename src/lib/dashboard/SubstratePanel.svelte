@@ -113,15 +113,11 @@
       </div>
     </div>
 
+    <!-- Which calibration is in force is state, not explanation: it changes what VWC
+         reads, and "assumed" is the difference between a configured medium and a guess. -->
     <p class="foot">
-      <span class="foot-key">pwEC</span> is the root-zone solution, derived from bulk EC and
-      permittivity — bulk EC averages water, air and solids and reads several times lower.
-      <br />
       <span class="foot-key">Curve</span>
-      {active.readings.curve}{#if active.readings.curveAssumed}<span class="assumed">
-          · assumed — {active.zoneName
-            ? `zone “${active.zoneName}” names no medium`
-            : 'probe not bound to a zone'}</span
+      {active.readings.curve}{#if active.readings.curveAssumed}<span class="assumed"> · assumed</span
         >{:else}
         · from {active.substrateType}{/if}
     </p>
