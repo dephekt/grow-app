@@ -136,6 +136,71 @@ describe('resolveClimateDevice', () => {
     const snapshot = makeSnapshot([airqCo2, airqPm25, airqVoc, airqHumidity]);
     expect(resolveClimateDevice(snapshot)).toBeUndefined();
   });
+
+  // A TEROS substrate probe reports °C from inside the pot. Without the substrate
+  // guard in isAmbientTemperature it satisfies resolveClimateDevice's third
+  // fallback, so a late-arriving air rig would hand CLIMATE to a soil probe.
+  it('never binds CLIMATE to a substrate probe when no air rig has been discovered', () => {
+    const substrateTemp = makeEntity('substrate-a', {
+      id: 'substrate_a_temperature',
+      name: 'Substrate Temperature',
+      objectId: 'substrate_temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([substrateTemp]))).toBeUndefined();
+
+    // Positive control on the SAME fixture: only the objectId differs, so this
+    // asserts the exclusion above is what rejected it, not a malformed snapshot.
+    const airTemp = makeEntity('substrate-a', {
+      id: 'substrate_a_temperature',
+      name: 'Air Temperature',
+      objectId: 'air_temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([airTemp]))?.nodeId).toBe('substrate-a');
+  });
+
+  // The objectId is a contract with OUR publisher; the display name is all a
+  // third-party integration may carry. A soil probe that publishes a bare
+  // "temperature" must still be kept out of the air slot.
+  it('rejects a substrate probe that names its medium only in the display name', () => {
+    const named = makeEntity('some-probe', {
+      id: 'probe_temperature',
+      name: 'Substrate Temperature',
+      objectId: 'temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([named]))).toBeUndefined();
+
+    const rootZone = makeEntity('some-probe', {
+      id: 'probe_temperature',
+      name: 'Root Zone Temp',
+      objectId: 'temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([rootZone]))).toBeUndefined();
+  });
+
+  // The other half of that rule, and the reason the name check is not simply the whole
+  // exclusion list: "internal" and "board" describe plenty of sensors that really are
+  // reporting the air. Widening the name match to cover them would silently empty the
+  // CLIMATE card for anyone who named their rig this way.
+  it('still accepts an air sensor whose NAME contains a hardware-internal word', () => {
+    for (const name of ['Internal Room Temp', 'Board Room Sensor', 'Chip Tent Probe']) {
+      const air = makeEntity('air-rig', {
+        id: 'air_temperature',
+        name,
+        objectId: 'temperature',
+        deviceClass: 'temperature',
+        unit: '°C'
+      });
+      expect(resolveClimateDevice(makeSnapshot([air]))?.nodeId, name).toBe('air-rig');
+    }
+  });
 });
 
 describe('isQuantumPpfd', () => {
