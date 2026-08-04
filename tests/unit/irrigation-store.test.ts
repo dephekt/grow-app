@@ -18,6 +18,52 @@ function freshDb(): DatabaseSync {
   return openIrrigationDb(':memory:');
 }
 
+describe('substrate probe binding', () => {
+  /**
+   * The binding is what lets the dashboard pick a calibration curve: probe → zone →
+   * substrate type. Nullable throughout, because a probe routinely sits in a test pot
+   * before it belongs to any zone and must still read.
+   */
+  it('defaults to unbound and round-trips a probe node id', () => {
+    const db = freshDb();
+    const zone = createZone(db, { name: 'Tent 1', stationSid: 0 });
+    expect(zone.substrateNodeId).toBeNull();
+
+    const bound = updateZone(db, zone.id, { substrateNodeId: 'substrate-a' });
+    expect(bound?.substrateNodeId).toBe('substrate-a');
+    expect(getZone(db, zone.id)?.substrateNodeId).toBe('substrate-a');
+  });
+
+  it('accepts the binding at creation', () => {
+    const db = freshDb();
+    const zone = createZone(db, {
+      name: 'Tent 1',
+      stationSid: 0,
+      substrateType: 'Coco',
+      substrateNodeId: 'substrate-a'
+    });
+    expect(zone.substrateNodeId).toBe('substrate-a');
+  });
+
+  it('clears the binding when a probe is moved out of the zone', () => {
+    const db = freshDb();
+    const zone = createZone(db, { name: 'Tent 1', stationSid: 0, substrateNodeId: 'substrate-a' });
+    expect(updateZone(db, zone.id, { substrateNodeId: null })?.substrateNodeId).toBeNull();
+  });
+
+  /** An unrelated patch must not silently drop the binding. */
+  it('survives a patch that does not mention it', () => {
+    const db = freshDb();
+    const zone = createZone(db, { name: 'Tent 1', stationSid: 0, substrateNodeId: 'substrate-a' });
+    expect(updateZone(db, zone.id, { name: 'Tent A' })?.substrateNodeId).toBe('substrate-a');
+  });
+
+  it('is at schema version 6', () => {
+    const db = freshDb();
+    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(6);
+  });
+});
+
 describe('irrigation zone store', () => {
   it('creates, reads, updates, and deletes zones', () => {
     const db = freshDb();

@@ -98,6 +98,21 @@ const MIGRATIONS: string[] = [
   // on demand. Default 0 so existing zones keep firing.
   `
   ALTER TABLE zones ADD COLUMN schedules_paused INTEGER NOT NULL DEFAULT 0;
+  `,
+  // 6 — bind a zone to the substrate probe sitting in it. Holds the probe's MQTT node
+  // id ("substrate-a"), not an entity id: a TEROS publishes four entities and the
+  // dashboard needs all of them together, so the device is the unit of binding.
+  //
+  // Nullable and unconstrained on purpose. A probe is routinely in a test pot or a
+  // fresh bag before it belongs to any zone, and it must still read — an unbound probe
+  // falls back to the soilless curve. This is also why there is no FK: the node id
+  // names a device on the broker, which this database knows nothing about.
+  //
+  // NOT a rename of the older vwc_entity_id / pwec_entity_id columns. Those predate the
+  // decision to derive water content here rather than read it from firmware, and are
+  // left untouched for a separate cleanup.
+  `
+  ALTER TABLE zones ADD COLUMN substrate_node_id TEXT;
   `
 ];
 
