@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import type { Zone } from '$lib/server/opensprinkler/zones';
 import type { SubstrateZoneBinding } from '$lib/substrate';
 
 /**
@@ -19,12 +18,8 @@ export const load = async ({ fetch }) => {
   try {
     const response = await fetch('/api/irrigation/zones', { signal: AbortSignal.timeout(ZONES_TIMEOUT_MS) });
     if (!response.ok) return { zones: empty };
-    const body = (await response.json()) as { zones?: Zone[] };
-    const zones: SubstrateZoneBinding[] = (body.zones ?? []).map((z) => ({
-      name: z.name,
-      substrateType: z.substrateType,
-      substrateNodeId: z.substrateNodeId
-    }));
+    const body = (await response.json()) as { zones?: SubstrateZoneBinding[] };
+    const zones = body.zones ?? empty;
     return { zones };
   } catch {
     return { zones: empty };

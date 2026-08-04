@@ -105,11 +105,66 @@ export interface SubstrateReadings {
   curveAssumed: boolean;
 }
 
+/** One threshold band; a null end is an open side, not a zero. */
+export interface SubstrateBand {
+  min: number | null;
+  max: number | null;
+}
+
+/** The bands a zone sets for its probe; `vwcPct` is in percent, not m³/m³. */
+export interface SubstrateThresholds {
+  vwcPct: SubstrateBand;
+  temperatureC: SubstrateBand;
+  poreEc: SubstrateBand;
+}
+
+/** Where a reading sits in its band; `unknown` covers no reading and no band alike. */
+export type BandStatus = 'ok' | 'high' | 'low' | 'unknown';
+
+/** Bounds are inclusive, matching `statusFromLive` in `$lib/alert-status`. */
+export function bandStatus(value: number | null, band: SubstrateBand | undefined): BandStatus {
+  if (value === null || !Number.isFinite(value) || !band) return 'unknown';
+  const { min, max } = band;
+  if (min === null && max === null) return 'unknown';
+  if (max !== null && value >= max) return 'high';
+  if (min !== null && value <= min) return 'low';
+  return 'ok';
+}
+
+/** Digits each row prints at, shared with the card so one edit moves display and status together. */
+export const DISPLAY_DIGITS = { vwc: 1, temperatureC: 1, poreEc: 2 } as const;
+
+/** A reading at the precision the card prints it, so a dot cannot contradict the number beside it. */
+export function atDisplayPrecision(value: number | null, digits: number): number | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return Number(value.toFixed(digits));
+}
+
+/** The single place m³/m³ becomes percent. */
+export function vwcPercent(vwc: number | null): number | null {
+  if (vwc === null || !Number.isFinite(vwc)) return null;
+  return atDisplayPrecision(vwc * 100, DISPLAY_DIGITS.vwc);
+}
+
 /** The zone fields this module needs, structurally — so it never imports server code. */
 export interface SubstrateZoneBinding {
   name: string;
   substrateType: string | null;
   substrateNodeId: string | null;
+  vwcMinPct?: number | null;
+  vwcMaxPct?: number | null;
+  substrateTempMinC?: number | null;
+  substrateTempMaxC?: number | null;
+  pwecMin?: number | null;
+  pwecMax?: number | null;
+}
+
+function thresholdsFrom(zone: SubstrateZoneBinding | null): SubstrateThresholds {
+  return {
+    vwcPct: { min: zone?.vwcMinPct ?? null, max: zone?.vwcMaxPct ?? null },
+    temperatureC: { min: zone?.substrateTempMinC ?? null, max: zone?.substrateTempMaxC ?? null },
+    poreEc: { min: zone?.pwecMin ?? null, max: zone?.pwecMax ?? null }
+  };
 }
 
 export interface SubstrateProbe {
@@ -123,6 +178,10 @@ export interface SubstrateProbe {
   serial: string | null;
   substrateType: string | null;
   readings: SubstrateReadings;
+  /** The bound zone's bands, all-open when the probe is unbound. */
+  thresholds: SubstrateThresholds;
+  /** Where each reading sits in its band, keyed to the rows the card renders. */
+  status: { vwc: BandStatus; temperatureC: BandStatus; poreEc: BandStatus };
 }
 
 /** An entity published by a substrate probe, by the object-id prefix its publisher owns. */
@@ -214,6 +273,8 @@ export function resolveSubstrateProbes(
       : { counts: null, temperatureC: null, bulkEc: null };
 
     const deviceName = device?.name ?? node;
+    const thresholds = thresholdsFrom(zone);
+    const readings = deriveReadings(raw, resolved);
     probes.push({
       nodeId: node,
       label: zone?.name ?? deviceName,
@@ -222,7 +283,16 @@ export function resolveSubstrateProbes(
       available,
       serial: liveString(snapshot, find(SUBSTRATE_SERIAL)),
       substrateType: zone?.substrateType ?? null,
-      readings: deriveReadings(raw, resolved)
+      readings,
+      thresholds,
+      status: {
+        vwc: bandStatus(vwcPercent(readings.vwc), thresholds.vwcPct),
+        temperatureC: bandStatus(
+          atDisplayPrecision(readings.temperatureC, DISPLAY_DIGITS.temperatureC),
+          thresholds.temperatureC
+        ),
+        poreEc: bandStatus(atDisplayPrecision(readings.poreEc, DISPLAY_DIGITS.poreEc), thresholds.poreEc)
+      }
     });
   }
 

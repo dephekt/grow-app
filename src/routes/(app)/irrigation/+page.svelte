@@ -39,6 +39,12 @@
     stationSid: '',
     substrateType: '',
     substrateNodeId: '',
+    vwcMin: '',
+    vwcMax: '',
+    tempMin: '',
+    tempMax: '',
+    pwecMin: '',
+    pwecMax: '',
     substrateVolume: '',
     volumeUnit: 'ml',
     drippers: '',
@@ -164,6 +170,12 @@
       stationSid: String(zone.stationSid),
       substrateType: zone.substrateType ?? '',
       substrateNodeId: zone.substrateNodeId ?? '',
+      vwcMin: zone.vwcMinPct != null ? String(zone.vwcMinPct) : '',
+      vwcMax: zone.vwcMaxPct != null ? String(zone.vwcMaxPct) : '',
+      tempMin: zone.substrateTempMinC != null ? String(zone.substrateTempMinC) : '',
+      tempMax: zone.substrateTempMaxC != null ? String(zone.substrateTempMaxC) : '',
+      pwecMin: zone.pwecMin != null ? String(zone.pwecMin) : '',
+      pwecMax: zone.pwecMax != null ? String(zone.pwecMax) : '',
       substrateVolume: zone.substrateVolumeMl != null ? String(zone.substrateVolumeMl) : '',
       volumeUnit: 'ml',
       drippers: zone.drippers != null ? String(zone.drippers) : '',
@@ -179,12 +191,27 @@
     form = blankForm();
   }
 
+  // JSON.stringify turns NaN into null, which the server would read as no bound.
+  const num = (v: string) => {
+    if (v.trim() === '') return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) throw new Error(`"${v.trim()}" is not a number`);
+    return n;
+  };
+
   function buildBody(): Record<string, unknown> {
     return {
       name: form.name,
       stationSid: Number(form.stationSid),
       substrateType: form.substrateType.trim() || null,
       substrateNodeId: form.substrateNodeId.trim() || null,
+      // An empty box is an open side, not a zero.
+      vwcMinPct: num(form.vwcMin),
+      vwcMaxPct: num(form.vwcMax),
+      substrateTempMinC: num(form.tempMin),
+      substrateTempMaxC: num(form.tempMax),
+      pwecMin: num(form.pwecMin),
+      pwecMax: num(form.pwecMax),
       // Round the unit-converted canonical values so they don't carry float noise
       // (e.g. 1 gal → 3785 mL, 2.11 GPH → 7.99 L/hr) into the store/API/summary.
       substrateVolumeMl: form.substrateVolume ? Math.round(Number(form.substrateVolume) * VOLUME_TO_ML[form.volumeUnit]) : null,
@@ -511,6 +538,30 @@
             {/if}
           </select>
           <small class="hint">Applies this zone's substrate type as its calibration</small>
+        </label>
+      </div>
+      <div class="grid">
+        <label>
+          VWC band (%)
+          <span class="unit-row">
+            <input type="text" inputmode="decimal" placeholder="min" bind:value={form.vwcMin} />
+            <input type="text" inputmode="decimal" placeholder="max" bind:value={form.vwcMax} />
+          </span>
+          <small class="hint">Leave blank for an open side</small>
+        </label>
+        <label>
+          Substrate temp band (°C)
+          <span class="unit-row">
+            <input type="text" inputmode="decimal" placeholder="min" bind:value={form.tempMin} />
+            <input type="text" inputmode="decimal" placeholder="max" bind:value={form.tempMax} />
+          </span>
+        </label>
+        <label>
+          pwEC band (mS/cm)
+          <span class="unit-row">
+            <input type="text" inputmode="decimal" placeholder="min" bind:value={form.pwecMin} />
+            <input type="text" inputmode="decimal" placeholder="max" bind:value={form.pwecMax} />
+          </span>
         </label>
         <label>
           Substrate volume

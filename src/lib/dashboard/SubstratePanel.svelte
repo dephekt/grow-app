@@ -3,10 +3,14 @@
 
 <script lang="ts">
   import {
+    DISPLAY_DIGITS,
     poreEcGap,
+    vwcPercent,
     probeTabLabel,
     resolveSubstrateProbes,
+    type BandStatus,
     type PoreEcGap,
+    type SubstrateBand,
     type SubstrateProbe,
     type SubstrateZoneBinding
   } from '$lib/substrate';
@@ -34,16 +38,35 @@
   };
 
   function pct(v: number | null): string {
-    return v === null ? '—' : `${(v * 100).toFixed(1)} %`;
+    const p = vwcPercent(v);
+    return p === null ? '—' : `${p.toFixed(DISPLAY_DIGITS.vwc)} %`;
   }
   function ec(v: number | null): string {
-    return v === null ? '—' : `${v.toFixed(2)} mS/cm`;
+    return v === null ? '—' : `${v.toFixed(DISPLAY_DIGITS.poreEc)} mS/cm`;
   }
   function degrees(v: number | null): string {
-    return v === null ? '—' : `${v.toFixed(1)} °C`;
+    return v === null ? '—' : `${v.toFixed(DISPLAY_DIGITS.temperatureC)} °C`;
+  }
+
+  // With a band the dot means in-band; without one it falls back to liveness.
+  function dot(status: BandStatus, live: boolean): string {
+    if (status === 'unknown') return live ? 'ok' : '';
+    return status === 'ok' ? 'ok' : 'alert';
+  }
+
+  // The band, rendered beside the value at that row's own precision.
+  function bandText(band: SubstrateBand, unit: string, digits: number): string | null {
+    const { min, max } = band;
+    if (min === null && max === null) return null;
+    const f = (v: number) => v.toFixed(digits);
+    if (min !== null && max !== null) return `${f(min)}–${f(max)} ${unit}`;
+    return min !== null ? `min ${f(min)} ${unit}` : `max ${f(max!)} ${unit}`;
   }
 
   let gap = $derived(active ? poreEcGap(active) : null);
+  let vwcBand = $derived(active ? bandText(active.thresholds.vwcPct, '%', DISPLAY_DIGITS.vwc) : null);
+  let poreBand = $derived(active ? bandText(active.thresholds.poreEc, 'mS/cm', DISPLAY_DIGITS.poreEc) : null);
+  let tempBand = $derived(active ? bandText(active.thresholds.temperatureC, '°C', DISPLAY_DIGITS.temperatureC) : null);
   let badge = $derived(
     probes.length === 0 ? 'NOT CONNECTED' : active && !active.available ? 'OFFLINE' : null
   );
@@ -81,34 +104,39 @@
     <div class="rows">
       <div class="row first">
         <span class="row-label">VWC</span>
-        <span class="row-value mono">{pct(active.readings.vwc)}</span>
-        <span class="dot" class:ok={active.readings.vwc !== null}></span>
+        <span class="row-value mono">
+          {pct(active.readings.vwc)}
+          {#if vwcBand}<span class="band">{vwcBand}</span>{/if}
+        </span>
+        <span class="dot {dot(active.status.vwc, active.readings.vwc !== null)}"></span>
       </div>
 
-      <!-- The number to steer on: bulk EC below reads several times lower for the same
-           solution and is never interchangeable with it. -->
+      <!-- The number to steer on; bulk EC below is one of its inputs. -->
       <div class="row steer">
         <span class="row-label">pwEC</span>
         <span class="row-value mono">
           {#if active.readings.poreEc !== null}
             {ec(active.readings.poreEc)}
+            {#if poreBand}<span class="band">{poreBand}</span>{/if}
           {:else}
             <span class="gap">— {gap ? GAP_TEXT[gap] : ''}</span>
           {/if}
         </span>
-        <span class="dot" class:ok={active.readings.poreEc !== null}></span>
+        <span class="dot {dot(active.status.poreEc, active.readings.poreEc !== null)}"></span>
       </div>
 
       <div class="row">
         <span class="row-label">Bulk EC</span>
         <span class="row-value mono">{ec(active.readings.bulkEc)}</span>
-        <span class="dot" class:ok={active.readings.bulkEc !== null}></span>
+        <span class="dot {dot('unknown', active.readings.bulkEc !== null)}"></span>
       </div>
-
       <div class="row">
         <span class="row-label">Temp</span>
-        <span class="row-value mono">{degrees(active.readings.temperatureC)}</span>
-        <span class="dot" class:ok={active.readings.temperatureC !== null}></span>
+        <span class="row-value mono">
+          {degrees(active.readings.temperatureC)}
+          {#if tempBand}<span class="band">{tempBand}</span>{/if}
+        </span>
+        <span class="dot {dot(active.status.temperatureC, active.readings.temperatureC !== null)}"></span>
       </div>
     </div>
 
@@ -236,6 +264,13 @@
   .gap {
     color: var(--faint);
     font-size: 0.76rem;
+  }
+
+  .band {
+    margin-left: 8px;
+    font-size: 0.68rem;
+    color: var(--faint);
+    white-space: nowrap;
   }
 
   .foot {
