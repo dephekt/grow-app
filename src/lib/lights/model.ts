@@ -5,11 +5,8 @@ import type { EntityConfig, LightRoleRef, Snapshot } from '$lib/server/mqtt/type
 import { parseTimeParts } from '$lib/time-entity';
 
 /** Resolve a role reference (node + objectId) to the discovered entity, if any.
- *  Strict (node, objectId) pairing: the ref's node must match the entity's own
- *  node (its `nodeId`, or the device's primary identifier as a fallback), never a
- *  secondary device identifier — that keeps role resolution unambiguous even when
- *  two nodes share a device grouping. Intentionally stricter than
- *  `service.ts:deviceEntity`, which keeps a broader match on purpose. */
+ *  The strict (node, objectId) pairing is intentional — `service.ts:deviceEntity`
+ *  keeps a broader match on purpose. */
 export function entityByRef(snapshot: Snapshot, ref: LightRoleRef | undefined): EntityConfig | undefined {
   if (!ref) return undefined;
   return snapshot.entities.find(
@@ -25,9 +22,8 @@ function secondsOfDay(value: string | null | undefined): number | null {
   return parts.hour * 3600 + parts.minute * 60 + parts.second;
 }
 
-/** A light's on/off hour split from its schedule times ("18 on / 6 off"), or null if unparseable.
- *  Window length is the half-open [on, off) span, wrapping midnight. Shared by the light control and
- *  the grow-plan card so the two can't compute the photoperiod differently. */
+/** A light's on/off hour split from its schedule times ("18 on / 6 off") over the half-open
+ *  [on, off) span that may wrap midnight, or null if unparseable. */
 export function photoperiodHours(
   onValue: string | null | undefined,
   offValue: string | null | undefined
@@ -51,10 +47,9 @@ export interface LightScheduleWindow {
 
 /**
  * Replicate the firmware photoperiod window (`grow-light.yaml apply_light_schedule`):
- * half-open `[on, off)` in local wall time, may wrap midnight, `on == off` = always
- * off. The firmware's on/off times are the plug's wall clock, which is the site
- * timezone (`tz`), so `now` is projected into that zone rather than read off the
- * browser clock — the countdown is correct even when the viewer sits in another zone.
+ * half-open `[on, off)` in local wall time, may wrap midnight, `on == off` = always off.
+ * The firmware's times are the plug's wall clock, so `now` is projected into the site
+ * timezone (`tz`) rather than read off the browser clock.
  */
 export function computeSchedule(
   onValue: string | null | undefined,

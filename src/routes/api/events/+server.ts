@@ -22,11 +22,8 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
 
   const service = getSiteMqttService();
 
-  // `/api/events` is a protected path, so the guard has already rejected any
-  // anonymous request — locals.user is set here. We still keep the token around
-  // to re-validate the session over the life of the stream: a single long-lived
-  // GET never re-enters the hooks guard, so without this a stream would outlive
-  // its user being disabled, having sessions revoked, or the session expiring.
+  // Keep the token to re-validate the session over the life of the stream — a single
+  // long-lived GET never re-enters the hooks guard.
   const token = cookies.get(SESSION_COOKIE);
   const userId = locals.user?.id ?? null;
 
@@ -36,8 +33,7 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
   let controllerRef: ReadableStreamDefaultController | null = null;
   let closed = false;
 
-  // Single teardown path shared by client disconnect (cancel), server-initiated
-  // close (revocation / expiry), and admin revoke via the registry. Idempotent.
+  // Idempotent teardown path shared by client disconnect, server-initiated close, and admin revoke.
   const cleanup = () => {
     if (closed) return;
     closed = true;
@@ -46,8 +42,7 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
     unregister();
   };
 
-  // Server-initiated close: tear down, then close the controller. cancel() must
-  // NOT call this — the reader is already gone and closing it would throw.
+  // cancel() must NOT call this — the reader is already gone and closing it would throw.
   const closeStream = () => {
     if (closed) return;
     cleanup();
@@ -65,10 +60,8 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
 
       unsubscribe = service.subscribe((event) => {
         try {
-          // A live `snapshot` event (e.g. a site-timezone change) must carry the raw
-          // snapshot as its payload, matching the initial push above and the client's
-          // `snapshot` listener, which reads snapshot fields off the top level. Only
-          // incremental events (entity/state/…) travel as the wrapped envelope.
+          // A live `snapshot` event must carry the raw snapshot, not the envelope
+          // that incremental events travel in.
           controller.enqueue(encode(event.type, event.type === 'snapshot' ? event.snapshot : event));
         } catch {
           // Reader vanished between disconnect and cancel(); stop feeding it.
@@ -77,17 +70,14 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
       });
 
       heartbeat = setInterval(() => {
-        // Backstop for the registry: if the session is gone (disabled, revoked,
-        // or expired) close the stream instead of sending another heartbeat.
-        // The two failure modes below are deliberately handled differently.
+        // Backstop for the registry: close the stream if the session is gone
+        // (disabled, revoked, or expired).
         let sessionGone = false;
         try {
           sessionGone = token ? !lookupSession(getAuthDb(), token) : false;
         } catch (error) {
-          // A DB hiccup is transient: swallow and re-check next tick rather than
-          // drop the stream (the registry still covers immediate revocation). A
-          // throw escaping this bare timer callback would take the whole process
-          // — every stream — down, so it must never propagate.
+          // A DB hiccup is transient, and a throw escaping this bare timer callback
+          // would take the whole process down.
           console.error('[events] heartbeat revalidation failed', error);
           return;
         }
@@ -98,14 +88,13 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
         try {
           controller.enqueue(encoder.encode(': heartbeat\n\n'));
         } catch {
-          // enqueue throws only when the controller is already closed/errored —
-          // terminal, not transient. Match the subscribe path and tear down.
+          // enqueue throws only when the controller is already closed/errored — terminal, not transient.
           closeStream();
         }
       }, HEARTBEAT_INTERVAL_MS);
 
-      // Immediate lever: let an admin disabling/revoking this user cut the stream
-      // now, rather than on the next heartbeat tick.
+      // Immediate lever so an admin disabling/revoking this user cuts the stream
+      // before the next heartbeat tick.
       if (userId !== null) {
         unregister = registerEventStream({ userId, close: closeStream });
       }
@@ -134,9 +123,8 @@ function snapshotOnlyStream(snapshot: unknown): Response {
         try {
           controller.enqueue(encoder.encode(': heartbeat\n\n'));
         } catch {
-          // Controller already closed (reader gone before cancel() fired). Stop
-          // the timer here: an unhandled throw from a bare timer callback would
-          // take the whole process down.
+          // Clear the timer here — an unhandled throw from a bare timer callback
+          // would take the whole process down.
           if (heartbeat) clearInterval(heartbeat);
         }
       }, HEARTBEAT_INTERVAL_MS);

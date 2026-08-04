@@ -282,10 +282,7 @@
     return probes;
   }
 
-  // Read-only probe-health diagnostics the firmware publishes alongside the reading: pH
-  // acid/alkaline slope quality (the calibration curve fit), asymmetry potential, calibration
-  // status; EC cell constant + status; etc. Matched by the probe prefix so they can't latch onto
-  // another probe's diagnostics.
+  // Probe-health diagnostics, matched by prefix so they cannot latch onto another probe's.
   const QUALITY_PATTERNS = ['slope', 'asymmetry', 'calibration_status', 'cal_status', 'cell_constant'];
   function findQualityEntities(type: ProbeType, deviceEntities: EntityConfig[]): EntityConfig[] {
     return deviceEntities.filter((e) => {
@@ -314,14 +311,8 @@
 
   let activeStep = $derived(activeProbe?.steps[activeStepIndex] ?? null);
 
-  // ── Calibration-mode fast updates ────────────────────────────────────────────
-  // The probe publishes at its slow normal cadence (~15s) until its firmware calibration-mode
-  // switch is on, which drops it to ~1s. Driven by an explicit toggle (below) rather than the
-  // tab lifecycle, so it persists when you navigate away and back, and the button always mirrors
-  // the real switch state — no ambiguity, and you turn it off deliberately when done. The switch
-  // name contains "calibration", which the discovery heuristic flags dangerous, so command it
-  // directly with confirm:true rather than via live.sendCommand (which would pop a browser
-  // confirm on this benign rate switch).
+  // Calibration mode drops the probe from ~15s to ~1s updates. Commanded directly with
+  // confirm:true because its name trips the dangerous-entity heuristic.
   async function setCalMode(entityId: string, on: boolean): Promise<void> {
     try {
       await fetch(`/api/entities/${entityId}/command`, {
@@ -361,17 +352,11 @@
   let lastSampleAt: string | null = null; // plain — updatedAt of the last buffered reading
 
   const BUFFER_SIZE = 14;
-  // Bounds for the stability window. Cal mode (engaged above) drops the probe to ~1s updates;
-  // at the normal cadence it publishes every ~15s (pH) to ~45s (EC, median send_every: 3). The
-  // window adapts to the observed cadence below rather than assuming a fixed rate, so it still
-  // behaves if cal mode can't be engaged (no switch discovered / command rejected).
+  // The window adapts to the observed cadence, so it still behaves if cal mode cannot engage.
   const STABLE_WINDOW_MIN_MS = 8000;
   const STABLE_WINDOW_MAX_MS = 90000;
 
-  // Sample the active probe's live sensor into a rolling buffer. This effect tracks
-  // ONLY the probe/step and the live state; all readingBuffer reads/writes are
-  // untracked so the effect never depends on its own write (which would self-loop
-  // and throw effect_update_depth_exceeded once the value starts updating).
+  // Buffer reads/writes are untracked so the effect never depends on its own write.
   $effect(() => {
     const probe = activeProbe;
     const stepKey = activeStep?.key;
@@ -386,10 +371,7 @@
         readingBuffer = [];
       }
       if (!liveEntity || liveState?.value == null) return;
-      // Every SSE event rebuilds live.snapshot wholesale, re-running this effect
-      // with the probe's cached state. Only buffer a reading when the probe
-      // itself published (fresh updatedAt) — otherwise unrelated entities would
-      // flood the buffer with duplicates timestamped as fresh readings.
+      // Only buffer when the probe itself published, or any SSE event floods it with duplicates.
       if (liveState.updatedAt != null && liveState.updatedAt === lastSampleAt) return;
       const n = parseFloat(liveState.value);
       if (isNaN(n)) return;
@@ -408,10 +390,7 @@
     return Math.max(0.02, Math.abs(activeStep.target) * 0.008);
   });
 
-  // Ticks once a second so the window check below decays when readings stop
-  // arriving. Date.now() alone is invisible to reactivity: a $derived that only
-  // re-runs on buffer changes would hold isStable=true forever once the probe
-  // goes silent (SSE drop, sensor fault, cal mode switched off).
+  // Ticks so the window decays when readings stop; Date.now() alone is invisible to reactivity.
   let nowTick = $state(Date.now());
   $effect(() => {
     const id = setInterval(() => {

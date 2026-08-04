@@ -14,10 +14,7 @@ interface PasswordBody {
 }
 
 /**
- * Protected. Set or change the current user's local password. This is how an
- * OIDC user opts in to a fallback password (they have no password yet, so no
- * currentPassword is required) and how a local user changes theirs (must supply
- * the current one).
+ * Protected: set or change the current user's local password.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
   const sessionUser = locals.user;

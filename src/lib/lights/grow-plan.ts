@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-/**
- * The grow's light plan: per-week center-canopy PPFD targets, photoperiod by stage, and the
- * derived DLI + fixture-placement guidance. This is the ONE config to edit per grow — everything
- * the Lights page shows as a "target" flows from here; live values (PPFD, lux, dimmer) come from
- * the fleet. Targets are center-canopy (the fixture is uniformity-limited, so we run
- * center-weighted — see the light card's guidance).
- */
+/** The grow's light plan and the one config to edit per grow; targets are center-canopy. */
 
 export type StageKey = 'seedling' | 'veg' | 'flower' | 'ripen';
 
@@ -45,12 +39,8 @@ export interface GrowWeek {
   ramp?: RampStep[];
 }
 
-/**
- * Schedule for the current grow (Gelato 41 BX F2 · Double Down Mule #1, from rooted clones, CO₂):
- * 2 wk veg → flip. The 3 gal coco needs two rooting-in drybacks before a veg irrigation strategy,
- * which is why veg is two weeks and not the compressed one. Targets ramp through flower to a wk-7
- * peak, then ripen down.
- */
+/** Schedule for the current grow (Gelato 41 BX F2 · Double Down Mule #1, clones, CO₂); veg is
+ *  two weeks because the 3 gal coco needs two rooting-in drybacks first. */
 export const WEEKLY_PLAN: GrowWeek[] = [
   {
     week: 1,
@@ -170,11 +160,7 @@ function distanceForPpfd(ppfd: number, dimmerPct: number): number {
 
 const round = (n: number) => Math.round(n);
 
-/**
- * Turn a live center PPFD + dimmer duty + week target into an operational suggestion: raise the
- * dimmer, or (when 100% still wouldn't reach target) lower the fixture by the modelled distance.
- * Returns `unknown` when PPFD isn't calibrated yet.
- */
+/** Turn live PPFD, dimmer duty and week target into a raise-the-dimmer or lower-the-fixture call. */
 export function buildGuidance(
   livePpfd: number | null | undefined,
   dimmerPct: number | null | undefined,
@@ -212,11 +198,8 @@ export function buildGuidance(
   }
 
   if (deltaPct < 0) {
-    // Under target. First lever is the dimmer: if bumping it (≤100%) at the current height reaches
-    // target, say exactly that — a fixed-height linear ratio, so it's reliable. Otherwise the fixture
-    // must come down; we DON'T claim an absolute height (the 1/distance model + lux anchor are far too
-    // rough to reconstruct one — see targetDistanceCm) and instead point at the live canopy PPFD, which
-    // is ground truth. (One fixture in the tent — never suggest adding another.)
+    // The dimmer first, since a fixed-height ratio is reliable; height only as a relative move,
+    // because the 1/distance model is far too rough to claim an absolute one.
     let message: string;
     if (dimmerForTargetPct != null && dimmerForTargetPct <= 100) {
       message = `Below target — raise intensity to ~${round(dimmerForTargetPct)}%.`;

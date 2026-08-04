@@ -4,13 +4,7 @@
 import type { Zone } from './zones';
 
 /**
- * Shot-size math (CCI Black Book, p.55). A "shot" can be expressed as a % of the
- * substrate volume, a volume in mL, or a raw duration in seconds; the first two
- * compile to a valve-open duration via the zone's dripper count + emitter flow rate:
- *   shot_mL     = shot% × substrate_volume_mL
- *   duration_s  = shot_mL ÷ (drippers × emitter_mL_per_min) × 60
- * Emitter flow is canonical L/hr; 1 L = 1000 mL, so mL/min = L/hr × 1000 / 60. (The UI
- * takes L/hr / GPH / L·min⁻¹ and converts to L/hr before it reaches the store.)
+ * Shot-size math (CCI Black Book, p.55): emitter flow is canonical L/hr, so mL/min = L/hr × 1000 / 60.
  */
 export const ML_PER_MIN_PER_LPH = 1000 / 60; // ≈ 16.6667
 
@@ -41,9 +35,8 @@ export interface ShotInput {
 }
 
 /**
- * Resolve a shot request to an integer number of seconds. `seconds` is authoritative
- * when given; otherwise `ml`/`percent` are compiled via the zone's emitter/substrate
- * spec. Throws a caller-friendly Error (→ HTTP 400) on missing spec or bad input.
+ * Resolve a shot request to an integer number of seconds — `seconds` is authoritative when given,
+ * otherwise `ml`/`percent` compile via the zone's emitter/substrate spec.
  */
 export function resolveShotSeconds(input: ShotInput, zone: Zone): number {
   if (input.seconds != null) {

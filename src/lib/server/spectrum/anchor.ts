@@ -5,10 +5,7 @@ import { getSettingsDb } from '$lib/server/settings/db';
 import type { AnchorCalibration, AnchorSource, SpectroConfig } from '$lib/spectrum/calibration';
 
 // The active PPFD calibration anchors, persisted in the generic app_settings key/value store
-// (one row per source). Kept out of the module-level SPECTRO_CONFIG so the anchor survives
-// restarts and so history reprocesses against the CURRENT calibration — and so the lux estimate
-// and the Apogee reference coexist rather than overwrite. Threaded into processSpectrum via
-// `opts.config.anchors` at every call site (ingest, capture reprocess, client re-derive).
+// (one row per source).
 
 type Anchors = SpectroConfig['anchors'];
 
@@ -17,7 +14,7 @@ const KEY: Record<AnchorSource, string> = {
   reference: 'spectrum.anchor.reference'
 };
 
-// Cache the parsed anchors; invalidated on every write. One process owns the web app.
+// Cache the parsed anchors, invalidated on every write — one process owns the web app.
 let cache: Anchors | null = null;
 
 function readAnchor(source: AnchorSource): AnchorCalibration | undefined {
@@ -32,7 +29,7 @@ function readAnchor(source: AnchorSource): AnchorCalibration | undefined {
   }
 }
 
-/** The active anchors ({} when uncalibrated). Pass straight into `processSpectrum({ config: { anchors } })`. */
+/** The active anchors ({} when uncalibrated). */
 export function getAnchors(): Anchors {
   if (cache) return cache;
   const lux = readAnchor('lux');

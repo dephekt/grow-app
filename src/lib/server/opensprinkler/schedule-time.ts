@@ -3,19 +3,11 @@
 
 import { resolveSiteTimeZone } from '$lib/server/settings/site-timezone';
 
-/**
- * DST-correct wall-clock ↔ UTC conversion with no tz library. Schedules store local
- * times (minutes-past-local-midnight); firing needs the real UTC instant a given
- * wall time maps to *at that date*, which shifts by the zone's DST offset. We lean on
- * the platform's IANA tz database via `Intl.DateTimeFormat` rather than pulling in a
- * dependency — Node ships full-tz ICU, so `America/Toronto` resolves correctly.
- */
+/** DST-correct wall-clock to UTC conversion using the platform's IANA database via Intl,
+ *  with no tz dependency. */
 
-/** The zone all schedule wall-clock times are interpreted in. Delegates to the shared
- *  site-timezone resolver so the scheduler, the snapshot, and the MQTT reconciler all
- *  agree on one zone (persisted setting first, then the env chain, then UTC). A typo'd
- *  override still degrades to UTC with a logged warning rather than throwing deep in
- *  the tz math on every schedule read and every tick. */
+/** The one zone schedule times are interpreted in; a typo'd override degrades to UTC with a
+ *  warning rather than throwing in the tz math. */
 export function getScheduleTimeZone(): string {
   return resolveSiteTimeZone().zone;
 }
@@ -37,11 +29,7 @@ function wallParts(instantMs: number, tz: string): Record<string, number> {
   return map;
 }
 
-/**
- * Signed offset (local − UTC) in ms that `tz` is at the given instant. West-of-UTC
- * zones are negative (e.g. Toronto EDT ≈ −4h). Computed by reading the instant's wall
- * clock in `tz`, re-interpreting those digits as if they were UTC, and diffing.
- */
+/** Signed offset (local − UTC) at an instant, by re-reading the wall clock as if it were UTC. */
 export function tzOffsetMs(instantMs: number, tz: string): number {
   const p = wallParts(instantMs, tz);
   const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
@@ -54,17 +42,8 @@ export function localDateParts(nowMs: number, tz: string): { year: number; month
   return { year: p.year, month: p.month, day: p.day };
 }
 
-/**
- * The UTC instant a local wall time (`year`/`month` [1-based]/`day` + minutes-past-
- * midnight) maps to in `tz`. `Date.UTC(...)` gives the instant *if the wall time were
- * UTC*; subtracting the zone offset shifts it to the real instant. The offset itself
- * depends on the instant (DST), so we correct once: the offset sampled at the true
- * instant can differ from the one sampled at the naive guess across a transition.
- *
- * Nonexistent (spring-forward gap) and ambiguous (fall-back overlap) wall times still
- * resolve to a single deterministic instant — good enough here because the `last_fired`
- * dedup collapses the twin a fall-back would otherwise produce.
- */
+/** The UTC instant a local wall time maps to, corrected once because the offset itself depends
+ *  on the instant across a DST transition. */
 export function zonedMinutesToInstant(
   year: number,
   month: number,

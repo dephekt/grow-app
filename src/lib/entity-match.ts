@@ -4,16 +4,7 @@
 import type { DeviceSnapshot, EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 import { isNoReadingValue } from '$lib/state-format';
 
-/**
- * Shared entity recognisers + device resolvers used by both the dashboard
- * (`routes/+page.svelte`) and the history layer (`server/influx/trend-domains.ts`),
- * so the WATER/CLIMATE panels and their trend charts agree on which device is "the
- * hydro controller" / "the air rig" and on what counts as the pH / CO₂ / ambient-
- * temperature reading.
- *
- * Type-only import of the MQTT types keeps this module client-safe (no server-only
- * runtime code), matching how the rest of the UI imports those types.
- */
+/** Entity recognisers and device resolvers shared by the dashboard panels and the trend charts. */
 
 export function isNumericSensor(e: EntityConfig): boolean {
   return e.component === 'sensor' && e.entityCategory !== 'diagnostic';
@@ -35,32 +26,18 @@ export function isHumidity(e: EntityConfig): boolean {
   return isNumericSensor(e) && e.deviceClass === 'humidity';
 }
 
-/**
- * Ambient (room/air) temperature — the reading that represents the grow space,
- * not the water probe, a substrate probe, a board/sensor-internal temp (BPS, MLX
- * thermal array, …), or a derived aggregate (daily min/max, moving average).
- * Requires a real temperature signal (deviceClass or °C unit) so it can't fall
- * through to an unrelated sensor that merely has "temp" in its id.
- */
+/** Room/air temperature — not the water probe, a substrate probe, a board temp, or an aggregate. */
 export function isAmbientTemperature(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
   if (e.deviceClass !== 'temperature' && e.unit !== '°C') return false;
   const oid = (e.objectId ?? '').toLowerCase();
   const name = e.name.toLowerCase();
   if (/water/.test(oid) || /water/.test(name)) return false;
-  // A probe in the pot, not the air. Matched on the display name as well as the id, the
-  // same way the water guard above is, because a device is free to publish a keyword-free
-  // objectId ("temperature") and carry the medium only in its name.
-  //
-  // Only THESE words get that treatment. The hardware-internal ones below stay id-only:
-  // "Internal Room Temp" or "Board Room Sensor" are perfectly good names for a sensor
-  // that really is reporting the air, whereas nothing called "Substrate Temperature" is.
-  // Word boundaries on the name for the same reason — prose, unlike an object id, has
-  // words in it.
+  // Name-matched too, unlike the hardware-internal words below: "Internal Room Temp" is a
+  // legitimate air sensor, "Substrate Temperature" never is.
   if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name)) return false;
   if (/(bps|mlx|board|cpu|die|chip|internal)/.test(oid)) return false;
-  // Derived aggregates, anchored to whole id segments so we don't reject a legitimate
-  // sensor whose id merely contains "max"/"min"/"avg" as a substring.
+  // Segment-anchored so an id merely containing "max"/"min"/"avg" is not rejected.
   if (/(^|_)(daily|moving|average|avg|min|max|mean)(_|$)/.test(oid)) return false;
   return true;
 }
@@ -70,8 +47,7 @@ export function isThermalArrayTemp(e: EntityConfig): boolean {
   return isNumericSensor(e) && /mlx90640_(min|mean|max)_temp$/.test(e.objectId ?? '');
 }
 
-/** The MLX90640 thermal-array MEAN temperature — the representative live reading for
- *  the thermal alarm band (the min/max aggregates bracket it but aren't the "current" value). */
+/** The MLX90640 array MEAN temperature — the "current" value for the thermal alarm band. */
 export function isThermalMeanTemp(e: EntityConfig): boolean {
   return isNumericSensor(e) && /mlx90640_mean_temp$/.test(e.objectId ?? '');
 }
@@ -85,95 +61,53 @@ export function isCo2(e: EntityConfig): boolean {
   );
 }
 
-/**
- * A particulate-matter / gas-index reading (PM1/2.5/4/10, VOC, NOx) — the signals
- * unique to the air-quality monitor, distinct from the CLIMATE rig's CO₂/temp/RH.
- * Used to resolve the AIR QUALITY panel to that device without a hardcoded nodeId.
- */
+/** A PM / VOC / NOx reading — the signals unique to the air-quality monitor. */
 export function isAirQualityMetric(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
   if (e.deviceClass === 'pm1' || e.deviceClass === 'pm25' || e.deviceClass === 'pm10') return true;
   const oid = (e.objectId ?? '').toLowerCase();
-  // `pm` accepts a separator (pm_2_5, pm__1um) or compact digits (pm25, pm4_0) —
-  // PM4 has no HA device class to fall back on.
+  // PM4 has no HA device class, so the id must match both separated and compact forms.
   return /(^|_)pm(_|\d)/.test(oid) || /(^|_)(voc|nox)(_|$)/.test(oid);
 }
 
-/**
- * The Apogee SQ-521 quantum (PAR) sensor's PPFD entity. Keyed on objectId 'ppfd' (there is no HA
- * device_class for PPFD) with a µmol-unit fallback.
- *
- * The unit fallback needs the aggregate guard because the publisher's own daily peak
- * ('peak_ppfd') carries the IDENTICAL unit as the live reading — unit alone cannot tell a
- * measurement from a summary of measurements. detector-mV and tilt are excluded by their units,
- * and the sensor_serial/cal_factor siblings by isNumericSensor, but nothing here can be assumed
- * about a device that adds another µmol entity later.
- */
+/** The Apogee PPFD entity: objectId 'ppfd', with a µmol-unit fallback since PPFD has no device class. */
 export function isQuantumPpfd(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
   if (e.objectId === 'ppfd') return true;
-  // Anchored to whole id segments, exactly as isAmbientTemperature does, so a legitimate sensor
-  // whose id merely contains "max"/"peak" as a substring is not rejected.
+  // The daily peak carries the same unit as the live reading, so the fallback must exclude it.
   const oid = (e.objectId ?? '').toLowerCase();
   if (/(^|_)(peak|daily|moving|average|avg|min|max|mean|total)(_|$)/.test(oid)) return false;
   const u = (e.unit ?? '').toLowerCase();
   return u.includes('µmol') || u.includes('umol');
 }
 
-/**
- * The single quantum-PPFD entity, resolved deterministically so the client display and the
- * server-side anchor bind to the SAME sensor regardless of iteration order: an exact objectId
- * 'ppfd' match wins (there is only one), and only in its absence does the first µmol-unit sensor
- * apply as a fallback.
- */
+/** The one PPFD entity, resolved deterministically so client and server bind to the same sensor. */
 export function findQuantumPpfdEntity(entities: Iterable<EntityConfig>): EntityConfig | undefined {
   let byUnit: EntityConfig | undefined;
   for (const e of entities) {
     if (e.objectId === 'ppfd' && isNumericSensor(e)) return e;
-    // Delegated rather than re-tested. This used to carry its own copy of the µmol check, which
-    // is how it and isQuantumPpfd could disagree about the same entity — the two are supposed to
-    // be one predicate, and only the exact-id short-circuit is genuinely local to this function.
+    // Delegated, not re-tested: a second copy of the µmol check could disagree with isQuantumPpfd.
     if (byUnit === undefined && isQuantumPpfd(e)) byUnit = e;
   }
   return byUnit;
 }
 
-/** Whether a quantum-PPFD sensor is registered at all — regardless of liveness. Lets the UI tell
- *  "sensor offline" apart from "no sensor". */
+/** Whether a PPFD sensor is registered at all, so the UI can tell "offline" from "no sensor". */
 export function hasQuantumPpfd(snapshot: Snapshot): boolean {
   return findQuantumPpfdEntity(snapshot.entities) !== undefined;
 }
 
-/**
- * Whether an entity has published a value it cannot actually report. A probe that has been
- * unplugged keeps its discovery config and its last retained state, and ESPHome republishes `nan`
- * rather than clearing the topic — so the entity looks present and reads as a value until parsed.
- * Callers that render a row per entity use this to drop the row instead of printing the marker.
- *
- * Deliberately narrower than "has no usable number": an entity that has simply not reported yet is
- * not unreadable, and keeps rendering its own "No state yet" placeholder. Dropping those too would
- * make a freshly-booted device look like it had no sensors rather than like it was still starting.
- *
- * Shares isNoReadingValue with the formatter so row-dropping and placeholder-rendering cannot
- * disagree about what counts as unreadable.
- */
+/** Whether an entity published a value it cannot report (`nan`); an entity yet to report is not this. */
 export function hasUnreadableState(snapshot: Snapshot, entity: EntityConfig): boolean {
   const raw = snapshot.states[entity.id]?.value;
   return raw != null && isNoReadingValue(raw);
 }
 
-/**
- * The live Apogee PPFD (µmol·m⁻²·s⁻¹) from the snapshot, or null when the sensor is absent, its
- * value is missing / empty / unparseable, or its owning device is offline — a crashed publisher
- * leaves its retained PPFD scalar on the broker, and treating that as live would pin the canopy
- * readout to a stale number. Dark-offset noise (quantum sensors read slightly negative in darkness)
- * is clamped to 0.
- */
+/** Live PPFD, or null when absent or stale from an offline publisher; dark-offset noise clamps to 0. */
 export function liveQuantumPpfd(snapshot: Snapshot): number | null {
   const ent = findQuantumPpfdEntity(snapshot.entities);
   if (!ent) return null;
-  // Resolve the owning device by nodeId OR its device identifier (the server keys availability on
-  // the latter), so an offline publisher is caught even when the entity carries no nodeId.
+  // By nodeId OR device identifier, since the server keys availability on the latter.
   const deviceKey = ent.nodeId ?? ent.device.identifiers[0];
   const device = snapshot.devices.find((d) => d.nodeId === deviceKey || d.id === deviceKey);
   if (device?.availability === 'offline') return null;
@@ -183,12 +117,7 @@ export function liveQuantumPpfd(snapshot: Snapshot): number | null {
   return Number.isFinite(ppfd) ? Math.max(0, ppfd) : null;
 }
 
-/**
- * A live numeric reading from the quantum sensor's OWN device, by objectId — the diagnostics that
- * ride alongside PPFD (detector millivolts, tilt angle). Resolved on the same device as the PPFD
- * entity and availability-gated, so an offline publisher's retained value isn't shown as live, and a
- * sibling with the same objectId on another device can't be picked up.
- */
+/** A reading from the quantum sensor's own device, so a same-named sibling elsewhere cannot win. */
 export function liveQuantumMetric(snapshot: Snapshot, objectId: string): number | null {
   const ppfd = findQuantumPpfdEntity(snapshot.entities);
   if (!ppfd) return null;
@@ -214,24 +143,14 @@ export function deviceOwning(
   return e?.nodeId ? snapshot.devices.find((d) => d.nodeId === e.nodeId) : undefined;
 }
 
-/**
- * WATER panel/trends device: the hydro controller. Prefer the pH probe's device;
- * fall back to the water-temperature probe's device so a kit with pH unplugged (or
- * discovered late) still resolves to a device and shows its remaining readings.
- */
+/** WATER device: the pH probe's, falling back to the water-temperature probe's. */
 export function resolveWaterDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
   return deviceOwning(snapshot, isWaterPh) ?? deviceOwning(snapshot, isWaterTemperature);
 }
 
-/**
- * CLIMATE panel/trends device: the air rig. Prefer CO₂, then humidity, then a bare
- * ambient-temperature sensor, so a rig that only reports one of those still resolves.
- */
+/** CLIMATE device: CO₂, then humidity, then a bare ambient temperature. */
 export function resolveClimateDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
-  // The air-quality monitor also reports CO₂/temp/RH but owns the AIR QUALITY
-  // card, so it must never win the CLIMATE slot: both rigs name their CO₂ sensor
-  // "CO2", and the snapshot's name-sort breaks that tie by discovery arrival
-  // order — without this exclusion the winner would flip across restarts.
+  // The air monitor also reports CO₂/temp/RH; without this the CLIMATE winner flips across restarts.
   const airNodeId = resolveAirQualityDevice(snapshot)?.nodeId;
   const notAirMonitor = (pred: (e: EntityConfig) => boolean) => (e: EntityConfig) =>
     pred(e) && (airNodeId == null || e.nodeId !== airNodeId);
@@ -247,11 +166,7 @@ export function resolveThermalDevice(snapshot: Snapshot): DeviceSnapshot | undef
   return deviceOwning(snapshot, isThermalArrayTemp);
 }
 
-/**
- * AIR QUALITY panel device: the particulate/gas monitor (PM, VOC, NOx). Separate
- * from CLIMATE so an air-quality rig that also reports CO₂ gets its own card
- * instead of competing with the climate rig for the single CLIMATE slot.
- */
+/** AIR QUALITY device: the particulate/gas monitor, kept separate from CLIMATE. */
 export function resolveAirQualityDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
   return deviceOwning(snapshot, isAirQualityMetric);
 }

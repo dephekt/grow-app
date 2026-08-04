@@ -4,21 +4,13 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { IRRIGATION_NODE, RUNOFF_NODE, PUMP_DRAW_MIN_W } from '$lib/irrigation/model';
 
-/**
- * Reader + runoff writer for the irrigation history feed (grow-app #81). The
- * `irrigation_events` table (see db.ts) is the authoritative log; zone runs are written
- * at fire time by recordEvent() (zones.ts), runoff-pump runs by the runoff monitor. This
- * module turns those rows into one mixed, newest-first feed and enriches each row with the
- * pump energy drawn during its run (cached from InfluxDB — the async fill lives in the API
- * route so this stays pure/sync and unit-testable).
- */
+/** Reader and runoff writer for the irrigation history feed; stays pure and sync, with the
+ *  async energy fill living in the API route. */
 
 export type EventKind = 'irrigation' | 'runoff';
 
-/** Extra seconds past the requested run included in the pump-draw window. The accumulator
- *  tank decouples valve-open from pump-draw, so a short shot's draw often lands as a brief
- *  repressurization pulse just after the valve closes; capturing it keeps the energy honest
- *  and avoids false "no draw" flags on legitimately-served short shots. */
+/** Extra seconds of pump-draw window, since the accumulator often repressurizes just after
+ *  the valve closes. */
 export const ENRICH_POST_GRACE_SECONDS = 30;
 
 /** Additional wait after the window end before a row is eligible for measurement, so the
@@ -109,10 +101,8 @@ export function listEvents(db: DatabaseSync, limit = 100): IrrigationEventJson[]
   return rows.map(toEventJson);
 }
 
-/** Persist a runoff-pump run at its start. Duration is left null — a runoff burst is often a
- *  single power sample, so it can't be measured; the row leads with pump energy instead, filled
- *  in by the same lazy enrichment as zone runs (over a fixed post-start window since seconds is
- *  null). */
+/** Persist a runoff-pump run at its start; duration stays null because a burst is often a
+ *  single power sample. */
 export function recordRunoffEvent(db: DatabaseSync, event: { startedAt: string }): void {
   db.prepare(
     `INSERT INTO irrigation_events (kind, source, actor, seconds, ts)
@@ -151,16 +141,11 @@ export interface PendingEnergyRow {
   seconds: number | null;
 }
 
-/** Stop retrying rows older than this. A row still unmeasured after this long is a permanent
- *  data gap (Influx retention, an offline stretch, or a diagnostic-category sensor the recorder
- *  skips), so it should drop out of the pending set instead of re-querying forever and crowding
- *  out newer rows. */
+/** Rows unmeasured past this are a permanent data gap, so they leave the pending set. */
 export const ENERGY_RETRY_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 
-/** Settled, not-yet-measured rows needing an energy backfill (newest first, bounded). Pure and
- *  sync; the caller runs the async Influx integral and calls markEventEnergy(). Age-bounds in SQL
- *  so ancient unmeasurable rows leave the candidate set, and applies `limit` AFTER the settled
- *  filter so perpetually-pending rows can't starve older settled ones sorted behind them. */
+/** Rows needing an energy backfill; `limit` applies AFTER the settled filter so pending rows
+ *  cannot starve settled ones sorted behind them. */
 export function listEnergyPending(db: DatabaseSync, nowMs: number, limit = 100): PendingEnergyRow[] {
   const minTs = new Date(nowMs - ENERGY_RETRY_MAX_AGE_MS).toISOString();
   const rows = db

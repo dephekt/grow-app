@@ -6,8 +6,7 @@
 
   let { events, timeZone = 'UTC' }: { events: IrrigationEventJson[]; timeZone?: string } = $props();
 
-  // Feed spans days, so a run's timestamp carries date + wall-clock time, rendered in the
-  // site/schedule zone (matching the "Next run" column above it) rather than the viewer's.
+  // Rendered in the site/schedule zone, not the viewer's, to match the "Next run" column.
   function fmtTime(iso: string): string {
     return new Date(iso).toLocaleString(undefined, {
       timeZone,
@@ -33,10 +32,8 @@
     return parts.join(' · ');
   }
 
-  // Wh when integrable: a 30 s pump run is ~0.5 Wh, a 5 min run ~5 Wh, so sub-1 gets an extra
-  // digit. A window with a single sample has no interval to integrate (energy rounds to 0) — a
-  // runoff burst is often exactly this — so fall back to the measured peak power so the row still
-  // conveys the draw instead of a misleading "0 Wh".
+  // A window with a single sample has no interval to integrate (energy rounds to 0), so fall
+  // back to the measured peak power.
   function fmtDraw(e: IrrigationEventJson): string {
     if (e.energyWh == null) return '—';
     if (e.energyWh >= 0.005) return `${e.energyWh.toFixed(e.energyWh < 1 ? 3 : 2)} Wh`;

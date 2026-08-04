@@ -4,24 +4,14 @@
 import type { SubstrateZoneBinding } from '$lib/substrate';
 
 /**
- * How long the dashboard will wait for the zone bindings before rendering without them.
- *
- * There has to be a deadline, not just a catch. `fetch` has no timeout of its own, so a
- * stalled request — a blocked irrigation DB, a half-open socket — never settles and
- * never throws: this load would stay pending and the whole dashboard with it, including
- * the five cards that need none of this. Failing fast to the default curve is strictly
- * better than a blank page, since the bindings only refine a reading that already works.
+ * How long the dashboard will wait for the zone bindings before rendering without them;
+ * `fetch` has no timeout of its own, so a stalled request never settles and never throws.
  */
 const ZONES_TIMEOUT_MS = 3000;
 
 /**
- * The dashboard's only server-backed read: the zone→probe bindings the SUBSTRATE card
- * needs to pick a calibration curve. Everything else on this page comes from the live
- * MQTT snapshot the shell already holds.
- *
- * Deliberately non-critical. An unbound probe still reads — it falls back to the
- * soilless curve — so a failed, slow or unauthorised fetch degrades to "no bindings"
- * rather than taking down a dashboard whose other five cards need none of this.
+ * The dashboard's only server-backed read: the zone→probe bindings the SUBSTRATE card needs to
+ * pick a calibration curve, degrading to "no bindings" on any failure.
  */
 export const load = async ({ fetch }) => {
   const empty: SubstrateZoneBinding[] = [];

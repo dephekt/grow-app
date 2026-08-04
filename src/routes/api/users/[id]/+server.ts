@@ -18,8 +18,7 @@ interface PatchBody {
 
 /**
  * Admin user management: disable/enable, clear a local/fallback password, and
- * revoke sessions. Disabling a user also revokes their sessions so they're
- * kicked immediately rather than on next request.
+ * revoke sessions.
  */
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const denied = requireAdmin(locals);

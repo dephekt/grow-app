@@ -13,10 +13,8 @@ export interface InfluxConfig {
 }
 
 /**
- * Resolve InfluxDB connection config from the environment. Returns null when the
- * site has no time-series backend wired up (URL or token absent), so callers can
- * degrade gracefully instead of throwing — the app must keep working on a site
- * that has not deployed InfluxDB yet.
+ * Resolve InfluxDB connection config from the environment, or null when the site has
+ * no time-series backend wired up (URL or token absent).
  */
 export function getInfluxConfig(): InfluxConfig | null {
   const url = env('INFLUX_URL');

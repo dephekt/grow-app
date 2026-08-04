@@ -5,14 +5,8 @@ import { getInfluxConfig, getInfluxDB } from './client';
 import { READING_MEASUREMENT, escapeFluxString } from './query';
 
 /**
- * Per-event pump energy from InfluxDB (grow-app #81). The recorder writes each pump-power
- * reading as measurement `reading`, float field `value`, tags node/entity (see recorder.ts
- * + query.ts). Here we pull the raw power samples over a run's time window and integrate
- * them into watt-hours, plus the peak watts (used to decide whether the pump drew at all).
- *
- * Integration is done in JS rather than Flux `integral()` so the trapezoidal math, the
- * empty-window → measured-zero mapping, and the peak are all under our control and unit
- * testable without a live InfluxDB.
+ * Per-event pump energy from InfluxDB: raw power samples over a run's window, integrated to
+ * watt-hours plus the peak watts.
  */
 
 export interface PowerSample {
@@ -28,8 +22,7 @@ export interface PumpWindowResult {
   sampleCount: number;
 }
 
-/** Trapezoidal integral (→ Wh) and peak of a power series. Sorts defensively; a single
- *  sample yields 0 Wh (no interval) but a real peak; an empty series is a measured zero. */
+/** Trapezoidal integral (→ Wh) and peak of a power series. */
 export function integratePower(samples: PowerSample[]): PumpWindowResult {
   if (samples.length === 0) return { energyWh: 0, peakW: 0, sampleCount: 0 };
   const sorted = [...samples].sort((a, b) => a.tMs - b.tMs);
@@ -46,15 +39,8 @@ export function integratePower(samples: PowerSample[]): PumpWindowResult {
 }
 
 /**
- * Integrate the pump plug's power over [startIso, stopIso]. Returns null when InfluxDB is
- * not configured, the query errors (transient), OR the window held no samples at all — an
- * empty window means the recorder had no pump-power data (a gap / the plug offline), not a
- * measured zero: a healthy plug reports readings even at idle, so a genuinely dry short shot
- * still yields near-zero samples (peak below the draw floor → no-draw warning). Null in every
- * case leaves the row unmeasured so it retries and never caches a false "no draw".
- *
- * `startIso`/`stopIso` are our own toISOString() values interpolated as bare RFC3339 time
- * literals (Flux accepts them unquoted); node/entity are fixed constants but escaped anyway.
+ * Integrate the pump plug's power over [startIso, stopIso]; null when InfluxDB is not
+ * configured, the query errors, or the window held no samples (left unmeasured so it retries).
  */
 export async function queryPumpWindow(
   node: string,
@@ -85,8 +71,7 @@ export async function queryPumpWindow(
     console.warn('[influx] queryPumpWindow error:', err);
     return null;
   }
-  // No samples ⇒ a data gap, not a measured zero. Stay unmeasured (retry later) rather than
-  // caching a 0-peak that would render as a permanent, un-retryable false no-draw warning.
+  // No samples ⇒ a data gap, not a measured zero: stay unmeasured so it retries.
   if (samples.length === 0) return null;
   return integratePower(samples);
 }

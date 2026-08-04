@@ -202,18 +202,14 @@ export class SiteMqttService {
     return this.stateByEntity.get(entityId) ?? { value: null, updatedAt: null };
   }
 
-  /** Every discovered, writable ESPHome `time.timezone` text entity (component `text`,
-   *  objectId `time_zone`, with a command topic). The tz reconciler stamps the derived
-   *  site POSIX onto exactly these; a node that publishes no such entity is ignored. */
+  /** Every discovered, writable ESPHome `time.timezone` text entity. */
   timeZoneEntities(): EntityConfig[] {
     return [...this.entities.values()].filter(
       (entity) => entity.component === 'text' && entity.objectId === 'time_zone' && Boolean(entity.commandTopic)
     );
   }
 
-  /** Push a full snapshot to subscribers. The tz reconciler and the timezone PUT use
-   *  this to fan a fresh snapshot to connected clients after a state change that isn't
-   *  itself carried by an MQTT message (e.g. a persisted-setting refresh). */
+  /** Push a full snapshot to subscribers. */
   emitClientSnapshot(): void {
     this.emit({ type: 'snapshot', snapshot: this.snapshot() });
   }
@@ -331,29 +327,8 @@ export class SiteMqttService {
   }
 
   /**
-   * Republish a compact, wavelength-binned spectrum for the M5Dial's chart screen.
-   *
-   * grow-app is normally a consumer, but the alternative is baking this unit's Hamamatsu
-   * coefficients into ESP32 firmware and splitting calibration in two — so the derived topic wins.
-   * The OpenSprinkler station-state normalization above is the precedent for the app producing a
-   * derived retained topic.
-   *
-   * Retained, because the dial must be able to draw immediately on connect rather than waiting up to
-   * a second for the next frame. Throttled to at most one publish per second, which against the
-   * source's ~800 ms frames lands every other frame — so the panel updates about every 1.6 s.
-   *
-   * `null` publishes an EMPTY retained payload, deleting the value from the broker so the dial shows
-   * "no data" instead of a frozen curve — the same convention the Apogee publisher uses when its
-   * sensor goes silent.
-   *
-   * One node owns the topic at a time, tracked in `dialSpectrumOwner`. That keeps a persistently
-   * absent spectrometer from re-publishing the blank on every parse failure, and means a second
-   * spectrometer neither overwrites the owner's curve nor clears it by going silent — it takes over
-   * only once the owner has released the topic.
-   *
-   * Ownership moves synchronously and is rolled back if the publish rejects. Doing it in `.then()`
-   * instead would let two in-flight publishes settle out of order and leave the owner disagreeing
-   * with what is actually retained.
+   * Republish a compact, wavelength-binned spectrum for the M5Dial's chart screen — retained and
+   * throttled to one publish per second, with `null` clearing the retained value.
    */
   private publishDialSpectrum(nodeId: string, live: LiveSpectrum | null): void {
     const topic = `${this.config.topicPrefix}/_app/spectrum/dial`;
@@ -389,8 +364,7 @@ export class SiteMqttService {
     return first.done ? null : first.value;
   }
 
-  /** Latest ambient illuminance (lux) from the fleet's DLight/BH1750-class sensor — used to
-   *  anchor PPFD from lux. Matches on device_class 'illuminance' (or unit 'lx'); null if none. */
+  /** Latest ambient illuminance (lux), matched on device_class 'illuminance' or unit 'lx'. */
   latestIlluminance(): { lux: number; entityId: string; updatedAt: string | null } | null {
     for (const entity of this.entities.values()) {
       if (entity.deviceClass !== 'illuminance' && entity.unit !== 'lx') continue;
@@ -403,16 +377,12 @@ export class SiteMqttService {
     return null;
   }
 
-  /** Latest quantum-sensor PPFD (µmol·m⁻²·s⁻¹) from the Apogee SQ-521 — the live canopy
-   *  measurement, and the authoritative reading a reference anchor captures. Matches
-   *  isQuantumPpfd (objectId 'ppfd'); null if the sensor hasn't reported. Mirrors
-   *  latestIlluminance() so the anchor server never trusts a client-sent µmol value. */
+  /** Latest quantum-sensor PPFD (µmol·m⁻²·s⁻¹) from the Apogee SQ-521. */
   latestQuantumPpfd(): { ppfd: number; entityId: string; updatedAt: string | null } | null {
     // Same resolver the client uses, so the live display and this anchor bind to the same sensor.
     const entity = findQuantumPpfdEntity(this.entities.values());
     if (!entity) return null;
-    // Skip an offline publisher: its retained PPFD scalar lingers on the broker and must not be
-    // anchored as a live reading (the LWT flips availability, but the state topic stays retained).
+    // Skip an offline publisher: its retained PPFD scalar lingers on the broker after the LWT flips.
     if (this.availabilityByDevice.get(entity.device.identifiers[0]) === 'offline') return null;
     const state = this.stateByEntity.get(entity.id);
     const raw = state?.value;
@@ -449,8 +419,7 @@ export class SiteMqttService {
     if (lightsConfig) {
       if (lightsConfig.fragment) this.lightsByNodeId.set(lightsConfig.nodeId, lightsConfig.fragment);
       else this.lightsByNodeId.delete(lightsConfig.nodeId);
-      // No dedicated event — logical lights are derived state re-computed in
-      // snapshot(); a full snapshot carries the merged result to the client.
+      // No dedicated event — logical lights are derived state re-computed in snapshot().
       this.emit({ type: 'snapshot', snapshot: this.snapshot() });
       return;
     }
@@ -471,18 +440,15 @@ export class SiteMqttService {
       return;
     }
 
-    // Bulk spectrometer frame: kept out of the scalar state map (camera precedent),
-    // processed once here, and delivered via a dedicated `spectrum` event.
+    // Bulk spectrometer frame: kept out of the scalar state map (camera precedent).
     const spectrum = parseSpectrumPayload(topic, payload, this.config.topicPrefix);
     if (spectrum) {
       this.ingestSpectrum(spectrum.nodeId, spectrum.frame);
       return;
     }
 
-    // OpenSprinkler status normalization: OS publishes station state as JSON to
-    // `<base>/station/<n>`; republish a plain ON/OFF scalar (retained) to
-    // `<base>/station/<n>/state` so the self-published discovery entity + the
-    // recorder see clean values (the discovery parser has no value_template).
+    // OpenSprinkler publishes station state as JSON; republish a plain retained ON/OFF scalar
+    // because the self-published discovery entity has no value_template.
     if (this.config.osEnabled && this.config.osBaseTopic) {
       const sid = matchStationTopic(topic, this.config.osBaseTopic);
       if (sid !== null) {
@@ -615,14 +581,11 @@ export class SiteMqttService {
     };
   }
 
-  /** Merge every device's `grow-lights.v1` fragment into logical lights, keyed by
-   *  light id. Each role's objectId is local to the publishing node, so we stamp it
-   *  with that node here; the plug fragment supplies name/type (the anchor). */
+  /** Merge every device's `grow-lights.v1` fragment into logical lights keyed by light id,
+   *  stamping each role's node-local objectId with its publishing node. */
   private mergedLights(): LightConfig[] {
     const byId = new Map<string, LightConfig>();
 
-    // Data-driven setter for each scalar role: maps a role name to the typed
-    // LightRoles field it populates.
     const scalarRoles: Record<string, (roles: LightConfig['roles'], ref: LightRoleRef) => void> = {
       power: (roles, ref) => (roles.power = ref),
       scheduleArm: (roles, ref) => (roles.scheduleArm = ref),

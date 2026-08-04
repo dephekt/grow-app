@@ -31,8 +31,7 @@
     ];
   }
 
-  // The theme CSS vars are constant for the page lifetime — resolve them once instead
-  // of hitting getComputedStyle on every structural rebuild (domain switch).
+  // The theme CSS vars are constant for the page lifetime.
   let themeCache: { colors: string[]; axis: string } | null = null;
   function theme() {
     if (!themeCache) themeCache = { colors: palette(), axis: cssVar('--muted', '#8a9099') };
@@ -63,10 +62,7 @@
     const { colors, axis: axisColor } = theme();
     const grid = 'rgba(255,255,255,0.06)';
     const units = new Set(s.map((x) => x.unit).filter(Boolean));
-    // Same-unit series share a scale (directly comparable); disparate units each get
-    // their own auto-ranged scale so every line stays visible. Only show y-axis tick
-    // values when *every* series shares one real unit, else they'd imply a false scale
-    // (a unitless series sits on its own hidden scale).
+    // Y-axis tick values would imply a false scale unless every series shares one real unit.
     const singleUnit = units.size === 1 && s.every((x) => x.unit);
     const yScale = s[0]?.unit || s[0]?.key || 'y';
     const mono = '11px "IBM Plex Mono", ui-monospace, monospace';
@@ -104,8 +100,6 @@
 
   function render(s: TrendSeries[]) {
     if (!el) return;
-    // Cheap emptiness check first, so the empty/destroy path skips the full
-    // timestamp-union rebuild in buildData().
     if (!s.length || !s.some((x) => x.points.length > 0)) {
       plot?.destroy();
       plot = null;
@@ -151,8 +145,7 @@
 </div>
 
 <style>
-  /* The empty-state overlays the (collapsed) chart host rather than stacking under it,
-     so a no-data domain stays one `height` tall, not two. */
+  /* The empty-state overlays the chart host rather than stacking under it. */
   .trends-chart {
     width: 100%;
     position: relative;

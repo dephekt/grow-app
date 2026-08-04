@@ -28,9 +28,7 @@
 
   // ── Metric rule derivation ──────────────────────────────────────────────────
   // Find all threshold number entities (objectId contains threshold/high/low)
-  // and pair them with matching alert binary_sensors by metric prefix. The
-  // recognition itself lives in $lib/threshold-match so device-settings'
-  // isAlertsCurated stays in sync.
+  // and pair them with matching alert binary_sensors by metric prefix.
   interface ThresholdRule {
     metric: string;          // e.g. "co2"
     label: string;           // e.g. "CO₂"
@@ -71,8 +69,7 @@
   }
 
   /** Optimistic value the user dragged/nudged to, plus the live `updatedAt` seen
-   *  when we published it — so we can clear the override the moment the device
-   *  echoes ANY fresh state, even one that differs from what we sent. */
+   *  when we published it. */
   interface ThresholdOverride {
     value: number;
     baseUpdatedAt: string | null;
@@ -87,8 +84,7 @@
   let overrideTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
   // Reconcile: drop an optimistic override once the device echoes a fresh state
-  // for that entity (its updatedAt advanced past what we saw at publish time),
-  // regardless of whether the device applied exactly the value we sent.
+  // for that entity, whatever value it applied.
   $effect(() => {
     const staleIds = Object.entries(thresholdOverrides)
       .filter(([entityId, override]) => {
@@ -107,7 +103,6 @@
     thresholdOverrides = next;
   });
 
-  // Drop any pending safety timers on unmount.
   $effect(() => {
     return () => {
       for (const timer of Object.values(overrideTimers)) clearTimeout(timer);
@@ -129,9 +124,7 @@
     return map[metric] ?? metric.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
-  /** Map a metric key to a shared entity-match recogniser where one exists, so the
-   *  live-sensor lookup keys off deviceClass for the covered metrics; EC/VPD/TDS
-   *  (no recogniser) fall back to substring matching. */
+  /** Map a metric key to a shared entity-match recogniser, or null when it has none. */
   function metricRecognizer(metric: string): ((e: EntityConfig) => boolean) | null {
     switch (metric) {
       case 'co2':
@@ -170,9 +163,8 @@
 
   let allEntries = $derived(groups.flatMap((g: PresentedSection) => g.entries));
 
-  /** The first curated control matching `pred` whose object_id shares an alarm family
-   *  root (e.g. `thermal` for the `thermal_alarm` band), so a single-band alarm's
-   *  buzzer switch / test button attach to its card rather than the fallback list. */
+  /** The first curated control matching `pred` whose object_id starts with an alarm family
+   *  root (e.g. `thermal` for the `thermal_alarm` band). */
   function findControl(pred: (e: EntityConfig) => boolean, root: string): EntityConfig | null {
     return (
       allEntries
@@ -210,26 +202,20 @@
       }
     }
 
-    // Union of all metric prefixes from either map
     const metrics = new Set([...thresholdMap.keys(), ...alertMap.keys()]);
 
     return [...metrics].map((metric): ThresholdRule => {
       const thresholds = thresholdMap.get(metric) ?? { low: null, high: null };
       const alerts = alertMap.get(metric) ?? { low: null, high: null, generic: null };
 
-      // Find a live sensor for this metric (prefer the shared recogniser).
       const liveEntity = liveSensorFor(metric, deviceEntities);
 
-      // A single-band alarm (one generic alert, no split high/low — e.g. the thermal
-      // camera's `thermal_alarm`) may ship a buzzer-mute switch and a sound-test button
-      // that don't group by metric prefix. Attach them by the alarm's family root
-      // (metric `thermal_alarm` → `thermal`) so they render inside the card instead of
-      // dropping to the fallback list.
+      // A single-band alarm's buzzer-mute switch and sound-test button don't group by metric
+      // prefix, so attach them by the alarm's family root (`thermal_alarm` → `thermal`).
       const familyRoot = alerts.generic ? metric.replace(/_?alarm$/, '') : '';
       const buzzerEntity = familyRoot ? findControl(isBuzzerSwitch, familyRoot) : null;
       const alarmTestEntity = familyRoot ? findControl(isAlarmTestButton, familyRoot) : null;
 
-      // Derive unit from whichever entity has it
       const unitEntity = thresholds.high ?? thresholds.low ?? liveEntity;
       const unit = unitEntity?.unit ?? null;
 
@@ -249,7 +235,6 @@
     });
   });
 
-  // Entities that are NOT part of a recognized threshold rule → fallback list
   let recognizedIds = $derived(new Set([
     ...rules.flatMap((r) => [
       r.lowEntity?.id,
@@ -265,8 +250,7 @@
   let fallbackEntries = $derived(allEntries.filter((e: import('$lib/device-presentation').PresentedEntity) => !recognizedIds.has(e.entity.id)));
 
   // ── Per-rule helpers ────────────────────────────────────────────────────────
-  // Status derivation (alertStatus, statusFromLive, isOn/isOff) lives in
-  // $lib/alert-status so it stays unit-testable outside the component.
+  // Status derivation (alertStatus, statusFromLive, isOn/isOff) lives in $lib/alert-status.
   function liveValue(rule: ThresholdRule, states: Record<string, EntityState>): string {
     if (!rule.liveEntity) return '—';
     const v = states[rule.liveEntity.id]?.value;
@@ -276,7 +260,6 @@
     return n.toFixed(1);
   }
 
-  // Band visualization dimensions
   const BAND_W = 280;
   const BAND_H = 32;
 
@@ -377,8 +360,8 @@
     return { low: value - safeSpan, high: value + safeSpan };
   }
 
-  /** The band domain derived from configured bounds / committed state only — stable
-   *  across a drag (does not feed the live drag value back in). */
+  /** The band domain derived from configured bounds / committed state only, so it stays
+   *  stable across a drag. */
   function stableDomain(rule: ThresholdRule, states: Record<string, EntityState>): { low: number; high: number } | null {
     return ruleBandDomain(
       rule,
@@ -413,8 +396,7 @@
     return clamp(rounded, min, max);
   }
 
-  /** A neutral handle position when the threshold has no committed value yet, so a
-   *  state-less but writable threshold is still draggable. */
+  /** A neutral handle position when the threshold has no committed value yet. */
   function midpoint(entity: EntityConfig | null, domain: { low: number; high: number }): number {
     const min = finiteOrNull(entity?.min);
     const max = finiteOrNull(entity?.max);
@@ -449,10 +431,8 @@
     const hasLow = rule.lowEntity != null;
     const hasHigh = rule.highEntity != null;
 
-    // While dragging a handle of this rule, reuse the domain frozen at drag start
-    // so the rendered tick and the pointer→value mapping share one coordinate
-    // space (no mid-drag drift). Otherwise derive a stable domain from committed
-    // values only.
+    // While dragging a handle of this rule, reuse the domain frozen at drag start so the
+    // rendered tick and the pointer→value mapping share one coordinate space.
     const activeDrag =
       thresholdDrag && (thresholdDrag.entityId === rule.lowEntity?.id || thresholdDrag.entityId === rule.highEntity?.id)
         ? thresholdDrag
@@ -480,8 +460,8 @@
       };
     }
 
-    // Display value: the real (drag/override/committed) value, or a neutral
-    // midpoint when the threshold has never reported — so the handle is settable.
+    // Display value: the real (drag/override/committed) value, or a neutral midpoint when
+    // the threshold has never reported.
     const lowDisplay = hasLow ? lowReal ?? clamp(midpoint(rule.lowEntity, domain), domain.low, domain.high) : null;
     const highDisplay = hasHigh ? highReal ?? clamp(midpoint(rule.highEntity, domain), domain.low, domain.high) : null;
 
@@ -527,9 +507,8 @@
     return `${formatThresholdValue(entity, value)}${unit ? ` ${unit}` : ''}`;
   }
 
-  /** Map a client pointer position to a band x in viewBox user units via the SVG's
-   *  own coordinate transform, so it stays correct regardless of preserveAspectRatio
-   *  padding/scaling (the band is centred, not full-width, on wide cards). */
+  /** Map a client pointer position to a band x in viewBox user units via the SVG's own
+   *  coordinate transform, which stays correct under preserveAspectRatio padding/scaling. */
   function pointerBandX(event: PointerEvent, target: EventTarget | null): number | null {
     const svg = target instanceof SVGSVGElement ? target : target instanceof SVGElement ? target.ownerSVGElement : null;
     const ctm = svg?.getScreenCTM();
@@ -597,8 +576,8 @@
     if (value == null) return;
 
     event.preventDefault();
-    // "moved" = the rounded value has actually left the (rounded) start value, so a
-    // pure tap/focus — which only rounds an off-grid committed value — is not an edit.
+    // "moved" = the rounded value has actually left the (rounded) start value, so a pure
+    // tap/focus is not an edit.
     const moved = thresholdDrag.moved || !sameThresholdValue(entity, value, roundToStep(thresholdDrag.startValue, entity));
     thresholdDrag = { ...thresholdDrag, value, moved };
   }
@@ -756,18 +735,14 @@
         <div class="rule-body">
           <div class="live-value mono">{liveV}{#if liveV !== '—' && rule.unit}&nbsp;<span class="muted unit-sm">{rule.unit}</span>{/if}</div>
 
-          <!-- Band visualization -->
           <div class="band-wrap">
             <svg viewBox="0 0 {BAND_W} {BAND_H}" width="100%" height={BAND_H} class="band-svg">
-              <!-- background track -->
               <rect x="0" y="10" width={BAND_W} height="12" rx="3" fill="var(--panel-2)" />
 
-              <!-- OK zone (between low and high) -->
               {#if geom.okLeft != null && geom.okWidth != null && geom.okWidth > 0}
                 <rect x={geom.okLeft} y="10" width={geom.okWidth} height="12" rx="2" fill="var(--ok)" fill-opacity="0.18" />
               {/if}
 
-              <!-- Low / high threshold handles -->
               {@render thresholdHandle('low')}
               {@render thresholdHandle('high')}
 

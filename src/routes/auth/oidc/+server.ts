@@ -14,9 +14,7 @@ import { beginLogin, resolveRequestOrigin } from '$lib/server/auth/oidc';
 import { sanitizeNext } from '$lib/auth-redirect';
 
 /**
- * Public: initiate the OIDC auth-code flow. Builds the authorization URL (PKCE +
- * state + nonce), stashes the exchange state in a short-lived HttpOnly cookie, and
- * redirects to the IdP. Whitelisted pre-session in the auth guard.
+ * Public: initiate the OIDC auth-code flow; whitelisted pre-session in the auth guard.
  */
 export const GET: RequestHandler = async ({ request, url, cookies }) => {
   if (!isSsoEnabled()) redirect(303, '/login');
@@ -31,8 +29,7 @@ export const GET: RequestHandler = async ({ request, url, cookies }) => {
   const next = sanitizeNext(url.searchParams.get('next'));
 
   const begun = await beginLogin(origin, next).catch((err) => {
-    // Discovery/network failure (e.g. IdP down) — fail the new login cleanly;
-    // existing sessions are unaffected.
+    // Discovery/network failure (e.g. IdP down) — fail the new login cleanly.
     console.error('[auth] OIDC initiate failed', err);
     return null;
   });

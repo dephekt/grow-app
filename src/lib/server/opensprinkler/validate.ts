@@ -5,9 +5,8 @@ import type { ZoneCreate, ZonePatch } from './zones';
 import type { ScheduleCreate, SchedulePatch } from './schedules';
 
 /**
- * Pure request-body validation for zone create/update. Throws a caller-friendly
- * Error (→ HTTP 400) on bad input. Kept separate from the store + endpoints so it
- * unit-tests as plain functions.
+ * Pure request-body validation for zone create/update; throws a caller-friendly
+ * Error (→ HTTP 400) on bad input.
  */
 
 function requireName(value: unknown): string {
@@ -158,7 +157,7 @@ function parseTimes(value: unknown): number[] {
 }
 
 /** Exactly one of shotPercent / shotMl / shotSeconds must be a positive value — the
- *  same invariant the DB CHECK enforces, surfaced here as a 400 instead of a 500. */
+ *  same invariant the DB CHECK enforces. */
 function parseShot(body: Record<string, unknown>): Pick<ScheduleCreate, 'shotPercent' | 'shotMl' | 'shotSeconds'> {
   const shotPercent = optPositiveNumber(body.shotPercent, 'shotPercent');
   const shotMl = optPositiveNumber(body.shotMl, 'shotMl');

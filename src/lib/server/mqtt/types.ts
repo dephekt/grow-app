@@ -97,11 +97,8 @@ export interface DeviceUiConfig {
 }
 
 /**
- * A logical light is assembled from controls scattered across devices: on/off,
- * schedule, and power live on a smart plug; the dimmer lives on a DAC channel on a
- * different node. Each device publishes a `grow-lights.v1` fragment declaring which
- * of ITS entities fill which role for a light id; the server merges fragments by id
- * into `LightConfig`s. A resolved role points at one entity on one node.
+ * A resolved light role: one entity on one node, merged from the per-device
+ * `grow-lights.v1` fragments a logical light is assembled from.
  */
 export interface LightRoleRef {
   node: string;
@@ -125,8 +122,8 @@ export interface LightConfig {
   roles: LightRoles;
 }
 
-/** A single device's raw contribution, as published to `<node>/_lights/config`.
- *  Role values are objectIds LOCAL to `nodeId`; the merge stamps them with node. */
+/** A single device's raw contribution, published to `<node>/_lights/config`; role values are
+ *  objectIds LOCAL to `nodeId`. */
 export interface DeviceLightsFragment {
   schema: 'grow-lights.v1';
   nodeId: string;
@@ -165,9 +162,8 @@ export interface FirmwareSnapshot {
   channels: Record<string, FirmwareChannelConfig>;
 }
 
-/** Latest spectrometer frame: raw counts (source of truth for re-processing) plus the
- *  render-ready processed spectrum. Kept OUT of Snapshot (the MLX90640 camera precedent
- *  for bulk payloads) — delivered via a dedicated `spectrum` event + /api/spectrum/live. */
+/** Latest spectrometer frame, kept OUT of Snapshot like the MLX90640 camera payload — delivered
+ *  via a dedicated `spectrum` event + /api/spectrum/live. */
 export interface LiveSpectrum {
   nodeId: string;
   seq: number;
@@ -206,8 +202,8 @@ export interface Snapshot {
   uiConfigs: Record<string, DeviceUiConfig>;
   lights: LightConfig[];
   firmware: FirmwareSnapshot;
-  /** Node ids that have published a spectrometer frame — the devices the PPFD calibration attaches to.
-   *  Always set by the service + normalizer; optional in the type so plain-object fixtures can omit it. */
+  /** Node ids that have published a spectrometer frame; always set at runtime, optional in the
+   *  type only so plain-object fixtures can omit it. */
   spectrometerNodeIds?: string[];
 }
 

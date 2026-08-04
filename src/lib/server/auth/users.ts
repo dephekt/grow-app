@@ -21,7 +21,7 @@ export interface UserRow {
   last_login_at: string | null;
 }
 
-/** The user shape attached to `event.locals` and returned by /api/me. No secrets. */
+/** The user shape attached to `event.locals` and returned by /api/me; no secrets. */
 export interface AuthenticatedUser {
   id: number;
   username: string;
@@ -31,8 +31,7 @@ export interface AuthenticatedUser {
   oidcLinked: boolean;
 }
 
-/** Admin-facing user view. Like AuthenticatedUser plus management fields; still
- *  omits the password hash. */
+/** Admin-facing user view; still omits the password hash. */
 export interface UserSummary {
   id: number;
   username: string;
@@ -93,12 +92,9 @@ export interface CreateLocalUserInput {
   displayName?: string | null;
 }
 
-/** Create a pure-local (no OIDC) user with a password. Throws if the username
- *  is taken (the UNIQUE constraint surfaces as an error). */
+/** Create a pure-local (no OIDC) user with a password; throws if the username is taken. */
 export async function createLocalUser(db: DatabaseSync, input: CreateLocalUserInput): Promise<UserRow> {
-  // Derive the hash BEFORE opening any statement: hashPassword is async now, so
-  // computing it up front keeps the INSERT a single synchronous node:sqlite call
-  // — no `await` sits between statements on the shared connection.
+  // Hash before opening any statement so no `await` sits between statements on the shared connection.
   const passwordHash = await hashPassword(input.password);
   const now = new Date().toISOString();
   const result = db
@@ -153,11 +149,9 @@ function usernameSeed(desired: string): string {
 }
 
 /**
- * A username not already taken (COLLATE NOCASE). Prefers `desired`; on collision
- * with a *different* account it appends a numeric suffix rather than reusing the
- * row — linking an OIDC identity to an existing local account by a matching
- * username would be an account-takeover vector. The base is unlikely to collide
- * (it comes from `preferred_username`/email/sub), so the suffix path is rare.
+ * A username not already taken (COLLATE NOCASE), suffixed on collision rather than
+ * reusing the row — linking an OIDC identity to an existing local account by a
+ * matching username would be an account-takeover vector.
  */
 function pickAvailableUsername(db: DatabaseSync, desired: string): string {
   const base = usernameSeed(desired);
@@ -166,7 +160,6 @@ function pickAvailableUsername(db: DatabaseSync, desired: string): string {
     const candidate = `${base}-${i}`;
     if (!getUserByUsername(db, candidate)) return candidate;
   }
-  // Astronomically unlikely; fail loudly rather than loop forever.
   throw new Error(`could not derive a free username for '${base}'`);
 }
 
@@ -182,11 +175,9 @@ export interface UpsertOidcUserInput {
 }
 
 /**
- * Resolve an OIDC identity to a local user row, provisioning one on first sight.
- * The identity key is `(oidc_issuer, oidc_sub)` ONLY — never link by email or
- * username. For an existing row, re-sync the mutable profile (`display_name`) and
- * `is_admin` from the IdP, but never touch `password_hash` (the D30 fallback),
- * `username`, or `disabled` (the local kill-switch). Returns the fresh row.
+ * Resolve an OIDC identity to a local user row, keyed on `(oidc_issuer, oidc_sub)`
+ * ONLY — never link by email or username.
+ * Re-syncing an existing row never touches `password_hash`, `username`, or `disabled`.
  */
 export async function upsertOidcUser(db: DatabaseSync, input: UpsertOidcUserInput): Promise<UserRow> {
   const existing = getUserByOidc(db, input.issuer, input.sub);
@@ -213,13 +204,8 @@ export async function upsertOidcUser(db: DatabaseSync, input: UpsertOidcUserInpu
 }
 
 /**
- * Ensure a usable local admin exists on first boot. If any enabled admin with a
- * local password already exists, this is a no-op — the bootstrap secret is inert
- * after the first successful boot and a later password change is never reset.
- *
- * When no usable admin remains (all disabled or de-admin'd), the bootstrap secret
- * doubles as a recovery path: the named user is re-enabled and re-promoted. Its
- * password hash is never overwritten, so the inert-secret guarantee still holds.
+ * Ensure a usable local admin exists, re-enabling and re-promoting the named user
+ * when none remains; an existing password hash is never overwritten.
  */
 export async function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdmin): Promise<void> {
   const existing = db
@@ -241,11 +227,7 @@ export async function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdm
 
   if (row) {
     if (row.password_hash) {
-      // We only reach here with existing.n === 0, so this named user — though it
-      // has a password — is disabled and/or no longer an admin (otherwise it would
-      // have counted as a usable admin above). Restore admin access WITHOUT touching
-      // the hash: the never-overwrite-password / inert-secret guarantee holds, and
-      // the bootstrap secret still gives operators a recovery path.
+      // Restore admin access WITHOUT touching the hash — the bootstrap secret never overwrites a password.
       db.prepare('UPDATE users SET is_admin = 1, disabled = 0 WHERE id = ?').run(row.id);
       recordAudit(db, {
         event: 'admin.bootstrapped',

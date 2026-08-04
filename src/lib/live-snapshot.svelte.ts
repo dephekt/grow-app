@@ -80,9 +80,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
   let commandPending = $state<Record<string, boolean>>({});
   let commandErrors = $state<Record<string, string>>({});
   let spectrum = $state<LiveSpectrum | null>(null);
-  // True once the SSE stream has delivered any spectrum event (frame OR clear). Lets a
-  // retained-clear (spectrum → null) win over the page loader's seed rather than reverting
-  // to a stale frame.
+  // True once the SSE stream has delivered any spectrum event (frame OR clear).
   let spectrumReceived = $state(false);
 
   function connect(): () => void {
@@ -149,9 +147,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     events.onerror = () => {
       error = 'Live event stream disconnected';
       // The SSE endpoint is session-guarded: a mid-stream 401 means the session
-      // expired or was revoked. Re-probe /api/me and, if we're now anonymous,
-      // bounce to the login screen. A transient network drop keeps user set, so
-      // this doesn't fire on ordinary reconnect churn.
+      // expired or was revoked.
       if (typeof window === 'undefined') return;
       void fetch('/api/me')
         .then((response) => (response.ok ? response.json() : null))
@@ -178,9 +174,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
   }
 
   /** Resolves true only when the command was actually published successfully —
-   *  false on a cancelled dangerous-confirm or any error. Callers that gate state
-   *  on success (e.g. calibration marking a step done) must use the return value,
-   *  not the absence of an error (the cancel path records no error). */
+   *  false on a cancelled dangerous-confirm (which records no error) or any error. */
   async function sendCommand(entity: EntityConfig, value?: unknown): Promise<boolean> {
     if (entity.dangerous && !confirm(`Publish command for ${entity.name}?`)) return false;
 
@@ -208,8 +202,8 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     }
   }
 
-  /** Run an irrigation zone as a shot. Pending/error are tracked under a
-   *  `zone:<id>` key so they never collide with entity-id command state. */
+  /** Run an irrigation zone as a shot, tracking pending/error under a `zone:<id>`
+   *  key so they can't collide with entity-id command state. */
   async function runZoneShot(zoneId: string, shot: { seconds?: number; ml?: number; percent?: number }): Promise<boolean> {
     const key = `zone:${zoneId}`;
     commandPending = { ...commandPending, [key]: true };

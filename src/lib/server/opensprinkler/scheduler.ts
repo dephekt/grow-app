@@ -12,14 +12,8 @@ import { listActiveSchedules, markScheduleFired, parseAnchorMs, type Schedule } 
 import { getZone, recordEvent } from './zones';
 import { clampSeconds, resolveShotSeconds, type ShotInput } from './shots';
 
-/**
- * The irrigation schedule reconciliation tick. Not a durable-execution framework — a
- * level-triggered loop that, each tick, asks each active schedule "are you due right
- * now?" (`computeScheduleDue`) and fires the ones that are through the existing
- * IrrigationController. Restart-safety comes for free: next-due is recomputed from the
- * persisted `last_fired_at` on every tick, so a bounce just resumes from state. Single
- * container / single writer, so no distributed locking is needed.
- */
+/** A level-triggered reconciliation tick; next-due recomputes from the persisted anchor every
+ *  pass, so a restart just resumes from state. */
 
 /** Just the slice of the controller the tick drives, so tests pass a fake. */
 export interface SchedulerController {
@@ -43,17 +37,8 @@ function shotInputFor(schedule: Schedule): ShotInput {
   return {};
 }
 
-/**
- * Run one reconciliation pass. Pure w.r.t. its injected deps (db, controller, clock),
- * so the whole firing decision matrix unit-tests without a real timer or MQTT.
- *
- * Concurrency is guarded in three layers: the persisted `last_fired` dedup (primary),
- * a live `isStationRunning` check, and a per-tick `firedThisTick` set (two schedules
- * sharing a station in one tick). On a busy station the window is *consumed* — we
- * advance `last_fired` without firing or auditing — so we don't retry a slot we chose
- * to skip. A `runStation` rejection, by contrast, leaves `last_fired` untouched so an
- * in-grace retry on the next tick can still succeed.
- */
+/** One reconciliation pass; a busy station CONSUMES its window, while a run rejection leaves
+ *  the anchor untouched so an in-grace retry can still succeed. */
 export async function runSchedulerTick(deps: SchedulerTickDeps): Promise<void> {
   const { db, controller, nowMs, tz, graceMs } = deps;
   const firedThisTick = new Set<number>();
@@ -78,13 +63,8 @@ export async function runSchedulerTick(deps: SchedulerTickDeps): Promise<void> {
 
       const seconds = clampSeconds(resolveShotSeconds(shotInputFor(schedule), zone), zone.maxRunSeconds);
 
-      // Make the durable dedup anchor a PRECONDITION of the physical fire, not a
-      // consequence. Advance last_fired BEFORE opening the valve: if that write throws
-      // (e.g. a full disk), it throws before the run happens — a skipped shot, never a
-      // valve that re-fires every tick across the grace window because the anchor never
-      // advanced. Claim the station for this tick only AFTER the anchor is durable, so a
-      // failed anchor write doesn't wrongly mark the station busy and skip a co-located
-      // sibling schedule this tick.
+      // The anchor is a PRECONDITION of the fire, not a consequence: a failed write skips a
+      // shot rather than leaving a valve re-firing every tick across the grace window.
       const priorLastFired = schedule.lastFiredAt;
       markScheduleFired(db, schedule.id, slotIso);
       firedThisTick.add(zone.stationSid);
@@ -156,11 +136,7 @@ export function getScheduleGraceMs(): number {
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
-/**
- * Start the reconciliation timer (web app only — never the read-only recorder). No-op
- * unless the site is OS-enabled or a timer is already running. `unref()` keeps the tick
- * from holding the process alive on shutdown.
- */
+/** Start the reconciliation timer, unref'd so it cannot hold the process alive on shutdown. */
 export function startIrrigationScheduler(): void {
   if (timer) return;
   if (!getOpenSprinklerConfig().enabled) return;

@@ -7,15 +7,12 @@
 
   let { user }: { user: AuthenticatedUser } = $props();
 
-  // Track locally: `user` comes from load data (a plain, non-reactive object), so
-  // mutating user.hasLocalPassword would not re-render the dialog's mode. Seed
-  // once from the prop, then this drives the "set" vs "change" password UI.
+  // `user` comes from load data (a plain, non-reactive object), so mutating
+  // user.hasLocalPassword would not re-render the dialog's mode.
   let hasLocalPassword = $state(untrack(() => user.hasLocalPassword));
 
   // Re-sync when load data legitimately refreshes the prop — e.g. an admin clears
-  // their own local password on the users page and navigates back, so the (app)
-  // layout reruns and passes hasLocalPassword=false. Without this the dialog would
-  // stay stuck in "change" mode, demanding a current password that no longer exists.
+  // their own local password on the users page and navigates back.
   $effect(() => {
     hasLocalPassword = user.hasLocalPassword;
   });
@@ -28,9 +25,7 @@
   let saving = $state(false);
   let error = $state<string | null>(null);
   let saved = $state(false);
-  // Auto-close timer id, tracked so a reopen can cancel a still-pending close —
-  // `dialog` is a single shared instance, so a stale timer would otherwise close
-  // a dialog the user reopened within the 900ms window.
+  // Auto-close timer id, tracked so a reopen can cancel a still-pending close.
   let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
   const passwordAction = $derived(hasLocalPassword ? 'Change local password' : 'Set local password');
@@ -42,7 +37,6 @@
     currentPassword = '';
     newPassword = '';
     confirmPassword = '';
-    // Cancel a pending auto-close from a prior save so it can't slam this dialog shut.
     if (closeTimer !== null) {
       clearTimeout(closeTimer);
       closeTimer = null;

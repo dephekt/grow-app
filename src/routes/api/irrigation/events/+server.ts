@@ -15,10 +15,8 @@ function clampLimit(raw: string | null): number {
   return Math.min(Math.floor(n), MAX_LIMIT);
 }
 
-// The mixed irrigation + runoff history feed — any authenticated user (read-only; hooks already
-// require a session for /api paths). Pump energy is filled in off the request path by the
-// background backfill loop (startIrrigationEnergyBackfill), so this handler never touches Influx
-// and a slow Influx can't stall the page.
+// Pump energy is filled in off the request path by the background backfill loop
+// (startIrrigationEnergyBackfill), so this handler never touches Influx.
 export const GET: RequestHandler = ({ url }) => {
   return json({ ok: true, events: listEvents(getIrrigationDb(), clampLimit(url.searchParams.get('limit'))) });
 };

@@ -16,7 +16,7 @@ interface LoginBody {
   password?: unknown;
 }
 
-// Public: local username/password login. Always works regardless of IdP state.
+// Public: local username/password login, which always works regardless of IdP state.
 export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
   let body: LoginBody;
   try {
@@ -27,10 +27,8 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 
   const username = typeof body.username === 'string' ? body.username.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
-  // adapter-node's getClientAddress() throws when ADDRESS_HEADER is configured but
-  // the header is absent from the request — e.g. a direct plain-HTTP LAN request
-  // that never traversed the proxy. Degrade to a shared bucket instead of 500-ing
-  // the login; the header-bearing (proxied) requests still key on their real IP.
+  // adapter-node's getClientAddress() throws when ADDRESS_HEADER is configured but the
+  // header is absent — e.g. a direct plain-HTTP LAN request that never hit the proxy.
   let ip: string;
   try {
     ip = getClientAddress();
@@ -44,9 +42,8 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 
   const throttle = getLoginThrottle();
 
-  // Per-IP rate limit, checked before any DB read or scrypt so a flood is shed
-  // cheaply. Deliberately not audited: a rejected request must not hand an
-  // attacker a cheap DB write to amplify against the audit table.
+  // Deliberately not audited: a rejected request must not hand an attacker a cheap
+  // DB write to amplify against the audit table.
   const rate = throttle.checkRate(ip);
   if (!rate.allowed) {
     return json(

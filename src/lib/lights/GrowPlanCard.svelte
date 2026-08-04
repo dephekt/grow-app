@@ -19,17 +19,12 @@
 
   const guidance = $derived(buildGuidance(livePpfd, dimmerPct, growState.ppfdTarget));
 
-  // Flag when the fixture's schedule doesn't match the stage's planned photoperiod (e.g. still on
-  // veg 18/6 while the plan calls for flower 12/12).
   const photoperiodMismatch = $derived(
     actualPhotoperiod != null &&
       (actualPhotoperiod.onHours !== growState.onHours || actualPhotoperiod.offHours !== growState.offHours)
   );
-  // A PROJECTION, not a measurement: this instant's PPFD held across the whole planned
-  // photoperiod. It answers "what would today total if nothing changed", so it swings with every
-  // dimmer move and shadow, and it uses the PLANNED hours even when photoperiodMismatch above says
-  // the fixture is running different ones. The measured counterpart — the day's actual integral so
-  // far — is DLI (current) on the Canopy PAR card, fed by the publisher's own integrator.
+  // A PROJECTION, not a measurement: this instant's PPFD held across the PLANNED photoperiod
+  // (the measured integral is DLI (current) on the Canopy PAR card).
   const dliProjected = $derived(livePpfd == null ? null : dliFor(livePpfd, growState.onHours));
   const maxTarget = $derived(Math.max(...growState.weekly.map((w) => w.ppfdTarget)));
 

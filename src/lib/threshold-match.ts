@@ -3,28 +3,14 @@
 
 import type { EntityConfig } from '$lib/server/mqtt/types';
 
-/**
- * Shared recognisers for alert *threshold* number entities and *alert* binary
- * sensors, plus the metric-prefix / high-low side extraction that pairs them.
- *
- * Unlike `entity-match.ts` (which keys live `sensor` entities off `deviceClass`),
- * threshold `number` and alert `binary_sensor` entities carry NO `deviceClass` in
- * discovery — only the live sensor does. So metric identity and the high/low side
- * here are unavoidably derived from `objectId`/`name`. This module is the single
- * home for that string matching, reused by `AlertsPanel.svelte` (the curated alerts
- * UI) and `device-settings/+page.svelte` (`isAlertsCurated`, which decides whether to
- * render that UI), so the two can't drift.
- */
+/** Recognisers for threshold and alert entities, which carry no deviceClass and so must be
+ *  matched on objectId/name. */
 
 function objectIdOf(entity: EntityConfig): string {
   return (entity.objectId ?? entity.id).toLowerCase();
 }
 
-/**
- * The metric key a threshold/alert entity belongs to, e.g.
- *   co2_high_threshold → co2 ;  co2_low_alert → co2 ;  vpd_high_limit → vpd
- * Strips a trailing high/low/min/max side and a trailing threshold/alert/limit kind.
- */
+/** The metric a threshold/alert belongs to: `co2_high_threshold` → `co2`. */
 export function metricPrefix(entity: EntityConfig): string {
   return objectIdOf(entity)
     .replace(/_?(high|low|min|max)_?(threshold|alert|limit)?$/, '')
@@ -32,11 +18,7 @@ export function metricPrefix(entity: EntityConfig): string {
     .replace(/_$/, '');
 }
 
-/**
- * Which side of the band an entity controls: 'high' (high/max) or 'low' (low/min),
- * or null for a single combined/generic alert. Looks at both objectId and name so a
- * sensor named "CO2 High Alert" with a generic objectId is still classified.
- */
+/** Which side of the band an entity controls, or null for a combined alert. */
 export function entitySide(entity: EntityConfig): 'high' | 'low' | null {
   const objectId = objectIdOf(entity);
   const name = (entity.name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -54,16 +36,8 @@ export function isThresholdEntity(entity: EntityConfig): boolean {
   return objectId.includes('threshold') || /(^|_)(high|low|min|max|limit)(_|$)/.test(objectId);
 }
 
-/**
- * An alert `binary_sensor`: either a split-side `*_alert` (e.g. `co2_high_alert`,
- * "VPD Alert") or a single-band alarm (`thermal_alarm`, device_class `problem`).
- *
- * The scd4x climate rig splits high/low into two `*_alert` sensors; the thermal
- * camera instead exposes one latching `thermal_alarm` that carries no `alert`
- * token and no high/low side. Recognise it by the `alarm` name or the `problem`
- * device_class so it pairs into the same band (as the rule's generic alert) and
- * so `isAlertsCurated` renders the curated card rather than the fallback list.
- */
+/** An alert `binary_sensor`: a split-side `*_alert`, or a single-band alarm carrying neither
+ *  an `alert` token nor a side. */
 export function isAlertEntity(entity: EntityConfig): boolean {
   if (entity.component !== 'binary_sensor') return false;
   const objectId = objectIdOf(entity);

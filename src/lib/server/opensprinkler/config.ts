@@ -5,10 +5,7 @@ import { getSiteMqttConfig } from '$lib/server/mqtt/config';
 
 /**
  * OpenSprinkler integration config, derived from the site MQTT config so the base
- * topic and discovery prefix stay in lockstep with the rest of the bus. There is
- * no device password: we run OpenSprinkler with "Ignore Password" on (its `pw` is a
- * replayable cleartext MD5 on the bus, so the broker ACL — not the password — is the
- * real gate), so commands carry no `pw` and there is no secret to manage.
+ * topic and discovery prefix stay in lockstep with the rest of the bus.
  */
 export interface OpenSprinklerConfig {
   /** Per-site opt-in (`GROW_OS_ENABLED=true`) — only sites with an OpenSprinkler. */

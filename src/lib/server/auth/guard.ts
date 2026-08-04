@@ -2,16 +2,12 @@
 // Copyright (C) 2026 Daniel Snider
 
 /**
- * Pure request classification for the auth guard. Kept free of SvelteKit/Request
- * types so it unit-tests as plain functions.
+ * Pure request classification for the auth guard.
  */
 
 export type PathClass = 'public' | 'device-token' | 'protected';
 
-// Reachable with no session. `/api/me` is public so the login page can read
-// capabilities (and learn it's already authed) before a session exists.
-// `/auth/login`, `/auth/oidc`, `/auth/oidc/callback` must run pre-session;
-// `/auth/logout` and `/auth/password` are protected.
+// Reachable with no session — `/auth/logout` and `/auth/password` are deliberately not here.
 const PUBLIC_EXACT = new Set([
   '/health',
   '/favicon.ico',
@@ -22,8 +18,8 @@ const PUBLIC_EXACT = new Set([
   '/auth/oidc/callback'
 ]);
 
-// Firmware endpoints a device hits with its own `?token=` (no cookie). The
-// endpoints enforce the token themselves; the guard just doesn't require a session.
+// Firmware endpoints a device hits with its own `?token=` (no cookie); the endpoints
+// enforce the token themselves.
 const DEVICE_TOKEN_PATTERNS = [
   /^\/api\/firmware\/devices\/[^/]+\/manifest\/?$/,
   /^\/api\/firmware\/devices\/[^/]+\/binary\/[^/]+\/?$/
@@ -46,10 +42,8 @@ export function isApiOrAuthPath(pathname: string): boolean {
 }
 
 /**
- * Reject cross-site state-changing requests. Every mutating endpoint here takes
- * a same-origin JSON `fetch`, so we require `application/json` and, when the
- * browser sends `Sec-Fetch-Site`, that it isn't `cross-site`. Combined with a
- * SameSite=Lax cookie this stands in for a CSRF token.
+ * Reject cross-site state-changing requests; combined with a SameSite=Lax cookie this
+ * stands in for a CSRF token.
  */
 export function isCsrfSafe(contentType: string | null, secFetchSite: string | null): boolean {
   const jsonBody = (contentType ?? '').toLowerCase().includes('application/json');

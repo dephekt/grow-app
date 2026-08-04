@@ -9,8 +9,7 @@ import { clampSeconds, resolveShotSeconds } from '$lib/server/opensprinkler/shot
 import { getOpenSprinklerConfig } from '$lib/server/opensprinkler/config';
 import { getIrrigationController } from '$lib/server/opensprinkler/controller';
 
-/** Coerce a JSON value (number or numeric string) to a number for the audit log,
- *  or null when absent/non-numeric — so a string `percent`/`ml` isn't logged as null. */
+/** Coerce a JSON value (number or numeric string) to a number for the audit log, or null when absent/non-numeric. */
 function numOrNull(value: unknown): number | null {
   if (value == null || value === '') return null;
   const n = Number(value);
@@ -18,10 +17,7 @@ function numOrNull(value: unknown): number | null {
 }
 
 /**
- * Run a zone as a shot. Body accepts one of `{ seconds } | { ml } | { percent }`;
- * ml/percent compile to seconds via the zone's substrate/emitter spec. The result
- * is clamped to the zone's max-run cap, the run is fired, and the event is logged.
- * Any authenticated user may run a zone (the guard in hooks already required a session).
+ * Run a zone as a shot from a body of `{ seconds } | { ml } | { percent }`.
  */
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (!getOpenSprinklerConfig().enabled) {
@@ -54,8 +50,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     return json({ ok: false, error: message }, { status: message.includes('not connected') ? 503 : 500 });
   }
 
-  // The valve has already fired; a failure to write the audit row must not report a
-  // successful run as failed (the user would retry an already-running station).
+  // The valve has already fired, so a failed audit write must not report the run as failed.
   try {
     recordEvent(db, {
       zoneId: zone.id,

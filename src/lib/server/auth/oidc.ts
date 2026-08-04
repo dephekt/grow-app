@@ -10,10 +10,7 @@ import {
   isSecureRequest
 } from '$lib/server/auth/config';
 
-// Group names are flat (`/grow-admin`, `/grow-site-<slug>`) rather than a nested
-// `/grow/...` tree: the site IdP (Keycloak) federates groups from a flat LDAP
-// `groupOfNames` directory, so a nested path would be awkward to model there.
-// The token's group claim carries these as full paths with a single segment.
+// Flat rather than nested, because the IdP federates from a flat LDAP groupOfNames directory.
 
 /** Global admin group — full control across the deployment (decision 28). */
 export const ADMIN_GROUP = '/grow-admin';
@@ -45,11 +42,8 @@ export interface OidcTransaction {
   next: string;
 }
 
-// Memoise the discovered Configuration PROMISE (not the resolved value), so
-// concurrent logins share one discovery. The promise is cleared on rejection so a
-// transient Keycloak outage doesn't disable SSO until process restart (decision
-// 31 — new logins fail cleanly, existing sessions are untouched since per-request
-// validation never calls the IdP).
+// The PROMISE is memoised, not the value, so concurrent logins share one discovery; cleared
+// on rejection so a transient IdP outage doesn't disable SSO until restart.
 let configPromise: Promise<client.Configuration> | null = null;
 
 export function getOidcConfiguration(): Promise<client.Configuration> {
@@ -79,13 +73,8 @@ export function resetOidcConfiguration(): void {
   configPromise = null;
 }
 
-/**
- * The origin the current request arrived on, as `scheme://host`. Derived from
- * `x-forwarded-host` + the forwarded protocol (via isSecureRequest) — NOT
- * `event.url.origin`, which adapter-node defaults to `https` and mis-derives on
- * the plain-HTTP LAN. Falls back to the `Host` header for a direct LAN request
- * that never traversed the proxy. Returns null when no host is present.
- */
+/** The request's origin from the forwarded headers, NOT `event.url.origin`, which
+ *  adapter-node defaults to https and mis-derives on the plain-HTTP LAN. */
 export function resolveRequestOrigin(headers: Pick<Headers, 'get'>): string | null {
   const forwardedHost = headers.get('x-forwarded-host') ?? headers.get('host');
   if (!forwardedHost) return null;
@@ -95,11 +84,7 @@ export function resolveRequestOrigin(headers: Pick<Headers, 'get'>): string | nu
   return `${scheme}://${host}`;
 }
 
-/**
- * Begin an auth-code login: generate PKCE + state + nonce and build the
- * authorization URL for the given origin. Returns the URL to redirect to plus the
- * transaction to stash in the tx cookie.
- */
+/** Begin an auth-code login, returning the authorize URL and the transaction to stash. */
 export async function beginLogin(
   origin: string,
   next: string
@@ -131,13 +116,8 @@ function stringClaim(claims: Record<string, unknown>, key: string): string | nul
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-/**
- * Complete the auth-code exchange for a callback. `currentUrl` MUST be built from
- * the stored redirectUri plus the incoming query — openid-client strips the query
- * and uses the remaining origin+path as the token-endpoint redirect_uri, which
- * must byte-match the one sent at authorize. The library validates state, nonce,
- * PKCE, the ID token signature (JWKS), iss, aud, and exp for us.
- */
+/** Complete the auth-code exchange; `currentUrl` MUST come from the stored redirectUri, since
+ *  openid-client derives the token-endpoint redirect_uri from it and it must byte-match. */
 export async function completeLogin(currentUrl: URL, tx: OidcTransaction): Promise<OidcClaims> {
   const config = await getOidcConfiguration();
   const tokens = await client.authorizationCodeGrant(config, currentUrl, {
@@ -164,12 +144,7 @@ export async function completeLogin(currentUrl: URL, tx: OidcTransaction): Promi
   };
 }
 
-/**
- * Authorization decision from group claims (decision 28). Membership in the
- * site's group OR the global admin group grants access; the admin group also
- * grants admin. Pure and side-effect-free so it unit-tests like the guard. Group
- * claims are full paths (Keycloak "Group Membership" mapper, Full group path ON).
- */
+/** Authorization from group claims, which arrive as full paths from Keycloak's mapper. */
 export function authorizeFromGroups(
   groups: string[],
   siteSlug: string

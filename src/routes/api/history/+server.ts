@@ -18,8 +18,6 @@ import type { RequestHandler } from './$types';
 
 /**
  * Zone→probe bindings, which select the calibration curve for the substrate domain.
- * Read only for that domain — the other four never touch the irrigation database, and a
- * read failure degrades to the default curve rather than failing the chart.
  */
 function substrateBindings(domain: string): SubstrateZoneBinding[] {
   if (domain !== 'substrate') return [];
@@ -36,9 +34,8 @@ function substrateBindings(domain: string): SubstrateZoneBinding[] {
 }
 
 /**
- * Server-mediated time-series read. Browsers never touch InfluxDB directly — they
- * ask for a trend DOMAIN (water/climate/thermal/air-quality/substrate), we resolve
- * that domain's entities against live discovery and query Influx on their behalf.
+ * Server-mediated time-series read: browsers ask for a trend domain
+ * (water/climate/thermal/air-quality/substrate) and never touch InfluxDB directly.
  */
 export const GET: RequestHandler = async ({ url }) => {
   const rangeParam = url.searchParams.get('range');

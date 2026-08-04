@@ -198,9 +198,7 @@ export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot
 
 /**
  * The numeric dashboard metrics a device exposes (firmware `role:metric`), optionally
- * with a label prefix stripped. Single source for both the WATER/CLIMATE readouts
- * (`routes/+page.svelte`) and their trend series (`server/influx/trend-domains.ts`), so
- * the chartable-metric rule can't drift between them.
+ * with a label prefix stripped.
  */
 export function presentedNumericMetrics(
   snapshot: Snapshot,
@@ -326,12 +324,8 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
   const diagnostics = remaining.filter(isDiagnostic).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
   const other = remaining.filter((entity) => !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
 
-  // Fold leftover (uncurated) entities into an existing curated section that lands
-  // in the same settings tab, rather than emitting a second collapsible with the
-  // same title. A device with a curated Diagnostics group plus an uncurated
-  // diagnostic entity (e.g. MAC Address, or an entity whose `_ui/config` component
-  // slug doesn't match its discovery topic) would otherwise render two identically
-  // titled "Diagnostics" sections in the tab.
+  // Fold leftover (uncurated) entities into an existing curated section in the same
+  // settings tab, rather than emitting a second collapsible with the same title.
   const foldIn = (fallback: PresentedSection): void => {
     const existing = sections.find((section) => section.deviceSettingsSection === fallback.deviceSettingsSection);
     if (existing) {

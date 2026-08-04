@@ -5,11 +5,8 @@ import { normalizeDiscoveryId } from '$lib/server/mqtt/discovery';
 import { stationStateTopic } from './normalize';
 
 /**
- * Self-published HA-style discovery for OpenSprinkler stations. OS ships no
- * discovery, so the driver publishes a retained `binary_sensor` config per zone so
- * each station rides the existing discovery → entity → snapshot/SSE + recorder
- * pipeline. State points at the normalized `<base>/station/<sid>/state` topic (see
- * ./normalize); availability points straight at OS's retained availability LWT.
+ * Self-published HA-style discovery for OpenSprinkler stations, which ship none of
+ * their own.
  */
 
 const DEVICE = {
@@ -29,11 +26,7 @@ export function stationDiscoveryTopic(discoveryPrefix: string, sid: number): str
   return `${discoveryPrefix}/binary_sensor/opensprinkler/station_${sid}/config`;
 }
 
-/**
- * The entity id grow-app derives for a station — `normalizeDiscoveryId(unique_id)`.
- * Exposed so the API can hand the frontend the id to look up live state by, without
- * the client re-deriving the convention.
- */
+/** The entity id grow-app derives for a station — `normalizeDiscoveryId(unique_id)`. */
 export function stationEntityId(sid: number): string {
   return normalizeDiscoveryId(`opensprinkler_station_${sid}`);
 }

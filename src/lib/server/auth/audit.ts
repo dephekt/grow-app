@@ -26,12 +26,9 @@ export interface AuditEntry {
   detail?: string | null;
 }
 
-/** Auth event log, bounded by age + a hard row cap in the daily maintenance
- *  timer (see purgeOldAuditEntries / capAuditRows in db.ts) — the public login
- *  endpoint writes attacker-controlled `login.failed` rows, so this is not a
- *  compliance-grade immutable log. Best-effort: a logging failure must never
- *  block a login or an admin action, so callers may wrap this but it also
- *  swallows here. */
+/** Best-effort auth event log, not a compliance-grade immutable one: the public
+ *  login endpoint writes attacker-controlled `login.failed` rows, and the daily
+ *  purgeOldAuditEntries / capAuditRows in db.ts bound it. */
 export function recordAudit(db: DatabaseSync, entry: AuditEntry): void {
   try {
     db.prepare(

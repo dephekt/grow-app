@@ -4,10 +4,8 @@
 import { json } from '@sveltejs/kit';
 
 /**
- * Admin gate for the user-management API. Returns a ready-to-send error Response
- * (401 when anonymous, 403 when authenticated but not an admin) or null when the
- * caller may proceed. Shared by /api/users and /api/users/[id] so both endpoints
- * answer denials identically.
+ * Admin gate for the user-management API, returning a ready-to-send error Response
+ * (401 anonymous, 403 non-admin) or null when the caller may proceed.
  */
 export function requireAdmin(locals: App.Locals): Response | null {
   if (!locals.user) return json({ ok: false, error: 'Unauthorized' }, { status: 401 });

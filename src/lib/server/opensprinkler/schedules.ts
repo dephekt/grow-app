@@ -95,10 +95,8 @@ function minutesToHhMm(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
-/** Parse a `last_fired_at` anchor to epoch ms, treating a missing OR unparseable value
- *  as never-fired (null). A corrupt anchor must recover (fire within grace) rather than
- *  stall forever: a bare `Date.parse` would yield NaN, and `prev > NaN` is always false,
- *  which would make the schedule look permanently already-fired. */
+/** Parse the fired anchor, treating unparseable as never-fired — NaN would read as
+ *  permanently already-fired. */
 export function parseAnchorMs(iso: string | null): number | null {
   if (!iso) return null;
   const ms = Date.parse(iso);
@@ -127,12 +125,8 @@ export function listSchedules(db: DatabaseSync, zoneId?: string): Schedule[] {
   return rows.map(toSchedule);
 }
 
-/** Schedules eligible to fire: the schedule itself enabled, its zone enabled, and the zone's
- *  schedules not paused. The JOIN drops schedules whose zone is disabled or whose schedules are
- *  paused, so the tick simply never sees them (they stay configured and resume when un-paused,
- *  with next-due recomputed from the persisted anchor). Ordered deterministically so that when
- *  two schedules share a station+slot, the same one wins the per-tick station claim every time
- *  (not left to the query planner). */
+/** Schedules eligible to fire; ordered deterministically so two sharing a station+slot always
+ *  resolve the same way rather than by query planner. */
 export function listActiveSchedules(db: DatabaseSync): Schedule[] {
   const rows = db
     .prepare(
@@ -211,19 +205,14 @@ export function deleteSchedule(db: DatabaseSync, id: string): boolean {
   return Number(result.changes) > 0;
 }
 
-/** Set the dedup + skip-missed anchor. `slotIso` is normally the fired slot instant;
- *  it accepts null so the scheduler can revert the anchor (even to a previously-null
- *  value) after a run rejection. Kept minimal — it deliberately does not bump
- *  updated_at (a fire is internal state, not an edit). */
+/** Set the dedup anchor; accepts null so a rejected run can revert it, and deliberately does
+ *  not bump updated_at. */
 export function markScheduleFired(db: DatabaseSync, id: string, slotIso: string | null): void {
   db.prepare('UPDATE schedules SET last_fired_at = ? WHERE id = ?').run(slotIso, id);
 }
 
-/** A %/mL shot compiles to seconds via the zone's substrate/emitter spec; a seconds
- *  shot needs none. Returns an error message (→ HTTP 400 at the route) when a %/mL shot
- *  can't compile against `zone`, else null — so a schedule that could never fire is
- *  rejected at save time with the same feedback as a bad manual run, rather than saving
- *  and then throwing in `resolveShotSeconds` on every in-grace tick. */
+/** Rejects at save time a %/mL shot that cannot compile against the zone, rather than letting
+ *  it throw on every in-grace tick. */
 export function shotResolutionError(
   shot: Pick<ScheduleCreate, 'shotPercent' | 'shotMl' | 'shotSeconds'>,
   zone: Zone

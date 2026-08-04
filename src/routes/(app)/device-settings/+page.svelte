@@ -24,7 +24,6 @@
 
   const live = getLiveSnapshot();
 
-  // Resolve selected device from URL param or default to first
   let devices = $derived(live.snapshot.devices ?? []);
   let selectedDevice = $derived(
     devices.find(
@@ -33,29 +32,24 @@
     ) ?? devices[0] ?? null
   );
 
-  // Active section
   let activeSectionId = $derived<DeviceSettingsSectionId | null>(
     (page.url.searchParams.get('section') ?? data.selectedSectionId) as DeviceSettingsSectionId | null
   );
 
-  // Entity-based panels from device-presentation
   let entityPanels = $derived(selectedDevice ? deviceSettingsPresentation(live.snapshot, selectedDevice) : []);
 
-  // The spectrometer gets a bespoke PPFD calibration section (anchor its absolute scale). It isn't
-  // entity-derived, so it's injected as a synthetic Calibration tab on the device that publishes the
-  // spectrum frames.
+  // The spectrometer's PPFD calibration section isn't entity-derived, so it's injected as a
+  // synthetic Calibration tab on the device that publishes the spectrum frames.
   const showPpfdCal = $derived(
     Boolean(selectedDevice) && (live.snapshot.spectrometerNodeIds ?? []).includes(selectedDevice?.nodeId ?? '')
   );
 
-  // Firmware info for selected device
   let firmwareConfig = $derived(
     selectedDevice
       ? (live.snapshot.firmware?.devices?.[selectedDevice.nodeId] ?? live.snapshot.firmware?.devices?.[selectedDevice.id] ?? null)
       : null
   );
 
-  // Detect firmware update availability
   function deviceHasUpdate(device: DeviceSnapshot): boolean {
     const fc = live.snapshot.firmware?.devices?.[device.nodeId] ?? live.snapshot.firmware?.devices?.[device.id] ?? null;
     const allEntities = live.snapshot.entities ?? [];
@@ -84,16 +78,13 @@
     return false;
   }
 
-  // All tabs to show (firmware 'updates' pseudo-panel + entity panels)
   let allTabs = $derived.by(() => {
     const tabs: Array<{ id: DeviceSettingsSectionId; title: string; count: number; hasUpdate: boolean }> = [];
 
-    // Add updates tab if firmware config exists
     if (firmwareConfig) {
       tabs.push({ id: 'updates', title: 'Updates', count: 0, hasUpdate: false });
     }
 
-    // Add entity-based tabs
     for (const panel of entityPanels) {
       tabs.push({ id: panel.id, title: panel.title, count: panel.entryCount, hasUpdate: false });
     }
@@ -112,7 +103,6 @@
 
   let activeEntityPanel = $derived(entityPanels.find((p) => p.id === activeTabId) ?? null);
 
-  // Device entities (for curated renderers)
   let deviceEntityList = $derived.by((): EntityConfig[] => {
     if (!selectedDevice) return [];
     const entitiesById = new Map((live.snapshot.entities ?? []).map((e) => [e.id, e]));
@@ -121,7 +111,6 @@
       .filter((e): e is EntityConfig => Boolean(e));
   });
 
-  // Is the alerts tab showing curated content?
   function isAlertsCurated(panel: typeof activeEntityPanel): boolean {
     if (!panel) return false;
     const allEntries = panel.groups.flatMap((g) => g.entries);
@@ -131,15 +120,8 @@
     );
   }
 
-  // Is the calibration tab showing curated content? Only the Atlas EZO probe
-  // multi-point cal entities (ph/ec/rtd/orp_cal…, rtd_calibration_25_0_c, ph_mid,
-  // ec_dry, rtd_point, …) drive the curated CalibrationPanel — mirror its
-  // detectProbeType shape, including the full word ("RTD Calibration (25.0°C)" →
-  // rtd_calibration_25_0_c), or an RTD/ORP-only probe would misroute to the
-  // generic list. A bare "_cal" substring also matches generic scd4x config
-  // (automatic_self_calibration, forced_calibration) via the word "calibration",
-  // which would misroute those to the probe panel and show it empty; require the
-  // probe-prefixed shape instead so they fall through to the generic entity list.
+  // Match the probe-prefixed shape, NOT a bare "_cal"/"calibration" substring, or generic scd4x
+  // config (automatic_self_calibration, forced_calibration) misroutes to the curated probe panel.
   function isCalibrationCurated(panel: typeof activeEntityPanel): boolean {
     if (!panel) return false;
     const allEntries = panel.groups.flatMap((g) => g.entries);
@@ -149,7 +131,6 @@
     });
   }
 
-  // Section open/close state (for generic entity list)
   let sectionOpen = $state<Record<string, boolean>>({});
 
   function getSectionOpen(sectionId: string, defaultOpen: boolean): boolean {
@@ -160,7 +141,6 @@
     sectionOpen = { ...sectionOpen, [sectionId]: !currentlyOpen };
   }
 
-  // Navigation helpers
   function deviceHref(device: DeviceSnapshot, sectionId?: DeviceSettingsSectionId | null): string {
     const params = new URLSearchParams({ device: device.nodeId });
     if (sectionId) params.set('section', sectionId);
@@ -173,7 +153,6 @@
     return `/device-settings?${params.toString()}`;
   }
 
-  // Availability helpers
   function isOnline(device: DeviceSnapshot): boolean {
     return device.availability === 'online';
   }

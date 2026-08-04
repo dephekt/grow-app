@@ -1,20 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-/**
- * Athena Pro Line reservoir mixing — the math + the schedule reference for this tank.
- *
- * Athena's "Pro Line" is a dry 3-part line pre-mixed into a 226 g/L stock concentrate
- * (Pro Grow, Pro Bloom, Pro Core). The batch-reservoir chart gives each concentrate's dose
- * in mL per 10 L of reservoir water for a target EC. Grow and Bloom share one column (you
- * swap Grow→Bloom at flip); Core is dosed alongside. This module turns (target EC, water
- * volume) into the two concentrate pours, and carries the stage schedule + procedure this
- * tank runs so the Mixing page has one source of truth.
- *
- * Sources: Athena "Pro Line Stock Concentrate Mixing" sheet (226 g/L, metric) and the
- * "Pro Feed Schedule (Metric)". Add Balance to the water FIRST (dose to pH), then each
- * concentrate SEPARATELY — combining concentrates undiluted precipitates — then check EC + pH.
- */
+/** Athena Pro Line reservoir mixing, from the "Pro Line Stock Concentrate Mixing" (226 g/L)
+ *  and "Pro Feed Schedule" sheets; concentrates go in SEPARATELY or they precipitate. */
 
 export interface DoseRow {
   /** Target solution EC (mS/cm). */
@@ -40,12 +28,7 @@ export const DOSE_TABLE: DoseRow[] = [
 export const EC_MIN = DOSE_TABLE[0].ec; // 1.0
 export const EC_MAX = DOSE_TABLE[DOSE_TABLE.length - 1].ec; // 4.0
 
-/**
- * This reservoir's measured volumes (float-fill vs. drain-to-valve):
- *  - `full`   — a fresh fill by the float valve (an initial mix from empty-and-dry).
- *  - `refill` — the water a normal top-up adds: drained to the usable valve point (~38 L still in),
- *               then the float brings it back to 47.5 L, so you're dosing the 38 L you added.
- */
+/** Measured volumes: `full` is a fill from dry, `refill` is the ~38 L a top-up actually adds. */
 export const TANK = {
   full: 47.5,
   refill: 38
@@ -53,10 +36,7 @@ export const TANK = {
 
 export type MixMode = 'full' | 'refill' | 'custom';
 
-/**
- * The substrate this grow runs. Fixes the batch pH to the CCI coco target (6.0) and records the
- * coco's own buffered EC for context. The live pH flag treats 5.8–6.2 (6.0 ± 0.2) as on-target.
- */
+/** The substrate this grow runs; fixes batch pH to the CCI coco target of 6.0 ± 0.2. */
 export const MEDIUM = {
   label: 'Coco block',
   detail: '8×8×7 in · 3 gal · 80% coir / 20% chips · 58% WHC',
@@ -66,10 +46,7 @@ export const MEDIUM = {
   ph: { min: 5.8, max: 6.2, target: 6.0, label: '6.0' }
 } as const;
 
-/**
- * Primary working feed (drip) EC — CCI LED coco veg / early flower. The fallback default when the
- * grow stage is unknown; other stages (seedling 1.5, bulk 3.0, finish 2.5) are one chip tap away.
- */
+/** Working feed EC for CCI LED coco veg / early flower, the fallback when the stage is unknown. */
 export const WORKING_EC = 3.5;
 
 /** Grow stages — same string values as the light plan's StageKey. */
@@ -87,11 +64,7 @@ export interface FeedTarget {
 /** Seedlings run lower than the coco 6.0: CCI p.26 / Grodan target pH 5.5–5.6. */
 const SEEDLING_PH = { min: 5.5, max: 5.7, target: 5.6, label: '5.5–5.6' } as const;
 
-/**
- * Feed EC + pH target for the current grow stage, so the mixing page defaults the calculator and
- * flags the live pH against where the plant actually is. Flower defaults to the early-flower feed
- * EC (3.5); it steps down to 3.0 (bulk) / 2.5 (finish) later — see FEED_SCHEDULE.
- */
+/** Feed EC and pH for the current stage; flower defaults to early-flower 3.5, see FEED_SCHEDULE. */
 export function feedTargetForStage(stage: FeedStageKey): FeedTarget {
   switch (stage) {
     case 'seedling':
@@ -113,11 +86,7 @@ export interface PerTenL {
   extrapolated: boolean;
 }
 
-/**
- * mL of each concentrate per 10 L for a target EC. Piecewise-linear across the chart points so an
- * in-between EC lands on Athena's own curve; outside [1.0, 4.0] we extrapolate the nearest segment
- * (flagged) and clamp at zero so a near-water EC never goes negative.
- */
+/** mL per 10 L for a target EC, piecewise-linear on Athena's chart; outside [1.0, 4.0] extrapolates. */
 export function perTenLitres(ec: number): PerTenL {
   const rows = DOSE_TABLE;
   let lo = rows[0];
@@ -214,12 +183,8 @@ export interface FeedStage {
   note?: string;
 }
 
-/**
- * This grow's feed schedule — CCI Black Book LED crop-steering setpoints for coco (p.57 "4.A" +
- * p.64), dosed with Athena Pro (226 g/L). `ec` is the drip/feed EC you MIX; `substrateEc` is the
- * in-pot EC you steer toward via dryback (higher — never mix to it). pH 6.0 for coco (CCI p.64).
- * Seedlings from seed start ~1.5 EC / pH 5.5–5.6 (CCI p.26, Grodan Grow Guide), not the clone column.
- */
+/** CCI Black Book LED coco setpoints (p.57 "4.A", p.64); `ec` is what you MIX, `substrateEc` is
+ *  what you steer toward — never mix to it. */
 export const FEED_SCHEDULE: FeedStage[] = [
   {
     key: 'seedling',
@@ -295,13 +260,8 @@ export interface MixProcedure {
   steps: MixStep[];
 }
 
-/**
- * Two procedures, because Balance is a pH buffer you calibrate ONCE per recipe. Balance holds the
- * batch at target pH, but the concentrates themselves pull pH down — so you can't know the Balance
- * dose until the nutrients are in. First batch: nutrients in, then dose Balance to pH LAST and write
- * the mL down. Every batch after: that recorded dose goes in UP FRONT, and the pH lands on target
- * once the (acidic) concentrates follow. Order still matters — concentrates go in separately.
- */
+/** Two procedures because the Balance dose is unknowable until the (acidic) nutrients are in:
+ *  measure it last on the first batch, then dose it up front on every batch after. */
 export const MIX_PROCEDURES: MixProcedure[] = [
   {
     key: 'calibrate',
