@@ -151,35 +151,64 @@ describe('substrate trend domain', () => {
   });
 
   /**
-   * Influx aggregates with createEmpty:false, so any of the three can miss a bucket.
-   * Pore EC needs all three at the same instant — a half-filled bucket must be dropped,
-   * not carried over from a neighbour.
+   * The three inputs are NOT recorded at the same cadence. The publisher skips a state
+   * write when the payload has not changed, so on the real bus a substrate temperature
+   * holding at 26.6 °C recorded 4 points in three hours while counts recorded 336.
+   * Joining on equal timestamps intersects those to nearly nothing — pore EC has to
+   * read each series as the step function it is.
    */
-  it('drops a pore-EC bucket that is missing one of its three inputs', () => {
+  it('carries a sparse temperature forward across dense counts', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
+    const ticks = Array.from({ length: 20 }, (_, i) => new Date(Date.parse(T0) + i * 30_000).toISOString());
     const points = new Map<string, TrendPoint[]>([
-      [
-        'substrate-a:substrate_raw_counts',
-        [
-          { t: T0, v: 2861.35 },
-          { t: T1, v: 2870 }
-        ]
-      ],
-      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
+      ['substrate-a:substrate_raw_counts', ticks.map((t) => ({ t, v: 2861.35 }))],
+      // One temperature point, at the fifth tick — as if it changed once and held.
+      ['substrate-a:substrate_temperature', [{ t: ticks[5], v: 26.6 }]],
+      ['substrate-a:substrate_bulk_ec', [{ t: ticks[0], v: 0.025 }]]
+    ]);
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
+    expect(series.find((s) => s.key === 'substrate-a:vwc')?.points).toHaveLength(20);
+    // Every tick derives: the ones after the temperature point carry it forward, the
+    // ones before it read it backwards rather than being dropped.
+    expect(series.find((s) => s.key === 'substrate-a:pwec')?.points).toHaveLength(20);
+  });
+
+  it('steps pore EC when bulk EC changes, rather than interpolating', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const ticks = Array.from({ length: 4 }, (_, i) => new Date(Date.parse(T0) + i * 30_000).toISOString());
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', ticks.map((t) => ({ t, v: 2861.35 }))],
+      ['substrate-a:substrate_temperature', [{ t: ticks[0], v: 26.6 }]],
       [
         'substrate-a:substrate_bulk_ec',
         [
-          { t: T0, v: 0.025 },
-          { t: T1, v: 0.026 }
+          { t: ticks[0], v: 0.5 },
+          { t: ticks[2], v: 1.0 }
         ]
       ]
     ]);
+    const pwec = assembleDomainSeries(snapshot, 'substrate', specs, points).find(
+      (s) => s.key === 'substrate-a:pwec'
+    )!;
+    // Held at 0.5 for the first two ticks, then doubles — pore EC is linear in bulk EC.
+    expect(pwec.points[0].v).toBeCloseTo(pwec.points[1].v, 10);
+    expect(pwec.points[2].v).toBeCloseTo(pwec.points[0].v * 2, 6);
+    expect(pwec.points[3].v).toBeCloseTo(pwec.points[2].v, 10);
+  });
+
+  it('charts no pore EC when a series was never recorded at all', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
+      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]]
+      // No bulk EC — a TEROS 11, or an electrode that never reported.
+    ]);
     const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
-    // VWC needs only counts, so both buckets chart.
-    expect(series.find((s) => s.key === 'substrate-a:vwc')?.points).toHaveLength(2);
-    // Pore EC has no temperature at T1.
-    expect(series.find((s) => s.key === 'substrate-a:pwec')?.points).toHaveLength(1);
+    expect(series.find((s) => s.key === 'substrate-a:vwc')?.points).toHaveLength(1);
+    expect(series.find((s) => s.key === 'substrate-a:pwec')).toBeUndefined();
   });
 
   it('names each series after its probe once there is more than one', () => {

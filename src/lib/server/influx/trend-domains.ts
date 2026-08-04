@@ -136,6 +136,42 @@ export function resolveDomainSeries(
  * Substrate derives, because what a grower reads (water content, pore EC) is computed
  * from what the sensor stores (counts, temperature, bulk EC).
  */
+/**
+ * Reads a change-point series as the step function it is: the value at time `t` is the
+ * last one recorded at or before `t`.
+ *
+ * Before the first recorded point the answer is that series' earliest value rather than
+ * nothing. The alternative is dropping every bucket ahead of the first write, which for
+ * a signal that only writes on change can be most of a short window — a substrate
+ * temperature holding steady may have written once an hour ago and not since. Reading it
+ * backwards over that leading stretch assumes the value was already what it was first
+ * seen to be, which is exactly what "unchanged" means; the error is bounded by however
+ * much it moved before the window opened. With no points at all there is nothing to
+ * assume and the caller drops the bucket.
+ */
+function stepSeries(points: readonly TrendPoint[]): (t: string) => number | null {
+  if (points.length === 0) return () => null;
+  const sorted = [...points].sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
+  const times = sorted.map((p) => Date.parse(p.t));
+  return (t: string) => {
+    const at = Date.parse(t);
+    // Binary search for the last point at or before `at`.
+    let lo = 0;
+    let hi = times.length - 1;
+    let found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (times[mid] <= at) {
+        found = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return sorted[found === -1 ? 0 : found].v;
+  };
+}
+
 export function assembleDomainSeries(
   snapshot: Snapshot,
   domain: TrendDomain,
@@ -171,16 +207,20 @@ export function assembleDomainSeries(
       })
     });
 
-    // Pore EC needs all three readings at the same instant. They ride one Influx query
-    // on a shared aggregate window, so timestamps line up — but `createEmpty: false`
-    // means any of them can miss a bucket, and a bucket without all three is dropped
-    // rather than filled from a neighbour.
-    const temps = new Map((pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_TEMPERATURE}`) ?? []).map((p) => [p.t, p.v]));
-    const bulk = new Map((pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_BULK_EC}`) ?? []).map((p) => [p.t, p.v]));
+    // Pore EC needs counts, temperature and bulk EC together, and they are NOT recorded
+    // at the same cadence: the publisher skips a state write when the payload has not
+    // changed, so a substrate temperature that sits at 26.6 °C all afternoon records
+    // four points while counts record several hundred. Joining on equal timestamps
+    // would intersect those to almost nothing.
+    //
+    // Change-point semantics is what makes the reconstruction obvious: an unpublished
+    // value means UNCHANGED, so each series holds its last value until the next point.
+    const temps = stepSeries(pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_TEMPERATURE}`) ?? []);
+    const bulk = stepSeries(pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_BULK_EC}`) ?? []);
     const poreEc = counts.flatMap((p) => {
-      const temperatureC = temps.get(p.t);
-      const bulkEc = bulk.get(p.t);
-      if (temperatureC === undefined || bulkEc === undefined) return [];
+      const temperatureC = temps(p.t);
+      const bulkEc = bulk(p.t);
+      if (temperatureC === null || bulkEc === null) return [];
       const derived = deriveReadings({ counts: p.v, temperatureC, bulkEc }, curve).poreEc;
       return derived === null ? [] : [{ t: p.t, v: derived }];
     });
