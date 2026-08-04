@@ -20,11 +20,8 @@ import { getSiteSlug } from '$lib/server/site';
 import { sanitizeNext } from '$lib/auth-redirect';
 
 /**
- * Public: OIDC redirect_uri. Validates the auth-code response, authorizes by group
- * membership, JIT-provisions the user, and mints an app session — mirroring the
- * local login handler's mint sequence. A GET (safe method), so it is exempt from
- * the hooks CSRF check; the state/nonce bound to the tx cookie are the CSRF/replay
- * defenses for the flow.
+ * Public: OIDC redirect_uri, exempt from the hooks CSRF check as a GET — the state
+ * and nonce bound to the tx cookie are this flow's CSRF/replay defenses.
  */
 export const GET: RequestHandler = async ({ request, url, cookies, getClientAddress }) => {
   const secure = isSecureRequest(request.headers);
@@ -53,22 +50,16 @@ export const GET: RequestHandler = async ({ request, url, cookies, getClientAddr
     redirect(303, '/login?error=sso');
   }
 
-  // Per-IP throttle before the token exchange. The tx cookie is client-forgeable
-  // and reusable, so without this one client could drive unbounded token-exchange
-  // requests at the IdP. Shares the POST /auth/login per-IP window; deliberately
-  // not audited (a shed request must not hand an attacker a cheap audit write).
+  // Per-IP throttle before the token exchange: the tx cookie is client-forgeable and reusable.
+  // Deliberately not audited — a shed request must not hand an attacker a cheap audit write.
   if (!getLoginThrottle().checkRate(ip).allowed) {
     redirect(303, '/login?error=sso');
   }
 
   let claims: OidcClaims;
   try {
-    // Rebuild the exact URL openid-client needs: the stored redirect_uri (origin +
-    // path) plus the IdP's query (code, state). Inside the try so a forged tx whose
-    // redirectUri isn't a valid URL fails cleanly (new URL throws) like every other
-    // bad-tx path, not with a 500. Using the stored redirect_uri — not the incoming
-    // request origin — is what makes the token-exchange redirect_uri byte-match the
-    // one sent at authorize, even behind the plain-HTTP LAN proxy.
+    // Rebuild from the stored redirect_uri, NOT the incoming request origin, so it
+    // byte-matches the one sent at authorize even behind the plain-HTTP LAN proxy.
     const currentUrl = new URL(tx.redirectUri);
     currentUrl.search = url.search;
     claims = await completeLogin(currentUrl, tx);

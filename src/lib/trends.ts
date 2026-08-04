@@ -4,8 +4,7 @@
 /**
  * Trend domains + the chart's data contract, shared by the dashboard panel
  * (`TrendsPanel`), the chart (`TrendsChart`), and the server-side resolver
- * (`server/influx/trend-domains.ts`) so the three never drift. Client-safe — no
- * `$lib/server` imports — so the browser bundle can use the domain list/type.
+ * (`server/influx/trend-domains.ts`). Client-safe — no `$lib/server` imports.
  */
 export type TrendDomain = 'water' | 'climate' | 'thermal' | 'air-quality' | 'substrate';
 
@@ -15,8 +14,6 @@ export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string; pla
   { key: 'thermal', label: 'Thermal' },
   { key: 'air-quality', label: 'Air Quality' },
   // Substrate charts derived VWC / pore EC per probe (see `server/influx/trend-domains`).
-  // No longer `planned`: with no probe on the bus it resolves to no series and the chart
-  // shows its own empty state, which is the same answer without hard-coding it.
   { key: 'substrate', label: 'Substrate' }
 ];
 

@@ -16,31 +16,19 @@ import { lookupSession, renewIfNeeded } from '$lib/server/auth/sessions';
 import { classifyPath, isApiOrAuthPath, isSafeMethod, isCsrfSafe } from '$lib/server/auth/guard';
 import { SESSION_COOKIE, getBootstrapAdmin, isSecureRequest, sessionCookieOptions } from '$lib/server/auth/config';
 
-// Warm the MQTT singleton (as before) and open the auth DB + bootstrap the local
-// admin, once, at server start. ensureBootstrapAdmin is async now (its scrypt
-// runs off-thread), so this module evaluates with a top-level await — SvelteKit
-// awaits the hooks module before handling any request, so bootstrap still
-// completes before the first login can arrive.
+// SvelteKit awaits this module before handling any request, so the top-level await
+// below completes bootstrap before the first login can arrive.
 getSiteMqttService();
-// Initialize the OpenSprinkler driver here (web app only — the read-only recorder
-// also warms the MQTT singleton but must never publish/drive). No-op unless the
-// site is OS-enabled.
+// Web app only — the read-only recorder warms the same MQTT singleton but must never
+// publish/drive.
 startOpenSprinklerDriver();
-// Start the per-zone irrigation schedule tick (web app only). Also no-op unless the
-// site is OS-enabled; it recomputes next-due from persisted state, so a restart just
-// resumes scheduling with no catch-up backlog.
+// Web app only; no-op unless the site is OpenSprinkler-enabled.
 startIrrigationScheduler();
-// Persist runoff-pump runs to the irrigation history feed (web app only). Not gated on
-// OpenSprinkler: the runoff plug is an independent ESPHome device, so this runs whenever
-// MQTT is up and no-ops until the plug is discovered.
+// Not gated on OpenSprinkler: the runoff plug is an independent ESPHome device.
 startRunoffMonitor();
-// Fill in per-event pump energy from InfluxDB on a timer, off the request path, so a slow
-// Influx never stalls the irrigation page render (web app only; no-op without Influx).
+// Web app only; runs on a timer off the request path.
 startIrrigationEnergyBackfill();
-// Warm the persisted site time zone into its module cache and start the MQTT reconciler
-// that stamps the derived POSIX onto tz-capable devices (web app only — the read-only
-// recorder never opens the settings DB nor publishes). Warming is best-effort so a
-// missing/locked settings DB degrades to the env chain instead of blocking server start.
+// Web app only — the read-only recorder never opens the settings DB nor publishes.
 try {
   warmSiteTimeZone();
 } catch (error) {
@@ -58,8 +46,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   const token = event.cookies.get(SESSION_COOKIE);
   const lookup = token ? lookupSession(authDb, token) : null;
   if (token && !lookup) {
-    // Expired/disabled/unknown cookie — clear it so the browser stops sending it.
-    // Match the per-request Secure flag used on set; SvelteKit's default Secure
+    // Must match the per-request Secure flag used on set; SvelteKit's default Secure
     // deletion cookie is dropped by the browser on the plain-HTTP LAN origin.
     event.cookies.delete(SESSION_COOKIE, { path: '/', secure: isSecureRequest(event.request.headers) });
   }

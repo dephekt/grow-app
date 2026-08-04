@@ -2,25 +2,9 @@
 // Copyright (C) 2026 Daniel Snider
 
 /**
- * C12880MA spectral science — the single place all calibration/physics lives.
- *
- * The firmware ships raw ADC counts only; everything here (pixel→wavelength, dark
- * subtraction, the energy/photon response transforms, band shares, and — once anchored —
- * absolute PPFD) is applied on ingest/read. Because captures store the RAW counts, changing
- * anything here reprocesses all history rather than freezing it at old calibration.
- *
- * Pure, dependency-free, client- and server-safe (the client re-derives views from raw counts).
- *
- * Physics notes (measured on this unit against reference lamps):
- *  - A grating pixel already integrates over its wavelength bin (count_i ∝ Φ(λ)·Δλ_i), so band
- *    metrics are a PLAIN fractional sum of per-bin counts, NOT Σ counts·Δλ. Δλ is used ONLY to
- *    apportion the two boundary pixels of a band.
- *  - The sensor reads counts ∝ photon-flux × S(λ), S = the C12880MA's blue-green-peaked response
- *    (datasheet KACC1226E; confirmed here to ~4% by fitting an incandescent blackbody). So the
- *    same frame has three views: RAW (counts — the sensor's tilted view), PHOTON (÷S — µmol, what
- *    plants count and what PPFD/PAR use), ENERGY (÷(S·λ) — W/nm, what maker SPD charts show).
- *  - Absolute PPFD/PAR are photon quantities: always computed from the PHOTON view, per-µs
- *    normalized so frames at different exposures compare; a one-point anchor (Apogee) sets scale.
+ * C12880MA calibration and physics, applied on read so stored raw counts reprocess with it.
+ * Band metrics are a plain fractional sum of counts, NOT Σ counts·Δλ — a grating pixel already
+ * integrates over its bin.
  */
 
 export const PIXEL_COUNT = 288;
@@ -35,8 +19,7 @@ export interface WavelengthCoeffs {
 }
 
 /** Where an anchor's absolute scale came from — a co-incident lux meter (an ESTIMATE,
- *  ~±15%) or a quantum reference like the Apogee SQ-521 (~±5%). Carried through to the UI
- *  so an estimate is never mistaken for a reference reading. */
+ *  ~±15%) or a quantum reference like the Apogee SQ-521 (~±5%). */
 export type AnchorSource = 'lux' | 'reference';
 
 export interface AnchorCalibration {
@@ -76,16 +59,15 @@ export type SpectrumView = 'raw' | 'photon' | 'energy';
 /** The ONE place to edit when the real Hamamatsu sheet / Apogee anchor arrive. */
 export interface SpectroConfig {
   coeffs: WavelengthCoeffs;
-  /** Stored dark frame (LED off, same integration), subtracted per-pixel. null = auto baseline. */
+  /** Stored dark frame (LED off, same integration), subtracted per-pixel; null = auto baseline. */
   darkFrame: number[] | null;
-  /** Absolute-scale anchors, by source. Either or both may be absent ⇒ that flux reading stays
-   *  null (relative-only). Both present ⇒ both readings show, reference is primary. */
+  /** Absolute-scale anchors, by source; an absent anchor leaves that flux reading null. */
   anchors: { lux?: AnchorCalibration; reference?: AnchorCalibration };
 }
 
 // Per-unit wavelength calibration from THIS sensor's Hamamatsu final-inspection sheet
 // (C12880MA serial 24K00807): Wavelength[nm] = A0 + B1·pix + B2·pix² + B3·pix³ + B4·pix⁴ + B5·pix⁵,
-// pix 1-based. Measured wavelength resolution (FWHM) 9.5 nm (spec ≤ 15 nm).
+// pix 1-based.
 export const WAVELENGTH_COEFFS: WavelengthCoeffs = {
   a0: 3.150586915e2,
   b1: 2.69975988,
@@ -96,15 +78,14 @@ export const WAVELENGTH_COEFFS: WavelengthCoeffs = {
 };
 
 // Runtime calibration config — the single place to swap in real per-unit calibration (the
-// wavelength sheet into WAVELENGTH_COEFFS, the Apogee anchor into `anchor`). The sensor response
-// S(λ) that powers the photon/energy views lives just below WAVELENGTHS.
+// wavelength sheet into WAVELENGTH_COEFFS, the Apogee anchor into `anchor`).
 export const SPECTRO_CONFIG: SpectroConfig = {
   coeffs: WAVELENGTH_COEFFS,
   darkFrame: null,
   anchors: {}
 };
 
-/** Pixel→wavelength (nm). p is 1-BASED per the Hamamatsu formula; counts[i] is pixel p=i+1. */
+/** Pixel→wavelength (nm); p is 1-BASED per the Hamamatsu formula, so counts[i] is pixel p=i+1. */
 export function pixelToWavelength(p: number, c: WavelengthCoeffs = WAVELENGTH_COEFFS): number {
   return c.a0 + c.b1 * p + c.b2 * p * p + c.b3 * p ** 3 + c.b4 * p ** 4 + c.b5 * p ** 5;
 }
@@ -127,10 +108,8 @@ for (let i = 0; i < PIXEL_COUNT; i++) {
   DELTA_LAMBDA[i] = UPPER_EDGE[i] - LOWER_EDGE[i];
 }
 
-// C12880MA relative spectral sensitivity S(λ), digitized from the Hamamatsu datasheet (KACC1226E,
-// p.3 "Spectral response", curve KACCB0381EA) — blue-green peaked, ~0.58 at 660 nm, ~0.20 at 800 nm.
-// VALIDATED on this unit: dividing raw counts by S fits an incandescent to a clean ~2470 K blackbody
-// (~4% residual). Powers the photon (÷S) and energy (÷S·λ) views.
+// C12880MA relative spectral sensitivity S(λ), digitized from Hamamatsu KACC1226E p.3 and
+// validated on this unit to ~4% against an incandescent blackbody fit.
 const C12880MA_SENSITIVITY: ReadonlyArray<readonly [number, number]> = [
   [340, 0.53], [360, 0.68], [380, 0.85], [400, 0.95], [420, 0.92], [440, 0.96],
   [460, 0.99], [480, 1.0], [500, 0.99], [520, 0.96], [540, 0.93], [560, 0.88],
@@ -154,8 +133,7 @@ function sensitivityAt(nm: number): number {
   return last[1];
 }
 
-// Per-pixel response boost 1/S(λ), capped so the low-response NIR tail can't amplify noise (the cap
-// only bites past ~750 nm, where real signal is scarce anyway).
+// Per-pixel response boost 1/S(λ), capped so the low-response NIR tail can't amplify noise.
 const RESPONSE_BOOST_CAP = 4;
 const RESPONSE_BOOST: number[] = WAVELENGTHS.map((nm) =>
   Math.min(RESPONSE_BOOST_CAP, 1 / Math.max(sensitivityAt(nm), 1e-3))
@@ -181,12 +159,8 @@ const EPAR: [number, number] = [400, 750];
 // First few pixels of the C12880MA are dummy/optically-black — never real signal.
 const DUMMY_PIXELS = 5;
 
-// The firmware auto-exposes and reports `integration_us` as the ADDED delay only, so under a bright
-// light it can bottom out at 0 (no added delay) while the frame is still a valid short exposure.
-// Treat 0/missing as the sensor's minimum integration so PPFD isn't lost when the light is strong.
-// This is an estimate (refine once firmware reports the true integration incl. its base readout
-// period); at a fixed exposure it cancels out of the anchor scale, so absolute PPFD is unaffected by
-// its exact value — it only shifts cross-exposure (dimming) accuracy near the floor.
+// The firmware reports `integration_us` as the ADDED delay only, so 0 is a valid short exposure
+// rather than a missing one.
 export const MIN_INTEGRATION_US = 500;
 
 /** Integration time to normalize by: the reported value, or the sensor minimum when firmware reports 0. */
@@ -194,10 +168,8 @@ function effectiveIntegrationUs(us: number | undefined): number {
   return us && us > 0 ? us : MIN_INTEGRATION_US;
 }
 
-// CIE 1931 2° photopic luminosity function V(λ) — the eye's response that defines the lumen,
-// so a lux meter is really measuring ∫ E(λ)·V(λ)dλ. Peaks 1.0 at 555 nm, ~0 outside 400–700.
-// Lets us convert a co-incident lux reading into an absolute µmol PPFD using THIS spectrum's
-// shape, no quantum meter required (the lux→µmol ratio is a pure function of the SPD).
+// CIE 1931 2° photopic V(λ), which is what a lux meter integrates — so lux converts to µmol
+// using this spectrum's own shape.
 const PHOTOPIC_V: ReadonlyArray<readonly [number, number]> = [
   [380, 0.00004], [400, 0.0004], [420, 0.004], [440, 0.023], [460, 0.06],
   [480, 0.139], [500, 0.323], [520, 0.71], [540, 0.954], [555, 1.0],
@@ -221,15 +193,14 @@ function photopicAt(nm: number): number {
   return last[1];
 }
 
-// lux = LUMENS_PER_WATT · (N_A·h·c) · 1e3 · Σ(photon·V/λ[nm]) / (sensor_gain·integ). The Σ is
-// scale-invariant, so the ratio lux/PPFD is fixed by the spectrum alone — that's the whole trick.
-// Sanity: a 555 nm monochromatic source gives 147.2 lux per µmol·m⁻²·s⁻¹ (see the unit test).
+// lux = LUMENS_PER_WATT · (N_A·h·c) · 1e3 · Σ(photon·V/λ[nm]) / (sensor_gain·integ), whose Σ is
+// scale-invariant so the ratio lux/PPFD is fixed by the spectrum alone.
 const LUMENS_PER_WATT = 683; // peak luminous efficacy of radiation (at 555 nm)
 const NA_HC = 0.11962656; // N_A·h·c, J·m·mol⁻¹ — energy per mole of photons, times λ[m]
 const LUX_PER_UMOL_K = LUMENS_PER_WATT * NA_HC * 1e3; // ≈ 81705; the 1e3 folds µmol→mol (1e-6) and λ nm→m (1e9)
 
 /** Σ photon·V(λ)/λ over the frame — the luminous (photopic) weight whose ratio to the PAR photon
- *  sum fixes lux↔µmol for this spectrum. Relative units are fine; the absolute scale cancels. */
+ *  sum fixes lux↔µmol for this spectrum. */
 function photopicSum(photon: number[]): number {
   let s = 0;
   for (let i = DUMMY_PIXELS; i < PIXEL_COUNT; i++) s += (photon[i] * photopicAt(WAVELENGTHS[i])) / WAVELENGTHS[i];
@@ -237,14 +208,13 @@ function photopicSum(photon: number[]): number {
 }
 
 export interface ProcessedSpectrum {
-  /** 0..100 relative power in the active `view`, max→100. Pulse's "Relative Power %". Index-aligned
-   *  to the module's WAVELENGTHS constant — the x-axis is invariant for a given calibration, so
-   *  consumers derive it from WAVELENGTHS rather than shipping it per frame. */
+  /** 0..100 relative power in the active `view`, max→100, index-aligned to the module's
+   *  WAVELENGTHS constant. */
   relative: number[];
   /** Peak wavelength (nm), or null for a blank/all-dark frame (no signal above the baseline). */
   peakWavelengthNm: number | null;
   /** Wavelengths (nm) of the prominent local maxima, low→high (e.g. the blue and red peaks of a
-   *  horticulture LED) — for chart labels. Empty for a blank frame. */
+   *  horticulture LED) — for chart labels. */
   peaks: number[];
   /** Which lens `relative`/`peaks`/`bands` are expressed in. */
   view: SpectrumView;
@@ -260,9 +230,8 @@ export interface ProcessedSpectrum {
   par: number | null;
   epar: number | null;
   ppfd: number | null;
-  /** Far-red extension factor ∫photon(400–750)/∫photon(400–700) for this frame (≥ 1), scale-invariant
-   *  so a trusted absolute PAR (e.g. the Apogee's) can be rescaled into ePAR without the spectrometer's
-   *  fragile absolute anchor. null when saturated or there's no PAR-band signal. */
+  /** Far-red extension factor ∫photon(400–750)/∫photon(400–700) for this frame (≥ 1); null when
+   *  saturated or there's no PAR-band signal. */
   farRedRatio: number | null;
   calibrated: boolean;
   saturated: boolean;
@@ -277,11 +246,11 @@ export interface ProcessOptions {
   saturated?: boolean;
   /** Full-scale ADC value ((1<<adc_bits)-1). Default 16383 (14-bit R4). */
   adcFullScale?: number;
-  /** Lens for relative/peaks/bands: 'photon' (default, µmol), 'energy' (W/nm), or 'raw'. Absolute
+  /** Lens for relative/peaks/bands: 'photon' (default, µmol), 'energy' (W/nm), or 'raw' — absolute
    *  PPFD is always photon regardless. */
   view?: SpectrumView;
-  /** Live DLight illuminance (lux). With a lux anchor set, the lux flux reading is derived from
-   *  lux × (µmol/lux factor) — robust to a bad/stuck spectrometer frame — instead of frame counts. */
+  /** Live DLight illuminance (lux); with a lux anchor set, the lux flux reading is derived from
+   *  lux × (µmol/lux factor) instead of frame counts. */
   liveLux?: number;
   /** Re-process a stored raw frame under a different calibration without mutating the global. */
   config?: Partial<SpectroConfig>;
@@ -298,10 +267,7 @@ function bandIntegral(corrected: number[], a: number, b: number): number {
   return sum;
 }
 
-/** Raw counts → dark-subtracted per-pixel values (dummy pixels forced to 0). The single
- *  dark-subtraction implementation, shared by processSpectrum and anchorIntegral so the
- *  baseline logic can't drift between the live and anchor-calibration paths. `dark` overrides
- *  cfg.darkFrame; with neither set, an auto baseline (mean of the darkest 10% of the body). */
+/** The single dark-subtraction path, so live and anchor calibration cannot drift apart. */
 function toCorrected(rawCounts: number[], cfg: SpectroConfig, dark?: number[]): number[] {
   const counts =
     rawCounts.length === PIXEL_COUNT
@@ -324,8 +290,7 @@ function toCorrected(rawCounts: number[], cfg: SpectroConfig, dark?: number[]): 
 }
 
 /** Prominent local maxima of the relative curve (the blue/red LED peaks, etc.), as wavelengths
- *  low→high. Noise-robust: a candidate must be the max within ±WINDOW pixels, clear a height
- *  floor, and sit ≥MIN_SEP_NM from any taller kept peak; capped at 3 so labels stay legible. */
+ *  low→high. */
 function findPeaks(relative: number[]): number[] {
   const MIN_HEIGHT = 20;
   const MIN_SEP_NM = 30;
@@ -355,8 +320,7 @@ function findPeaks(relative: number[]): number[] {
 }
 
 /** PAR PPFD (µmol·m⁻²·s⁻¹) implied by a live lux reading via a lux anchor's banked µmol/lux factor,
- *  or null when the anchor/lux can't supply it. Frame-robust — needs no spectrometer frame, so it
- *  works with the spectrometer absent (as long as a lux anchor exists to carry the factor). */
+ *  or null when the anchor/lux can't supply it. */
 export function luxToPpfd(lux: number | null | undefined, anchor: AnchorCalibration | undefined): number | null {
   if (!anchor || !(anchor.luxValue != null && anchor.luxValue > 0) || !(anchor.referenceUmol > 0)) return null;
   if (lux == null || lux <= 0) return null;
@@ -371,11 +335,9 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   // Skip the optically-black dummy pixels — a dark-offset spike there is not real saturation.
   const saturated = opts.saturated || rawCounts.some((v, i) => i >= DUMMY_PIXELS && v >= adcFullScale);
 
-  // 1. dark subtraction, then the view transform (raw / photon=÷S / energy=÷S·λ)
   const corrected = toCorrected(rawCounts, cfg, opts.dark);
   const display = applyView(corrected, view);
 
-  // 2. normalize (0..100) + peak, in the active view
   let mx = 0;
   let peakIdx = DUMMY_PIXELS;
   for (let i = DUMMY_PIXELS; i < PIXEL_COUNT; i++) {
@@ -387,7 +349,6 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   const relative = display.map((c) => (mx > 0 ? (100 * c) / mx : 0));
   const peaks = findPeaks(relative);
 
-  // 3. band shares in the active view (denominator = ePAR total → four sum to 100, like Pulse)
   const iBlue = bandIntegral(display, BANDS.blue[0], BANDS.blue[1]);
   const iGreen = bandIntegral(display, BANDS.green[0], BANDS.green[1]);
   const iRed = bandIntegral(display, BANDS.red[0], BANDS.red[1]);
@@ -400,16 +361,14 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
     farRed: total > 0 ? (100 * iFarRed) / total : 0
   };
 
-  // 4. absolute PPFD/ePAR — always the PHOTON view (µmol), per-µs normalized. One reading per
-  //    configured anchor (lux estimate and/or Apogee reference); reference is the primary.
+  // Absolute PPFD/ePAR is always the PHOTON view (µmol), per-µs normalized.
   let lux: FluxReading | null = null;
   let reference: FluxReading | null = null;
   let farRedRatio: number | null = null;
   const integ = effectiveIntegrationUs(opts.integrationUs);
   if (!saturated) {
     const photon = view === 'photon' ? display : applyView(corrected, 'photon');
-    // ePAR/PAR shape ratio — scale-invariant (exposure/dimming cancel), so it rescales a trusted
-    // absolute PAR (the Apogee's) into ePAR by adding the 700–750 nm share the Apogee can't see.
+    // ePAR/PAR shape ratio — scale-invariant, so exposure and dimming cancel.
     const parPhoton = bandIntegral(photon, PAR[0], PAR[1]);
     farRedRatio = parPhoton > 0 ? bandIntegral(photon, EPAR[0], EPAR[1]) / parPhoton : null;
     // Absolute flux from an anchor using THIS frame's per-µs photon rate (counts ÷ exposure).
@@ -424,11 +383,8 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
       const a = cfg.anchors.lux;
       const liveLuxPpfd = luxToPpfd(opts.liveLux, a);
       if (liveLuxPpfd != null) {
-        // Frame-robust lux estimate: PPFD from live DLight lux × the anchor's µmol/lux, NOT this
-        // frame's counts/exposure. A bad or stuck auto-exposure frame (collapsed counts or a
-        // misreported integration time) can't drag the reading toward zero — the dedicated lux sensor
-        // tracks the real intensity, and dimming still lowers it. ePAR uses the frame's shape ratio
-        // (scale-invariant, so it survives a dim frame).
+        // From live lux × the anchor's µmol/lux, not this frame's counts, so a stuck auto-exposure
+        // frame cannot drag the reading toward zero.
         const pPar = bandIntegral(photon, PAR[0], PAR[1]);
         const eparRatio = pPar > 0 ? bandIntegral(photon, EPAR[0], EPAR[1]) / pPar : 1;
         lux = { source: 'lux', ppfd: liveLuxPpfd, par: liveLuxPpfd, epar: liveLuxPpfd * eparRatio, tolerancePct: a.tolerancePct ?? 15 };
@@ -484,19 +440,13 @@ export interface AnchorMeta {
   config?: Partial<SpectroConfig>;
 }
 
-/**
- * Build a lux-anchored calibration from a frame + a co-incident illuminance reading. Derives the
- * true PAR PPFD that lux implies for THIS spectrum's shape (via V(λ)), then stores it as the same
- * per-µs anchor scale an Apogee would — identical downstream, only the provenance differs
- * (source:'lux', ~±15%). The lux and the frame MUST be measured at the same point/time.
- */
+/** A lux-anchored calibration; the lux and the frame MUST be measured at the same point and time. */
 export function luxToAnchor(rawCounts: number[], integrationUs: number, lux: number, meta: AnchorMeta): AnchorCalibration {
   const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...meta.config };
   const photon = applyView(toCorrected(rawCounts, cfg), 'photon');
   const pPar = bandIntegral(photon, PAR[0], PAR[1]);
   const lumSum = photopicSum(photon);
-  // referenceUmol = true PPFD = lux · (PAR photon sum) / (K · luminous sum). Both sums scale with
-  // exposure/intensity, so their ratio — and thus the derived PPFD — is exposure-independent.
+  // referenceUmol = true PPFD = lux · (PAR photon sum) / (K · luminous sum).
   const referenceUmol = lumSum > 0 ? (lux * pPar) / (LUX_PER_UMOL_K * lumSum) : 0;
   return {
     referenceUmol,

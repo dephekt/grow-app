@@ -6,13 +6,8 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { env } from '$lib/server/env';
 
-// Discrete saved spectrum captures. Stores the RAW counts as the single source of
-// truth (plus a little frame metadata); every read reprocesses them through
-// processSpectrum, so history reflects the CURRENT calibration rather than freezing
-// at whatever scalars were computed when saved. That's why no computed columns
-// (peak/bands/par/ppfd/calibrated) are stored — they'd be stale the moment
-// SPECTRO_CONFIG changes. Mirrors the opensprinkler/auth db pattern (self-migrating
-// node:sqlite). Separate DB file — the read-only recorder never opens it.
+// Saved spectrum captures store the RAW counts as the single source of truth — no computed
+// columns, so every read reprocesses against the CURRENT calibration.
 const MIGRATIONS: string[] = [
   // 1 — one row per saved capture
   `
@@ -49,8 +44,7 @@ function migrate(db: DatabaseSync): void {
   }
 }
 
-/** Open (or create) the spectrum DB at `path`, apply pragmas + migrations. Exposed
- *  for tests, which pass `:memory:` or a temp file. */
+/** Open (or create) the spectrum DB at `path`, apply pragmas + migrations. */
 export function openSpectrumDb(path: string): DatabaseSync {
   if (path !== ':memory:') {
     mkdirSync(dirname(path), { recursive: true });
@@ -67,7 +61,7 @@ export function getSpectrumDbPath(): string {
 
 let singleton: DatabaseSync | null = null;
 
-/** Process-wide spectrum DB, opened once. Web-app only — never the recorder. */
+/** Process-wide spectrum DB, opened once — web-app only, never the recorder. */
 export function getSpectrumDb(): DatabaseSync {
   if (!singleton) singleton = openSpectrumDb(getSpectrumDbPath());
   return singleton;

@@ -40,8 +40,8 @@
     return raw != null && raw !== '' && Number.isFinite(n) ? n : null;
   });
 
-  // The light's actual photoperiod (from its schedule) — the grow plan flags when it drifts from the
-  // stage target (e.g. still on veg 18/6 while the plan wants flower 12/12).
+  // The light's actual photoperiod (from its schedule) — the grow plan flags when it drifts from
+  // the stage target.
   const actualPhotoperiod = $derived.by(() => {
     if (!primaryLight) return null;
     const onE = entityByRef(live.snapshot, primaryLight.roles.onTime);
@@ -60,12 +60,11 @@
     return raw != null && Number.isFinite(lux) ? lux : null;
   });
 
-  // The Apogee SQ-521 quantum sensor — a DIRECT canopy PPFD measurement (the DLight lux above is
-  // only an estimate). Drives the Canopy PPFD card as ground truth; null when the publisher is
-  // offline (so its retained value can't linger) or in darkness noise (clamped to 0).
+  // The Apogee SQ-521 quantum sensor — a DIRECT canopy PPFD measurement, null when the publisher
+  // is offline or in darkness noise.
   const liveApogeePpfd = $derived(liveQuantumPpfd(live.snapshot));
 
-  // ── Spectrum (merged in from the retired /spectrum page) ──
+  // ── Spectrum ──
   const VIEWS: SpectrumView[] = ['photon', 'energy', 'raw'];
   const VIEW_HINT: Record<SpectrumView, string> = {
     photon: 'µmol — photon flux',
@@ -81,12 +80,9 @@
   let saving = $state(false);
   let saveError = $state<string | null>(null);
 
-  // Once the columns stack, the saved-readings card turns into a collapsed drawer so a long history
-  // doesn't dominate the scroll on a phone (it's rarely what you open the Lights page for). matchMedia
-  // keeps this on exactly the same breakpoint as the stylesheet below.
-  // Initialise synchronously (SSR-guarded) so the first client paint is already correct — the (app)
-  // group is ssr=false, so there's no server HTML, and this avoids painting the card expanded then
-  // collapsing it (a layout shift) on a phone.
+  // matchMedia keeps the stacked saved-readings drawer on exactly the same breakpoint as the
+  // stylesheet below.
+  // Initialised synchronously (SSR-guarded) so the first client paint is already correct.
   let stacked = $state(typeof window !== 'undefined' && window.matchMedia('(max-width: 980px)').matches);
   $effect(() => {
     const mq = window.matchMedia('(max-width: 980px)');
@@ -96,7 +92,7 @@
   });
 
   // Open a saved reading if selected, else the live frame — carry RAW counts so the view toggle
-  // reprocesses client-side (calibration is a pure module) with no round-trip.
+  // reprocesses client-side.
   const source = $derived(
     selected
       ? {
@@ -121,20 +117,20 @@
           adcFullScale: (1 << source.adcBits) - 1,
           integrationUs: source.integrationUs,
           saturated: source.saturated,
-          // Live frames get the DLight lux for a frame-robust PPFD; a saved capture keeps its own
-          // frame-based value (the current lux doesn't belong to a past reading).
+          // Live frames get the DLight lux for a frame-robust PPFD; the current lux doesn't belong
+          // to a saved capture.
           liveLux: selected ? undefined : (liveLux ?? undefined),
           config: { anchors }
         })
       : null
   );
 
-  // PAR estimated from a DLight's lux via the µmol/lux factor banked in the stored lux anchor — see
-  // luxToPpfd. Works with the spectrometer absent, but not without an anchor to supply the factor.
+  // PAR estimated from a DLight's lux via the µmol/lux factor banked in the stored lux anchor (see
+  // luxToPpfd); needs that anchor, not the spectrometer.
   const luxParEstimate = $derived(luxToPpfd(liveLux, anchors.lux));
 
   // Canopy PAR resolved by descending trust (saved reading → live Apogee → DLight-lux estimate →
-  // unavailable); see resolveCanopy. hasQuantumPpfd separates "sensor offline" from "no sensor".
+  // unavailable); see resolveCanopy.
   const canopy = $derived(
     resolveCanopy({
       selected: selected != null,
@@ -147,16 +143,12 @@
   );
   const livePpfd = $derived(canopy.par);
   const canopyEpar = $derived(canopy.epar);
-  // Live Apogee diagnostics shown alongside PAR — the raw detector signal (mV) and the sensor's tilt
-  // from vertical. These are LIVE, so they're hidden while a saved reading is open (its PAR/ePAR are
-  // historical) and whenever the sensor is offline.
+  // Live Apogee diagnostics shown alongside PAR: the raw detector signal (mV) and the sensor's tilt
+  // from vertical.
   const canopyDetector = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'detector_mv'));
   const canopyTilt = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'tilt'));
-  // The day's light so far, integrated by the publisher rather than extrapolated here. Hidden on a
-  // saved reading for the same reason as the diagnostics above — it is a running total of *now*,
-  // not a property of the historical frame. Its counterpart is the Grow Plan card's DLI (proj.),
-  // which is this instant's PPFD stretched over the planned photoperiod; the two are not the same
-  // quantity and the labels have to say so.
+  // The day's light so far, integrated by the publisher — a running total of *now*, and NOT the
+  // Grow Plan card's projected DLI.
   const canopyDli = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'dli'));
   const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
   const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
@@ -347,9 +339,8 @@
   .c4 {
     grid-column: span 4;
   }
-  /* Saved readings sit beside the SPD chart and must match its height rather than driving the row
-     taller (which left a dead gap under the chart). Taking the card out of flow means only the chart
-     sizes the row; the card then stretches to it and scrolls its list internally. */
+  /* Saved readings must match the SPD chart's height rather than drive the row taller, so the card
+     is taken out of flow and only the chart sizes the row. */
   .hist-fill {
     position: relative;
     min-height: 0;

@@ -6,11 +6,8 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { env } from '$lib/server/env';
 
-// Ordered, append-only migrations. The index +1 is the schema version stored in
-// `PRAGMA user_version`. Never edit an existing entry — add a new one. Mirrors the
-// auth/irrigation DB pattern (src/lib/server/auth/db.ts, opensprinkler/db.ts). Kept
-// in its own DB file: different lifecycle, no cross-table FKs, and the read-only
-// recorder never opens it.
+// Ordered, append-only migrations whose index +1 is the schema version stored in
+// `PRAGMA user_version` — never edit an existing entry, add a new one.
 const MIGRATIONS: string[] = [
   // 1 — generic app settings key/value store
   `
@@ -41,8 +38,7 @@ function migrate(db: DatabaseSync): void {
 }
 
 /**
- * Open (or create) the settings database at `path`, apply pragmas + migrations,
- * and return it. Exposed for tests, which pass `:memory:` or a temp file.
+ * Open (or create) the settings database at `path`, apply pragmas + migrations, and return it.
  */
 export function openSettingsDb(path: string): DatabaseSync {
   if (path !== ':memory:') {
@@ -61,7 +57,7 @@ export function getSettingsDbPath(): string {
 
 let singleton: DatabaseSync | null = null;
 
-/** Process-wide settings DB, opened once. Web-app only — never the recorder. */
+/** Process-wide settings DB, opened once — web-app only, never the recorder. */
 export function getSettingsDb(): DatabaseSync {
   if (!singleton) singleton = openSettingsDb(getSettingsDbPath());
   return singleton;

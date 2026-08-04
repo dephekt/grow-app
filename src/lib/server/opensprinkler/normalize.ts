@@ -2,15 +2,9 @@
 // Copyright (C) 2026 Daniel Snider
 
 /**
- * OpenSprinkler status normalization. OS publishes station state as JSON
- * (`{"state":1,"duration":5}`), but grow-app's discovery pipeline stores the raw
- * payload string as the entity state and has no value-template support. So the
- * driver parses OS's JSON and republishes a plain scalar (`ON`/`OFF`) to a dedicated
- * `<base>/station/<sid>/state` topic that the self-published discovery points at —
- * keeping the entity + recorder→InfluxDB pipeline clean.
- *
- * Availability (`<base>/availability` → `online`/`offline`) is already a plain scalar
- * and needs no normalization — discovery references it directly.
+ * OpenSprinkler publishes station state as JSON (`{"state":1,"duration":5}`), but grow-app's
+ * discovery pipeline stores the raw payload string as the entity state and has no value-template
+ * support.
  */
 
 /** The topic the normalized scalar station state is (re)published to. */
@@ -19,10 +13,9 @@ export function stationStateTopic(baseTopic: string, sid: number): string {
 }
 
 /**
- * If `topic` is a raw OS station-state topic (`<base>/station/<n>`), return the
- * station index; otherwise null. Deliberately excludes the normalized
- * `<base>/station/<n>/state` topic (its remainder isn't all digits), so republishing
- * can't loop.
+ * If `topic` is a raw OS station-state topic (`<base>/station/<n>`), return the station index.
+ *
+ * Deliberately excludes the normalized `<base>/station/<n>/state` topic so republishing can't loop.
  */
 export function matchStationTopic(topic: string, baseTopic: string): number | null {
   const prefix = `${baseTopic}/station/`;

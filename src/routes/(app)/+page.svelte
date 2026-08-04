@@ -24,11 +24,8 @@
 
   type Row = { label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' };
 
-  // The hydro controller (pH, else the water-temp probe) feeds WATER; the air rig
-  // (CO₂, else humidity, else a bare ambient temp) feeds CLIMATE. The resolvers are
-  // shared with the trend charts (`$lib/entity-match`) so readout and trends always
-  // agree on the device. Readout rows come straight from each device's firmware-
-  // declared dashboard metrics (role:metric in its overview group) — no hardcoded ids.
+  // These resolvers are shared with the trend charts so readout and trends always
+  // agree on the device.
   let waterDevice = $derived(resolveWaterDevice(live.snapshot));
   let climateDevice = $derived(resolveClimateDevice(live.snapshot));
 
@@ -45,31 +42,22 @@
 
   let waterRows = $derived(metricRows(waterDevice, 'Water '));
 
-  // Canopy PAR from the Apogee SQ-521. It lives on its own publisher node rather than the climate
-  // rig, so it cannot arrive through presentedNumericMetrics and is appended here instead.
-  // liveQuantumPpfd gates on that publisher's availability (a crashed one leaves a retained scalar)
-  // and clamps the dark-offset noise quantum sensors read in darkness.
-  //
-  // The DLight's illuminance row still arrives with the climate device's own metrics, so the pair
-  // is independent by construction: PAR alone, lux alone, both, or — once the filter above drops
-  // an unplugged sensor's `nan` — neither.
+  // Canopy PAR lives on its own publisher node, so it cannot arrive through
+  // presentedNumericMetrics and is appended here instead.
   let parRow = $derived.by<Row | null>(() => {
     const ppfd = liveQuantumPpfd(live.snapshot);
     if (ppfd === null) return null;
     const entity = findQuantumPpfdEntity(live.snapshot.entities);
     if (!entity) return null;
-    // Formatted through the shared path rather than by hand: it clamps precision before calling
-    // toFixed, so a discovery config carrying an out-of-range value degrades instead of throwing a
-    // RangeError inside this derivation. The publisher declares no precision, so PPFD defaults to
-    // whole µmol — matching how the Lights page renders the same sensor.
+    // Formatted through the shared path because it clamps precision before toFixed;
+    // the publisher declares none, so PPFD defaults to whole µmol.
     const display = { ...entity, suggestedDisplayPrecision: entity.suggestedDisplayPrecision ?? 0 };
     return { label: 'PAR', value: formatEntityState(display, { value: String(ppfd), updatedAt: null }), status: 'ok' };
   });
 
   let climateRows = $derived([...metricRows(climateDevice), ...(parRow ? [parRow] : [])]);
 
-  // The particulate/gas monitor (PM, VOC, NOx) feeds AIR QUALITY. Resolved by its
-  // air-quality metrics so it gets its own card even though it also reports CO₂.
+  // Resolved by its air-quality metrics so it gets its own card even though it also reports CO₂.
   let airQualityDevice = $derived(resolveAirQualityDevice(live.snapshot));
   let airQualityRows = $derived(metricRows(airQualityDevice));
 

@@ -73,8 +73,8 @@
       channelOverride = null;
       commandMessage = '';
       actionMessage = '';
-      // A command in flight for the previous device is now stale (its requestId-guarded
-      // finally won't clear this); reset so the newly selected device isn't shown busy.
+      // A command in flight for the previous device is stale, and its requestId-guarded finally
+      // won't clear this.
       commandPending = false;
     }
   });
@@ -100,16 +100,12 @@
     requestId = id;
     lookupPending = true;
     packageLookupComplete = false;
-    // Clear the previous device/channel's manifest up front so a stale changelog
-    // (or another device's, on a device switch) can't render while this lookup is in
-    // flight — it repopulates below once the fetch resolves.
+    // Clear the previous manifest up front so a stale changelog can't render while this lookup
+    // is in flight.
     packageInfo = null;
     lookupError = '';
     actionMessage = '';
-    // A command (Check/Apply) in flight for the previous key is superseded by this
-    // device/channel change; clear its busy flag, since bumping requestId above makes
-    // that command's own requestId-guarded finally skip the reset (covers a channel
-    // switch, which the nodeId-only device-switch effect doesn't).
+    // Bumping requestId above makes an in-flight command's guarded finally skip its own reset.
     commandPending = false;
 
     try {
@@ -165,20 +161,14 @@
 
   async function checkForUpdate(): Promise<void> {
     if (!firmwareConfig || commandPending) return;
-    // This is an authoritative refresh. Bump the staleness token so a concurrent
-    // in-flight loadPackage is disowned — its guarded writes bail, so a slow/failing
-    // lookup can't win a last-writer race and re-surface the stale error/manifest this
-    // clears. Then take ownership of lookupPending, because that disowned loadPackage's
-    // finally won't clear it (otherwise "Latest: Checking" strands).
+    // Authoritative refresh: bump the staleness token to disown a concurrent loadPackage, then
+    // take ownership of lookupPending, which that loadPackage's finally will no longer clear.
     const id = ++requestId;
     lookupPending = false;
     commandPending = true;
     commandMessage = '';
     actionMessage = '';
-    // A fresh check supersedes any earlier package-lookup error (e.g. a transient
-    // "fetch failed"); clear it so a successful re-check doesn't keep showing the
-    // stale error, and so a new failure surfaces via commandMessage instead of being
-    // masked by the higher-priority lookupError.
+    // Clear the earlier lookup error, which otherwise masks a new failure reported via commandMessage.
     lookupError = '';
 
     try {
@@ -192,8 +182,8 @@
         error?: string;
       };
 
-      // Device switched mid-check (requestId bumped by loadPackage or another command):
-      // discard this response so it can't clobber the now-selected device's manifest.
+      // Device switched mid-check: discard this response so it can't clobber the now-selected
+      // device's manifest.
       if (requestId !== id) return;
 
       if (!response.ok) {
@@ -265,8 +255,8 @@
     // A live update entity is authoritative when present…
     if (state.error) return 'Error';
     if (state.state) return state.state;
-    // …but version-based status still works without one, for poll-based / "dumb" devices (e.g. the
-    // spectrometer) that report a version via _firmware/config but publish no `update` component.
+    // …but version-based status still works for devices that report a version via
+    // _firmware/config and publish no `update` component.
     if (selectedPackage?.version === currentVersion) return 'Current';
     if (state.latestVersion && selectedPackage && state.latestVersion === selectedPackage.version) return 'Update ready';
     if (state.latestVersion) return 'Checked';

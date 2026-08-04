@@ -10,14 +10,12 @@ import { stationStateTopic } from './normalize';
 import { getIrrigationDb } from './db';
 import { listZones, type Zone } from './zones';
 
-/** Extra seconds past the requested run before the driver-side watchdog force-stops
- *  a station. OS enforces its own `t` timer, so this is a belt-and-suspenders cap. */
+/** Extra seconds past the requested run before the driver-side watchdog force-stops a station. */
 const WATCHDOG_GRACE_SECONDS = 10;
 
 /**
- * The irrigation control seam. Translates zone runs into OpenSprinkler MQTT commands
- * and manages self-published station discovery. All MQTT I/O goes through the
- * SiteMqttService (the only holder of the mqtt client).
+ * The irrigation control seam, translating zone runs into OpenSprinkler MQTT commands —
+ * all MQTT I/O goes through the SiteMqttService, the only holder of the mqtt client.
  */
 export class IrrigationController {
   private readonly watchdogs = new Map<number, ReturnType<typeof setTimeout>>();
@@ -33,9 +31,7 @@ export class IrrigationController {
   }
 
   async stopStation(sid: number): Promise<void> {
-    // Publish first, then drop the watchdog: if the stop publish fails (e.g. broker
-    // disconnected), the driver-side force-stop must stay armed as the safety net on
-    // exactly the failure path where a still-running valve most needs it.
+    // Publish first so a failed stop leaves the driver-side force-stop armed.
     await this.service.publishOsCommand(buildStopCommand(sid));
     this.clearWatchdog(sid);
   }
@@ -56,9 +52,8 @@ export class IrrigationController {
       .catch((error) => console.error('[opensprinkler] discovery publish failed', error));
   }
 
-  /** Clear a station's retained discovery config AND its normalized state (both
-   *  empty retained payloads) so a later re-create doesn't seed from stale data.
-   *  The in-memory entity lingers until the next app restart — acceptable for v1. */
+  /** Clear a station's retained discovery config AND its normalized state so a later
+   *  re-create doesn't seed from stale data. */
   retractStation(sid: number): void {
     this.clearWatchdog(sid);
     const topics = [stationDiscoveryTopic(this.config.discoveryPrefix, sid), stationStateTopic(this.config.baseTopic, sid)];
@@ -69,19 +64,15 @@ export class IrrigationController {
     }
   }
 
-  /** Is the station currently running? True when our own watchdog is armed (we just
-   *  started a run) OR the live normalized station state reads ON. The scheduler uses
-   *  this as a best-effort busy guard so a scheduled shot never stomps an in-flight run
-   *  started manually or from the OS web UI. `entityState` null-guards a missing entity
-   *  (returns `{ value: null }`), so an undiscovered station simply reads not-running. */
+  /** True when our own watchdog is armed OR the live normalized station state reads ON,
+   *  so an undiscovered station reads not-running. */
   isStationRunning(sid: number): boolean {
     if (this.watchdogs.has(sid)) return true;
     return this.service.entityState(stationEntityId(sid)).value === 'ON';
   }
 
-  /** React to a station's normalized state. On OFF the run is done, so clear the
-   *  watchdog — this both avoids the redundant stop and prevents a stale watchdog
-   *  from clipping a run started externally (OS web UI) during the grace window. */
+  /** React to a station's normalized state, clearing the watchdog on OFF so it can't
+   *  clip a run started externally during the grace window. */
   noteStationState(sid: number, running: boolean): void {
     if (!running) this.clearWatchdog(sid);
   }
@@ -114,19 +105,14 @@ export function getIrrigationController(): IrrigationController {
   return singleton;
 }
 
-/**
- * Initialize the OpenSprinkler driver at server start (web app only — never the
- * read-only recorder). No-op when the site isn't OS-enabled. (Re)publishes station
- * discovery on every broker connect so retained configs survive reconnects.
- */
+/** Initialize the OpenSprinkler driver at server start — web app only, never the read-only recorder. */
 export function startOpenSprinklerDriver(): void {
   const config = getOpenSprinklerConfig();
   if (!config.enabled) return;
 
   const service = getSiteMqttService();
   const controller = getIrrigationController();
-  // Guarded so a transient DB error (listZones) can't throw into the EventEmitter
-  // path — this runs inside broker-event dispatch and at startup.
+  // Guarded so a transient DB error can't throw into the EventEmitter dispatch path.
   const publish = () => {
     try {
       controller.publishAllDiscovery(listZones(getIrrigationDb()));
@@ -142,7 +128,6 @@ export function startOpenSprinklerDriver(): void {
       if (sid !== null) controller.noteStationState(sid, event.state.value === 'ON');
     }
   });
-  // Best-effort immediate publish; a no-op reject if the broker isn't connected yet
-  // (the broker-connect event above will then do the real publish).
+  // Best-effort immediate publish — a no-op reject if the broker isn't connected yet.
   publish();
 }

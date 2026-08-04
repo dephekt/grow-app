@@ -3,9 +3,7 @@
 
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 
-// scrypt cost parameters. N=2^15 is comfortably above interactive-login guidance
-// for a household-scale auth DB; r/p standard. maxmem is raised because the
-// default 32 MiB ceiling sits exactly at 128*N*r for these params.
+// maxmem is raised because the default 32 MiB ceiling sits exactly at 128*N*r for these params.
 const N = 32768;
 const R = 8;
 const P = 1;
@@ -16,11 +14,8 @@ const MAXMEM = 96 * 1024 * 1024;
 // a passwordless account, so "no such user" and "wrong password" take similar time.
 const DUMMY_SALT = Buffer.alloc(16, 0x2a);
 
-// Async on purpose: scrypt is CPU- and memory-heavy (tens of ms, up to MAXMEM),
-// so it must run on the libuv threadpool via the callback API rather than the
-// `scryptSync` variant, which would block Node's single event loop for the whole
-// derivation. On the public /auth/login path a synchronous derivation let an
-// unauthenticated flood serialize the server one hash at a time (see #34).
+// Async on purpose: the callback API runs on the libuv threadpool, where `scryptSync`
+// would block the event loop for the whole derivation.
 function derive(password: string, salt: Buffer, keylen: number, n: number, r: number, p: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scrypt(password, salt, keylen, { N: n, r, p, maxmem: MAXMEM }, (err, derivedKey) => {
@@ -30,8 +25,7 @@ function derive(password: string, salt: Buffer, keylen: number, n: number, r: nu
   });
 }
 
-/** Hash a password into a self-describing `scrypt$N$r$p$saltB64url$hashB64url`
- *  string. The embedded parameters let verify() work after a future cost bump. */
+/** Hash a password into a self-describing `scrypt$N$r$p$saltB64url$hashB64url` string. */
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
   const hash = await derive(password, salt, KEYLEN, N, R, P);
@@ -61,10 +55,8 @@ function parse(stored: string): ParsedHash | null {
 }
 
 /**
- * Constant-time-ish password check. Always performs a scrypt derivation — even
- * for a null/garbage stored hash — so an attacker can't distinguish a missing
- * user, a passwordless account, and a wrong password by timing. Returns false
- * for any of those; true only on a real match.
+ * Always performs a scrypt derivation — even for a null/garbage stored hash — so a missing
+ * user, a passwordless account, and a wrong password can't be told apart by timing.
  */
 export async function verifyPassword(password: string, stored: string | null | undefined): Promise<boolean> {
   const parsed = stored ? parse(stored) : null;

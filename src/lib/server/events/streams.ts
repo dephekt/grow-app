@@ -2,32 +2,21 @@
 // Copyright (C) 2026 Daniel Snider
 
 /**
- * Registry of open SSE event streams (`GET /api/events`).
- *
- * The stream authorizes once at connect time and then runs indefinitely, so an
- * admin disabling a user or revoking their sessions has no way to cut off the
- * live telemetry they already have flowing. This registry is the immediate lever:
- * the events route hands us a transport-agnostic `close` callback tagged with the
- * owning user, and admin actions call {@link closeEventStreamsForUser} to tear the
- * matching streams down now — rather than waiting for the stream's own periodic
- * session re-validation (the slower backstop) or for the connection to happen to
- * drop.
- *
- * Process-local by design: a server restart already clears every stream, so this
- * only needs to close the interactive window while the process keeps running.
+ * Registry of open SSE event streams (`GET /api/events`) that admin actions call
+ * {@link closeEventStreamsForUser} against to cut a user's live telemetry
+ * immediately (process-local by design).
  */
 export interface EventStreamHandle {
   /** Owner of the stream; the key we revoke on. */
   userId: number;
-  /** Idempotent teardown: clears the stream's timers, unsubscribes, and closes
-   *  the underlying controller. Safe to call more than once. */
+  /** Idempotent teardown: safe to call more than once. */
   close: () => void;
 }
 
 const active = new Set<EventStreamHandle>();
 
-/** Register an open stream. Returns an unregister function the stream must call
- *  from its own teardown so a normal client disconnect leaves nothing behind. */
+/** Register an open stream, returning an unregister function the stream must call
+ *  from its own teardown. */
 export function registerEventStream(handle: EventStreamHandle): () => void {
   active.add(handle);
   return () => {
@@ -35,12 +24,7 @@ export function registerEventStream(handle: EventStreamHandle): () => void {
   };
 }
 
-/**
- * Close and unregister every open stream owned by `userId`. Returns the number of
- * streams closed. Iterates a snapshot and removes each handle before invoking its
- * `close`, so the stream's own unregister (fired from `close`) is a harmless
- * no-op and re-entrancy can't skip or double-visit a handle.
- */
+/** Close and unregister every open stream owned by `userId`, returning the number closed. */
 export function closeEventStreamsForUser(userId: number): number {
   let closed = 0;
   for (const handle of [...active]) {
@@ -50,16 +34,14 @@ export function closeEventStreamsForUser(userId: number): number {
     try {
       handle.close();
     } catch (error) {
-      // Never let one handle's teardown abort the sweep — the remaining streams
-      // for this user must still close, and the admin PATCH that called us must
-      // not 500 after its DB session-delete already succeeded.
+      // Never let one handle's teardown abort the sweep.
       console.error('[events] failed to close a revoked stream', error);
     }
   }
   return closed;
 }
 
-/** Number of currently registered streams. Exposed for tests/introspection. */
+/** Number of currently registered streams. */
 export function activeEventStreamCount(): number {
   return active.size;
 }

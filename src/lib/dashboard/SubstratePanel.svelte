@@ -12,10 +12,8 @@
   } from '$lib/substrate';
   import type { Snapshot } from '$lib/server/mqtt/types';
 
-  // Its own card rather than a ReadoutPanel because a TEROS bus is plural — up to four
-  // probes on one wire — and the readings are DERIVED, so there is no entity to hand the
-  // shared formatter. Values are formatted here at the sensor's own resolution; the
-  // publisher declares the same precision for the two raw rows.
+  // Values are formatted here at the sensor's own resolution; the publisher declares the
+  // same precision for the two raw rows.
   let { snapshot, zones = [] } = $props<{ snapshot: Snapshot; zones?: SubstrateZoneBinding[] }>();
 
   let probes = $derived(resolveSubstrateProbes(snapshot, zones));
@@ -87,8 +85,8 @@
         <span class="dot" class:ok={active.readings.vwc !== null}></span>
       </div>
 
-      <!-- The number to steer on, and the reason this card exists: bulk EC below reads
-           several times lower for the same solution, so the two are never interchangeable. -->
+      <!-- The number to steer on: bulk EC below reads several times lower for the same
+           solution and is never interchangeable with it. -->
       <div class="row steer">
         <span class="row-label">pwEC</span>
         <span class="row-value mono">
@@ -114,8 +112,7 @@
       </div>
     </div>
 
-    <!-- Which calibration is in force is state, not explanation: it changes what VWC
-         reads, and "assumed" is the difference between a configured medium and a guess. -->
+    <!-- Which calibration curve is in force changes what VWC reads. -->
     <p class="foot">
       <span class="foot-key">Curve</span>
       {active.readings.curve}{#if active.readings.curveAssumed}<span class="assumed"> · assumed</span

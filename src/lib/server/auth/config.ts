@@ -30,10 +30,8 @@ export const DEFAULT_LOGIN_RATE_MAX = 10;
 /** Length of the fixed per-IP login rate window, in seconds. */
 export const DEFAULT_LOGIN_RATE_WINDOW_SECONDS = 60;
 
-/** Cap on concurrent scrypt derivations the login path will run at once. The
- *  libuv threadpool defaults to 4 threads, so this bounds how much of it a login
- *  burst can occupy even when every attempt shares one proxy IP. 0 disables the
- *  cap. */
+/** Cap on concurrent scrypt derivations, bounding how much of the 4-thread libuv pool a
+ *  login burst can occupy; 0 disables it. */
 export const DEFAULT_LOGIN_MAX_INFLIGHT = 8;
 
 export interface BootstrapAdmin {
@@ -88,11 +86,8 @@ export interface OidcConfigEnv {
 // set-but-unreadable client-secret file rather than flooding the log.
 let warnedSecretUnreadable = false;
 
-/** OIDC client settings from the environment. Absent values => OIDC disabled. A
- *  `GROW_OIDC_CLIENT_SECRET_FILE` that is set but unreadable is treated as absent
- *  (so `isSsoEnabled()` never throws on the hot path) but warns once — a broken
- *  secret mount is a real misconfiguration, not an intentional local-auth-only
- *  deployment. */
+/** OIDC settings from the environment; an unreadable secret file reads as absent but warns,
+ *  since a broken mount is not an intentional local-auth-only deployment. */
 export function getOidcConfigEnv(): OidcConfigEnv {
   return {
     issuer: env('GROW_OIDC_ISSUER'),
@@ -117,13 +112,8 @@ export function getOidcScopes(): string {
   return env('GROW_OIDC_SCOPES') ?? 'openid profile email';
 }
 
-/**
- * Allowed origins the OIDC flow may run on — the public site URL plus any LAN
- * origins, comma-separated in `GROW_AUTH_ORIGINS`. This is the access control for
- * the callback `redirect_uri`, so it is enforced fail-closed: an empty list means
- * no origin is accepted and SSO stays disabled (see `isSsoEnabled`). Each entry is
- * a bare scheme://host[:port] with any trailing slash trimmed.
- */
+/** Origins the OIDC flow may run on; this gates the callback redirect_uri, so an empty list
+ *  is fail-closed and disables SSO. */
 export function getAllowedOrigins(): string[] {
   return (env('GROW_AUTH_ORIGINS') ?? '')
     .split(',')
@@ -145,11 +135,7 @@ export function getOidcAllowInsecureIssuer(): boolean {
   return env('GROW_OIDC_ALLOW_INSECURE_ISSUER') === 'true';
 }
 
-/** Whether the "Sign in with SSO" path is available. True only when the issuer,
- *  client id, and client secret are all set AND at least one allowed origin is
- *  configured — the origin allowlist is mandatory (fail-closed) because it gates
- *  the callback redirect_uri. `/api/me` and the login page read this to show/hide
- *  the SSO button. */
+/** Whether SSO is available: issuer, client id, secret AND at least one allowed origin. */
 export function isSsoEnabled(): boolean {
   const { issuer, clientId, clientSecret } = getOidcConfigEnv();
   return Boolean(issuer && clientId && clientSecret) && getAllowedOrigins().length > 0;
@@ -177,10 +163,8 @@ export function oidcTxCookieOptions(secure: boolean): SessionCookieOptions {
   };
 }
 
-/** Cookie options for the session cookie. `secure` is decided per-request from
- *  the URL protocol: the public origin is HTTPS (behind Pangolin, seen via
- *  x-forwarded-proto) and the LAN origin is plain HTTP — a hard-coded
- *  `secure: true` would make the browser silently drop the LAN cookie. */
+/** Session cookie options; `secure` is per-request because a hard-coded true would make the
+ *  browser silently drop the plain-HTTP LAN cookie. */
 export interface SessionCookieOptions {
   path: string;
   httpOnly: boolean;
@@ -189,15 +173,8 @@ export interface SessionCookieOptions {
   maxAge: number;
 }
 
-/**
- * Whether the client reached us over HTTPS. TLS always terminates upstream
- * (Pangolin/Traefik) — the app itself only ever speaks plain HTTP — so the
- * forwarded protocol header is the only trustworthy signal. Do NOT use
- * `event.url.protocol` for this: adapter-node defaults it to `https:` when no
- * ORIGIN/PROTOCOL_HEADER is configured, so plain-HTTP LAN requests would get a
- * Secure cookie the browser then silently drops. A LAN client spoofing the
- * header only mis-flags its own cookie.
- */
+/** Whether the client reached us over HTTPS, from the forwarded header — NOT
+ *  `event.url.protocol`, which adapter-node defaults to https. */
 export function isSecureRequest(headers: Pick<Headers, 'get'>): boolean {
   const forwarded = headers.get('x-forwarded-proto');
   if (!forwarded) return false;

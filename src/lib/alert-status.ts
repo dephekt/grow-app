@@ -16,10 +16,7 @@ export interface AlertRuleEntities {
   liveEntity: EntityConfig | null;
 }
 
-/** On/off tests honour the entity's discovery payloads (payload_on/payload_off,
- *  default ON/OFF). The bare 'true'/'false' forms are accepted only alongside
- *  the defaults, so a custom-payload sensor (e.g. 'alarm'/'clear') is never
- *  misread through the generic strings. */
+/** On/off honours the entity's own payloads, so a custom-payload sensor is never misread. */
 export function isOn(entity: EntityConfig | null, value: string | null | undefined): boolean {
   if (value == null) return false;
   const on = entity?.payloadOn ?? 'ON';
@@ -46,11 +43,7 @@ export function numericStateValue(entity: EntityConfig | null, states: Record<st
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Status derived purely from the live reading vs the device's thresholds.
- *  Used when there's no alert sensor, or to recover HIGH/LOW direction from a
- *  single combined alert. Uses committed threshold values, not optimistic ones.
- *  OK requires at least one resolved threshold to compare against — a live
- *  number with no thresholds is not evidence that anything is fine. */
+/** Status from the live reading against committed thresholds; OK requires at least one to exist. */
 export function statusFromLive(
   rule: AlertRuleEntities,
   states: Record<string, EntityState>
@@ -87,15 +80,8 @@ export function alertStatus(rule: AlertRuleEntities, states: Record<string, Enti
   // No alert sensor at all → reflect the live reading vs thresholds.
   if (!hasAlertEntity) return statusFromLive(rule, states);
 
-  // Every alert sensor is now silent (never reported a state), explicitly off,
-  // or indeterminate (a payload that is neither on nor off, e.g. 'unavailable').
-  // Combine that evidence with the live reading vs the committed thresholds:
-  // the device's own alarm wins over a threshold comparison that can be
-  // desynced (hysteresis, lag, stale committed values), so a direction whose
-  // sensor reports off is never alerted from live; live OK only confirms OK
-  // when no reporting sensor is indeterminate — otherwise the device's alarm
-  // state is unknowable; and without a usable live reading, all reporting
-  // sensors off ⇒ OK, anything else ⇒ UNKNOWN.
+  // No alert sensor is on, so fall back to the live reading — but the device's own alarm
+  // outranks a threshold comparison that can be desynced by hysteresis or lag.
   const highOff = isOff(rule.highAlertEntity, highValue);
   const lowOff = isOff(rule.lowAlertEntity, lowValue);
   const genericOff = isOff(rule.genericAlertEntity, genericValue);

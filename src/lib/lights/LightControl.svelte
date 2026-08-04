@@ -36,7 +36,7 @@
   });
   const offline = $derived(powerDevice?.availability === 'offline');
 
-  // Live clock so the countdown ticks. Only runs when there's a schedule to count down.
+  // Live clock so the countdown ticks.
   let now = $state(new Date());
   $effect(() => {
     if (!hasSchedule) return;
@@ -53,8 +53,7 @@
     )
   );
 
-  // Photoperiod (owned here, since this control holds the schedule): on/off wall-clock and the
-  // on/off hour split derived from the window itself, so "20 / 4" is live off the schedule.
+  // Photoperiod lives here because this control owns the schedule.
   const onClock = $derived(onTime ? toTimeInputValue(live.stateFor(onTime).value) : null);
   const offClock = $derived(offTime ? toTimeInputValue(live.stateFor(offTime).value) : null);
   const photoperiod = $derived(
@@ -81,11 +80,8 @@
   let drawerOpen = $state(false);
 
   // ── Dimmer slider ──
-  // `sliderValue` is what the input shows. `lastSent` is the last brightness we published, kept to
-  // de-dupe a redundant repeat of the same command. While `settling` is true we ignore inbound
-  // echoes so the slider doesn't snap back to the pre-command value before the device applies ours.
-  // Settling ends when the device echoes our value, when the publish fails, or when a grace timeout
-  // elapses — the last two guarantee the slider can never freeze out of sync with the device.
+  // Inbound echoes are ignored while `settling` so the slider can't snap back to the pre-command
+  // value; settling must always end (device echo, failed publish, or the grace timeout).
   const SETTLE_TIMEOUT_MS = 3000;
   let sliderValue = $state(100);
   let lastSent = $state<number | null>(null);
@@ -185,8 +181,7 @@
     <div class="row">
       <span class="row-label">Brightness</span>
       <div class="slider-wrap">
-        <!-- Not gated on `offline`: the dimmer lives on a different node (the DAC),
-             so the plug being offline doesn't apply to it. -->
+        <!-- Not gated on `offline`: the dimmer lives on a different node (the DAC) than the plug. -->
         <input
           type="range"
           min="0"

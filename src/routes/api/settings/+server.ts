@@ -13,9 +13,7 @@ import {
 import { reconcileSiteTimezone } from '$lib/server/mqtt/tz-reconciler';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 
-// Admin: report the effective site zone, where it came from, the persisted override (if
-// any), and the full IANA list the picker offers. IANA is the single source of truth; the
-// derived POSIX never surfaces here.
+// Admin: IANA is the single source of truth; the derived POSIX never surfaces here.
 export const GET: RequestHandler = ({ locals }) => {
   const denied = requireAdmin(locals);
   if (denied) return denied;
@@ -34,10 +32,8 @@ interface UpdateBody {
   timezone?: unknown;
 }
 
-// Admin: persist a new site zone, then immediately reconcile the derived POSIX onto every
-// tz-capable device and re-emit a snapshot so connected clients see the new zone. The
-// reconcile is best-effort — a down broker still returns 200 with a per-device report
-// (failed entities bucketed), never a 500, so saving the setting can't be blocked on MQTT.
+// Admin: the reconcile is best-effort — a down broker still returns 200 with a per-device
+// report, never a 500, so saving the setting can't be blocked on MQTT.
 export const PUT: RequestHandler = async ({ request, locals }) => {
   const denied = requireAdmin(locals);
   if (denied) return denied;

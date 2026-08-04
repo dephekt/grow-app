@@ -3,8 +3,7 @@
 
 /**
  * Pure derivation of the Lights-page "spectrum photon-share" readout rows from a ProcessedSpectrum —
- * the peak wavelength and the blue/green/red/far-red band shares. Kept out of the components so the
- * row logic is unit-testable.
+ * the peak wavelength and the blue/green/red/far-red band shares.
  */
 import type { ProcessedSpectrum } from '$lib/spectrum/calibration';
 

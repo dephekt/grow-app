@@ -16,22 +16,17 @@
     width?: number;
     height?: number;
     fill?: boolean;
-    /** Mark the newest sample with an end-dot and fire an expanding ping each
-        time a new reading lands — a flat (stable) line still visibly beats.
-        The ping re-fires when the points ARRAY IDENTITY changes: reassign the
-        array per reading (points = [...points, v]); an in-place push() updates
-        the drawn line but never re-fires the ping. */
+    /** Mark the newest sample with an end-dot that pings per reading — the ping
+        re-fires on points array identity, so reassign rather than push(). */
     pulse?: boolean;
-    /** Chart surface color for the end-dot's 2px separation ring. Defaults to
-        the app panel background; override when the chart sits elsewhere. */
+    /** Chart surface color for the end-dot's 2px separation ring. */
     surface?: string;
   }>();
 
   const PAD = 0.05;
 
   let coords = $derived.by(() => {
-    // The empty-points end is never rendered (that branch draws nothing);
-    // returning a harmless point keeps end non-null for the call sites.
+    // The empty-points end is never rendered; the dummy keeps it non-null for call sites.
     if (points.length === 0) return { line: '', poly: '', end: { x: width, y: height / 2 } };
     const n = points.length;
     const minV = Math.min(...points);
@@ -43,7 +38,7 @@
     const span = hi - lo || 1;
 
     // n === 1 pins the sole point to the right edge so the end-dot keeps its
-    // "newest sample" position, matching toX(n - 1) === width for n > 1.
+    // "newest sample" position.
     const toX = (i: number) => (n === 1 ? width : (i / (n - 1)) * width);
     const toY = (v: number) => height - ((v - lo) / span) * height;
 
@@ -85,11 +80,8 @@
 {/if}
 
 {#snippet endDot(end: { x: number; y: number })}
-  <!-- Re-mounting on the points array identity restarts the CSS ping animation,
-       so it fires exactly once per arriving reading. This must stay a CSS
-       animation: a SMIL <animate> inserted into an already-running <svg>
-       resolves its implicit begin="0s" against the svg's timeline origin, lands
-       entirely in the past, and freezes at the invisible end state. -->
+  <!-- Must stay a CSS animation: a SMIL <animate> inserted into an already-running
+       <svg> resolves begin="0s" into the past and freezes at its end state. -->
   {#key points}
     <circle class="ping" cx={end.x} cy={end.y} r="3.5" fill="none" stroke={color} stroke-width="1.5" />
   {/key}

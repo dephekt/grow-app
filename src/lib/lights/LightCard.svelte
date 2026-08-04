@@ -11,7 +11,6 @@
 
   const snap = $derived(live.snapshot);
 
-  // Resolve each role to its (cross-device) entity.
   const power = $derived(entityByRef(snap, light.roles.power));
   const arm = $derived(entityByRef(snap, light.roles.scheduleArm));
   const onTime = $derived(entityByRef(snap, light.roles.onTime));
@@ -25,14 +24,13 @@
   const armed = $derived(Boolean(arm && live.stateFor(arm).value === arm.payloadOn));
   const hasSchedule = $derived(Boolean(arm || onTime || offTime));
 
-  // Availability of the plug that owns on/off.
   const powerDevice = $derived.by(() => {
     if (!power) return undefined;
     return snap.devices.find((d) => d.id === power.device.identifiers[0]);
   });
   const offline = $derived(powerDevice?.availability === 'offline');
 
-  // Live clock so the countdown ticks. Only runs when there's a schedule to count down.
+  // Live clock so the countdown ticks.
   let now = $state(new Date());
   $effect(() => {
     if (!hasSchedule) return;
@@ -67,14 +65,8 @@
   }
 
   // ── Dimmer slider ──
-  // `sliderValue` is what the input shows. `lastSent` is the last brightness we
-  // published, kept to de-dupe a redundant repeat of the same command. While
-  // `settling` is true we ignore inbound echoes so the slider doesn't snap back
-  // to the pre-command value before the device applies ours. Settling ends when
-  // the device echoes our value, when the publish fails, or when a grace timeout
-  // elapses — the last two guarantee the slider can never freeze out of sync
-  // with the device (a failed/offline publish or a clamped/rounded echo that
-  // never matches exactly would otherwise strand it forever).
+  // While `settling` is true, inbound echoes are ignored so the slider doesn't snap
+  // back to the pre-command value before the device applies ours.
   const SETTLE_TIMEOUT_MS = 3000;
   let sliderValue = $state(100);
   let lastSent = $state<number | null>(null);
@@ -113,10 +105,8 @@
     if (value === lastSent) return;
     lastSent = value;
     settling = true;
-    // Fallback so a clamped/rounded echo (device applies a value != requested)
-    // can't strand the slider: stop waiting for an exact echo after a grace
-    // period and let the next device snapshot drive the slider again. Also drop
-    // lastSent so re-selecting the same value retries rather than de-duping.
+    // Fallback so a clamped/rounded echo (device applies a value != requested) can't
+    // strand the slider waiting for an exact echo.
     if (settleTimer) clearTimeout(settleTimer);
     settleTimer = setTimeout(() => {
       settleTimer = null;
@@ -125,9 +115,7 @@
     }, SETTLE_TIMEOUT_MS);
     if (dimmer) {
       void live.sendCommand(dimmer, value).then((ok) => {
-        // A failed publish (e.g. plug offline) never echoes — stop waiting and
-        // clear lastSent so the next device state drives the slider and a retry
-        // of the same value still publishes.
+        // A failed publish (e.g. plug offline) never echoes.
         if (!ok) {
           stopSettling();
           lastSent = null;
@@ -136,8 +124,7 @@
     }
   }
   function onDimmerInput(value: number) {
-    // Fresh user intent: drop the previous de-dupe anchor so dragging back to an
-    // earlier value (e.g. after the device drifted) still publishes.
+    // Fresh user intent: drop the de-dupe anchor so dragging back to an earlier value still publishes.
     lastSent = null;
     sliderValue = value;
     if (commitTimer) clearTimeout(commitTimer);

@@ -9,40 +9,25 @@ export function env(name: string): string | undefined {
   return value && value.length > 0 ? value : undefined;
 }
 
-/** A non-negative integer from `name`, or `fallback` when unset/invalid. Accepts
- *  0 (callers use it as a "disable" sentinel); rejects negatives, non-integers,
- *  and unparseable values, falling back rather than throwing. */
+/** A non-negative integer from `name`, or `fallback` when unset/invalid. */
 export function intEnv(name: string, fallback: number): number {
   const raw = env(name)?.trim();
-  // Empty-after-trim (unset, or a whitespace-only value) falls back rather than
-  // parsing: Number('  ') is 0, which would silently flip a 0-means-disable
-  // tunable OFF instead of using the default.
+  // Empty-after-trim falls back rather than parsing — Number('  ') is 0.
   if (!raw) return fallback;
   const n = Number(raw);
   return Number.isInteger(n) && n >= 0 ? n : fallback;
 }
 
 export interface SecretEnvOptions {
-  /** Return undefined instead of throwing when the `NAME_FILE` path can't be
-   *  read. For optional subsystems that degrade gracefully (e.g. InfluxDB)
-   *  rather than failing loudly on a half-configured secret. */
+  /** Return undefined instead of throwing when the `NAME_FILE` path can't be read. */
   optional?: boolean;
-  /** Invoked with the read error when `optional` swallows a `NAME_FILE` read
-   *  failure. Lets a caller surface a *configured-but-unreadable* secret (a
-   *  broken mount) without failing loudly — e.g. a `console.warn` — while still
-   *  returning undefined. Not called when `NAME_FILE` is simply unset. */
+  /** Invoked with the read error when `optional` swallows a `NAME_FILE` read failure. */
   onReadError?: (error: unknown) => void;
 }
 
 /**
  * A secret read from `NAME`, or from the file at `NAME_FILE` (Docker/compose
- * secret mounts). The trailing newline that `printf`/editors add to secret
- * files is stripped so a mounted secret compares byte-for-byte with an inline
- * value. Returns undefined when neither is set.
- *
- * A `NAME_FILE` that can't be read throws by default, so a misconfigured secret
- * fails loudly. Pass `{ optional: true }` to swallow the read error and return
- * undefined instead, for subsystems that treat the secret as optional.
+ * secret mounts), with its trailing newline stripped.
  */
 export function secretEnv(name: string, options: SecretEnvOptions = {}): string | undefined {
   const direct = env(name);

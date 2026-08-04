@@ -6,15 +6,8 @@ import type { SnapshotEvent } from './types';
 import { deviceDesiredTimeZone } from '$lib/server/settings/site-timezone';
 import { posixTzFromIana, type PosixResult } from '$lib/server/tz/posix-tz';
 
-/**
- * Reconcile the one site time zone onto every tz-capable device.
- *
- * IANA is the source of truth everywhere else; the POSIX form is derived here at the
- * publish boundary only (tz/posix-tz.ts) and never persisted or snapshotted. This module
- * owns the small amount of cross-pass state needed to avoid re-publishing on every entity
- * re-discovery, and exposes a pure `reconcileTimeZone()` so the branching logic is
- * testable without a live broker.
- */
+/** Reconcile the site time zone onto every tz-capable device; POSIX is derived at the publish
+ *  boundary only and never persisted. */
 
 export interface ReconcileReport {
   /** Entities we published the POSIX to this pass. */
@@ -50,14 +43,8 @@ export interface ReconcileTimeZoneDeps {
 
 const emptyReport = (): ReconcileReport => ({ pushed: [], inSync: [], skipped: [], failed: [] });
 
-/**
- * Pure per-pass reconciliation. Skip-all when there's no intentional zone or the zone
- * can't be converted (warn once). Otherwise, per entity: leave it alone if it already
- * reports the desired POSIX; skip it if we've already attempted this POSIX (so a bare
- * re-discovery doesn't re-publish); else publish once, bucketing a throw into `failed`.
- * Note "desired" past the conversion is the POSIX — that's what a device reports and
- * what we record as attempted.
- */
+/** Pure per-pass reconciliation; "desired" past the conversion is the POSIX form, which is
+ *  what a device echoes and what is recorded as attempted. */
 export async function reconcileTimeZone(deps: ReconcileTimeZoneDeps): Promise<ReconcileReport> {
   const report = emptyReport();
   if (deps.desiredIana === undefined) return report;
@@ -92,10 +79,7 @@ export async function reconcileTimeZone(deps: ReconcileTimeZoneDeps): Promise<Re
   return report;
 }
 
-// Cross-pass state. `lastPublished` guards against re-publishing on entity re-discovery;
-// `lastWarnedIana` collapses the "can't convert this zone" warning to once per distinct
-// zone. A reset (broker reconnect, or an explicit reconcile from the PUT) clears both so
-// the site value is re-attempted and re-diagnosed from scratch.
+// Cross-pass state; a reset clears both so the site value is re-attempted from scratch.
 const lastPublished = new Map<string, string>();
 let lastWarnedIana: string | null = null;
 
@@ -147,15 +131,8 @@ function isTimeZoneEntity(event: SnapshotEvent): boolean {
   );
 }
 
-/**
- * Wire the reconciler to broker/discovery events (web-app path only; never the recorder).
- * A broker reconnect resets the whole loop guard and re-pushes. A (re)discovered time_zone
- * entity clears just that entity's guard and runs a no-reset pass, so a node that reconnects
- * after missing a change (its retained discovery re-publishes on connect) is re-stamped
- * against its real echoed state while other entities keep their guard. One boot pass covers
- * whatever is already retained. There is no timer — the reconciler is purely event-driven,
- * and every pass is `.catch`-guarded so a publish failure can't escape into the emitter.
- */
+/** Wire the reconciler to broker and discovery events; purely event-driven, and every pass is
+ *  catch-guarded so a publish failure cannot escape into the emitter. */
 export function startSiteTimezoneReconciler(service: SiteMqttService = getSiteMqttService()): void {
   const guarded = (resetAttempts: boolean) =>
     void runReconcilePass(service, { resetAttempts }).catch((error) =>
@@ -165,10 +142,8 @@ export function startSiteTimezoneReconciler(service: SiteMqttService = getSiteMq
   service.subscribe((event: SnapshotEvent) => {
     if (event.type === 'broker' && event.broker?.connected) guarded(true);
     else if (isTimeZoneEntity(event)) {
-      // A device re-publishing its retained discovery config is a (re)connect. Clear just
-      // this entity's loop guard so a node that was offline when the zone last changed is
-      // re-stamped against its real echoed state — without a global reset that would also
-      // re-attempt a device still (correctly) rejecting a value it already received.
+      // Clear only this entity's guard, so a node that missed a change is re-stamped without
+      // re-attempting devices that are correctly rejecting the value.
       if (event.entity) lastPublished.delete(event.entity.id);
       guarded(false);
     }

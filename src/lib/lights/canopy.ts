@@ -3,10 +3,7 @@
 
 /**
  * Pure resolution of the Lights-page Canopy PAR card from the available sources, in descending
- * order of trust. Extracted from the page component so the fallback/badging logic is unit-testable
- * (it used to live in the deleted `fluxRows`).
- *
- * A measurement is presumed the reference and shown plain; only an estimate (lux) is badged.
+ * order of trust.
  */
 import type { AnchorCalibration, ProcessedSpectrum } from '$lib/spectrum/calibration';
 
@@ -61,7 +58,6 @@ export function resolveCanopy(input: CanopyInput): CanopyReading {
       badge: isLux ? { text: 'EST · LUX', tone: 'amber' } : null,
       tol: active?.reference?.tolerancePct ?? active?.lux?.tolerancePct ?? null,
       provenance: 'saved reading',
-      // The saved reading carries its own anchored ePAR; only fall back to a derived one if absent.
       epar: active?.epar ?? extend(par)
     };
   }
@@ -96,7 +92,6 @@ export function resolveCanopy(input: CanopyInput): CanopyReading {
     dot: '',
     badge: { text: 'UNAVAILABLE', tone: 'muted' },
     tol: null,
-    // Distinguish a registered-but-offline sensor from no sensor at all.
     provenance: hasQuantumSensor ? 'Apogee offline' : 'no quantum sensor',
     epar: null
   };

@@ -2,15 +2,8 @@
 // Copyright (C) 2026 Daniel Snider
 
 /**
- * grow-history-recorder — standalone sidecar.
- *
- * Reuses the app's SiteMqttService (discovery + state parsing) instead of
- * re-deriving topic shapes, so every reading lands in InfluxDB already tagged
- * with its site / node / entity / unit. Runs as its own container (built from
- * the grow-app image) so history collection is decoupled from the web server.
- *
- * Records numeric sensors and binary-sensor states only — not commands,
- * setpoints, or diagnostics (per the site brief).
+ * grow-history-recorder — standalone sidecar recording numeric sensor and
+ * binary-sensor readings into InfluxDB, and nothing else.
  */
 import { Point } from '@influxdata/influxdb-client';
 import { getInfluxConfig, getInfluxDB } from '$lib/server/influx/client';
@@ -19,10 +12,7 @@ import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { getSiteSlug } from '$lib/server/site';
 import type { EntityConfig, EntityState, Snapshot } from '$lib/server/mqtt/types';
 
-// Default to a recorder-specific MQTT client id so we never collide with the web
-// app even if compose forgets to set MQTT_CLIENT_ID — both run as PID 1 in their
-// own container, so the PID-derived fallback would otherwise be identical.
-// Compose may still override this for an explicit id.
+// Default to a recorder-specific MQTT client id so we never collide with the web app.
 if (!process.env.MQTT_CLIENT_ID) {
   process.env.MQTT_CLIENT_ID = `grow-history-recorder-${getSiteSlug()}`;
 }
@@ -66,13 +56,9 @@ function main(): void {
   const site = snap.site;
   const entities = new Map<string, EntityConfig>();
 
-  // Dedup by entityId -> last recorded updatedAt. Retained values that arrive
-  // bundled with discovery surface via 'snapshot' (not 'state'), so we backfill
-  // from snapshots too; the dedup keeps that idempotent.
+  // Dedup by entityId -> last recorded updatedAt.
   const lastRecorded = new Map<string, string>();
-  // Entities whose initial retained reading has been backfilled. Ongoing values
-  // come via 'state' events, so a snapshot need only look at entities not yet
-  // backfilled — avoids re-scanning every entity on every snapshot emit.
+  // Entities whose initial retained reading has been backfilled.
   const backfilled = new Set<string>();
   let written = 0;
 

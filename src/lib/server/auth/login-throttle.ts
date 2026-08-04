@@ -9,21 +9,13 @@ import {
 
 /**
  * Login-path throttle: a per-IP fixed-window rate limiter plus a global cap on
- * concurrent scrypt derivations. Both defend the public `POST /auth/login` path,
- * where every attempt (even for an unknown/passwordless user) burns a full
- * scrypt. The async move in passwords.ts already stops a login flood from
- * blocking the event loop; these caps stop it from monopolising the libuv
- * threadpool and add a brute-force throttle. See #34.
- *
- * In-memory and per-process — fine because the app is a single adapter-node
- * instance with module-level singletons (auth DB, MQTT service). A multi-instance
- * deployment would need a shared store instead.
+ * concurrent scrypt derivations, both guarding `POST /auth/login`. In-memory and
+ * per-process — a multi-instance deployment would need a shared store.
  */
 
 export interface RateDecision {
   allowed: boolean;
-  /** Seconds until the caller's window resets — surface as a `Retry-After`
-   *  header. 0 when allowed. */
+  /** Seconds until the caller's window resets (a `Retry-After` value); 0 when allowed. */
   retryAfterSeconds: number;
 }
 
@@ -42,21 +34,18 @@ export interface LoginThrottleOptions {
 }
 
 export interface LoginThrottle {
-  /** Record an attempt from `ip` and decide whether it may proceed. Counts every
-   *  call so a sustained flood stays blocked for the rest of its window. `now` is
-   *  injectable for deterministic tests. */
+  /** Record an attempt from `ip` and decide whether it may proceed; every call counts, so a
+   *  sustained flood stays blocked for the rest of its window. */
   checkRate(ip: string, now?: number): RateDecision;
-  /** Try to reserve a derivation slot; false when the in-flight cap is reached.
-   *  A true result MUST be paired with a `releaseSlot()` in a finally block. */
+  /** Try to reserve a derivation slot; a true result MUST be paired with a `releaseSlot()`
+   *  in a finally block. */
   tryAcquireSlot(): boolean;
   releaseSlot(): void;
   /** Drop buckets whose window has elapsed so the map can't grow unbounded. */
   sweep(now?: number): void;
   /** Current in-flight derivation count (for tests/introspection). */
   readonly inFlight: number;
-  /** Number of per-IP buckets currently held (for tests/introspection). Lets a
-   *  sweep test observe map reclamation, which a checkRate-only assertion can't
-   *  distinguish from checkRate's own lazy per-bucket reset. */
+  /** Number of per-IP buckets currently held (for tests/introspection). */
   readonly trackedIps: number;
 }
 
@@ -111,9 +100,8 @@ export function createLoginThrottle(options: LoginThrottleOptions): LoginThrottl
 
 let singleton: LoginThrottle | null = null;
 
-/** Process-wide login throttle, built once from config. A 10-minute unref'd timer
- *  sweeps stale IP buckets so the map stays bounded without holding the process
- *  open (mirrors the auth-DB maintenance timer in db.ts). */
+/** Process-wide login throttle, built once from config, with a 10-minute sweep of stale
+ *  IP buckets. */
 export function getLoginThrottle(): LoginThrottle {
   if (singleton) return singleton;
   singleton = createLoginThrottle({

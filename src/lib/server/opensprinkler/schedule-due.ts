@@ -12,8 +12,7 @@ export interface ScheduleDue {
   nextDueAt: number | null;
 }
 
-/** Shift a local calendar date by whole days, normalizing month/year rollovers.
- *  Plain UTC date arithmetic — no zone involved, it's only a calendar calculator. */
+/** Shift a local calendar date by whole days — plain UTC arithmetic, no zone involved. */
 function shiftDate(
   date: { year: number; month: number; day: number },
   days: number
@@ -23,15 +22,9 @@ function shiftDate(
 }
 
 /**
- * Level-triggered "should this schedule fire right now?" — pure and deterministic, so
- * the whole firing decision unit-tests without a clock or a DB. Given the schedule's
- * local times, its last-fired anchor, the current instant, the zone, and a grace
- * window, it reports whether the most-recent past slot is due and what the next one is.
- *
- * Skip-missed is an absolute grace window: a slot fires only while `now − slot ≤ grace`.
- * Miss the window (app down, busy) and the slot is never resurrected — the next tick
- * simply targets the following slot. Only ever the single most-recent past slot is a
- * candidate, so a long outage can't fire a backlog.
+ * Level-triggered "should this schedule fire right now?" — pure and deterministic.
+ * Only the single most-recent past slot is ever a candidate, and only while
+ * `now − slot ≤ grace`; a missed slot is never resurrected.
  */
 export function computeScheduleDue(
   minutes: number[],

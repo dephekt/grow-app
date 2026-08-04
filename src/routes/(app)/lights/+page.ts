@@ -7,10 +7,8 @@ import type { SpectroConfig } from '$lib/spectrum/calibration';
 
 type Anchors = SpectroConfig['anchors'];
 
-// Lights + spectrum share one page. Live values arrive via the shared SSE snapshot (lights,
-// entities, spectrum event); this loader just seeds the retained spectrum frame (the service
-// consumes it before any browser subscribes), the saved-capture list, and the active PPFD anchors.
-// Degrades to empty on failure so the page still renders live controls.
+// Live values arrive via the shared SSE snapshot; this loader only seeds initial state because the
+// service consumes the retained spectrum frame before any browser subscribes.
 export const load = async ({ fetch }) => {
   let initialSpectrum: LiveSpectrum | null = null;
   let captures: CaptureSummary[] = [];

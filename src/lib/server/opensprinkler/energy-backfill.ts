@@ -8,17 +8,12 @@ import { isInfluxConfigured } from '$lib/server/influx/client';
 import { queryPumpWindow } from '$lib/server/influx/pump-energy';
 
 /**
- * Background pump-energy enrichment (grow-app #81). Integrating each event's pump draw from
- * InfluxDB is deliberately OFF the request path: it runs on a timer here, not inside
- * GET /api/irrigation/events, so a slow or hanging Influx can never stall the irrigation page
- * render (which fetches the feed alongside the zones grid). The GET just reads whatever energy
- * has been cached onto the rows so far.
+ * Background pump-energy enrichment, deliberately off the request path so a slow or hanging
+ * InfluxDB can never stall the irrigation page render.
  */
 
 const BACKFILL_INTERVAL_MS = 30_000;
-/** Cap the Influx queries a single tick fans out. Steady state is ~0 (rows are measured once
- *  then skipped); this only bounds a cold cache / post-migration backfill, which drains over a
- *  few ticks. */
+/** Cap the Influx queries a single tick fans out. */
 const MAX_PER_TICK = 40;
 
 function round(value: number, decimals: number): number {
@@ -41,11 +36,7 @@ async function backfillOnce(db: DatabaseSync): Promise<void> {
   }
 }
 
-/**
- * Start the periodic energy backfill (web app only, and only when InfluxDB is configured — with
- * no Influx every row stays "—" and there is nothing to do). A re-entrancy guard skips a tick
- * while the previous one is still awaiting Influx, so ticks never overlap or stack.
- */
+/** Start the periodic energy backfill; a no-op when InfluxDB is not configured. */
 export function startIrrigationEnergyBackfill(): void {
   if (!isInfluxConfigured()) return;
 

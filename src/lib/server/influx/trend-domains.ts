@@ -25,14 +25,7 @@ import type { DeviceSnapshot, Snapshot } from '$lib/server/mqtt/types';
 export { DEFAULT_TREND_DOMAIN, isTrendDomain } from '$lib/trends';
 export type { TrendDomain } from '$lib/trends';
 
-/**
- * Resolves a trend domain to the concrete (node, entity) series to query from Influx.
- * Keeps like with like — plotting pH against air CO₂ is meaningless, so each domain
- * charts only its own device's readings. Water/Climate come from the device's
- * firmware-declared dashboard metrics; Thermal is the MLX90640 array temps. The
- * device resolvers are shared with the dashboard panels (`$lib/entity-match`) so the
- * readout and the trend chart always plot the same device.
- */
+/** Resolves a trend domain to the (node, entity) series to query, each scoped to its own device. */
 
 export interface DomainSeriesSpec {
   /** Unique series id (the entity objectId) — also the Influx `entity` tag. */
@@ -63,18 +56,8 @@ function thermalLabel(objectId: string): string {
   return objectId;
 }
 
-/**
- * Substrate is the one domain whose charted values are not stored. The bus publisher
- * records RAW counts, temperature and bulk EC; water content and pore EC are derived
- * from them against the zone's medium (see `$lib/substrate`). So this domain queries
- * the raw series and `assembleDomainSeries` converts them afterwards — which also means
- * re-potting a zone into a different medium re-derives the whole chart, rather than
- * leaving a step where the calibration changed.
- *
- * Series keys carry the node id. Every probe on the bus publishes the SAME object ids,
- * so keying on objectId alone would collapse four pots into one series and silently
- * chart whichever answered last.
- */
+/** The raw series to query; `assembleDomainSeries` derives from them, and keys carry the node id
+ *  because every probe publishes the same object ids. */
 function substrateSpecs(snapshot: Snapshot, zones: readonly SubstrateZoneBinding[]): DomainSeriesSpec[] {
   const specs: DomainSeriesSpec[] = [];
   for (const probe of resolveSubstrateProbes(snapshot, zones)) {
@@ -129,19 +112,7 @@ export function resolveDomainSeries(
   return [];
 }
 
-/**
- * Reads a change-point series as the step function it is: the value at time `t` is the
- * last one recorded at or before `t`.
- *
- * Before the first recorded point the answer is that series' earliest value rather than
- * nothing. The alternative is dropping every bucket ahead of the first write, which for
- * a signal that only writes on change can be most of a short window — a substrate
- * temperature holding steady may have written once an hour ago and not since. Reading it
- * backwards over that leading stretch assumes the value was already what it was first
- * seen to be, which is exactly what "unchanged" means; the error is bounded by however
- * much it moved before the window opened. With no points at all there is nothing to
- * assume and the caller drops the bucket.
- */
+/** The value at `t` is the last one recorded at or before it, reading backwards before the first. */
 function stepSeries(points: readonly TrendPoint[]): (t: string) => number | null {
   if (points.length === 0) return () => null;
   const sorted = [...points].sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
@@ -165,13 +136,7 @@ function stepSeries(points: readonly TrendPoint[]): (t: string) => number | null
   };
 }
 
-/**
- * Turn queried points into the series the client charts.
- *
- * Every domain but substrate is a pass-through — its specs already name what to plot.
- * Substrate derives, because what a grower reads (water content, pore EC) is computed
- * from what the sensor stores (counts, temperature, bulk EC).
- */
+/** Turn queried points into charted series; every domain but substrate passes straight through. */
 export function assembleDomainSeries(
   snapshot: Snapshot,
   domain: TrendDomain,
@@ -201,22 +166,14 @@ export function assembleDomainSeries(
       const derived = deriveReadings({ counts: p.v, temperatureC: null, bulkEc: null }, curve).vwc;
       return derived === null ? [] : [{ t: p.t, v: derived * 100 }];
     });
-    // Every count can still be rejected — a stale retained payload from an older build
-    // sits outside the sensor's range. Emitting the series anyway would put a legend
-    // entry on the chart with nothing behind it, which the pore-EC path below already
-    // avoids; the two must agree on what an unplottable series looks like.
+    // Every count can be rejected as out of range, and an empty series is a legend entry
+    // with no line behind it.
     if (vwc.length > 0) {
       series.push({ key: `${probe.nodeId}:vwc`, label: qualify('VWC', probeLabel), unit: '%', points: vwc });
     }
 
-    // Pore EC needs counts, temperature and bulk EC together, and they are NOT recorded
-    // at the same cadence: the publisher skips a state write when the payload has not
-    // changed, so a substrate temperature that sits at 26.6 °C all afternoon records
-    // four points while counts record several hundred. Joining on equal timestamps
-    // would intersect those to almost nothing.
-    //
-    // Change-point semantics is what makes the reconstruction obvious: an unpublished
-    // value means UNCHANGED, so each series holds its last value until the next point.
+    // The publisher skips unchanged writes, so these three record at wildly different
+    // cadences and an equal-timestamp join would intersect to almost nothing.
     const temps = stepSeries(pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_TEMPERATURE}`) ?? []);
     const bulk = stepSeries(pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_BULK_EC}`) ?? []);
     const poreEc = counts.flatMap((p) => {
