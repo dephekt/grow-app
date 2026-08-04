@@ -37,10 +37,10 @@ export function isHumidity(e: EntityConfig): boolean {
 
 /**
  * Ambient (room/air) temperature — the reading that represents the grow space,
- * not the water probe, a board/sensor-internal temp (BPS, MLX thermal array, …),
- * or a derived aggregate (daily min/max, moving average). Requires a real
- * temperature signal (deviceClass or °C unit) so it can't fall through to an
- * unrelated sensor that merely has "temp" in its id.
+ * not the water probe, a substrate probe, a board/sensor-internal temp (BPS, MLX
+ * thermal array, …), or a derived aggregate (daily min/max, moving average).
+ * Requires a real temperature signal (deviceClass or °C unit) so it can't fall
+ * through to an unrelated sensor that merely has "temp" in its id.
  */
 export function isAmbientTemperature(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
@@ -48,7 +48,8 @@ export function isAmbientTemperature(e: EntityConfig): boolean {
   const oid = (e.objectId ?? '').toLowerCase();
   const name = e.name.toLowerCase();
   if (/water/.test(oid) || /water/.test(name)) return false;
-  if (/(bps|mlx|board|cpu|die|chip|internal)/.test(oid)) return false;
+  // substrate|soil|medium|root: a TEROS probe reports °C from inside the pot.
+  if (/(bps|mlx|board|cpu|die|chip|internal|substrate|soil|medium|root)/.test(oid)) return false;
   // Derived aggregates, anchored to whole id segments so we don't reject a legitimate
   // sensor whose id merely contains "max"/"min"/"avg" as a substring.
   if (/(^|_)(daily|moving|average|avg|min|max|mean)(_|$)/.test(oid)) return false;

@@ -136,6 +136,31 @@ describe('resolveClimateDevice', () => {
     const snapshot = makeSnapshot([airqCo2, airqPm25, airqVoc, airqHumidity]);
     expect(resolveClimateDevice(snapshot)).toBeUndefined();
   });
+
+  // A TEROS substrate probe reports °C from inside the pot. Without the substrate
+  // guard in isAmbientTemperature it satisfies resolveClimateDevice's third
+  // fallback, so a late-arriving air rig would hand CLIMATE to a soil probe.
+  it('never binds CLIMATE to a substrate probe when no air rig has been discovered', () => {
+    const substrateTemp = makeEntity('substrate-a', {
+      id: 'substrate_a_temperature',
+      name: 'Substrate Temperature',
+      objectId: 'substrate_temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([substrateTemp]))).toBeUndefined();
+
+    // Positive control on the SAME fixture: only the objectId differs, so this
+    // asserts the exclusion above is what rejected it, not a malformed snapshot.
+    const airTemp = makeEntity('substrate-a', {
+      id: 'substrate_a_temperature',
+      name: 'Air Temperature',
+      objectId: 'air_temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([airTemp]))?.nodeId).toBe('substrate-a');
+  });
 });
 
 describe('isQuantumPpfd', () => {
