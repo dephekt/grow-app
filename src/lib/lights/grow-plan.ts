@@ -22,7 +22,7 @@ export interface GrowStage {
 
 export const STAGES: Record<StageKey, GrowStage> = {
   seedling: { key: 'seedling', label: 'Seedling', onHours: 18, offHours: 6 },
-  veg: { key: 'veg', label: 'Veg', onHours: 20, offHours: 4 },
+  veg: { key: 'veg', label: 'Veg', onHours: 18, offHours: 6 },
   flower: { key: 'flower', label: 'Flower', onHours: 12, offHours: 12 },
   ripen: { key: 'ripen', label: 'Ripen', onHours: 12, offHours: 12 }
 };
@@ -46,18 +46,20 @@ export interface GrowWeek {
 }
 
 /**
- * Compressed schedule for the current grow (Cannarado Papaya x Rainbow Crushers, from seed, CO₂):
- * 1 wk seedling → 1 wk veg → flip. Targets ramp through flower to a wk-7 peak, then ripen down.
+ * Schedule for the current grow (Gelato 41 BX F2 · Double Down Mule #1, from rooted clones, CO₂):
+ * 2 wk veg → flip. The 3 gal coco needs two rooting-in drybacks before a veg irrigation strategy,
+ * which is why veg is two weeks and not the compressed one. Targets ramp through flower to a wk-7
+ * peak, then ripen down.
  */
 export const WEEKLY_PLAN: GrowWeek[] = [
   {
     week: 1,
-    stage: 'seedling',
-    ppfdTarget: 350, // week ceiling for the chart; the live target follows the day-stepped ramp
+    stage: 'veg',
+    ppfdTarget: 400, // week ceiling for the chart; the live target follows the day-stepped ramp
     ramp: [
-      { fromDay: 0, ppfd: 100 }, // days 1–3: under the humidity dome (ceiling ~100)
-      { fromDay: 3, ppfd: 250 }, // days 3–5: dome off
-      { fromDay: 5, ppfd: 350 } // days 5–7: gentle cap; veg does the rest of the climb
+      { fromDay: 0, ppfd: 200 }, // days 1–3: rooting in, plug roots only (CCI veg wk1 band is 200–400)
+      { fromDay: 3, ppfd: 300 }, // days 4–5: ~20%/day climb once the droop passes
+      { fromDay: 5, ppfd: 400 } // days 6–7: top of the wk-1 band
     ]
   },
   { week: 2, stage: 'veg', ppfdTarget: 555 },
@@ -71,9 +73,9 @@ export const WEEKLY_PLAN: GrowWeek[] = [
   { week: 10, stage: 'ripen', ppfdTarget: 925 }
 ];
 
-/** Week-1 day 1 = when the seedlings go into their Root Riot plugs (local midnight). Before this the
- *  plan clamps to seedling wk 1 (soak/germination); weeksSince(now) drives stage/week thereafter. */
-export const GROW_START = '2026-07-20';
+/** Week-1 day 1 = transplant day, when the rooted clones go into the coco (local midnight). Before
+ *  this the plan clamps to veg wk 1; weeksSince(now) drives stage/week thereafter. */
+export const GROW_START = '2026-08-03';
 
 /** Fixture falloff model (this light, measured): peak PPFD at 100% at the peak distance, and a
  *  ~1/distance falloff (NOT inverse-square). Intensity scales ~linearly with the dimmer duty. */

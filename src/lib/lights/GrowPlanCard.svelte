@@ -19,8 +19,8 @@
 
   const guidance = $derived(buildGuidance(livePpfd, dimmerPct, growState.ppfdTarget));
 
-  // Flag when the fixture's schedule doesn't match the stage's planned photoperiod (e.g. still on the
-  // seedling 18/6 while the plan calls for veg 20/4).
+  // Flag when the fixture's schedule doesn't match the stage's planned photoperiod (e.g. still on
+  // veg 18/6 while the plan calls for flower 12/12).
   const photoperiodMismatch = $derived(
     actualPhotoperiod != null &&
       (actualPhotoperiod.onHours !== growState.onHours || actualPhotoperiod.offHours !== growState.offHours)

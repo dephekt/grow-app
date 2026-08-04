@@ -41,7 +41,7 @@
   });
 
   // The light's actual photoperiod (from its schedule) — the grow plan flags when it drifts from the
-  // stage target (e.g. still on the seedling 18/6 while the plan wants veg 20/4).
+  // stage target (e.g. still on veg 18/6 while the plan wants flower 12/12).
   const actualPhotoperiod = $derived.by(() => {
     if (!primaryLight) return null;
     const onE = entityByRef(live.snapshot, primaryLight.roles.onTime);
