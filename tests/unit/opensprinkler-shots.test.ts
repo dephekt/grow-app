@@ -22,6 +22,12 @@ function zone(overrides: Partial<Zone> = {}): Zone {
     emitterLph: 2, // L/hr (canonical)
     maxRunSeconds: 300,
     substrateNodeId: null,
+    vwcMinPct: null,
+    vwcMaxPct: null,
+    substrateTempMinC: null,
+    substrateTempMaxC: null,
+    pwecMin: null,
+    pwecMax: null,
     enabled: true,
     schedulesPaused: false,
     createdAt: '2026-07-04T00:00:00.000Z',

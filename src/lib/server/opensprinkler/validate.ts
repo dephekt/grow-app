@@ -34,6 +34,19 @@ function optPositiveNumber(value: unknown, field: string): number | null {
   return n;
 }
 
+/** A threshold bound: a finite number inside `[lo, hi]`, or null for an open side. */
+function optBound(value: unknown, field: string, lo: number, hi: number): number | null {
+  if (value == null) return null;
+  // A bound may legitimately be 0, so this cannot lean on `n <= 0` to reject the values
+  // Number() coerces to it — '', '  ', [] and false are all 0 and all finite.
+  if (typeof value === 'string' && value.trim() === '') return null;
+  if (typeof value !== 'number' && typeof value !== 'string') throw new Error(`${field} must be a number`);
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw new Error(`${field} must be a number`);
+  if (n < lo || n > hi) throw new Error(`${field} must be between ${lo} and ${hi}`);
+  return n;
+}
+
 function optPositiveInt(value: unknown, field: string): number | null {
   const n = optPositiveNumber(value, field);
   if (n != null && !Number.isInteger(n)) throw new Error(`${field} must be a positive integer`);
@@ -51,8 +64,43 @@ function requireBoolean(value: unknown, field: string): boolean {
   return value;
 }
 
+/** The three substrate threshold bands and the range each bound must fall inside. */
+const THRESHOLD_BANDS = [
+  { min: 'vwcMinPct', max: 'vwcMaxPct', label: 'VWC', lo: 0, hi: 100 },
+  { min: 'substrateTempMinC', max: 'substrateTempMaxC', label: 'Substrate temperature', lo: -40, hi: 60 },
+  { min: 'pwecMin', max: 'pwecMax', label: 'Pore EC', lo: 0, hi: 50 }
+] as const;
+
+/** Tied to ZoneCreate, so renaming a bound on either side fails to compile. */
+type ThresholdKey = (typeof THRESHOLD_BANDS)[number]['min' | 'max'] & keyof ZoneCreate;
+
+type Thresholds = Partial<Record<ThresholdKey, number | null>>;
+
+/** The bounds `body` carries, each validated on its own. */
+function zoneThresholds(body: Record<string, unknown>, onlyPresent: boolean): Thresholds {
+  const out: Thresholds = {};
+  for (const band of THRESHOLD_BANDS) {
+    for (const key of [band.min, band.max] as const) {
+      if (onlyPresent && !(key in body)) continue;
+      out[key] = optBound(body[key], key, band.lo, band.hi);
+    }
+  }
+  return out;
+}
+
+/** Rejects a band whose ends cross — no reading could satisfy it. */
+export function assertZoneBands(zone: Thresholds): void {
+  for (const band of THRESHOLD_BANDS) {
+    const min = zone[band.min];
+    const max = zone[band.max];
+    if (min != null && max != null && min > max) {
+      throw new Error(`${band.label} minimum (${min}) must not exceed its maximum (${max})`);
+    }
+  }
+}
+
 export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
-  return {
+  const zone: ZoneCreate = {
     name: requireName(body.name),
     stationSid: requireStationSid(body.stationSid),
     substrateType: optString(body.substrateType),
@@ -61,9 +109,12 @@ export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
     emitterLph: optPositiveNumber(body.emitterLph, 'emitterLph'),
     maxRunSeconds: body.maxRunSeconds == null ? 300 : requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds'),
     substrateNodeId: optString(body.substrateNodeId),
+    ...zoneThresholds(body, false),
     enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled'),
     schedulesPaused: body.schedulesPaused == null ? false : requireBoolean(body.schedulesPaused, 'schedulesPaused')
   };
+  assertZoneBands(zone);
+  return zone;
 }
 
 export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
@@ -76,6 +127,7 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('emitterLph' in body) patch.emitterLph = optPositiveNumber(body.emitterLph, 'emitterLph');
   if ('maxRunSeconds' in body) patch.maxRunSeconds = requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds');
   if ('substrateNodeId' in body) patch.substrateNodeId = optString(body.substrateNodeId);
+  Object.assign(patch, zoneThresholds(body, true));
   if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
   if ('schedulesPaused' in body) patch.schedulesPaused = requireBoolean(body.schedulesPaused, 'schedulesPaused');
   return patch;

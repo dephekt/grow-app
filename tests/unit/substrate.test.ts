@@ -3,7 +3,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  DISPLAY_DIGITS,
+  atDisplayPrecision,
+  bandStatus,
   deriveReadings,
+  vwcPercent,
   poreEcGap,
   hasSubstrateProbe,
   permittivityFromCounts,
@@ -188,6 +192,79 @@ describe('curve selection from the zone medium', () => {
   });
 });
 
+const OPEN = { min: null, max: null };
+
+describe('bandStatus', () => {
+  it('places a reading inside, above and below its band', () => {
+    const band = { min: 30, max: 60 };
+    expect(bandStatus(45, band)).toBe('ok');
+    expect(bandStatus(61, band)).toBe('high');
+    expect(bandStatus(29, band)).toBe('low');
+  });
+
+  /** Inclusive, matching statusFromLive — the two panels must not disagree on a
+   *  reading that sits exactly on its bound. */
+  it('treats the bounds themselves as breached', () => {
+    const band = { min: 30, max: 60 };
+    expect(bandStatus(30, band)).toBe('low');
+    expect(bandStatus(60, band)).toBe('high');
+    expect(bandStatus(30.1, band)).toBe('ok');
+    expect(bandStatus(59.9, band)).toBe('ok');
+  });
+
+  it('honours an open side', () => {
+    expect(bandStatus(5, { min: 30, max: null })).toBe('low');
+    expect(bandStatus(500, { min: 30, max: null })).toBe('ok');
+    expect(bandStatus(500, { min: null, max: 60 })).toBe('high');
+    expect(bandStatus(5, { min: null, max: 60 })).toBe('ok');
+  });
+
+  /**
+   * The same rule statusFromLive applies to MQTT-published thresholds: a reading with
+   * nothing to compare against is not evidence that anything is fine. The two must not
+   * disagree about what OK means.
+   */
+  it('is unknown without a reading or without a band', () => {
+    expect(bandStatus(null, { min: 30, max: 60 })).toBe('unknown');
+    expect(bandStatus(45, OPEN)).toBe('unknown');
+    expect(bandStatus(45, undefined)).toBe('unknown');
+    expect(bandStatus(Number.NaN, { min: 30, max: 60 })).toBe('unknown');
+  });
+
+  it('resolves a degenerate min == max band deterministically', () => {
+    const band = { min: 40, max: 40 };
+    expect(bandStatus(40, band)).toBe('high');
+    expect(bandStatus(41, band)).toBe('high');
+    expect(bandStatus(39, band)).toBe('low');
+  });
+
+  /** Every row is judged at the precision it prints, so a dot cannot contradict the
+   *  number beside it — pwEC 1.999 renders "2.00" and must not read low against a 2.0 floor. */
+  it('compares every row at the precision the card prints', () => {
+    const probes = resolveSubstrateProbes(
+      makeSnapshot(probeEntities('substrate-a'), {
+        ...liveStates,
+        'substrate-a_substrate_temperature': '23.999'
+      }),
+      [{ name: '4x4', substrateType: 'Coco', substrateNodeId: 'substrate-a', substrateTempMaxC: 24 }]
+    );
+    // 23.999 prints as "24.0 °C"; judged raw it would read ok, judged as printed it is high.
+    expect(probes[0].status.temperatureC).toBe('high');
+  });
+
+  it('compares VWC at the precision the card prints', () => {
+    expect(vwcPercent(0.29999999999)).toBe(30);
+    expect(vwcPercent(0.47)).toBe(47);
+    expect(bandStatus(vwcPercent(0.30000000000000004), { min: 30, max: 60 })).toBe('low');
+    expect(bandStatus(vwcPercent(0.3049), { min: 30, max: 60 })).toBe('ok');
+    // pwEC prints at 2 decimals, temperature at 1.
+    expect(atDisplayPrecision(1.999, DISPLAY_DIGITS.poreEc)).toBe(2);
+    expect(atDisplayPrecision(23.999, DISPLAY_DIGITS.temperatureC)).toBe(24);
+    expect(bandStatus(atDisplayPrecision(1.999, DISPLAY_DIGITS.poreEc), { min: 2, max: 6 })).toBe('low');
+  });
+});
+
+
 describe('poreEcGap', () => {
   const probe = (readings: Partial<import('../../src/lib/substrate').SubstrateReadings>, available = true) => ({
     nodeId: 'substrate-a',
@@ -207,7 +284,9 @@ describe('poreEcGap', () => {
       curve: 'soilless' as const,
       curveAssumed: true,
       ...readings
-    }
+    },
+    thresholds: { vwcPct: OPEN, temperatureC: OPEN, poreEc: OPEN },
+    status: { vwc: 'unknown' as const, temperatureC: 'unknown' as const, poreEc: 'unknown' as const }
   });
 
   it('says nothing when pore EC derived fine', () => {
@@ -379,6 +458,60 @@ describe('resolveSubstrateProbes', () => {
     const entities = [makeEntity('half-probe', 'substrate_temperature', { unit: '°C' })];
     expect(resolveSubstrateProbes(makeSnapshot(entities, {}))).toHaveLength(0);
     expect(hasSubstrateProbe(makeSnapshot(entities, {}))).toBe(false);
+  });
+
+  /** VWC is stored as a percent and read as m3/m3 — the 100x that would silently pass
+   *  every type check. */
+  it('compares VWC against the band in percent, not m3/m3', () => {
+    const zone = {
+      name: '4x4',
+      substrateType: 'Coco',
+      substrateNodeId: 'substrate-a',
+      vwcMinPct: 30,
+      vwcMaxPct: 60
+    };
+    // The live sample derives to 0.47 m3/m3 = 47 %, inside 30-60.
+    const inside = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [zone]);
+    expect(inside[0].readings.vwc).toBeCloseTo(0.47, 1);
+    expect(inside[0].status.vwc).toBe('ok');
+
+    // Had the raw fraction been compared, 0.47 would read as below a min of 30.
+    const tight = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [
+      { ...zone, vwcMinPct: 50, vwcMaxPct: 60 }
+    ]);
+    expect(tight[0].status.vwc).toBe('low');
+  });
+
+  it('flags substrate temperature and pore EC against their own bands', () => {
+    const probes = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [
+      {
+        name: '4x4',
+        substrateType: 'Coco',
+        substrateNodeId: 'substrate-a',
+        substrateTempMinC: 18,
+        substrateTempMaxC: 24,
+        pwecMin: 2,
+        pwecMax: 6
+      }
+    ]);
+    // 26.6 C is above the 24 ceiling; pore EC derives to ~0.09, below the floor of 2.
+    expect(probes[0].status.temperatureC).toBe('high');
+    expect(probes[0].status.poreEc).toBe('low');
+  });
+
+  it('leaves every status unknown for an unbound probe', () => {
+    const probes = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates));
+    expect(probes[0].status).toEqual({ vwc: 'unknown', temperatureC: 'unknown', poreEc: 'unknown' });
+    expect(probes[0].thresholds.vwcPct).toEqual(OPEN);
+  });
+
+  /** An offline probe reports nothing, so it cannot be in or out of band either. */
+  it('does not judge an offline probe against its bands', () => {
+    const probes = resolveSubstrateProbes(
+      makeSnapshot(probeEntities('substrate-a'), liveStates, { 'substrate-a': 'offline' }),
+      [{ name: '4x4', substrateType: 'Coco', substrateNodeId: 'substrate-a', vwcMinPct: 30, vwcMaxPct: 60 }]
+    );
+    expect(probes[0].status.vwc).toBe('unknown');
   });
 
   it('binds each probe to its own zone when several are deployed', () => {

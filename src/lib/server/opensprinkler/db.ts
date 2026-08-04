@@ -129,6 +129,15 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE zones DROP COLUMN vwc_entity_id;
   ALTER TABLE zones DROP COLUMN pwec_entity_id;
+  `,
+  // 8 — per-zone substrate threshold bands; VWC is stored as a percent.
+  `
+  ALTER TABLE zones ADD COLUMN vwc_min_pct REAL;
+  ALTER TABLE zones ADD COLUMN vwc_max_pct REAL;
+  ALTER TABLE zones ADD COLUMN substrate_temp_min_c REAL;
+  ALTER TABLE zones ADD COLUMN substrate_temp_max_c REAL;
+  ALTER TABLE zones ADD COLUMN pwec_min REAL;
+  ALTER TABLE zones ADD COLUMN pwec_max REAL;
   `
 ];
 
