@@ -16,8 +16,9 @@ export interface Zone {
   drippers: number | null;
   emitterLph: number | null;
   maxRunSeconds: number;
-  vwcEntityId: string | null;
-  pwecEntityId: string | null;
+  /** MQTT node id of the TEROS probe in this zone ("substrate-a"), or null if unbound.
+   *  Selects the calibration curve applied to its raw counts — see `$lib/substrate`. */
+  substrateNodeId: string | null;
   enabled: boolean;
   /** When true, the scheduler skips ALL of this zone's schedules (they stay configured and
    *  resume unchanged when un-paused). Manual runs are unaffected — that's the difference from
@@ -35,8 +36,7 @@ export interface ZoneCreate {
   drippers?: number | null;
   emitterLph?: number | null;
   maxRunSeconds?: number;
-  vwcEntityId?: string | null;
-  pwecEntityId?: string | null;
+  substrateNodeId?: string | null;
   enabled?: boolean;
   schedulesPaused?: boolean;
 }
@@ -52,8 +52,7 @@ interface ZoneRow {
   drippers: number | null;
   emitter_l_per_hr: number | null;
   max_run_seconds: number;
-  vwc_entity_id: string | null;
-  pwec_entity_id: string | null;
+  substrate_node_id: string | null;
   enabled: number;
   schedules_paused: number;
   created_at: string;
@@ -70,8 +69,7 @@ function toZone(row: ZoneRow): Zone {
     drippers: row.drippers,
     emitterLph: row.emitter_l_per_hr,
     maxRunSeconds: row.max_run_seconds,
-    vwcEntityId: row.vwc_entity_id,
-    pwecEntityId: row.pwec_entity_id,
+    substrateNodeId: row.substrate_node_id,
     enabled: Boolean(row.enabled),
     schedulesPaused: Boolean(row.schedules_paused),
     createdAt: row.created_at,
@@ -99,8 +97,9 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
   const id = randomUUID();
   db.prepare(
     `INSERT INTO zones (id, name, station_sid, substrate_type, substrate_volume_ml, drippers,
-       emitter_l_per_hr, max_run_seconds, vwc_entity_id, pwec_entity_id, enabled, schedules_paused, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       emitter_l_per_hr, max_run_seconds, substrate_node_id,
+       enabled, schedules_paused, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.name,
@@ -110,8 +109,7 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
     input.drippers ?? null,
     input.emitterLph ?? null,
     input.maxRunSeconds ?? 300,
-    input.vwcEntityId ?? null,
-    input.pwecEntityId ?? null,
+    input.substrateNodeId ?? null,
     input.enabled === false ? 0 : 1,
     input.schedulesPaused === true ? 1 : 0,
     now,
@@ -133,8 +131,7 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     ...('drippers' in patch ? { drippers: patch.drippers ?? null } : {}),
     ...('emitterLph' in patch ? { emitterLph: patch.emitterLph ?? null } : {}),
     ...('maxRunSeconds' in patch ? { maxRunSeconds: patch.maxRunSeconds ?? existing.maxRunSeconds } : {}),
-    ...('vwcEntityId' in patch ? { vwcEntityId: patch.vwcEntityId ?? null } : {}),
-    ...('pwecEntityId' in patch ? { pwecEntityId: patch.pwecEntityId ?? null } : {}),
+    ...('substrateNodeId' in patch ? { substrateNodeId: patch.substrateNodeId ?? null } : {}),
     ...('enabled' in patch ? { enabled: patch.enabled === true } : {}),
     ...('schedulesPaused' in patch ? { schedulesPaused: patch.schedulesPaused === true } : {}),
     updatedAt: new Date().toISOString()
@@ -142,8 +139,8 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
 
   db.prepare(
     `UPDATE zones SET name = ?, station_sid = ?, substrate_type = ?, substrate_volume_ml = ?,
-       drippers = ?, emitter_l_per_hr = ?, max_run_seconds = ?, vwc_entity_id = ?, pwec_entity_id = ?,
-       enabled = ?, schedules_paused = ?, updated_at = ? WHERE id = ?`
+       drippers = ?, emitter_l_per_hr = ?, max_run_seconds = ?,
+       substrate_node_id = ?, enabled = ?, schedules_paused = ?, updated_at = ? WHERE id = ?`
   ).run(
     merged.name,
     merged.stationSid,
@@ -152,8 +149,7 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     merged.drippers,
     merged.emitterLph,
     merged.maxRunSeconds,
-    merged.vwcEntityId,
-    merged.pwecEntityId,
+    merged.substrateNodeId,
     merged.enabled ? 1 : 0,
     merged.schedulesPaused ? 1 : 0,
     merged.updatedAt,

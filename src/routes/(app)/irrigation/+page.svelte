@@ -6,6 +6,7 @@
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
   import IrrigationHistory from '$lib/irrigation/IrrigationHistory.svelte';
+  import { resolveSubstrateProbes } from '$lib/substrate';
   import type { Zone } from '$lib/server/opensprinkler/zones';
   import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
   import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
@@ -22,6 +23,10 @@
   let error = $state<string | null>(null);
   const isAdmin = $derived(Boolean(data.user?.isAdmin));
 
+  // Probes discovered on the MQTT bus, so a zone is bound by picking one rather than by
+  // typing a node id that has to match the publisher's exactly.
+  let substrateProbes = $derived(resolveSubstrateProbes(live.snapshot));
+
   // Per-zone shot controls (keyed by zone id).
   let runValue = $state<Record<string, string>>({});
   let runUnit = $state<Record<string, string>>({});
@@ -33,6 +38,7 @@
     name: '',
     stationSid: '',
     substrateType: '',
+    substrateNodeId: '',
     substrateVolume: '',
     volumeUnit: 'ml',
     drippers: '',
@@ -157,6 +163,7 @@
       name: zone.name,
       stationSid: String(zone.stationSid),
       substrateType: zone.substrateType ?? '',
+      substrateNodeId: zone.substrateNodeId ?? '',
       substrateVolume: zone.substrateVolumeMl != null ? String(zone.substrateVolumeMl) : '',
       volumeUnit: 'ml',
       drippers: zone.drippers != null ? String(zone.drippers) : '',
@@ -177,6 +184,7 @@
       name: form.name,
       stationSid: Number(form.stationSid),
       substrateType: form.substrateType.trim() || null,
+      substrateNodeId: form.substrateNodeId.trim() || null,
       // Round the unit-converted canonical values so they don't carry float noise
       // (e.g. 1 gal → 3785 mL, 2.11 GPH → 7.99 L/hr) into the store/API/summary.
       substrateVolumeMl: form.substrateVolume ? Math.round(Number(form.substrateVolume) * VOLUME_TO_ML[form.volumeUnit]) : null,
@@ -373,6 +381,7 @@
         <p class="meta mono">
           STN {zone.stationSid}
           {#if zone.substrateType}· {zone.substrateType}{/if}
+          {#if zone.substrateNodeId}· {zone.substrateNodeId}{/if}
           {#if zone.substrateVolumeMl}· {zone.substrateVolumeMl} mL{/if}
           {#if zone.drippers && zone.emitterLph}· {zone.drippers}×{zone.emitterLph} L/hr{/if}
           · cap {zone.maxRunSeconds}s
@@ -488,6 +497,21 @@
           <small class="hint">0-based · OS Zone 1 = 0</small>
         </label>
         <label>Substrate type<input type="text" list="substrate-types" bind:value={form.substrateType} /></label>
+        <label>
+          Substrate probe
+          <select bind:value={form.substrateNodeId}>
+            <option value="">None</option>
+            {#each substrateProbes as probe (probe.nodeId)}
+              <option value={probe.nodeId}>{probe.nodeId}</option>
+            {/each}
+            <!-- A probe configured before it ever came online has no discovery entry to
+                 list, so keep its binding selectable rather than silently clearing it. -->
+            {#if form.substrateNodeId && !substrateProbes.some((p) => p.nodeId === form.substrateNodeId)}
+              <option value={form.substrateNodeId}>{form.substrateNodeId} (offline)</option>
+            {/if}
+          </select>
+          <small class="hint">Applies this zone's substrate type as its calibration</small>
+        </label>
         <label>
           Substrate volume
           <span class="unit-row">

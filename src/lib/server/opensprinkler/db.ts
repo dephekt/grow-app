@@ -98,6 +98,37 @@ const MIGRATIONS: string[] = [
   // on demand. Default 0 so existing zones keep firing.
   `
   ALTER TABLE zones ADD COLUMN schedules_paused INTEGER NOT NULL DEFAULT 0;
+  `,
+  // 6 — bind a zone to the substrate probe sitting in it. Holds the probe's MQTT node
+  // id ("substrate-a"), not an entity id: a TEROS publishes four entities and the
+  // dashboard needs all of them together, so the device is the unit of binding.
+  //
+  // Nullable and unconstrained on purpose. A probe is routinely in a test pot or a
+  // fresh bag before it belongs to any zone, and it must still read — an unbound probe
+  // falls back to the soilless curve. This is also why there is no FK: the node id
+  // names a device on the broker, which this database knows nothing about.
+  //
+  // NOT a rename of the older vwc_entity_id / pwec_entity_id columns. Those predate the
+  // decision to derive water content here rather than read it from firmware; migration 7
+  // drops them.
+  `
+  ALTER TABLE zones ADD COLUMN substrate_node_id TEXT;
+  `,
+  // 7 — drop vwc_entity_id / pwec_entity_id. They date from migration 1, when the plan
+  // was for a probe to publish water content and pore EC as entities and for a zone to
+  // name which ones were its own. The publisher ships raw counts instead and this app
+  // derives both against the zone's medium, so there is nothing to point at: the
+  // binding is substrate_node_id (migration 6) and the reading is computed, not
+  // referenced. Nothing has ever read these columns and both are NULL in every
+  // deployment.
+  //
+  // The only destructive migration here, hence the note: rolling the image back past
+  // this point leaves older code inserting columns that no longer exist, which fails
+  // zone writes (reads are unaffected). Data loss is not the risk — the columns are
+  // empty — the older schema expectation is.
+  `
+  ALTER TABLE zones DROP COLUMN vwc_entity_id;
+  ALTER TABLE zones DROP COLUMN pwec_entity_id;
   `
 ];
 

@@ -17,7 +17,9 @@
   import TrendsPanel from '$lib/dashboard/TrendsPanel.svelte';
   import ThermalPanel from '$lib/dashboard/ThermalPanel.svelte';
   import ReadoutPanel from '$lib/dashboard/ReadoutPanel.svelte';
+  import SubstratePanel from '$lib/dashboard/SubstratePanel.svelte';
 
+  let { data } = $props();
   const live = getLiveSnapshot();
 
   type Row = { label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' };
@@ -71,12 +73,6 @@
   let airQualityDevice = $derived(resolveAirQualityDevice(live.snapshot));
   let airQualityRows = $derived(metricRows(airQualityDevice));
 
-  const substrateRows: Row[] = [
-    { label: 'VWC', value: '—', status: 'none' },
-    { label: 'pwEC', value: '—', status: 'none' },
-    { label: 'BULK EC', value: '—', status: 'none' },
-    { label: 'TEMP', value: '—', status: 'none' }
-  ];
 </script>
 
 <svelte:head>
@@ -89,7 +85,7 @@
   <div class="water-area"><ReadoutPanel title="WATER" rows={waterRows} deviceId={waterDevice?.nodeId} /></div>
   <div class="climate-area"><ReadoutPanel title="CLIMATE" rows={climateRows} deviceId={climateDevice?.nodeId} /></div>
   <div class="substrate-area">
-    <ReadoutPanel title="SUBSTRATE" rows={substrateRows} planned={true} badge="NOT CONNECTED" />
+    <SubstratePanel snapshot={live.snapshot} zones={data.zones} />
   </div>
   {#if airQualityDevice}
     <div class="air-quality-area"><ReadoutPanel title="AIR QUALITY" rows={airQualityRows} deviceId={airQualityDevice.nodeId} /></div>

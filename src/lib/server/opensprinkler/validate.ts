@@ -60,8 +60,7 @@ export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
     drippers: optPositiveInt(body.drippers, 'drippers'),
     emitterLph: optPositiveNumber(body.emitterLph, 'emitterLph'),
     maxRunSeconds: body.maxRunSeconds == null ? 300 : requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds'),
-    vwcEntityId: optString(body.vwcEntityId),
-    pwecEntityId: optString(body.pwecEntityId),
+    substrateNodeId: optString(body.substrateNodeId),
     enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled'),
     schedulesPaused: body.schedulesPaused == null ? false : requireBoolean(body.schedulesPaused, 'schedulesPaused')
   };
@@ -76,8 +75,7 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('drippers' in body) patch.drippers = optPositiveInt(body.drippers, 'drippers');
   if ('emitterLph' in body) patch.emitterLph = optPositiveNumber(body.emitterLph, 'emitterLph');
   if ('maxRunSeconds' in body) patch.maxRunSeconds = requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds');
-  if ('vwcEntityId' in body) patch.vwcEntityId = optString(body.vwcEntityId);
-  if ('pwecEntityId' in body) patch.pwecEntityId = optString(body.pwecEntityId);
+  if ('substrateNodeId' in body) patch.substrateNodeId = optString(body.substrateNodeId);
   if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
   if ('schedulesPaused' in body) patch.schedulesPaused = requireBoolean(body.schedulesPaused, 'schedulesPaused');
   return patch;

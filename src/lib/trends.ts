@@ -14,9 +14,10 @@ export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string; pla
   { key: 'climate', label: 'Climate' },
   { key: 'thermal', label: 'Thermal' },
   { key: 'air-quality', label: 'Air Quality' },
-  // `planned` domains render the NOT-CONNECTED placeholder and skip the history fetch —
-  // a future domain just sets the flag instead of being special-cased by name.
-  { key: 'substrate', label: 'Substrate', planned: true }
+  // Substrate charts derived VWC / pore EC per probe (see `server/influx/trend-domains`).
+  // No longer `planned`: with no probe on the bus it resolves to no series and the chart
+  // shows its own empty state, which is the same answer without hard-coding it.
+  { key: 'substrate', label: 'Substrate' }
 ];
 
 export const DEFAULT_TREND_DOMAIN: TrendDomain = 'water';
