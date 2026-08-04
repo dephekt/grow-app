@@ -55,8 +55,10 @@ describe('substrate threshold validation', () => {
     expect(parseZonePatch({ vwcMinPct: null })).toMatchObject({ vwcMinPct: null });
   });
 
-  it('rejects a crossed band on a patch too', () => {
-    expect(() => parseZonePatch({ vwcMinPct: 60, vwcMaxPct: 30 })).toThrow(/VWC/);
+  /** The parser sees only what was sent, so the crossed check belongs where the merged
+   *  row is known — updateZone. See the store tests. */
+  it('leaves the crossed-band check to the merge', () => {
+    expect(() => parseZonePatch({ vwcMinPct: 60, vwcMaxPct: 30 })).not.toThrow();
   });
 
   /** A patch that mentions no band must not overwrite the stored ones with nulls. */
@@ -79,9 +81,21 @@ describe('substrate threshold validation', () => {
     expect('substrateTempMinC' in patch).toBe(false);
   });
 
-  /** Naming one end pulls in the other so the pair can be cross-checked. */
-  it('treats a band as a unit when only one end is named', () => {
+  /**
+   * Naming one end must not touch the other. Filling the unnamed end with null — which
+   * this originally did — meant PATCH {vwcMaxPct} wrote NULL over a stored floor.
+   */
+  it('patches one end of a band without clearing the other', () => {
     const patch = parseZonePatch({ vwcMaxPct: 60 });
-    expect(patch).toMatchObject({ vwcMinPct: null, vwcMaxPct: 60 });
+    expect(patch).toMatchObject({ vwcMaxPct: 60 });
+    expect('vwcMinPct' in patch).toBe(false);
+  });
+
+  it('rejects values Number() would coerce to a legal bound', () => {
+    expect(() => parseZoneCreate({ ...base, pwecMin: true })).toThrow(/pwecMin/);
+    expect(() => parseZoneCreate({ ...base, pwecMin: [] })).toThrow(/pwecMin/);
+    // An empty string is the editor's "no bound", not a hard zero.
+    expect(parseZoneCreate({ ...base, pwecMin: '' })).toMatchObject({ pwecMin: null });
+    expect(parseZoneCreate({ ...base, pwecMin: '  ' })).toMatchObject({ pwecMin: null });
   });
 });

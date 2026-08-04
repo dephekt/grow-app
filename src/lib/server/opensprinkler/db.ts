@@ -130,19 +130,7 @@ const MIGRATIONS: string[] = [
   ALTER TABLE zones DROP COLUMN vwc_entity_id;
   ALTER TABLE zones DROP COLUMN pwec_entity_id;
   `,
-  // 8 — per-zone substrate threshold bands. Six nullable bounds: a NULL end is an
-  // open side, not a zero, so "warn me below 30 % but never about wet" is expressible
-  // without a sentinel.
-  //
-  // VWC is stored as a PERCENT, and the column says so. Every grower-facing surface
-  // speaks percent while the reading itself is m³/m³, and the two differ by 100x —
-  // the one arithmetic mistake here that would silently pass every type check.
-  //
-  // Thresholds live in this database rather than on the broker because the values they
-  // bound (water content, pore EC) are DERIVED in this app, not published by the probe.
-  // Publishing them back would put a calibration-baked number in InfluxDB alongside the
-  // raw counts and create a second source of truth that goes stale the moment a curve
-  // or offset changes.
+  // 8 — per-zone substrate threshold bands; VWC is stored as a percent.
   `
   ALTER TABLE zones ADD COLUMN vwc_min_pct REAL;
   ALTER TABLE zones ADD COLUMN vwc_max_pct REAL;

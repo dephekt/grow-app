@@ -47,14 +47,13 @@
     return v === null ? '—' : `${v.toFixed(1)} °C`;
   }
 
-  // Out-of-band reads as an alert dot, in-band as ok, and no band at all stays neutral
-  // — an unbounded reading is not evidence that anything is fine.
-  function dot(status: BandStatus): string {
-    return status === 'ok' ? 'ok' : status === 'unknown' ? '' : 'alert';
+  // With a band the dot means in-band; without one it falls back to liveness.
+  function dot(status: BandStatus, live: boolean): string {
+    if (status === 'unknown') return live ? 'ok' : '';
+    return status === 'ok' ? 'ok' : 'alert';
   }
 
-  // The band itself, shown next to the value so an alert says what it breached without
-  // needing the zone editor open. Rendered only when a bound exists.
+  // The band, rendered beside the value at that row's own precision.
   function bandText(band: SubstrateBand, unit: string, digits: number): string | null {
     const { min, max } = band;
     if (min === null && max === null) return null;
@@ -64,6 +63,9 @@
   }
 
   let gap = $derived(active ? poreEcGap(active) : null);
+  let vwcBand = $derived(active ? bandText(active.thresholds.vwcPct, '%', 1) : null);
+  let poreBand = $derived(active ? bandText(active.thresholds.poreEc, 'mS/cm', 2) : null);
+  let tempBand = $derived(active ? bandText(active.thresholds.temperatureC, '°C', 1) : null);
   let badge = $derived(
     probes.length === 0 ? 'NOT CONNECTED' : active && !active.available ? 'OFFLINE' : null
   );
@@ -103,45 +105,37 @@
         <span class="row-label">VWC</span>
         <span class="row-value mono">
           {pct(active.readings.vwc)}
-          {#if bandText(active.thresholds.vwcPct, '%', 0)}<span class="band"
-              >{bandText(active.thresholds.vwcPct, '%', 0)}</span
-            >{/if}
+          {#if vwcBand}<span class="band">{vwcBand}</span>{/if}
         </span>
-        <span class="dot {dot(active.status.vwc)}"></span>
+        <span class="dot {dot(active.status.vwc, active.readings.vwc !== null)}"></span>
       </div>
 
-      <!-- The number to steer on, and the reason this card exists: bulk EC below reads
-           several times lower for the same solution, so the two are never interchangeable. -->
+      <!-- The number to steer on; bulk EC below is one of its inputs. -->
       <div class="row steer">
         <span class="row-label">pwEC</span>
         <span class="row-value mono">
           {#if active.readings.poreEc !== null}
             {ec(active.readings.poreEc)}
-            {#if bandText(active.thresholds.poreEc, '', 1)}<span class="band"
-                >{bandText(active.thresholds.poreEc, '', 1)}</span
-              >{/if}
+            {#if poreBand}<span class="band">{poreBand}</span>{/if}
           {:else}
             <span class="gap">— {gap ? GAP_TEXT[gap] : ''}</span>
           {/if}
         </span>
-        <span class="dot {dot(active.status.poreEc)}"></span>
+        <span class="dot {dot(active.status.poreEc, active.readings.poreEc !== null)}"></span>
       </div>
 
       <div class="row">
         <span class="row-label">Bulk EC</span>
         <span class="row-value mono">{ec(active.readings.bulkEc)}</span>
-        <span class="dot" class:ok={active.readings.bulkEc !== null}></span>
+        <span class="dot {dot('unknown', active.readings.bulkEc !== null)}"></span>
       </div>
-
       <div class="row">
         <span class="row-label">Temp</span>
         <span class="row-value mono">
           {degrees(active.readings.temperatureC)}
-          {#if bandText(active.thresholds.temperatureC, '°C', 0)}<span class="band"
-              >{bandText(active.thresholds.temperatureC, '°C', 0)}</span
-            >{/if}
+          {#if tempBand}<span class="band">{tempBand}</span>{/if}
         </span>
-        <span class="dot {dot(active.status.temperatureC)}"></span>
+        <span class="dot {dot(active.status.temperatureC, active.readings.temperatureC !== null)}"></span>
       </div>
     </div>
 

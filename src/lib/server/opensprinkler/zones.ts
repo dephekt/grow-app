@@ -4,6 +4,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { stationEntityId } from './discovery';
+import { assertZoneBands } from './validate';
 
 /** An irrigation zone: one OpenSprinkler station plus the substrate/emitter spec
  *  that lets a shot be expressed as % of volume / mL / seconds. */
@@ -152,6 +153,21 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
   return getZone(db, id)!;
 }
 
+/** Fields that patch identically: present in the patch wins, null clears. */
+const NULLABLE_KEYS = [
+  'substrateType',
+  'substrateVolumeMl',
+  'drippers',
+  'emitterLph',
+  'substrateNodeId',
+  'vwcMinPct',
+  'vwcMaxPct',
+  'substrateTempMinC',
+  'substrateTempMaxC',
+  'pwecMin',
+  'pwecMax'
+] as const;
+
 export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone | undefined {
   const existing = getZone(db, id);
   if (!existing) return undefined;
@@ -160,22 +176,18 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     ...existing,
     ...('name' in patch ? { name: patch.name! } : {}),
     ...('stationSid' in patch ? { stationSid: patch.stationSid! } : {}),
-    ...('substrateType' in patch ? { substrateType: patch.substrateType ?? null } : {}),
-    ...('substrateVolumeMl' in patch ? { substrateVolumeMl: patch.substrateVolumeMl ?? null } : {}),
-    ...('drippers' in patch ? { drippers: patch.drippers ?? null } : {}),
-    ...('emitterLph' in patch ? { emitterLph: patch.emitterLph ?? null } : {}),
+    ...Object.fromEntries(
+      NULLABLE_KEYS.filter((k) => k in patch).map((k) => [k, patch[k] ?? null])
+    ),
     ...('maxRunSeconds' in patch ? { maxRunSeconds: patch.maxRunSeconds ?? existing.maxRunSeconds } : {}),
-    ...('substrateNodeId' in patch ? { substrateNodeId: patch.substrateNodeId ?? null } : {}),
-    ...('vwcMinPct' in patch ? { vwcMinPct: patch.vwcMinPct ?? null } : {}),
-    ...('vwcMaxPct' in patch ? { vwcMaxPct: patch.vwcMaxPct ?? null } : {}),
-    ...('substrateTempMinC' in patch ? { substrateTempMinC: patch.substrateTempMinC ?? null } : {}),
-    ...('substrateTempMaxC' in patch ? { substrateTempMaxC: patch.substrateTempMaxC ?? null } : {}),
-    ...('pwecMin' in patch ? { pwecMin: patch.pwecMin ?? null } : {}),
-    ...('pwecMax' in patch ? { pwecMax: patch.pwecMax ?? null } : {}),
     ...('enabled' in patch ? { enabled: patch.enabled === true } : {}),
     ...('schedulesPaused' in patch ? { schedulesPaused: patch.schedulesPaused === true } : {}),
     updatedAt: new Date().toISOString()
   };
+
+  // Checked here rather than in the parser: a patch may name one end of a band, and only
+  // the merged row knows the other.
+  assertZoneBands(merged);
 
   db.prepare(
     `UPDATE zones SET name = ?, station_sid = ?, substrate_type = ?, substrate_volume_ml = ?,

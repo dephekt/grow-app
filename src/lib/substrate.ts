@@ -190,42 +190,38 @@ export interface SubstrateReadings {
   curveAssumed: boolean;
 }
 
-/** One threshold band. A null end is an open side, not a zero. */
+/** One threshold band; a null end is an open side, not a zero. */
 export interface SubstrateBand {
   min: number | null;
   max: number | null;
 }
 
-/**
- * The bands a zone sets for its probe. `vwcPct` is in PERCENT — the reading it bounds
- * is m³/m³, and the two differ by 100x, so the unit is in the name rather than left to
- * the caller to remember.
- */
+/** The bands a zone sets for its probe; `vwcPct` is in percent, not m³/m³. */
 export interface SubstrateThresholds {
   vwcPct: SubstrateBand;
   temperatureC: SubstrateBand;
   poreEc: SubstrateBand;
 }
 
-/**
- * Where a reading sits in its band.
- *
- * `unknown` covers both "no reading" and "no band", deliberately: a live number with
- * no threshold to compare against is not evidence that anything is fine. That is the
- * same rule `statusFromLive` applies to the MQTT-published thresholds in
- * `$lib/alert-status`, and the two must not disagree about what OK means.
- */
+/** Where a reading sits in its band; `unknown` covers no reading and no band alike. */
 export type BandStatus = 'ok' | 'high' | 'low' | 'unknown';
 
+/** Bounds are inclusive, matching `statusFromLive` in `$lib/alert-status`. */
 export function bandStatus(value: number | null, band: SubstrateBand | undefined): BandStatus {
   if (value === null || !Number.isFinite(value) || !band) return 'unknown';
   const { min, max } = band;
   if (min === null && max === null) return 'unknown';
-  // Max first so a degenerate min == max band reads high rather than low; either is
-  // defensible, but the pair must be ordered so the answer is not iteration-dependent.
-  if (max !== null && value > max) return 'high';
-  if (min !== null && value < min) return 'low';
+  if (max !== null && value >= max) return 'high';
+  if (min !== null && value <= min) return 'low';
   return 'ok';
+}
+
+/** The single place m³/m³ becomes percent, rounded to what the card prints. */
+export const VWC_DISPLAY_DIGITS = 1;
+
+export function vwcPercent(vwc: number | null): number | null {
+  if (vwc === null || !Number.isFinite(vwc)) return null;
+  return Number((vwc * 100).toFixed(VWC_DISPLAY_DIGITS));
 }
 
 /** The zone fields this module needs, structurally — so it never imports server code. */
@@ -387,8 +383,7 @@ export function resolveSubstrateProbes(
       readings,
       thresholds,
       status: {
-        // Compared in percent, because that is the unit the band is stored in.
-        vwc: bandStatus(readings.vwc === null ? null : readings.vwc * 100, thresholds.vwcPct),
+        vwc: bandStatus(vwcPercent(readings.vwc), thresholds.vwcPct),
         temperatureC: bandStatus(readings.temperatureC, thresholds.temperatureC),
         poreEc: bandStatus(readings.poreEc, thresholds.poreEc)
       }

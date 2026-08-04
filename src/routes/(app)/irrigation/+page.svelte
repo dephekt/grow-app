@@ -191,7 +191,13 @@
     form = blankForm();
   }
 
-  const num = (v: string) => (v.trim() === '' ? null : Number(v));
+  // JSON.stringify turns NaN into null, which the server would read as no bound.
+  const num = (v: string) => {
+    if (v.trim() === '') return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) throw new Error(`"${v.trim()}" is not a number`);
+    return n;
+  };
 
   function buildBody(): Record<string, unknown> {
     return {
@@ -199,8 +205,7 @@
       stationSid: Number(form.stationSid),
       substrateType: form.substrateType.trim() || null,
       substrateNodeId: form.substrateNodeId.trim() || null,
-      // An empty box is an OPEN side, not a zero — the server stores null and the card
-      // leaves that end unbounded.
+      // An empty box is an open side, not a zero.
       vwcMinPct: num(form.vwcMin),
       vwcMaxPct: num(form.vwcMax),
       substrateTempMinC: num(form.tempMin),

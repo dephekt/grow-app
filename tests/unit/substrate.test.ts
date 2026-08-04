@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bandStatus,
   deriveReadings,
+  vwcPercent,
   poreEcGap,
   hasSubstrateProbe,
   permittivityFromCounts,
@@ -199,10 +200,14 @@ describe('bandStatus', () => {
     expect(bandStatus(29, band)).toBe('low');
   });
 
-  it('treats the bounds themselves as inside', () => {
+  /** Inclusive, matching statusFromLive — the two panels must not disagree on a
+   *  reading that sits exactly on its bound. */
+  it('treats the bounds themselves as breached', () => {
     const band = { min: 30, max: 60 };
-    expect(bandStatus(30, band)).toBe('ok');
-    expect(bandStatus(60, band)).toBe('ok');
+    expect(bandStatus(30, band)).toBe('low');
+    expect(bandStatus(60, band)).toBe('high');
+    expect(bandStatus(30.1, band)).toBe('ok');
+    expect(bandStatus(59.9, band)).toBe('ok');
   });
 
   it('honours an open side', () => {
@@ -226,9 +231,18 @@ describe('bandStatus', () => {
 
   it('resolves a degenerate min == max band deterministically', () => {
     const band = { min: 40, max: 40 };
-    expect(bandStatus(40, band)).toBe('ok');
+    expect(bandStatus(40, band)).toBe('high');
     expect(bandStatus(41, band)).toBe('high');
     expect(bandStatus(39, band)).toBe('low');
+  });
+
+  /** A reading that PRINTS as its bound must not be judged against the unrounded
+   *  product: 0.299999... renders "30.0 %" and would otherwise read low. */
+  it('compares VWC at the precision the card prints', () => {
+    expect(vwcPercent(0.29999999999)).toBe(30);
+    expect(vwcPercent(0.47)).toBe(47);
+    expect(bandStatus(vwcPercent(0.30000000000000004), { min: 30, max: 60 })).toBe('low');
+    expect(bandStatus(vwcPercent(0.3049), { min: 30, max: 60 })).toBe('ok');
   });
 });
 
