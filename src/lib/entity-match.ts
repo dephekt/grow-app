@@ -48,8 +48,17 @@ export function isAmbientTemperature(e: EntityConfig): boolean {
   const oid = (e.objectId ?? '').toLowerCase();
   const name = e.name.toLowerCase();
   if (/water/.test(oid) || /water/.test(name)) return false;
-  // substrate|soil|medium|root: a TEROS probe reports °C from inside the pot.
-  if (/(bps|mlx|board|cpu|die|chip|internal|substrate|soil|medium|root)/.test(oid)) return false;
+  // A probe in the pot, not the air. Matched on the display name as well as the id, the
+  // same way the water guard above is, because a device is free to publish a keyword-free
+  // objectId ("temperature") and carry the medium only in its name.
+  //
+  // Only THESE words get that treatment. The hardware-internal ones below stay id-only:
+  // "Internal Room Temp" or "Board Room Sensor" are perfectly good names for a sensor
+  // that really is reporting the air, whereas nothing called "Substrate Temperature" is.
+  // Word boundaries on the name for the same reason — prose, unlike an object id, has
+  // words in it.
+  if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name)) return false;
+  if (/(bps|mlx|board|cpu|die|chip|internal)/.test(oid)) return false;
   // Derived aggregates, anchored to whole id segments so we don't reject a legitimate
   // sensor whose id merely contains "max"/"min"/"avg" as a substring.
   if (/(^|_)(daily|moving|average|avg|min|max|mean)(_|$)/.test(oid)) return false;

@@ -161,6 +161,46 @@ describe('resolveClimateDevice', () => {
     });
     expect(resolveClimateDevice(makeSnapshot([airTemp]))?.nodeId).toBe('substrate-a');
   });
+
+  // The objectId is a contract with OUR publisher; the display name is all a
+  // third-party integration may carry. A soil probe that publishes a bare
+  // "temperature" must still be kept out of the air slot.
+  it('rejects a substrate probe that names its medium only in the display name', () => {
+    const named = makeEntity('some-probe', {
+      id: 'probe_temperature',
+      name: 'Substrate Temperature',
+      objectId: 'temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([named]))).toBeUndefined();
+
+    const rootZone = makeEntity('some-probe', {
+      id: 'probe_temperature',
+      name: 'Root Zone Temp',
+      objectId: 'temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([rootZone]))).toBeUndefined();
+  });
+
+  // The other half of that rule, and the reason the name check is not simply the whole
+  // exclusion list: "internal" and "board" describe plenty of sensors that really are
+  // reporting the air. Widening the name match to cover them would silently empty the
+  // CLIMATE card for anyone who named their rig this way.
+  it('still accepts an air sensor whose NAME contains a hardware-internal word', () => {
+    for (const name of ['Internal Room Temp', 'Board Room Sensor', 'Chip Tent Probe']) {
+      const air = makeEntity('air-rig', {
+        id: 'air_temperature',
+        name,
+        objectId: 'temperature',
+        deviceClass: 'temperature',
+        unit: '°C'
+      });
+      expect(resolveClimateDevice(makeSnapshot([air]))?.nodeId, name).toBe('air-rig');
+    }
+  });
 });
 
 describe('isQuantumPpfd', () => {
