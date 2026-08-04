@@ -19,6 +19,15 @@ export interface Zone {
   /** MQTT node id of the TEROS probe in this zone ("substrate-a"), or null if unbound.
    *  Selects the calibration curve applied to its raw counts — see `$lib/substrate`. */
   substrateNodeId: string | null;
+  /** Threshold bands for the bound probe's readings. A null end is an open side.
+   *  VWC is a PERCENT here, matching every grower-facing surface; the reading it
+   *  bounds is m³/m³, so the two differ by 100x. */
+  vwcMinPct: number | null;
+  vwcMaxPct: number | null;
+  substrateTempMinC: number | null;
+  substrateTempMaxC: number | null;
+  pwecMin: number | null;
+  pwecMax: number | null;
   enabled: boolean;
   /** When true, the scheduler skips ALL of this zone's schedules (they stay configured and
    *  resume unchanged when un-paused). Manual runs are unaffected — that's the difference from
@@ -37,6 +46,12 @@ export interface ZoneCreate {
   emitterLph?: number | null;
   maxRunSeconds?: number;
   substrateNodeId?: string | null;
+  vwcMinPct?: number | null;
+  vwcMaxPct?: number | null;
+  substrateTempMinC?: number | null;
+  substrateTempMaxC?: number | null;
+  pwecMin?: number | null;
+  pwecMax?: number | null;
   enabled?: boolean;
   schedulesPaused?: boolean;
 }
@@ -53,6 +68,12 @@ interface ZoneRow {
   emitter_l_per_hr: number | null;
   max_run_seconds: number;
   substrate_node_id: string | null;
+  vwc_min_pct: number | null;
+  vwc_max_pct: number | null;
+  substrate_temp_min_c: number | null;
+  substrate_temp_max_c: number | null;
+  pwec_min: number | null;
+  pwec_max: number | null;
   enabled: number;
   schedules_paused: number;
   created_at: string;
@@ -70,6 +91,12 @@ function toZone(row: ZoneRow): Zone {
     emitterLph: row.emitter_l_per_hr,
     maxRunSeconds: row.max_run_seconds,
     substrateNodeId: row.substrate_node_id,
+    vwcMinPct: row.vwc_min_pct,
+    vwcMaxPct: row.vwc_max_pct,
+    substrateTempMinC: row.substrate_temp_min_c,
+    substrateTempMaxC: row.substrate_temp_max_c,
+    pwecMin: row.pwec_min,
+    pwecMax: row.pwec_max,
     enabled: Boolean(row.enabled),
     schedulesPaused: Boolean(row.schedules_paused),
     createdAt: row.created_at,
@@ -98,8 +125,9 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
   db.prepare(
     `INSERT INTO zones (id, name, station_sid, substrate_type, substrate_volume_ml, drippers,
        emitter_l_per_hr, max_run_seconds, substrate_node_id,
+       vwc_min_pct, vwc_max_pct, substrate_temp_min_c, substrate_temp_max_c, pwec_min, pwec_max,
        enabled, schedules_paused, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.name,
@@ -110,6 +138,12 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
     input.emitterLph ?? null,
     input.maxRunSeconds ?? 300,
     input.substrateNodeId ?? null,
+    input.vwcMinPct ?? null,
+    input.vwcMaxPct ?? null,
+    input.substrateTempMinC ?? null,
+    input.substrateTempMaxC ?? null,
+    input.pwecMin ?? null,
+    input.pwecMax ?? null,
     input.enabled === false ? 0 : 1,
     input.schedulesPaused === true ? 1 : 0,
     now,
@@ -132,6 +166,12 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     ...('emitterLph' in patch ? { emitterLph: patch.emitterLph ?? null } : {}),
     ...('maxRunSeconds' in patch ? { maxRunSeconds: patch.maxRunSeconds ?? existing.maxRunSeconds } : {}),
     ...('substrateNodeId' in patch ? { substrateNodeId: patch.substrateNodeId ?? null } : {}),
+    ...('vwcMinPct' in patch ? { vwcMinPct: patch.vwcMinPct ?? null } : {}),
+    ...('vwcMaxPct' in patch ? { vwcMaxPct: patch.vwcMaxPct ?? null } : {}),
+    ...('substrateTempMinC' in patch ? { substrateTempMinC: patch.substrateTempMinC ?? null } : {}),
+    ...('substrateTempMaxC' in patch ? { substrateTempMaxC: patch.substrateTempMaxC ?? null } : {}),
+    ...('pwecMin' in patch ? { pwecMin: patch.pwecMin ?? null } : {}),
+    ...('pwecMax' in patch ? { pwecMax: patch.pwecMax ?? null } : {}),
     ...('enabled' in patch ? { enabled: patch.enabled === true } : {}),
     ...('schedulesPaused' in patch ? { schedulesPaused: patch.schedulesPaused === true } : {}),
     updatedAt: new Date().toISOString()
@@ -140,7 +180,9 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
   db.prepare(
     `UPDATE zones SET name = ?, station_sid = ?, substrate_type = ?, substrate_volume_ml = ?,
        drippers = ?, emitter_l_per_hr = ?, max_run_seconds = ?,
-       substrate_node_id = ?, enabled = ?, schedules_paused = ?, updated_at = ? WHERE id = ?`
+       substrate_node_id = ?, vwc_min_pct = ?, vwc_max_pct = ?, substrate_temp_min_c = ?,
+       substrate_temp_max_c = ?, pwec_min = ?, pwec_max = ?,
+       enabled = ?, schedules_paused = ?, updated_at = ? WHERE id = ?`
   ).run(
     merged.name,
     merged.stationSid,
@@ -150,6 +192,12 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     merged.emitterLph,
     merged.maxRunSeconds,
     merged.substrateNodeId,
+    merged.vwcMinPct,
+    merged.vwcMaxPct,
+    merged.substrateTempMinC,
+    merged.substrateTempMaxC,
+    merged.pwecMin,
+    merged.pwecMax,
     merged.enabled ? 1 : 0,
     merged.schedulesPaused ? 1 : 0,
     merged.updatedAt,

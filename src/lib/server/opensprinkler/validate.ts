@@ -34,6 +34,33 @@ function optPositiveNumber(value: unknown, field: string): number | null {
   return n;
 }
 
+/**
+ * A threshold bound: any finite number inside `[lo, hi]`, or null for an open side.
+ * Distinct from optPositiveNumber because a bound may legitimately be zero (a pwEC
+ * floor of 0) or negative (a substrate temperature floor), both of which that helper
+ * rejects.
+ */
+function optBound(value: unknown, field: string, lo: number, hi: number): number | null {
+  if (value == null) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw new Error(`${field} must be a number`);
+  if (n < lo || n > hi) throw new Error(`${field} must be between ${lo} and ${hi}`);
+  return n;
+}
+
+/**
+ * A band whose ends cross is almost always a transposed pair of inputs, and it can
+ * never be satisfied — every reading would be both high and low at once. Rejecting it
+ * at the edge keeps that impossible state out of the store entirely.
+ *
+ * Equal ends are allowed: min == max is a degenerate but coherent "hold exactly here".
+ */
+function assertBand(min: number | null, max: number | null, label: string): void {
+  if (min != null && max != null && min > max) {
+    throw new Error(`${label} minimum (${min}) must not exceed its maximum (${max})`);
+  }
+}
+
 function optPositiveInt(value: unknown, field: string): number | null {
   const n = optPositiveNumber(value, field);
   if (n != null && !Number.isInteger(n)) throw new Error(`${field} must be a positive integer`);
@@ -51,6 +78,49 @@ function requireBoolean(value: unknown, field: string): boolean {
   return value;
 }
 
+/**
+ * The three substrate threshold bands. Ranges are the physically meaningful ones rather
+ * than the grower-plausible ones: VWC is a percentage so it cannot leave 0-100, and a
+ * pore EC below zero is not a reading. Temperature is left wide because a bound is a
+ * preference, not a measurement.
+ */
+const THRESHOLD_BANDS = [
+  { min: 'vwcMinPct', max: 'vwcMaxPct', label: 'VWC', lo: 0, hi: 100 },
+  { min: 'substrateTempMinC', max: 'substrateTempMaxC', label: 'Substrate temperature', lo: -40, hi: 60 },
+  { min: 'pwecMin', max: 'pwecMax', label: 'Pore EC', lo: 0, hi: 50 }
+] as const;
+
+/** Every bound, for a create — an absent one is an open side. */
+function zoneThresholds(body: Record<string, unknown>): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const band of THRESHOLD_BANDS) {
+    out[band.min] = optBound(body[band.min], band.min, band.lo, band.hi);
+    out[band.max] = optBound(body[band.max], band.max, band.lo, band.hi);
+    assertBand(out[band.min], out[band.max], band.label);
+  }
+  return out;
+}
+
+/**
+ * The bounds a PATCH touches, band by band.
+ *
+ * A band is patched as a unit: naming either end pulls in both, so the pair can be
+ * cross-checked without the validator needing to read what is already stored. Bands the
+ * body does not mention are left out of the patch entirely — the alternative, which this
+ * originally did, was to rebuild all six from the body and silently null the two bands
+ * the caller never mentioned.
+ */
+function zoneThresholdPatch(body: Record<string, unknown>): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const band of THRESHOLD_BANDS) {
+    if (!(band.min in body) && !(band.max in body)) continue;
+    out[band.min] = optBound(body[band.min], band.min, band.lo, band.hi);
+    out[band.max] = optBound(body[band.max], band.max, band.lo, band.hi);
+    assertBand(out[band.min], out[band.max], band.label);
+  }
+  return out;
+}
+
 export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
   return {
     name: requireName(body.name),
@@ -61,6 +131,7 @@ export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
     emitterLph: optPositiveNumber(body.emitterLph, 'emitterLph'),
     maxRunSeconds: body.maxRunSeconds == null ? 300 : requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds'),
     substrateNodeId: optString(body.substrateNodeId),
+    ...zoneThresholds(body),
     enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled'),
     schedulesPaused: body.schedulesPaused == null ? false : requireBoolean(body.schedulesPaused, 'schedulesPaused')
   };
@@ -76,6 +147,7 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('emitterLph' in body) patch.emitterLph = optPositiveNumber(body.emitterLph, 'emitterLph');
   if ('maxRunSeconds' in body) patch.maxRunSeconds = requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds');
   if ('substrateNodeId' in body) patch.substrateNodeId = optString(body.substrateNodeId);
+  Object.assign(patch, zoneThresholdPatch(body));
   if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
   if ('schedulesPaused' in body) patch.schedulesPaused = requireBoolean(body.schedulesPaused, 'schedulesPaused');
   return patch;

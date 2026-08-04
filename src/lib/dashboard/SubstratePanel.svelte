@@ -6,7 +6,9 @@
     poreEcGap,
     probeTabLabel,
     resolveSubstrateProbes,
+    type BandStatus,
     type PoreEcGap,
+    type SubstrateBand,
     type SubstrateProbe,
     type SubstrateZoneBinding
   } from '$lib/substrate';
@@ -43,6 +45,22 @@
   }
   function degrees(v: number | null): string {
     return v === null ? '—' : `${v.toFixed(1)} °C`;
+  }
+
+  // Out-of-band reads as an alert dot, in-band as ok, and no band at all stays neutral
+  // — an unbounded reading is not evidence that anything is fine.
+  function dot(status: BandStatus): string {
+    return status === 'ok' ? 'ok' : status === 'unknown' ? '' : 'alert';
+  }
+
+  // The band itself, shown next to the value so an alert says what it breached without
+  // needing the zone editor open. Rendered only when a bound exists.
+  function bandText(band: SubstrateBand, unit: string, digits: number): string | null {
+    const { min, max } = band;
+    if (min === null && max === null) return null;
+    const f = (v: number) => v.toFixed(digits);
+    if (min !== null && max !== null) return `${f(min)}–${f(max)} ${unit}`;
+    return min !== null ? `min ${f(min)} ${unit}` : `max ${f(max!)} ${unit}`;
   }
 
   let gap = $derived(active ? poreEcGap(active) : null);
@@ -83,8 +101,13 @@
     <div class="rows">
       <div class="row first">
         <span class="row-label">VWC</span>
-        <span class="row-value mono">{pct(active.readings.vwc)}</span>
-        <span class="dot" class:ok={active.readings.vwc !== null}></span>
+        <span class="row-value mono">
+          {pct(active.readings.vwc)}
+          {#if bandText(active.thresholds.vwcPct, '%', 0)}<span class="band"
+              >{bandText(active.thresholds.vwcPct, '%', 0)}</span
+            >{/if}
+        </span>
+        <span class="dot {dot(active.status.vwc)}"></span>
       </div>
 
       <!-- The number to steer on, and the reason this card exists: bulk EC below reads
@@ -94,11 +117,14 @@
         <span class="row-value mono">
           {#if active.readings.poreEc !== null}
             {ec(active.readings.poreEc)}
+            {#if bandText(active.thresholds.poreEc, '', 1)}<span class="band"
+                >{bandText(active.thresholds.poreEc, '', 1)}</span
+              >{/if}
           {:else}
             <span class="gap">— {gap ? GAP_TEXT[gap] : ''}</span>
           {/if}
         </span>
-        <span class="dot" class:ok={active.readings.poreEc !== null}></span>
+        <span class="dot {dot(active.status.poreEc)}"></span>
       </div>
 
       <div class="row">
@@ -109,8 +135,13 @@
 
       <div class="row">
         <span class="row-label">Temp</span>
-        <span class="row-value mono">{degrees(active.readings.temperatureC)}</span>
-        <span class="dot" class:ok={active.readings.temperatureC !== null}></span>
+        <span class="row-value mono">
+          {degrees(active.readings.temperatureC)}
+          {#if bandText(active.thresholds.temperatureC, '°C', 0)}<span class="band"
+              >{bandText(active.thresholds.temperatureC, '°C', 0)}</span
+            >{/if}
+        </span>
+        <span class="dot {dot(active.status.temperatureC)}"></span>
       </div>
     </div>
 
@@ -239,6 +270,13 @@
   .gap {
     color: var(--faint);
     font-size: 0.76rem;
+  }
+
+  .band {
+    margin-left: 8px;
+    font-size: 0.68rem;
+    color: var(--faint);
+    white-space: nowrap;
   }
 
   .foot {

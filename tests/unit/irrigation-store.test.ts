@@ -58,9 +58,46 @@ describe('substrate probe binding', () => {
     expect(updateZone(db, zone.id, { name: 'Tent A' })?.substrateNodeId).toBe('substrate-a');
   });
 
-  it('is at schema version 7', () => {
+  it('round-trips the threshold bands, with null meaning an open side', () => {
     const db = freshDb();
-    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(7);
+    const zone = createZone(db, {
+      name: '4x4',
+      stationSid: 0,
+      substrateNodeId: 'substrate-a',
+      vwcMinPct: 30,
+      vwcMaxPct: 60,
+      pwecMin: 2.5
+    });
+    expect(zone.vwcMinPct).toBe(30);
+    expect(zone.vwcMaxPct).toBe(60);
+    expect(zone.pwecMin).toBe(2.5);
+    expect(zone.pwecMax).toBeNull();
+    expect(zone.substrateTempMinC).toBeNull();
+
+    const cleared = updateZone(db, zone.id, { vwcMinPct: null });
+    expect(cleared?.vwcMinPct).toBeNull();
+    expect(cleared?.vwcMaxPct).toBe(60);
+  });
+
+  /** A zero bound is a real bound, not an absent one — the classic null/0 conflation. */
+  it('keeps a zero bound distinct from an unset one', () => {
+    const db = freshDb();
+    const zone = createZone(db, { name: '4x4', stationSid: 0, pwecMin: 0 });
+    expect(zone.pwecMin).toBe(0);
+    expect(zone.pwecMax).toBeNull();
+  });
+
+  it('survives a patch that does not mention the bands', () => {
+    const db = freshDb();
+    const zone = createZone(db, { name: '4x4', stationSid: 0, vwcMinPct: 30, vwcMaxPct: 60 });
+    const patched = updateZone(db, zone.id, { name: 'Tent A' });
+    expect(patched?.vwcMinPct).toBe(30);
+    expect(patched?.vwcMaxPct).toBe(60);
+  });
+
+  it('is at schema version 8', () => {
+    const db = freshDb();
+    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(8);
   });
 
   /** Migration 7 removed the placeholders the binding replaced. */

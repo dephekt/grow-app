@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
+import { describe, expect, it } from 'vitest';
+import { parseZoneCreate, parseZonePatch } from '../../src/lib/server/opensprinkler/validate';
+
+const base = { name: '4x4', stationSid: 0 };
+
+describe('substrate threshold validation', () => {
+  it('accepts a band, an open side, and no band at all', () => {
+    expect(parseZoneCreate({ ...base, vwcMinPct: 30, vwcMaxPct: 60 })).toMatchObject({
+      vwcMinPct: 30,
+      vwcMaxPct: 60
+    });
+    expect(parseZoneCreate({ ...base, vwcMinPct: 30 })).toMatchObject({ vwcMinPct: 30, vwcMaxPct: null });
+    expect(parseZoneCreate(base)).toMatchObject({ vwcMinPct: null, vwcMaxPct: null });
+  });
+
+  /**
+   * A crossed band is almost always a transposed pair of inputs, and it can never be
+   * satisfied — every reading would be both high and low at once. Rejecting it here
+   * keeps that impossible state out of the store entirely.
+   */
+  it('rejects a band whose ends cross', () => {
+    expect(() => parseZoneCreate({ ...base, vwcMinPct: 60, vwcMaxPct: 30 })).toThrow(/VWC/);
+    expect(() => parseZoneCreate({ ...base, substrateTempMinC: 30, substrateTempMaxC: 18 })).toThrow(
+      /temperature/i
+    );
+    expect(() => parseZoneCreate({ ...base, pwecMin: 6, pwecMax: 2 })).toThrow(/Pore EC/i);
+  });
+
+  it('allows a degenerate band whose ends are equal', () => {
+    expect(parseZoneCreate({ ...base, pwecMin: 3, pwecMax: 3 })).toMatchObject({ pwecMin: 3, pwecMax: 3 });
+  });
+
+  it('holds bounds to physically meaningful ranges', () => {
+    expect(() => parseZoneCreate({ ...base, vwcMinPct: -1 })).toThrow(/vwcMinPct/);
+    expect(() => parseZoneCreate({ ...base, vwcMaxPct: 101 })).toThrow(/vwcMaxPct/);
+    expect(() => parseZoneCreate({ ...base, pwecMin: -0.1 })).toThrow(/pwecMin/);
+    expect(() => parseZoneCreate({ ...base, substrateTempMinC: -80 })).toThrow(/substrateTempMinC/);
+  });
+
+  /** Zero is a real bound; optPositiveNumber would have rejected it. */
+  it('accepts a zero bound', () => {
+    expect(parseZoneCreate({ ...base, pwecMin: 0 })).toMatchObject({ pwecMin: 0 });
+    expect(parseZoneCreate({ ...base, vwcMinPct: 0 })).toMatchObject({ vwcMinPct: 0 });
+  });
+
+  it('rejects a non-numeric bound rather than coercing it', () => {
+    expect(() => parseZoneCreate({ ...base, vwcMinPct: 'wet' })).toThrow(/vwcMinPct/);
+  });
+
+  it('carries the bands through a patch', () => {
+    expect(parseZonePatch({ vwcMinPct: 30, vwcMaxPct: 60 })).toMatchObject({ vwcMinPct: 30, vwcMaxPct: 60 });
+    expect(parseZonePatch({ vwcMinPct: null })).toMatchObject({ vwcMinPct: null });
+  });
+
+  it('rejects a crossed band on a patch too', () => {
+    expect(() => parseZonePatch({ vwcMinPct: 60, vwcMaxPct: 30 })).toThrow(/VWC/);
+  });
+
+  /** A patch that mentions no band must not overwrite the stored ones with nulls. */
+  it('leaves the bands absent from a patch that does not mention them', () => {
+    const patch = parseZonePatch({ name: 'Tent A' });
+    expect('vwcMinPct' in patch).toBe(false);
+    expect('pwecMax' in patch).toBe(false);
+  });
+
+  /**
+   * Bands are independent. Rebuilding all six from the body would null the two the
+   * caller never mentioned, silently wiping a grower's pore-EC thresholds because they
+   * adjusted VWC.
+   */
+  it('patches one band without clearing the others', () => {
+    const patch = parseZonePatch({ vwcMinPct: 30, vwcMaxPct: 60 });
+    expect(patch).toMatchObject({ vwcMinPct: 30, vwcMaxPct: 60 });
+    expect('pwecMin' in patch).toBe(false);
+    expect('pwecMax' in patch).toBe(false);
+    expect('substrateTempMinC' in patch).toBe(false);
+  });
+
+  /** Naming one end pulls in the other so the pair can be cross-checked. */
+  it('treats a band as a unit when only one end is named', () => {
+    const patch = parseZonePatch({ vwcMaxPct: 60 });
+    expect(patch).toMatchObject({ vwcMinPct: null, vwcMaxPct: 60 });
+  });
+});

@@ -33,7 +33,13 @@ export const load = async ({ fetch }) => {
     const zones: SubstrateZoneBinding[] = (body.zones ?? []).map((z) => ({
       name: z.name,
       substrateType: z.substrateType,
-      substrateNodeId: z.substrateNodeId
+      substrateNodeId: z.substrateNodeId,
+      vwcMinPct: z.vwcMinPct,
+      vwcMaxPct: z.vwcMaxPct,
+      substrateTempMinC: z.substrateTempMinC,
+      substrateTempMaxC: z.substrateTempMaxC,
+      pwecMin: z.pwecMin,
+      pwecMax: z.pwecMax
     }));
     return { zones };
   } catch {
