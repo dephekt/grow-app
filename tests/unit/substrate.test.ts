@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   deriveReadings,
+  poreEcGap,
   hasSubstrateProbe,
   permittivityFromCounts,
   poreWaterEc,
@@ -184,6 +185,52 @@ describe('curve selection from the zone medium', () => {
     expect(substrateCurveFor(null)).toEqual({ curve: 'soilless', assumed: true });
     expect(substrateCurveFor('  ')).toEqual({ curve: 'soilless', assumed: true });
     expect(substrateCurveFor('something new')).toEqual({ curve: 'soilless', assumed: true });
+  });
+});
+
+describe('poreEcGap', () => {
+  const probe = (readings: Partial<import('../../src/lib/substrate').SubstrateReadings>, available = true) => ({
+    nodeId: 'substrate-a',
+    label: 'A',
+    deviceName: 'substrate-a',
+    zoneName: null,
+    available,
+    serial: null,
+    substrateType: null,
+    readings: {
+      counts: 2861.35,
+      temperatureC: 26.6,
+      bulkEc: 0.025,
+      vwc: 0.47,
+      poreEc: null,
+      permittivity: 24.1,
+      curve: 'soilless' as const,
+      curveAssumed: true,
+      ...readings
+    }
+  });
+
+  it('says nothing when pore EC derived fine', () => {
+    expect(poreEcGap(probe({ poreEc: 0.097 }))).toBeNull();
+  });
+
+  it('distinguishes offline from a missing reading', () => {
+    expect(poreEcGap(probe({}, false))).toBe('offline');
+    expect(poreEcGap(probe({ counts: null }))).toBe('no-reading');
+    expect(poreEcGap(probe({ temperatureC: null }))).toBe('no-reading');
+  });
+
+  it('distinguishes a probe with no EC electrode from a dry one', () => {
+    expect(poreEcGap(probe({ bulkEc: null }))).toBe('no-bulk-ec');
+    expect(poreEcGap(probe({ vwc: 0.05 }))).toBe('too-dry');
+  });
+
+  /**
+   * A conductivity below zero is a broken electrode, not a dry pot. Reporting it as
+   * "too dry" would send someone to irrigate a probe that needs replacing.
+   */
+  it('calls a negative bulk EC a bad reading rather than a dry pot', () => {
+    expect(poreEcGap(probe({ bulkEc: -0.1 }))).toBe('bad-bulk-ec');
   });
 });
 

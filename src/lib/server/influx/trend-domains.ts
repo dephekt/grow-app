@@ -130,13 +130,6 @@ export function resolveDomainSeries(
 }
 
 /**
- * Turn queried points into the series the client charts.
- *
- * Every domain but substrate is a pass-through — its specs already name what to plot.
- * Substrate derives, because what a grower reads (water content, pore EC) is computed
- * from what the sensor stores (counts, temperature, bulk EC).
- */
-/**
  * Reads a change-point series as the step function it is: the value at time `t` is the
  * last one recorded at or before `t`.
  *
@@ -172,6 +165,13 @@ function stepSeries(points: readonly TrendPoint[]): (t: string) => number | null
   };
 }
 
+/**
+ * Turn queried points into the series the client charts.
+ *
+ * Every domain but substrate is a pass-through — its specs already name what to plot.
+ * Substrate derives, because what a grower reads (water content, pore EC) is computed
+ * from what the sensor stores (counts, temperature, bulk EC).
+ */
 export function assembleDomainSeries(
   snapshot: Snapshot,
   domain: TrendDomain,
@@ -197,15 +197,17 @@ export function assembleDomainSeries(
 
     // Water content is a pointwise function of counts alone, so it charts wherever the
     // sensor recorded — no join, no dropped buckets.
-    series.push({
-      key: `${probe.nodeId}:vwc`,
-      label: qualify('VWC', probeLabel),
-      unit: '%',
-      points: counts.flatMap((p) => {
-        const vwc = deriveReadings({ counts: p.v, temperatureC: null, bulkEc: null }, curve).vwc;
-        return vwc === null ? [] : [{ t: p.t, v: vwc * 100 }];
-      })
+    const vwc = counts.flatMap((p) => {
+      const derived = deriveReadings({ counts: p.v, temperatureC: null, bulkEc: null }, curve).vwc;
+      return derived === null ? [] : [{ t: p.t, v: derived * 100 }];
     });
+    // Every count can still be rejected — a stale retained payload from an older build
+    // sits outside the sensor's range. Emitting the series anyway would put a legend
+    // entry on the chart with nothing behind it, which the pore-EC path below already
+    // avoids; the two must agree on what an unplottable series looks like.
+    if (vwc.length > 0) {
+      series.push({ key: `${probe.nodeId}:vwc`, label: qualify('VWC', probeLabel), unit: '%', points: vwc });
+    }
 
     // Pore EC needs counts, temperature and bulk EC together, and they are NOT recorded
     // at the same cadence: the publisher skips a state write when the payload has not

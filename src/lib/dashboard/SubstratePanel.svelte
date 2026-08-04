@@ -31,6 +31,7 @@
     offline: 'probe offline',
     'no-reading': 'awaiting reading',
     'no-bulk-ec': 'probe reports no EC',
+    'bad-bulk-ec': 'EC reading invalid',
     'too-dry': 'too dry to derive'
   };
 

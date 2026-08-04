@@ -350,7 +350,7 @@ export function probeTabLabel(probe: SubstrateProbe): string {
 }
 
 /** Why pore-water EC is missing, so the card can say so rather than show a bare dash. */
-export type PoreEcGap = 'offline' | 'no-reading' | 'no-bulk-ec' | 'too-dry';
+export type PoreEcGap = 'offline' | 'no-reading' | 'no-bulk-ec' | 'bad-bulk-ec' | 'too-dry';
 
 export function poreEcGap(probe: SubstrateProbe): PoreEcGap | null {
   const { readings } = probe;
@@ -359,5 +359,9 @@ export function poreEcGap(probe: SubstrateProbe): PoreEcGap | null {
   if (readings.counts === null || readings.temperatureC === null) return 'no-reading';
   // A TEROS 11 has no EC electrode at all, so the entity never reports.
   if (readings.bulkEc === null) return 'no-bulk-ec';
+  // A conductivity below zero is not a dry pot, it is a broken electrode, and
+  // poreWaterEc refuses it for that reason. Letting it fall through to "too dry"
+  // would send someone to irrigate a probe that needs replacing.
+  if (readings.bulkEc < 0) return 'bad-bulk-ec';
   return 'too-dry';
 }

@@ -238,6 +238,20 @@ describe('substrate trend domain', () => {
     expect(mineral[0].points[0].v).toBeCloseTo(41.4, 1);
   });
 
+  /**
+   * Counts outside the sensor's range — a stale retained payload from an older build —
+   * derive to nothing. Emitting the series anyway would put a legend entry on the chart
+   * with no line behind it, which the pore-EC path already avoids.
+   */
+  it('omits a VWC series whose every count was rejected', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 99999 }, { t: T1, v: -5 }]]
+    ]);
+    expect(assembleDomainSeries(snapshot, 'substrate', specs, points)).toEqual([]);
+  });
+
   it('charts nothing for a probe with no recorded counts', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
