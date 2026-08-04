@@ -216,12 +216,19 @@ export function bandStatus(value: number | null, band: SubstrateBand | undefined
   return 'ok';
 }
 
-/** The single place m³/m³ becomes percent, rounded to what the card prints. */
-export const VWC_DISPLAY_DIGITS = 1;
+/** Digits each row prints at, shared with the card so one edit moves display and status together. */
+export const DISPLAY_DIGITS = { vwc: 1, temperatureC: 1, poreEc: 2 } as const;
 
+/** A reading at the precision the card prints it, so a dot cannot contradict the number beside it. */
+export function atDisplayPrecision(value: number | null, digits: number): number | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return Number(value.toFixed(digits));
+}
+
+/** The single place m³/m³ becomes percent. */
 export function vwcPercent(vwc: number | null): number | null {
   if (vwc === null || !Number.isFinite(vwc)) return null;
-  return Number((vwc * 100).toFixed(VWC_DISPLAY_DIGITS));
+  return atDisplayPrecision(vwc * 100, DISPLAY_DIGITS.vwc);
 }
 
 /** The zone fields this module needs, structurally — so it never imports server code. */
@@ -384,8 +391,11 @@ export function resolveSubstrateProbes(
       thresholds,
       status: {
         vwc: bandStatus(vwcPercent(readings.vwc), thresholds.vwcPct),
-        temperatureC: bandStatus(readings.temperatureC, thresholds.temperatureC),
-        poreEc: bandStatus(readings.poreEc, thresholds.poreEc)
+        temperatureC: bandStatus(
+          atDisplayPrecision(readings.temperatureC, DISPLAY_DIGITS.temperatureC),
+          thresholds.temperatureC
+        ),
+        poreEc: bandStatus(atDisplayPrecision(readings.poreEc, DISPLAY_DIGITS.poreEc), thresholds.poreEc)
       }
     });
   }

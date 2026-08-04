@@ -3,7 +3,9 @@
 
 <script lang="ts">
   import {
+    DISPLAY_DIGITS,
     poreEcGap,
+    vwcPercent,
     probeTabLabel,
     resolveSubstrateProbes,
     type BandStatus,
@@ -38,13 +40,14 @@
   };
 
   function pct(v: number | null): string {
-    return v === null ? '—' : `${(v * 100).toFixed(1)} %`;
+    const p = vwcPercent(v);
+    return p === null ? '—' : `${p.toFixed(DISPLAY_DIGITS.vwc)} %`;
   }
   function ec(v: number | null): string {
-    return v === null ? '—' : `${v.toFixed(2)} mS/cm`;
+    return v === null ? '—' : `${v.toFixed(DISPLAY_DIGITS.poreEc)} mS/cm`;
   }
   function degrees(v: number | null): string {
-    return v === null ? '—' : `${v.toFixed(1)} °C`;
+    return v === null ? '—' : `${v.toFixed(DISPLAY_DIGITS.temperatureC)} °C`;
   }
 
   // With a band the dot means in-band; without one it falls back to liveness.
@@ -63,9 +66,9 @@
   }
 
   let gap = $derived(active ? poreEcGap(active) : null);
-  let vwcBand = $derived(active ? bandText(active.thresholds.vwcPct, '%', 1) : null);
-  let poreBand = $derived(active ? bandText(active.thresholds.poreEc, 'mS/cm', 2) : null);
-  let tempBand = $derived(active ? bandText(active.thresholds.temperatureC, '°C', 1) : null);
+  let vwcBand = $derived(active ? bandText(active.thresholds.vwcPct, '%', DISPLAY_DIGITS.vwc) : null);
+  let poreBand = $derived(active ? bandText(active.thresholds.poreEc, 'mS/cm', DISPLAY_DIGITS.poreEc) : null);
+  let tempBand = $derived(active ? bandText(active.thresholds.temperatureC, '°C', DISPLAY_DIGITS.temperatureC) : null);
   let badge = $derived(
     probes.length === 0 ? 'NOT CONNECTED' : active && !active.available ? 'OFFLINE' : null
   );

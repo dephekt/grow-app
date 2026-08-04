@@ -3,6 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  DISPLAY_DIGITS,
+  atDisplayPrecision,
   bandStatus,
   deriveReadings,
   vwcPercent,
@@ -236,13 +238,29 @@ describe('bandStatus', () => {
     expect(bandStatus(39, band)).toBe('low');
   });
 
-  /** A reading that PRINTS as its bound must not be judged against the unrounded
-   *  product: 0.299999... renders "30.0 %" and would otherwise read low. */
+  /** Every row is judged at the precision it prints, so a dot cannot contradict the
+   *  number beside it — pwEC 1.999 renders "2.00" and must not read low against a 2.0 floor. */
+  it('compares every row at the precision the card prints', () => {
+    const probes = resolveSubstrateProbes(
+      makeSnapshot(probeEntities('substrate-a'), {
+        ...liveStates,
+        'substrate-a_substrate_temperature': '23.999'
+      }),
+      [{ name: '4x4', substrateType: 'Coco', substrateNodeId: 'substrate-a', substrateTempMaxC: 24 }]
+    );
+    // 23.999 prints as "24.0 °C"; judged raw it would read ok, judged as printed it is high.
+    expect(probes[0].status.temperatureC).toBe('high');
+  });
+
   it('compares VWC at the precision the card prints', () => {
     expect(vwcPercent(0.29999999999)).toBe(30);
     expect(vwcPercent(0.47)).toBe(47);
     expect(bandStatus(vwcPercent(0.30000000000000004), { min: 30, max: 60 })).toBe('low');
     expect(bandStatus(vwcPercent(0.3049), { min: 30, max: 60 })).toBe('ok');
+    // pwEC prints at 2 decimals, temperature at 1.
+    expect(atDisplayPrecision(1.999, DISPLAY_DIGITS.poreEc)).toBe(2);
+    expect(atDisplayPrecision(23.999, DISPLAY_DIGITS.temperatureC)).toBe(24);
+    expect(bandStatus(atDisplayPrecision(1.999, DISPLAY_DIGITS.poreEc), { min: 2, max: 6 })).toBe('low');
   });
 });
 
