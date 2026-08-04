@@ -58,9 +58,41 @@ describe('substrate probe binding', () => {
     expect(updateZone(db, zone.id, { name: 'Tent A' })?.substrateNodeId).toBe('substrate-a');
   });
 
-  it('is at schema version 6', () => {
+  it('is at schema version 7', () => {
     const db = freshDb();
-    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(6);
+    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(7);
+  });
+
+  /** Migration 7 removed the placeholders the binding replaced. */
+  it('no longer carries the vwc/pwec entity columns', () => {
+    const db = freshDb();
+    const columns = (db.prepare('PRAGMA table_info(zones)').all() as unknown as { name: string }[]).map((c) => c.name);
+    expect(columns).toContain('substrate_node_id');
+    expect(columns).not.toContain('vwc_entity_id');
+    expect(columns).not.toContain('pwec_entity_id');
+  });
+
+  /** The drop runs against a table migration 1 created with rows in it, so the rest of
+   *  a zone must survive it. */
+  it('keeps every other zone field across the drop', () => {
+    const db = freshDb();
+    const zone = createZone(db, {
+      name: 'Tent 1',
+      stationSid: 3,
+      substrateType: 'Coco',
+      substrateVolumeMl: 4000,
+      drippers: 2,
+      emitterLph: 2,
+      substrateNodeId: 'substrate-a'
+    });
+    const read = getZone(db, zone.id)!;
+    expect(read.name).toBe('Tent 1');
+    expect(read.stationSid).toBe(3);
+    expect(read.substrateType).toBe('Coco');
+    expect(read.substrateVolumeMl).toBe(4000);
+    expect(read.drippers).toBe(2);
+    expect(read.emitterLph).toBe(2);
+    expect(read.substrateNodeId).toBe('substrate-a');
   });
 });
 

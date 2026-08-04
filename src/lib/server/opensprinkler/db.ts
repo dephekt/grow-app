@@ -109,10 +109,26 @@ const MIGRATIONS: string[] = [
   // names a device on the broker, which this database knows nothing about.
   //
   // NOT a rename of the older vwc_entity_id / pwec_entity_id columns. Those predate the
-  // decision to derive water content here rather than read it from firmware, and are
-  // left untouched for a separate cleanup.
+  // decision to derive water content here rather than read it from firmware; migration 7
+  // drops them.
   `
   ALTER TABLE zones ADD COLUMN substrate_node_id TEXT;
+  `,
+  // 7 — drop vwc_entity_id / pwec_entity_id. They date from migration 1, when the plan
+  // was for a probe to publish water content and pore EC as entities and for a zone to
+  // name which ones were its own. The publisher ships raw counts instead and this app
+  // derives both against the zone's medium, so there is nothing to point at: the
+  // binding is substrate_node_id (migration 6) and the reading is computed, not
+  // referenced. Nothing has ever read these columns and both are NULL in every
+  // deployment.
+  //
+  // The only destructive migration here, hence the note: rolling the image back past
+  // this point leaves older code inserting columns that no longer exist, which fails
+  // zone writes (reads are unaffected). Data loss is not the risk — the columns are
+  // empty — the older schema expectation is.
+  `
+  ALTER TABLE zones DROP COLUMN vwc_entity_id;
+  ALTER TABLE zones DROP COLUMN pwec_entity_id;
   `
 ];
 

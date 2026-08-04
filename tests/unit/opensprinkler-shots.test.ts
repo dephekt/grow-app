@@ -21,8 +21,6 @@ function zone(overrides: Partial<Zone> = {}): Zone {
     drippers: 2,
     emitterLph: 2, // L/hr (canonical)
     maxRunSeconds: 300,
-    vwcEntityId: null,
-    pwecEntityId: null,
     substrateNodeId: null,
     enabled: true,
     schedulesPaused: false,
