@@ -67,6 +67,9 @@
     const yScale = s[0]?.unit || s[0]?.key || 'y';
     const mono = '11px "IBM Plex Mono", ui-monospace, monospace';
 
+    // A comparison series rides its subject's colour, so the dash is what tells them apart.
+    const indexByKey = new Map(s.map((ser, i) => [ser.key, i]));
+
     return {
       width,
       height,
@@ -74,14 +77,18 @@
       legend: { live: true },
       series: [
         {},
-        ...s.map((ser, i) => ({
-          label: ser.unit ? `${ser.label} (${ser.unit})` : ser.label,
-          scale: ser.unit || ser.key,
-          stroke: colors[i % colors.length],
-          width: 1.5,
-          points: { show: false },
-          spanGaps: true
-        }))
+        ...s.map((ser, i) => {
+          const subjectIndex = ser.compareOf === undefined ? undefined : indexByKey.get(ser.compareOf);
+          return {
+            label: ser.unit ? `${ser.label} (${ser.unit})` : ser.label,
+            scale: ser.unit || ser.key,
+            stroke: colors[(subjectIndex ?? i) % colors.length],
+            dash: subjectIndex === undefined ? undefined : [4, 4],
+            width: 1.5,
+            points: { show: false },
+            spanGaps: true
+          };
+        })
       ],
       axes: [
         { stroke: axisColor, grid: { stroke: grid, width: 1 }, ticks: { stroke: grid, width: 1 }, font: mono },

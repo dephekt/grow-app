@@ -198,6 +198,55 @@ describe('substrate trend domain', () => {
     expect(pwec.points[3].v).toBeCloseTo(pwec.points[2].v, 10);
   });
 
+  /**
+   * The comparison series ships whether or not the dashboard is showing it, so flipping the
+   * toggle is a client-side filter rather than a refetch.
+   */
+  it('carries the coir pore EC beside the committed one, pointing back at it', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
+      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
+      ['substrate-a:substrate_bulk_ec', [{ t: T0, v: 0.025 }]]
+    ]);
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
+
+    const coir = series.find((s) => s.key === 'substrate-a:pwec-coir');
+    expect(coir?.compareOf).toBe('substrate-a:pwec');
+    expect(coir?.label).toBe('pwEC coir');
+    expect(coir?.unit).toBe('mS/cm');
+    // A smaller offset leaves a bigger denominator, so it tracks about 11 % below.
+    expect(coir?.points[0].v).toBeCloseTo(0.0866, 4);
+
+    // Only the comparison series is filterable; nothing else carries `compareOf`.
+    expect(series.filter((s) => s.compareOf !== undefined).map((s) => s.key)).toEqual(['substrate-a:pwec-coir']);
+  });
+
+  it('names the comparison after its probe too, once there is more than one', () => {
+    const snapshot = substrateSnapshot(['substrate-a', 'substrate-b']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
+      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
+      ['substrate-a:substrate_bulk_ec', [{ t: T0, v: 0.025 }]],
+      ['substrate-b:substrate_raw_counts', [{ t: T0, v: 2700 }]]
+    ]);
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
+    expect(series.find((s) => s.key === 'substrate-a:pwec-coir')?.label).toBe('A pwEC coir');
+  });
+
+  it('charts no comparison where the committed pore EC never derived', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
+      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]]
+    ]);
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
+    expect(series.find((s) => s.key === 'substrate-a:pwec-coir')).toBeUndefined();
+  });
+
   it('charts no pore EC when a series was never recorded at all', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');

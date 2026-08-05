@@ -4,9 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   DISPLAY_DIGITS,
+  PORE_EC_OFFSETS,
   atDisplayPrecision,
   bandStatus,
   deriveReadings,
+  poreEcCompareDeltaPct,
   vwcPercent,
   poreEcGap,
   hasSubstrateProbe,
@@ -280,6 +282,7 @@ describe('poreEcGap', () => {
       bulkEc: 0.025,
       vwc: 0.47,
       poreEc: null,
+      poreEcCoir: null,
       permittivity: 24.1,
       curve: 'soilless' as const,
       curveAssumed: true,
@@ -326,6 +329,80 @@ describe('deriveReadings', () => {
     const r = deriveReadings({ ...LIVE, bulkEc: null }, { curve: 'soilless', assumed: false });
     expect(r.vwc).toBeCloseTo(0.473, 2);
     expect(r.poreEc).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The coir εσb=0 carried alongside the committed one
+// ---------------------------------------------------------------------------
+
+describe('pore EC offset comparison', () => {
+  const soilless = { curve: 'soilless' as const, assumed: false };
+
+  it('commits to the generic offset and carries the coir one beside it', () => {
+    expect(PORE_EC_OFFSETS.committed.value).toBe(4.1);
+    expect(PORE_EC_OFFSETS.coir.value).toBe(1.64);
+  });
+
+  /** Hilhorst by hand at the live sample, so a swapped offset shows up as a mismatch. */
+  it('divides by (εb − offset) for whichever offset it is given', () => {
+    const permittivity = permittivityFromCounts(LIVE.counts)!;
+    const water = 80.3 - 0.37 * (LIVE.temperatureC - 20);
+    const args = { bulkEc: LIVE.bulkEc, permittivity, temperatureC: LIVE.temperatureC, vwc: 0.47 };
+
+    expect(poreWaterEc({ ...args, offset: 4.1 })).toBeCloseTo((water * LIVE.bulkEc) / (permittivity - 4.1), 10);
+    expect(poreWaterEc({ ...args, offset: 1.64 })).toBeCloseTo((water * LIVE.bulkEc) / (permittivity - 1.64), 10);
+  });
+
+  it('defaults to the committed offset when none is named', () => {
+    const permittivity = permittivityFromCounts(LIVE.counts)!;
+    const args = { bulkEc: LIVE.bulkEc, permittivity, temperatureC: LIVE.temperatureC, vwc: 0.47 };
+    expect(poreWaterEc(args)).toBe(poreWaterEc({ ...args, offset: PORE_EC_OFFSETS.committed.value }));
+  });
+
+  /** A smaller offset leaves a bigger denominator, so the coir reading always sits lower. */
+  it('reads lower than the committed value at the live sample', () => {
+    const r = deriveReadings(LIVE, soilless);
+    expect(r.poreEc).toBeCloseTo(0.097, 3);
+    expect(r.poreEcCoir).toBeLessThan(r.poreEc!);
+    expect(poreEcCompareDeltaPct(r)).toBeCloseTo(-11, 0);
+  });
+
+  /** The offset is the pole the model divides by, so the headroom gate moves with it. */
+  it('gates each offset against its own pole', () => {
+    const permittivity = 4.6;
+    const args = { bulkEc: 0.5, permittivity, temperatureC: 20, vwc: 0.2 };
+    expect(poreWaterEc({ ...args, offset: 4.1 })).toBeNull();
+    expect(poreWaterEc({ ...args, offset: 1.64 })).not.toBeNull();
+  });
+
+  /**
+   * Between roughly 12 % and 23 % VWC the committed offset is already past its pole while
+   * the coir one is not, and Hilhorst there returns tens of mS/cm the model cannot support.
+   * Deriving it anyway would put nonsense on the card during exactly the dryback someone
+   * turned the comparison on to watch.
+   */
+  it('withholds the comparison wherever the committed reading does not derive', () => {
+    for (let counts = 1900; counts <= 2055; counts += 5) {
+      const r = deriveReadings({ counts, temperatureC: 22, bulkEc: 1.2 }, soilless);
+      expect(r.poreEc).toBeNull();
+      expect(r.poreEcCoir).toBeNull();
+    }
+    // Just the other side of it both derive again, and the comparison reads lower as always.
+    const wet = deriveReadings({ counts: 2100, temperatureC: 22, bulkEc: 1.2 }, soilless);
+    expect(wet.poreEc).not.toBeNull();
+    expect(wet.poreEcCoir).toBeLessThan(wet.poreEc!);
+  });
+
+  it('reports no delta when the committed reading is missing', () => {
+    expect(poreEcCompareDeltaPct(deriveReadings({ ...LIVE, bulkEc: null }, soilless))).toBeNull();
+  });
+
+  /** Zero bulk EC drives both readings to zero, and a percentage off zero is meaningless. */
+  it('reports no delta when the committed reading is zero', () => {
+    const r = deriveReadings({ ...LIVE, bulkEc: 0 }, soilless);
+    expect(r.poreEc).toBe(0);
+    expect(poreEcCompareDeltaPct(r)).toBeNull();
   });
 });
 
