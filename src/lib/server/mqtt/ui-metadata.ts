@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import type { DeviceUiConfig, DeviceUiEntity, DeviceUiGroup, DeviceUiSchema } from './types';
+import type { DeviceUiConfig, DeviceUiEntity, DeviceUiGroup } from './types';
 import { numberValue, stringValue } from './coerce';
 
 export interface ParsedUiConfig {
@@ -126,7 +126,7 @@ export function parseUiConfigPayload(topic: string, payloadText: string, topicPr
   return {
     nodeId,
     config: {
-      schema: schema as DeviceUiSchema,
+      schema,
       nodeId,
       groups,
       entities
