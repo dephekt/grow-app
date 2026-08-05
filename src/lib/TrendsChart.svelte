@@ -78,12 +78,12 @@
       series: [
         {},
         ...s.map((ser, i) => {
-          const shadows = ser.compareOf === undefined ? undefined : indexByKey.get(ser.compareOf);
+          const subjectIndex = ser.compareOf === undefined ? undefined : indexByKey.get(ser.compareOf);
           return {
             label: ser.unit ? `${ser.label} (${ser.unit})` : ser.label,
             scale: ser.unit || ser.key,
-            stroke: colors[(shadows ?? i) % colors.length],
-            dash: shadows === undefined ? undefined : [4, 4],
+            stroke: colors[(subjectIndex ?? i) % colors.length],
+            dash: subjectIndex === undefined ? undefined : [4, 4],
             width: 1.5,
             points: { show: false },
             spanGaps: true
