@@ -4,6 +4,8 @@
 <script lang="ts">
   import {
     DISPLAY_DIGITS,
+    PORE_EC_OFFSETS,
+    poreEcCompareDeltaPct,
     poreEcGap,
     vwcPercent,
     probeTabLabel,
@@ -14,6 +16,8 @@
     type SubstrateProbe,
     type SubstrateZoneBinding
   } from '$lib/substrate';
+  import { poreEcCompare } from '$lib/substrate-compare.svelte';
+  import PoreEcCompareToggle from '$lib/dashboard/PoreEcCompareToggle.svelte';
   import type { Snapshot } from '$lib/server/mqtt/types';
 
   // Values are formatted here at the sensor's own resolution; the publisher declares the
@@ -70,6 +74,12 @@
   let badge = $derived(
     probes.length === 0 ? 'NOT CONNECTED' : active && !active.available ? 'OFFLINE' : null
   );
+
+  let deltaPct = $derived(active ? poreEcCompareDeltaPct(active.readings) : null);
+  // Signed so the comparison reads as a shift off the committed number, not a bare percentage.
+  function signedPct(v: number | null): string {
+    return v === null ? '' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(0)} %`;
+  }
 </script>
 
 <div class="panel readout-panel" class:planned={probes.length === 0}>
@@ -77,6 +87,7 @@
     <span class="title-unit"><span class="panel-title">// SUBSTRATE</span></span>
     <div class="head-right">
       {#if active}<span class="device-id mono">{active.nodeId}</span>{/if}
+      {#if probes.length > 0}<PoreEcCompareToggle />{/if}
       {#if badge}<span class="badge mono" class:muted={badge === 'OFFLINE'}>{badge}</span>{/if}
     </div>
   </div>
@@ -123,6 +134,18 @@
           {/if}
         </span>
         <span class="dot {dot(active.status.poreEc, active.readings.poreEc !== null)}"></span>
+
+        {#if poreEcCompare.enabled}
+          <span class="compare-label mono">{PORE_EC_OFFSETS.coir.label} ε₀ {PORE_EC_OFFSETS.coir.value}</span>
+          <span class="compare-value mono">
+            {#if active.readings.poreEcCoir !== null}
+              {ec(active.readings.poreEcCoir)}
+              {#if deltaPct !== null}<span class="delta">{signedPct(deltaPct)}</span>{/if}
+            {:else}
+              —
+            {/if}
+          </span>
+        {/if}
       </div>
 
       <div class="row">
@@ -146,6 +169,11 @@
       {active.readings.curve}{#if active.readings.curveAssumed}<span class="assumed"> · assumed</span
         >{:else}
         · from {active.substrateType}{/if}
+      {#if poreEcCompare.enabled}
+        <br />
+        <span class="foot-key">ε₀ {PORE_EC_OFFSETS.coir.value}</span>
+        {PORE_EC_OFFSETS.coir.source} · comparison only, bands still follow {PORE_EC_OFFSETS.committed.value}
+      {/if}
     </p>
   {/if}
 </div>
@@ -264,6 +292,24 @@
   .gap {
     color: var(--faint);
     font-size: 0.76rem;
+  }
+
+  /* The comparison sits on a second grid row under pwEC, tinted to read as an aside. */
+  .compare-label,
+  .compare-value {
+    font-size: 0.68rem;
+    color: var(--cyan);
+    opacity: 0.85;
+  }
+  .compare-label {
+    letter-spacing: 0.04em;
+  }
+  .compare-value {
+    text-align: right;
+  }
+  .delta {
+    margin-left: 8px;
+    color: var(--faint);
   }
 
   .band {

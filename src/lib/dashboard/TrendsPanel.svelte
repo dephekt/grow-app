@@ -3,6 +3,8 @@
 
 <script lang="ts">
   import TrendsChart from '$lib/TrendsChart.svelte';
+  import PoreEcCompareToggle from '$lib/dashboard/PoreEcCompareToggle.svelte';
+  import { poreEcCompare } from '$lib/substrate-compare.svelte';
   import { DEFAULT_TREND_DOMAIN, TREND_DOMAINS, type TrendDomain, type TrendSeries } from '$lib/trends';
 
   const RANGES = ['1h', '3h', '6h', '12h', '24h'] as const;
@@ -14,6 +16,11 @@
 
   let activeDomain = $derived(TREND_DOMAINS.find((d) => d.key === domain));
   let isPlanned = $derived(activeDomain?.planned ?? false);
+
+  // The comparison series always comes down with the response, so the toggle costs no refetch.
+  let charted = $derived(
+    poreEcCompare.enabled ? series : series.filter((s: TrendSeries) => s.compareOf === undefined)
+  );
 
   // Refetch on domain or range change, race-guarded so a slow earlier request can't
   // clobber the latest selection. A `planned` domain (e.g. substrate) is a static
@@ -47,10 +54,13 @@
         <button type="button" class:active={d.key === domain} onclick={() => (domain = d.key)}>{d.label}</button>
       {/each}
     </div>
-    <div class="range-pills">
-      {#each RANGES as r (r)}
-        <button type="button" class:active={r === range} onclick={() => (range = r)}>{r}</button>
-      {/each}
+    <div class="head-controls">
+      {#if domain === 'substrate'}<PoreEcCompareToggle compact />{/if}
+      <div class="range-pills">
+        {#each RANGES as r (r)}
+          <button type="button" class:active={r === range} onclick={() => (range = r)}>{r}</button>
+        {/each}
+      </div>
     </div>
   </div>
 
@@ -60,7 +70,7 @@
       <p>{activeDomain?.label} trends appear once its probe is connected.</p>
     </div>
   {:else}
-    <TrendsChart {series} height={300} />
+    <TrendsChart series={charted} height={300} />
   {/if}
 </div>
 
@@ -96,6 +106,12 @@
     color: var(--amber);
     border-color: var(--amber);
     background: var(--amber-dim);
+  }
+
+  .head-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .range-pills {

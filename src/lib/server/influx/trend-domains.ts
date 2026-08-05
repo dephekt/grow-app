@@ -11,6 +11,7 @@ import {
 } from '$lib/entity-match';
 import { type TrendDomain, type TrendPoint, type TrendSeries } from '$lib/trends';
 import {
+  PORE_EC_OFFSETS,
   SUBSTRATE_BULK_EC,
   SUBSTRATE_COUNTS,
   SUBSTRATE_TEMPERATURE,
@@ -176,15 +177,32 @@ export function assembleDomainSeries(
     // cadences and an equal-timestamp join would intersect to almost nothing.
     const temps = stepSeries(pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_TEMPERATURE}`) ?? []);
     const bulk = stepSeries(pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_BULK_EC}`) ?? []);
-    const poreEc = counts.flatMap((p) => {
+    const derived = counts.flatMap((p) => {
       const temperatureC = temps(p.t);
       const bulkEc = bulk(p.t);
       if (temperatureC === null || bulkEc === null) return [];
-      const derived = deriveReadings({ counts: p.v, temperatureC, bulkEc }, curve).poreEc;
-      return derived === null ? [] : [{ t: p.t, v: derived }];
+      return [{ t: p.t, readings: deriveReadings({ counts: p.v, temperatureC, bulkEc }, curve) }];
     });
+
+    const poreEcKey = `${probe.nodeId}:pwec`;
+    const poreEc = derived.flatMap((d) => (d.readings.poreEc === null ? [] : [{ t: d.t, v: d.readings.poreEc }]));
     if (poreEc.length > 0) {
-      series.push({ key: `${probe.nodeId}:pwec`, label: qualify('pwEC', probeLabel), unit: 'mS/cm', points: poreEc });
+      series.push({ key: poreEcKey, label: qualify('pwEC', probeLabel), unit: 'mS/cm', points: poreEc });
+    }
+
+    // Emitted whether or not the comparison is switched on, so flipping it is a client-side
+    // filter rather than a refetch.
+    const poreEcCoir = derived.flatMap((d) =>
+      d.readings.poreEcCoir === null ? [] : [{ t: d.t, v: d.readings.poreEcCoir }]
+    );
+    if (poreEc.length > 0 && poreEcCoir.length > 0) {
+      series.push({
+        key: `${probe.nodeId}:pwec-coir`,
+        label: qualify(`pwEC ${PORE_EC_OFFSETS.coir.label}`, probeLabel),
+        unit: 'mS/cm',
+        points: poreEcCoir,
+        compareOf: poreEcKey
+      });
     }
   }
   return series;

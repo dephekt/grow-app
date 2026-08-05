@@ -31,13 +31,30 @@ function cubic(c: readonly [number, number, number, number], x: number): number 
 const COUNTS_MIN = 0;
 const COUNTS_MAX = 10000;
 
+export type PoreEcOffsetKey = 'committed' | 'coir';
+
+/** A value of εσb=0 — the permittivity a medium reads at zero bulk EC, Hilhorst's one free term. */
+export interface PoreEcOffset {
+  key: PoreEcOffsetKey;
+  value: number;
+  label: string;
+  source: string;
+}
+
+/** The committed offset every stored and alerted-on reading uses, and the coir-specific
+ *  measurement carried beside it for comparison. */
+export const PORE_EC_OFFSETS: Record<PoreEcOffsetKey, PoreEcOffset> = {
+  committed: { key: 'committed', value: 4.1, label: 'generic', source: 'Hilhorst 2000' },
+  coir: { key: 'coir', value: 1.64, label: 'coir', source: 'Lee & Kim 2024' }
+};
+
 /** Hilhorst's generic offset (TEROS 12 manual §3.3.4); medium-specific in principle. */
-const PERMITTIVITY_AT_ZERO_EC = 4.1;
+const PERMITTIVITY_AT_ZERO_EC = PORE_EC_OFFSETS.committed.value;
 
 /** METER's stated validity floor for the pore-water model. */
 const PORE_EC_MIN_VWC = 0.1;
 
-/** Our own guard against the pole at εb = 4.1, not METER's. */
+/** Our own guard against the pole where εb meets the offset, not METER's. */
 const PORE_EC_MIN_HEADROOM = 1;
 
 /** Water content (m³/m³) from counts, clamped to a physical volume. */
@@ -59,15 +76,16 @@ export function poreWaterEc(args: {
   permittivity: number;
   temperatureC: number;
   vwc: number;
+  offset?: number;
 }): number | null {
-  const { bulkEc, permittivity, temperatureC, vwc } = args;
-  if (![bulkEc, permittivity, temperatureC, vwc].every(Number.isFinite)) return null;
+  const { bulkEc, permittivity, temperatureC, vwc, offset = PERMITTIVITY_AT_ZERO_EC } = args;
+  if (![bulkEc, permittivity, temperatureC, vwc, offset].every(Number.isFinite)) return null;
   if (bulkEc < 0) return null;
   if (vwc < PORE_EC_MIN_VWC) return null;
-  if (permittivity - PERMITTIVITY_AT_ZERO_EC < PORE_EC_MIN_HEADROOM) return null;
+  if (permittivity - offset < PORE_EC_MIN_HEADROOM) return null;
   // Permittivity of free water at the measured temperature.
   const waterPermittivity = 80.3 - 0.37 * (temperatureC - 20);
-  return (waterPermittivity * bulkEc) / (permittivity - PERMITTIVITY_AT_ZERO_EC);
+  return (waterPermittivity * bulkEc) / (permittivity - offset);
 }
 
 /** Soilless is tested first so "potting soil" resolves there, where METER puts it. */
@@ -100,6 +118,8 @@ export interface SubstrateReadings {
   vwc: number | null;
   /** mS/cm; null wherever the Hilhorst model does not hold. */
   poreEc: number | null;
+  /** The same reading under the coir-specific εσb=0 — shown for comparison, never acted on. */
+  poreEcCoir: number | null;
   permittivity: number | null;
   curve: SubstrateCurve;
   curveAssumed: boolean;
@@ -138,6 +158,13 @@ export const DISPLAY_DIGITS = { vwc: 1, temperatureC: 1, poreEc: 2 } as const;
 export function atDisplayPrecision(value: number | null, digits: number): number | null {
   if (value === null || !Number.isFinite(value)) return null;
   return Number(value.toFixed(digits));
+}
+
+/** How far the coir offset moves pore EC, in percent of the committed reading. */
+export function poreEcCompareDeltaPct(readings: SubstrateReadings): number | null {
+  const { poreEc, poreEcCoir } = readings;
+  if (poreEc === null || poreEcCoir === null || poreEc === 0) return null;
+  return ((poreEcCoir - poreEc) / poreEc) * 100;
 }
 
 /** The single place m³/m³ becomes percent. */
@@ -222,16 +249,17 @@ export function deriveReadings(
   const { counts, temperatureC, bulkEc } = raw;
   const vwc = counts === null ? null : vwcFromCounts(counts, resolved.curve);
   const permittivity = counts === null ? null : permittivityFromCounts(counts);
-  const poreEc =
+  const at =
     bulkEc === null || permittivity === null || temperatureC === null || vwc === null
-      ? null
-      : poreWaterEc({ bulkEc, permittivity, temperatureC, vwc });
+      ? () => null
+      : (offset: number) => poreWaterEc({ bulkEc, permittivity, temperatureC, vwc, offset });
   return {
     counts,
     temperatureC,
     bulkEc,
     vwc,
-    poreEc,
+    poreEc: at(PORE_EC_OFFSETS.committed.value),
+    poreEcCoir: at(PORE_EC_OFFSETS.coir.value),
     permittivity,
     curve: resolved.curve,
     curveAssumed: resolved.assumed
