@@ -376,6 +376,24 @@ describe('pore EC offset comparison', () => {
     expect(poreWaterEc({ ...args, offset: 1.64 })).not.toBeNull();
   });
 
+  /**
+   * Between roughly 12 % and 23 % VWC the committed offset is already past its pole while
+   * the coir one is not, and Hilhorst there returns tens of mS/cm the model cannot support.
+   * Deriving it anyway would put nonsense on the card during exactly the dryback someone
+   * turned the comparison on to watch.
+   */
+  it('withholds the comparison wherever the committed reading does not derive', () => {
+    for (let counts = 1900; counts <= 2055; counts += 5) {
+      const r = deriveReadings({ counts, temperatureC: 22, bulkEc: 1.2 }, soilless);
+      expect(r.poreEc).toBeNull();
+      expect(r.poreEcCoir).toBeNull();
+    }
+    // Just the other side of it both derive again, and the comparison reads lower as always.
+    const wet = deriveReadings({ counts: 2100, temperatureC: 22, bulkEc: 1.2 }, soilless);
+    expect(wet.poreEc).not.toBeNull();
+    expect(wet.poreEcCoir).toBeLessThan(wet.poreEc!);
+  });
+
   it('reports no delta when the committed reading is missing', () => {
     expect(poreEcCompareDeltaPct(deriveReadings({ ...LIVE, bulkEc: null }, soilless))).toBeNull();
   });

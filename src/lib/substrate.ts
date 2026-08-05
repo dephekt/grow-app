@@ -118,7 +118,8 @@ export interface SubstrateReadings {
   vwc: number | null;
   /** mS/cm; null wherever the Hilhorst model does not hold. */
   poreEc: number | null;
-  /** The same reading under the coir-specific εσb=0 — shown for comparison, never acted on. */
+  /** The same reading under the coir-specific εσb=0, null wherever `poreEc` is — shown for
+   *  comparison, never acted on. */
   poreEcCoir: number | null;
   permittivity: number | null;
   curve: SubstrateCurve;
@@ -253,13 +254,16 @@ export function deriveReadings(
     bulkEc === null || permittivity === null || temperatureC === null || vwc === null
       ? () => null
       : (offset: number) => poreWaterEc({ bulkEc, permittivity, temperatureC, vwc, offset });
+  // A smaller offset moves the pole up into wetter ground, where the model returns huge
+  // numbers it cannot support, so the comparison only stands where the committed one does.
+  const poreEc = at(PORE_EC_OFFSETS.committed.value);
   return {
     counts,
     temperatureC,
     bulkEc,
     vwc,
-    poreEc: at(PORE_EC_OFFSETS.committed.value),
-    poreEcCoir: at(PORE_EC_OFFSETS.coir.value),
+    poreEc,
+    poreEcCoir: poreEc === null ? null : at(PORE_EC_OFFSETS.coir.value),
     permittivity,
     curve: resolved.curve,
     curveAssumed: resolved.assumed

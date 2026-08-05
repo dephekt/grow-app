@@ -195,7 +195,7 @@ export function assembleDomainSeries(
     const poreEcCoir = derived.flatMap((d) =>
       d.readings.poreEcCoir === null ? [] : [{ t: d.t, v: d.readings.poreEcCoir }]
     );
-    if (poreEc.length > 0 && poreEcCoir.length > 0) {
+    if (poreEcCoir.length > 0) {
       series.push({
         key: `${probe.nodeId}:pwec-coir`,
         label: qualify(`pwEC ${PORE_EC_OFFSETS.coir.label}`, probeLabel),
