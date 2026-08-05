@@ -304,6 +304,98 @@ describe('device UI metadata parsing', () => {
       config: null
     });
   });
+
+  it('parses grow-ui.v2 into exactly the shape its v1 equivalent produces', () => {
+    const topic = `${topicPrefix}/exhaust-fan/_ui/config`;
+
+    // The same document twice: full keys, and v2's short keys with defaulted
+    // values omitted (defaultOpen false, absent role/label).
+    const v1 = parseUiConfigPayload(
+      topic,
+      JSON.stringify({
+        schema: 'grow-ui.v1',
+        nodeId: 'exhaust-fan',
+        groups: [
+          { id: 'overview', title: 'Exhaust Fan', order: 10, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
+          { id: 'cycle', title: 'Cycle Timer', order: 30, surface: 'device-settings', deviceSettingsSection: 'controls', defaultOpen: false }
+        ],
+        entities: [
+          { component: 'sensor', objectId: 'fan_power', group: 'overview', role: 'metric', order: 10 },
+          { component: 'number', objectId: 'fan_cycle_run', group: 'cycle', order: 20, label: 'Run For (min)' }
+        ]
+      }),
+      topicPrefix
+    );
+
+    const v2 = parseUiConfigPayload(
+      topic,
+      JSON.stringify({
+        schema: 'grow-ui.v2',
+        nodeId: 'exhaust-fan',
+        groups: [
+          { i: 'overview', t: 'Exhaust Fan', n: 10, v: 'metrics', s: 'dashboard', p: true },
+          { i: 'cycle', t: 'Cycle Timer', n: 30, s: 'device-settings', d: 'controls' }
+        ],
+        entities: [
+          { c: 'sensor', o: 'fan_power', g: 'overview', r: 'metric', n: 10 },
+          { c: 'number', o: 'fan_cycle_run', g: 'cycle', n: 20, l: 'Run For (min)' }
+        ]
+      }),
+      topicPrefix
+    );
+
+    expect(v2?.config?.schema).toBe('grow-ui.v2');
+    expect(v2?.config?.groups).toEqual(v1?.config?.groups);
+    expect(v2?.config?.entities).toEqual(v1?.config?.entities);
+  });
+
+  it('ignores unknown short keys and drops v2 members missing a required key', () => {
+    const topic = `${topicPrefix}/exhaust-fan/_ui/config`;
+
+    const parsed = parseUiConfigPayload(
+      topic,
+      JSON.stringify({
+        schema: 'grow-ui.v2',
+        nodeId: 'exhaust-fan',
+        groups: [
+          { i: 'cycle', t: 'Cycle Timer', n: 30, zz: 'from a newer firmware' },
+          { t: 'no id, must drop', n: 40 }
+        ],
+        entities: [
+          { c: 'switch', o: 'fan_cycle', g: 'cycle', n: 10 },
+          { c: 'switch', g: 'cycle', n: 20 }
+        ]
+      }),
+      topicPrefix
+    );
+
+    expect(parsed?.config?.groups).toEqual([
+      {
+        id: 'cycle',
+        title: 'Cycle Timer',
+        order: 30,
+        variant: undefined,
+        surface: undefined,
+        deviceSettingsSection: undefined,
+        defaultOpen: false
+      }
+    ]);
+    expect(parsed?.config?.entities).toEqual([
+      { component: 'switch', objectId: 'fan_cycle', group: 'cycle', role: undefined, order: 10, label: undefined }
+    ]);
+  });
+
+  it('rejects an unknown schema version outright', () => {
+    const topic = `${topicPrefix}/exhaust-fan/_ui/config`;
+
+    expect(
+      parseUiConfigPayload(
+        topic,
+        JSON.stringify({ schema: 'grow-ui.v3', nodeId: 'exhaust-fan', groups: [], entities: [] }),
+        topicPrefix
+      )
+    ).toBeNull();
+  });
 });
 
 describe('command publishing', () => {

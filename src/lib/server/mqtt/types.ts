@@ -89,8 +89,12 @@ export interface DeviceUiEntity {
   label?: string;
 }
 
+/** v2 is v1 with every key shortened; the parsed shape is identical, so only the
+ *  wire encoding differs. See `ui-metadata.ts` for why. */
+export type DeviceUiSchema = 'grow-ui.v1' | 'grow-ui.v2';
+
 export interface DeviceUiConfig {
-  schema: 'grow-ui.v1';
+  schema: DeviceUiSchema;
   nodeId: string;
   groups: DeviceUiGroup[];
   entities: DeviceUiEntity[];
