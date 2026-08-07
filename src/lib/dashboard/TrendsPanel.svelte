@@ -5,14 +5,27 @@
   import TrendsChart from '$lib/TrendsChart.svelte';
   import PoreEcCompareToggle from '$lib/dashboard/PoreEcCompareToggle.svelte';
   import { poreEcCompare } from '$lib/substrate-compare.svelte';
-  import { DEFAULT_TREND_DOMAIN, TREND_DOMAINS, type TrendDomain, type TrendSeries } from '$lib/trends';
+  import {
+    DEFAULT_HISTORY_RANGE,
+    DEFAULT_TREND_DOMAIN,
+    HISTORY_RANGES,
+    TREND_DOMAINS,
+    type HistoryRange,
+    type TrendDomain,
+    type TrendSeries
+  } from '$lib/trends';
 
-  const RANGES = ['1h', '3h', '6h', '12h', '24h'] as const;
-  type Range = (typeof RANGES)[number];
+  /**
+   * How long the panel waits before giving up on a range; `fetch` has no timeout of its
+   * own, so a stalled request never settles and would leave the chart dimmed for good.
+   * Generous enough for a 30d scan, which is the slowest thing the pills can ask for.
+   */
+  const HISTORY_TIMEOUT_MS = 20_000;
 
   let domain = $state<TrendDomain>(DEFAULT_TREND_DOMAIN);
-  let range = $state<Range>('6h');
+  let range = $state<HistoryRange>(DEFAULT_HISTORY_RANGE);
   let series = $state<TrendSeries[]>([]);
+  let loading = $state(false);
 
   let activeDomain = $derived(TREND_DOMAINS.find((d) => d.key === domain));
   let isPlanned = $derived(activeDomain?.planned ?? false);
@@ -30,19 +43,31 @@
     const r = range;
     if (TREND_DOMAINS.find((x) => x.key === d)?.planned) {
       series = [];
+      loading = false;
       return;
     }
     let cancelled = false;
-    fetch(`/api/history?domain=${d}&range=${r}`)
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HISTORY_TIMEOUT_MS);
+    loading = true;
+    fetch(`/api/history?domain=${d}&range=${r}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : { configured: false, series: [] }))
       .then((data: { configured: boolean; series: TrendSeries[] }) => {
         if (!cancelled) series = data.configured ? data.series : [];
       })
       .catch(() => {
         if (!cancelled) series = [];
+      })
+      // Clears the dim on abort and timeout too, which a `.then`/`.catch` pair would miss.
+      .finally(() => {
+        clearTimeout(timer);
+        if (!cancelled) loading = false;
       });
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      // A 30d scan is expensive enough that switching away should stop it, not ignore it.
+      controller.abort();
     };
   });
 </script>
@@ -57,7 +82,7 @@
     <div class="head-controls">
       {#if domain === 'substrate'}<PoreEcCompareToggle compact />{/if}
       <div class="range-pills">
-        {#each RANGES as r (r)}
+        {#each HISTORY_RANGES as r (r)}
           <button type="button" class:active={r === range} onclick={() => (range = r)}>{r}</button>
         {/each}
       </div>
@@ -70,7 +95,9 @@
       <p>{activeDomain?.label} trends appear once its probe is connected.</p>
     </div>
   {:else}
-    <TrendsChart series={charted} height={300} />
+    <div class="chart-wrap" class:loading>
+      <TrendsChart series={charted} height={300} />
+    </div>
   {/if}
 </div>
 
@@ -114,13 +141,16 @@
     gap: 8px;
   }
 
+  /* Eight pills overflow a phone, so they scroll — wrapping would break the rounded group. */
   .range-pills {
     display: flex;
     border: 1px solid var(--line);
     border-radius: var(--r-control);
-    overflow: hidden;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
   .range-pills button {
+    flex: 0 0 auto;
     font-family: var(--font-mono);
     font-size: 0.72rem;
     padding: 4px 10px;
@@ -142,6 +172,14 @@
     background: var(--amber);
     color: var(--bg);
     font-weight: 600;
+  }
+
+  /* A 30d scan takes long enough to notice, so the stale chart says so while it lands. */
+  .chart-wrap {
+    transition: opacity 0.15s ease;
+  }
+  .chart-wrap.loading {
+    opacity: 0.55;
   }
 
   .planned {

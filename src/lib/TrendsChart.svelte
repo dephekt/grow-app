@@ -5,6 +5,15 @@
   import { onMount, untrack } from 'svelte';
   import uPlot from 'uplot';
   import 'uplot/dist/uPlot.min.css';
+  import {
+    seriesStats,
+    statDigits,
+    structureSignature,
+    yAxisPlans,
+    zoomWindowLabel,
+    zoomedWindow,
+    type ZoomWindow
+  } from '$lib/trends-chart';
   import type { TrendSeries } from '$lib/trends';
 
   let { series = [], height = 320 } = $props<{ series?: TrendSeries[]; height?: number }>();
@@ -12,6 +21,10 @@
   let el: HTMLDivElement;
   let plot: uPlot | null = null;
   let structureSig = '';
+
+  let zoom = $state<ZoomWindow | null>(null);
+  // Mirrors uPlot's own per-series `show`, which the legend owns once the plot is up.
+  let visible = $state<boolean[]>([]);
 
   function cssVar(name: string, fallback: string): string {
     if (typeof document === 'undefined') return fallback;
@@ -58,50 +71,66 @@
     return [xs, ...ys] as uPlot.AlignedData;
   }
 
+  /** A comparison series rides its subject's colour, so the dash is what tells them apart. */
+  function strokeFor(s: TrendSeries[], indexByKey: Map<string, number>, i: number, colors: string[]): string {
+    const compareOf = s[i].compareOf;
+    const subject = compareOf === undefined ? undefined : indexByKey.get(compareOf);
+    return colors[(subject ?? i) % colors.length];
+  }
+
   function buildOpts(s: TrendSeries[], width: number): uPlot.Options {
     const { colors, axis: axisColor } = theme();
     const grid = 'rgba(255,255,255,0.06)';
-    const units = new Set(s.map((x) => x.unit).filter(Boolean));
-    // Y-axis tick values would imply a false scale unless every series shares one real unit.
-    const singleUnit = units.size === 1 && s.every((x) => x.unit);
-    const yScale = s[0]?.unit || s[0]?.key || 'y';
     const mono = '11px "IBM Plex Mono", ui-monospace, monospace';
-
-    // A comparison series rides its subject's colour, so the dash is what tells them apart.
+    const labelFont = '600 10px "IBM Plex Mono", ui-monospace, monospace';
     const indexByKey = new Map(s.map((ser, i) => [ser.key, i]));
+    const plans = yAxisPlans(s, width);
 
     return {
       width,
       height,
       cursor: { drag: { x: true, y: false }, points: { size: 6 } },
       legend: { live: true },
+      hooks: {
+        // Fires per scale; only x is draggable, so only x can be zoomed.
+        setScale: [
+          (u: uPlot, key: string) => {
+            if (key === 'x') zoom = zoomedWindow(u.data[0] as number[], u.scales.x.min, u.scales.x.max);
+          }
+        ],
+        setSeries: [(u: uPlot) => (visible = u.series.slice(1).map((x) => x.show !== false))]
+      },
       series: [
         {},
-        ...s.map((ser, i) => {
-          const subjectIndex = ser.compareOf === undefined ? undefined : indexByKey.get(ser.compareOf);
-          return {
-            label: ser.unit ? `${ser.label} (${ser.unit})` : ser.label,
-            scale: ser.unit || ser.key,
-            stroke: colors[(subjectIndex ?? i) % colors.length],
-            dash: subjectIndex === undefined ? undefined : [4, 4],
-            width: 1.5,
-            show: !ser.hidden,
-            points: { show: false },
-            spanGaps: true
-          };
-        })
+        ...s.map((ser, i) => ({
+          label: ser.unit ? `${ser.label} (${ser.unit})` : ser.label,
+          scale: ser.unit || ser.key,
+          stroke: strokeFor(s, indexByKey, i, colors),
+          dash: ser.compareOf === undefined ? undefined : [4, 4],
+          width: 1.5,
+          show: !ser.hidden,
+          points: { show: false },
+          spanGaps: true
+        }))
       ],
       axes: [
         { stroke: axisColor, grid: { stroke: grid, width: 1 }, ticks: { stroke: grid, width: 1 }, font: mono },
-        {
-          scale: yScale,
-          stroke: axisColor,
-          grid: { stroke: grid, width: 1 },
+        ...plans.map((p) => ({
+          scale: p.scale,
+          side: p.side,
+          // An empty-string label still reserves labelSize, so an unlabelled axis omits it.
+          label: p.unit || undefined,
+          labelSize: p.unit ? 15 : 0,
+          labelFont,
+          values: p.unit ? undefined : () => [],
+          size: p.unit ? 42 : 0,
+          // One axis owns the horizontal grid; a second set would overlap it.
+          grid: { show: p.grid, stroke: grid, width: 1 },
           ticks: { show: false },
-          size: singleUnit ? 48 : 10,
-          values: singleUnit ? undefined : () => [],
+          // With several axes the colour is what pairs one with its lines.
+          stroke: plans.length > 1 ? strokeFor(s, indexByKey, p.seriesIndex, colors) : axisColor,
           font: mono
-        }
+        }))
       ]
     };
   }
@@ -112,22 +141,37 @@
       plot?.destroy();
       plot = null;
       structureSig = '';
+      zoom = null;
+      visible = [];
       return;
     }
+    const width = el.clientWidth || 600;
     const data = buildData(s);
-    const sig = s.map((x) => `${x.key}:${x.unit}:${x.hidden ? 'h' : ''}`).join(',');
+    const sig = structureSignature(s, width);
     if (!plot || sig !== structureSig) {
       plot?.destroy();
-      plot = new uPlot(buildOpts(s, el.clientWidth || 600), data, el);
+      plot = new uPlot(buildOpts(s, width), data, el);
       structureSig = sig;
+      visible = plot.series.slice(1).map((x) => x.show !== false);
     } else {
       plot.setData(data);
     }
   }
 
+  /** uPlot's own dblclick reset, which reaches an `autoScaleX` we cannot call. */
+  function resetZoom() {
+    const xs = plot?.data[0];
+    if (!plot || !xs?.length) return;
+    plot.setScale('x', { min: xs[0], max: xs[xs.length - 1] });
+    plot.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+  }
+
   onMount(() => {
     const ro = new ResizeObserver(() => {
-      if (plot && el) plot.setSize({ width: el.clientWidth, height });
+      if (!plot || !el) return;
+      // Crossing a width class adds or drops an axis, which only a rebuild can do.
+      if (structureSignature(series, el.clientWidth) !== structureSig) render(series);
+      else plot.setSize({ width: el.clientWidth, height });
     });
     ro.observe(el);
     return () => {
@@ -143,23 +187,126 @@
   });
 
   let isEmpty = $derived(series.length === 0 || series.every((x: TrendSeries) => x.points.length === 0));
+  // Summarises what is on screen: the zoom window, and only the series the legend shows.
+  let stats = $derived(
+    seriesStats(
+      series.filter((_: TrendSeries, i: number) => visible[i] ?? true),
+      zoom
+    )
+  );
+
+  function fmt(v: number | null, unit: string): string {
+    return v === null ? '—' : v.toFixed(statDigits(unit));
+  }
 </script>
 
 <div class="trends-chart" style="min-height:{height}px">
   <div bind:this={el} class="uplot-host"></div>
   {#if isEmpty}
     <div class="empty-state">No history yet</div>
+  {:else if zoom}
+    <button
+      type="button"
+      class="zoom-chip mono"
+      title="Reset zoom (or double-click the chart)"
+      onclick={resetZoom}
+    >
+      {zoomWindowLabel(zoom.min, zoom.max)} ✕
+    </button>
+  {:else}
+    <span class="zoom-hint mono">drag to zoom</span>
   {/if}
 </div>
 
+{#if !isEmpty && stats.length > 0}
+  <div class="stats-scroll">
+    <table class="stats mono">
+      <thead>
+        <tr>
+          <th scope="col" class="stat-name"></th>
+          <th scope="col">Min</th>
+          <th scope="col">Max</th>
+          <th scope="col">Avg</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each stats as s (s.key)}
+          <tr>
+            <th scope="row" class="stat-name">{s.label}</th>
+            <td>{fmt(s.min, s.unit)}</td>
+            <td>{fmt(s.max, s.unit)}</td>
+            <td>{fmt(s.avg, s.unit)}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{/if}
+
 <style>
-  /* The empty-state overlays the chart host rather than stacking under it. */
+  /* The empty-state overlays the chart host rather than stacking under it; the top strip
+     keeps the zoom control clear of the axes' topmost tick. */
   .trends-chart {
     width: 100%;
     position: relative;
+    padding-top: 18px;
   }
   .uplot-host {
     width: 100%;
+  }
+
+  /* Both sit over the plot's top-right, where uPlot leaves margin above the grid. */
+  .zoom-chip,
+  .zoom-hint {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .zoom-hint {
+    color: var(--faint);
+  }
+  .zoom-chip {
+    padding: 2px 7px;
+    color: var(--cyan);
+    background: transparent;
+    border: 1px solid var(--cyan);
+    border-radius: var(--r-pill);
+    cursor: pointer;
+  }
+  .zoom-chip:hover {
+    background: var(--panel-2);
+  }
+
+  /* Four columns of numbers overflow a phone before they wrap usefully. */
+  .stats-scroll {
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-top: 10px;
+  }
+  .stats {
+    border-collapse: collapse;
+    font-size: 0.7rem;
+    color: var(--text);
+  }
+  .stats th,
+  .stats td {
+    padding: 2px 10px 2px 0;
+    text-align: right;
+    font-weight: 400;
+  }
+  .stats thead th {
+    color: var(--faint);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .stats .stat-name {
+    text-align: left;
+    color: var(--muted);
+    padding-right: 16px;
   }
   .empty-state {
     position: absolute;

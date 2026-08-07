@@ -3,22 +3,56 @@
 
 import { describe, expect, it } from 'vitest';
 import { liveSnapshot } from '../../e2e/fixtures/live-snapshot';
-import { isHistoryRange } from '../../src/lib/server/influx/query';
+import { historyWindowSeconds, isHistoryRange } from '../../src/lib/server/influx/query';
 import { assembleDomainSeries, isTrendDomain, resolveDomainSeries } from '../../src/lib/server/influx/trend-domains';
 import type { DeviceSnapshot, EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';
-import type { TrendPoint } from '../../src/lib/trends';
+import { HISTORY_RANGES, RANGE_SECONDS, type TrendPoint } from '../../src/lib/trends';
 
 describe('isHistoryRange', () => {
-  it('accepts the known ranges', () => {
-    for (const range of ['1h', '3h', '6h', '12h', '24h']) {
-      expect(isHistoryRange(range)).toBe(true);
-    }
+  /** Read from the list rather than restated, so a new pill cannot outrun its validator. */
+  it('accepts every range the pills offer', () => {
+    for (const range of HISTORY_RANGES) expect(isHistoryRange(range)).toBe(true);
   });
 
   it('rejects anything else', () => {
     expect(isHistoryRange('2h')).toBe(false);
     expect(isHistoryRange(null)).toBe(false);
     expect(isHistoryRange('')).toBe(false);
+  });
+
+  /** `1m` beside `1h` reads as one minute, so the long ranges are day-suffixed. */
+  it('rejects the week/month spellings we deliberately did not use', () => {
+    expect(isHistoryRange('1w')).toBe(false);
+    expect(isHistoryRange('1m')).toBe(false);
+    expect(isHistoryRange('1y')).toBe(false);
+  });
+});
+
+describe('history ranges', () => {
+  it('gives every range a duration, ordered as the pills render them', () => {
+    const seconds = HISTORY_RANGES.map((r) => RANGE_SECONDS[r]);
+    expect(seconds.every((s) => Number.isInteger(s) && s > 0)).toBe(true);
+    expect(seconds).toEqual([...seconds].sort((a, b) => a - b));
+  });
+
+  /**
+   * The aggregate window is what keeps a 30-day response the same size as a 6-hour one —
+   * only the Influx scan grows. Without this the payload would grow with the range.
+   */
+  it('holds every range to the target point count', () => {
+    for (const r of HISTORY_RANGES) {
+      expect(RANGE_SECONDS[r] / historyWindowSeconds(r)).toBeLessThanOrEqual(600);
+    }
+  });
+
+  it('floors the window at 30 s rather than asking for buckets finer than the sensors publish', () => {
+    expect(historyWindowSeconds('1h')).toBe(30);
+    expect(historyWindowSeconds('3h')).toBe(30);
+  });
+
+  it('widens the window with the range', () => {
+    expect(historyWindowSeconds('24h')).toBe(144);
+    expect(historyWindowSeconds('30d')).toBe(4320);
   });
 });
 

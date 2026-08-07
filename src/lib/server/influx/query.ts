@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
+import { RANGE_SECONDS, type HistoryRange } from '$lib/trends';
 import { getInfluxConfig, getInfluxDB } from './client';
 
-export type HistoryRange = '1h' | '3h' | '6h' | '12h' | '24h';
-
-export const HISTORY_RANGES: HistoryRange[] = ['1h', '3h', '6h', '12h', '24h'];
-
-export const DEFAULT_HISTORY_RANGE: HistoryRange = '6h';
+// The range vocabulary is owned by `$lib/trends` so the client panel can share it.
+export { DEFAULT_HISTORY_RANGE, HISTORY_RANGES, isHistoryRange, type HistoryRange } from '$lib/trends';
 
 /** Single Influx measurement the recorder writes every reading into (tag-keyed). */
 export const READING_MEASUREMENT = 'reading';
@@ -33,20 +31,14 @@ export interface HistorySeries {
   points: HistoryPoint[];
 }
 
-const RANGE_HOURS: Record<HistoryRange, number> = {
-  '1h': 1,
-  '3h': 3,
-  '6h': 6,
-  '12h': 12,
-  '24h': 24
-};
-
 /** ~600 points/series — enough resolution to drag-zoom into within uPlot without
  *  re-fetching, while still bounding the Influx response. */
 const TARGET_POINTS = 600;
 
-export function isHistoryRange(value: string | null | undefined): value is HistoryRange {
-  return typeof value === 'string' && (HISTORY_RANGES as string[]).includes(value);
+/** The aggregate window that holds any range to ~600 points, floored so short ranges
+ *  do not ask Influx for buckets finer than the sensors publish. */
+export function historyWindowSeconds(range: HistoryRange): number {
+  return Math.max(30, Math.round(RANGE_SECONDS[range] / TARGET_POINTS));
 }
 
 /** Escape a value for safe interpolation into a Flux double-quoted string literal. */
@@ -59,14 +51,14 @@ export async function queryHistory(series: HistorySeriesRequest[], range: Histor
   const db = getInfluxDB(config);
   if (!config || !db || series.length === 0) return [];
 
-  const hours = RANGE_HOURS[range];
-  const windowSeconds = Math.max(30, Math.round((hours * 3600) / TARGET_POINTS));
+  const seconds = RANGE_SECONDS[range];
+  const windowSeconds = historyWindowSeconds(range);
   const predicate = series
     .map((s) => `(r.node == "${escapeFluxString(s.node)}" and r.entity == "${escapeFluxString(s.entity)}")`)
     .join(' or ');
 
   const flux = `from(bucket: "${escapeFluxString(config.bucket)}")
-  |> range(start: -${hours}h)
+  |> range(start: -${seconds}s)
   |> filter(fn: (r) => r._measurement == "${READING_MEASUREMENT}" and r._field == "value")
   |> filter(fn: (r) => ${predicate})
   |> aggregateWindow(every: ${windowSeconds}s, fn: mean, createEmpty: false)
