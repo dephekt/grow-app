@@ -54,6 +54,12 @@ When `INFLUX_URL` + token are set, `/api/history` serves trend series and the
 writes numeric/binary readings from MQTT into InfluxDB. The browser never
 connects directly to InfluxDB — history is queried server-side, same as MQTT.
 
+Trends chart ranges run `1h` to `30d`. Every range is aggregated server-side to
+roughly 600 points per series, so the response size is flat and only the Influx
+scan grows with the window. Ranges past `30d` are deliberately absent: the bucket
+retains a year, but nothing downsamples it, so a year-long query would scan
+millions of raw points per series on every tab switch.
+
 The browser never connects directly to Mosquitto. The SvelteKit server keeps the
 MQTT session, caches retained/current state, streams browser updates over SSE,
 and publishes commands only through discovered command topics.
