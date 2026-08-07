@@ -13,7 +13,7 @@ export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string; pla
   { key: 'climate', label: 'Climate' },
   { key: 'thermal', label: 'Thermal' },
   { key: 'air-quality', label: 'Air Quality' },
-  // Substrate charts derived VWC / pore EC per probe (see `server/influx/trend-domains`).
+  // Substrate charts derived VWC / pore EC beside the raw temp and bulk EC, per probe.
   { key: 'substrate', label: 'Substrate' }
 ];
 
@@ -37,4 +37,6 @@ export interface TrendSeries {
   points: TrendPoint[];
   /** Key of the series this one shadows for comparison — charted in its colour, dashed. */
   compareOf?: string;
+  /** Charted but switched off until the legend turns it on — a secondary reading. */
+  hidden?: boolean;
 }

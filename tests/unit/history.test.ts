@@ -306,4 +306,130 @@ describe('substrate trend domain', () => {
     const specs = resolveDomainSeries(snapshot, 'substrate');
     expect(assembleDomainSeries(snapshot, 'substrate', specs, new Map())).toEqual([]);
   });
+
+  it('charts the raw temperature beside the derived readings', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
+      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
+      ['substrate-a:substrate_bulk_ec', [{ t: T0, v: 0.025 }]]
+    ]);
+    const temp = assembleDomainSeries(snapshot, 'substrate', specs, points).find(
+      (s) => s.key === 'substrate-a:temperature'
+    );
+    expect(temp?.unit).toBe('°C');
+    expect(temp?.label).toBe('Temp');
+    expect(temp?.points[0].v).toBe(26.6);
+    expect(temp?.hidden).toBeFalsy();
+  });
+
+  /** The input pwEC is computed from, charted for diagnosis but off until the legend asks. */
+  it('charts bulk EC hidden, on the same unit as the pore EC it feeds', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
+      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
+      ['substrate-a:substrate_bulk_ec', [{ t: T0, v: 0.025 }]]
+    ]);
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
+    const bulk = series.find((s) => s.key === 'substrate-a:bulk-ec');
+    expect(bulk?.unit).toBe('mS/cm');
+    expect(bulk?.label).toBe('Bulk EC');
+    expect(bulk?.points[0].v).toBe(0.025);
+    expect(bulk?.hidden).toBe(true);
+
+    // Nothing else ships hidden, and bulk EC is not a comparison series.
+    expect(series.filter((s) => s.hidden).map((s) => s.key)).toEqual(['substrate-a:bulk-ec']);
+    expect(series.filter((s) => s.compareOf !== undefined).map((s) => s.key)).toEqual(['substrate-a:pwec-coir']);
+  });
+
+  /**
+   * Passing the recorded points straight through would chart a single dot — and with
+   * `points.show` off, a one-point series draws nothing at all. Reading the same step
+   * function pwEC reads makes it a staircase that spans the window.
+   */
+  it('carries a sparse temperature across every count, not just the ticks it recorded on', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const ticks = Array.from({ length: 20 }, (_, i) => new Date(Date.parse(T0) + i * 30_000).toISOString());
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', ticks.map((t) => ({ t, v: 2861.35 }))],
+      ['substrate-a:substrate_temperature', [{ t: ticks[5], v: 26.6 }]],
+      ['substrate-a:substrate_bulk_ec', [{ t: ticks[0], v: 0.025 }]]
+    ]);
+    const temp = assembleDomainSeries(snapshot, 'substrate', specs, points).find(
+      (s) => s.key === 'substrate-a:temperature'
+    )!;
+    expect(temp.points).toHaveLength(20);
+    expect(new Set(temp.points.map((p) => p.v))).toEqual(new Set([26.6]));
+  });
+
+  it('steps bulk EC rather than interpolating across the change', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const ticks = Array.from({ length: 4 }, (_, i) => new Date(Date.parse(T0) + i * 30_000).toISOString());
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', ticks.map((t) => ({ t, v: 2861.35 }))],
+      ['substrate-a:substrate_temperature', [{ t: ticks[0], v: 26.6 }]],
+      [
+        'substrate-a:substrate_bulk_ec',
+        [
+          { t: ticks[0], v: 0.5 },
+          { t: ticks[2], v: 1.0 }
+        ]
+      ]
+    ]);
+    const bulk = assembleDomainSeries(snapshot, 'substrate', specs, points).find(
+      (s) => s.key === 'substrate-a:bulk-ec'
+    )!;
+    expect(bulk.points.map((p) => p.v)).toEqual([0.5, 0.5, 1.0, 1.0]);
+  });
+
+  it('charts neither reading for a probe that recorded only counts', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]]
+    ]);
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
+    expect(series.map((s) => s.key)).toEqual(['substrate-a:vwc']);
+  });
+
+  it('names the raw readings after their probe too, once there is more than one', () => {
+    const snapshot = substrateSnapshot(['substrate-a', 'substrate-b']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
+      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
+      ['substrate-b:substrate_raw_counts', [{ t: T0, v: 2700 }]],
+      ['substrate-b:substrate_bulk_ec', [{ t: T0, v: 0.4 }]]
+    ]);
+    const zones = [{ name: 'Tent 1', substrateType: 'Coco', substrateNodeId: 'substrate-a' }];
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points, zones);
+    expect(series.find((s) => s.key === 'substrate-a:temperature')?.label).toBe('Tent 1 Temp');
+    expect(series.find((s) => s.key === 'substrate-b:bulk-ec')?.label).toBe('B Bulk EC');
+  });
+
+  /**
+   * The chart assigns axis sides by the order units first appear, so emit order decides
+   * which reading owns the left axis. Pinning it here keeps that coupling from drifting.
+   */
+  it('emits each probe’s series in a fixed order', () => {
+    const snapshot = substrateSnapshot(['substrate-a']);
+    const specs = resolveDomainSeries(snapshot, 'substrate');
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
+      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
+      ['substrate-a:substrate_bulk_ec', [{ t: T0, v: 0.025 }]]
+    ]);
+    expect(assembleDomainSeries(snapshot, 'substrate', specs, points).map((s) => s.key)).toEqual([
+      'substrate-a:vwc',
+      'substrate-a:pwec',
+      'substrate-a:pwec-coir',
+      'substrate-a:temperature',
+      'substrate-a:bulk-ec'
+    ]);
+  });
 });
