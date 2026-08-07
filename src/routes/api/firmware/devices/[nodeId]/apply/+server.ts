@@ -4,7 +4,7 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { firmwareError } from '$lib/server/firmware/http';
 import { resolveFirmwarePackage } from '$lib/server/firmware/packages';
-import { parseFirmwareUpdateState } from '$lib/server/firmware/update-state';
+import { parseFirmwareUpdateState, resolveInstalledVersion } from '$lib/server/firmware/update-state';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 
 export const POST: RequestHandler = async ({ params, request }) => {
@@ -29,11 +29,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
     if (requestedVersion && requestedVersion !== resolved.manifest.version) {
       return json({ ok: false, error: 'Requested firmware version is no longer selected' }, { status: 409 });
     }
-    if (device.installedVersion === resolved.manifest.version) {
+
+    // Read the device's own state before deciding anything: ESPHome gates
+    // install behind its own UPDATE_STATE_AVAILABLE, so a version this
+    // disagrees with produces an INSTALL the node silently ignores.
+    const updateState = parseFirmwareUpdateState(service.entityState(updateEntity.id).value);
+    if (resolveInstalledVersion(updateState, device) === resolved.manifest.version) {
       return json({ ok: false, error: 'Selected firmware version is already installed' }, { status: 409 });
     }
 
-    const updateState = parseFirmwareUpdateState(service.entityState(updateEntity.id).value);
     if (updateState.latestVersion !== resolved.manifest.version) {
       return json(
         {
