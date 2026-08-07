@@ -130,11 +130,16 @@ test('the substrate chart pairs the comparison with its subject', async ({ page 
   await expect(trends.getByText('pwEC (mS/cm)')).toBeVisible();
   await expect(trends.getByText('pwEC coir (mS/cm)')).toHaveCount(0);
 
-  await trends.getByRole('button', { name: /coir/i }).click();
+  // Driven from the card, which is the only place the toggle lives.
+  await page.locator('.panel', { hasText: '// SUBSTRATE' }).getByRole('button', { name: /coir/i }).click();
   await expect(trends.getByText('pwEC coir (mS/cm)')).toBeVisible();
 });
 
-test('the comparison toggle is scoped to the substrate domain', async ({ page }) => {
+/**
+ * The toggle lives on the card alone. A second copy in the trends header pushed the range
+ * pills onto their own line on every screen width, and the store is shared anyway.
+ */
+test('the trends header carries no comparison toggle, on any domain', async ({ page }) => {
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: withProbe }));
   await page.route('**/api/events', (route) => route.abort('failed'));
   await page.route('**/api/irrigation/zones', (route) => route.fulfill({ json: { zones } }));
@@ -146,5 +151,8 @@ test('the comparison toggle is scoped to the substrate domain', async ({ page })
   const trends = page.locator('.trends-panel');
   await expect(trends.getByRole('button', { name: /coir/i })).toHaveCount(0);
   await trends.getByRole('button', { name: 'Substrate', exact: true }).click();
-  await expect(trends.getByRole('button', { name: /coir/i })).toBeVisible();
+  await expect(trends.getByRole('button', { name: /coir/i })).toHaveCount(0);
+
+  // The card still offers it, so the comparison is reachable.
+  await expect(page.locator('.panel', { hasText: '// SUBSTRATE' }).getByRole('button', { name: /coir/i })).toBeVisible();
 });
