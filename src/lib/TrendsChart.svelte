@@ -85,6 +85,7 @@
             stroke: colors[(subjectIndex ?? i) % colors.length],
             dash: subjectIndex === undefined ? undefined : [4, 4],
             width: 1.5,
+            show: !ser.hidden,
             points: { show: false },
             spanGaps: true
           };
@@ -114,7 +115,7 @@
       return;
     }
     const data = buildData(s);
-    const sig = s.map((x) => `${x.key}:${x.unit}`).join(',');
+    const sig = s.map((x) => `${x.key}:${x.unit}:${x.hidden ? 'h' : ''}`).join(',');
     if (!plot || sig !== structureSig) {
       plot?.destroy();
       plot = new uPlot(buildOpts(s, el.clientWidth || 600), data, el);

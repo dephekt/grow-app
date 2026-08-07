@@ -204,6 +204,36 @@ export function assembleDomainSeries(
         compareOf: poreEcKey
       });
     }
+
+    // Charted from the same step-carried readers pwEC derives from, so a temperature that
+    // recorded four points in three hours still draws a staircase rather than nothing.
+    const temperature = counts.flatMap((p) => {
+      const v = temps(p.t);
+      return v === null ? [] : [{ t: p.t, v }];
+    });
+    if (temperature.length > 0) {
+      series.push({
+        key: `${probe.nodeId}:temperature`,
+        label: qualify('Temp', probeLabel),
+        unit: '°C',
+        points: temperature
+      });
+    }
+
+    // The input behind pwEC, off until the legend asks for it.
+    const bulkEc = counts.flatMap((p) => {
+      const v = bulk(p.t);
+      return v === null ? [] : [{ t: p.t, v }];
+    });
+    if (bulkEc.length > 0) {
+      series.push({
+        key: `${probe.nodeId}:bulk-ec`,
+        label: qualify('Bulk EC', probeLabel),
+        unit: 'mS/cm',
+        points: bulkEc,
+        hidden: true
+      });
+    }
   }
   return series;
 }
