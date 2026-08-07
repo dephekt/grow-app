@@ -3,7 +3,6 @@
 
 <script lang="ts">
   import TrendsChart from '$lib/TrendsChart.svelte';
-  import PoreEcCompareToggle from '$lib/dashboard/PoreEcCompareToggle.svelte';
   import { poreEcCompare } from '$lib/substrate-compare.svelte';
   import {
     DEFAULT_HISTORY_RANGE,
@@ -79,13 +78,10 @@
         <button type="button" class:active={d.key === domain} onclick={() => (domain = d.key)}>{d.label}</button>
       {/each}
     </div>
-    <div class="head-controls">
-      {#if domain === 'substrate'}<PoreEcCompareToggle compact />{/if}
-      <div class="range-pills">
-        {#each HISTORY_RANGES as r (r)}
-          <button type="button" class:active={r === range} onclick={() => (range = r)}>{r}</button>
-        {/each}
-      </div>
+    <div class="range-pills">
+      {#each HISTORY_RANGES as r (r)}
+        <button type="button" class:active={r === range} onclick={() => (range = r)}>{r}</button>
+      {/each}
     </div>
   </div>
 
@@ -133,12 +129,6 @@
     color: var(--amber);
     border-color: var(--amber);
     background: var(--amber-dim);
-  }
-
-  .head-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
   }
 
   /* Eight pills overflow a phone, so they scroll — wrapping would break the rounded group. */
