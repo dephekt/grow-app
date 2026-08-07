@@ -15,6 +15,13 @@
     type TrendSeries
   } from '$lib/trends';
 
+  /**
+   * How long the panel waits before giving up on a range; `fetch` has no timeout of its
+   * own, so a stalled request never settles and would leave the chart dimmed for good.
+   * Generous enough for a 30d scan, which is the slowest thing the pills can ask for.
+   */
+  const HISTORY_TIMEOUT_MS = 20_000;
+
   let domain = $state<TrendDomain>(DEFAULT_TREND_DOMAIN);
   let range = $state<HistoryRange>(DEFAULT_HISTORY_RANGE);
   let series = $state<TrendSeries[]>([]);
@@ -36,24 +43,31 @@
     const r = range;
     if (TREND_DOMAINS.find((x) => x.key === d)?.planned) {
       series = [];
+      loading = false;
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HISTORY_TIMEOUT_MS);
     loading = true;
-    fetch(`/api/history?domain=${d}&range=${r}`)
+    fetch(`/api/history?domain=${d}&range=${r}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : { configured: false, series: [] }))
       .then((data: { configured: boolean; series: TrendSeries[] }) => {
-        if (cancelled) return;
-        series = data.configured ? data.series : [];
-        loading = false;
+        if (!cancelled) series = data.configured ? data.series : [];
       })
       .catch(() => {
-        if (cancelled) return;
-        series = [];
-        loading = false;
+        if (!cancelled) series = [];
+      })
+      // Clears the dim on abort and timeout too, which a `.then`/`.catch` pair would miss.
+      .finally(() => {
+        clearTimeout(timer);
+        if (!cancelled) loading = false;
       });
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      // A 30d scan is expensive enough that switching away should stop it, not ignore it.
+      controller.abort();
     };
   });
 </script>
