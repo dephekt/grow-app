@@ -237,6 +237,14 @@
     background: var(--panel-2);
   }
 
+  /* uPlot draws the drag region already, but its default 7% black is invisible on a dark
+     panel. The edges are what tell you where the zoom will land, so they get full colour. */
+  :global(.trends-chart .u-select) {
+    background: color-mix(in srgb, var(--cyan) 12%, transparent);
+    border-left: 1px solid var(--cyan);
+    border-right: 1px solid var(--cyan);
+  }
+
   .empty-state {
     position: absolute;
     inset: 0;
