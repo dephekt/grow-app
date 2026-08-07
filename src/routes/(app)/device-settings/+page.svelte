@@ -10,7 +10,7 @@
   import { deviceSettingsPresentation, DEVICE_SETTINGS_SECTIONS } from '$lib/device-presentation';
   import type { DeviceSettingsSectionId } from '$lib/device-presentation';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
-  import { parseFirmwareUpdateState } from '$lib/firmware';
+  import { parseFirmwareUpdateState, resolveInstalledVersion } from '$lib/firmware';
   import type { DeviceSnapshot, EntityConfig } from '$lib/server/mqtt/types';
   import { isAlertEntity, isThresholdEntity } from '$lib/threshold-match';
   import { page } from '$app/state';
@@ -56,26 +56,26 @@
     const updateEntity = allEntities.find(
       (e) => (e.nodeId === device.nodeId || e.device?.identifiers?.includes(device.nodeId)) && e.component === 'update'
     );
-    if (updateEntity) {
-      const stateVal = live.snapshot.states[updateEntity.id]?.value;
-      const updateState = parseFirmwareUpdateState(stateVal);
-      if (
-        updateState.latestVersion &&
-        updateState.installedVersion &&
-        updateState.latestVersion !== updateState.installedVersion
-      ) return true;
-    }
-    if (fc) {
-      const latestVersion = allEntities.reduce<string | null>((acc, e) => {
-        if (e.component === 'update' && (e.nodeId === device.nodeId)) {
+    const updateState = updateEntity
+      ? parseFirmwareUpdateState(live.snapshot.states[updateEntity.id]?.value)
+      : null;
+
+    const latestVersion =
+      updateState?.latestVersion ??
+      allEntities.reduce<string | null>((acc, e) => {
+        if (e.component === 'update' && e.nodeId === device.nodeId) {
           const s = parseFirmwareUpdateState(live.snapshot.states[e.id]?.value);
           return s.latestVersion ?? acc;
         }
         return acc;
       }, null);
-      if (latestVersion && fc.installedVersion && latestVersion !== fc.installedVersion) return true;
-    }
-    return false;
+
+    // One comparison against one installed version. Falling back to the
+    // retained _firmware/config separately used to badge a node that had
+    // already taken the update, because that copy goes stale when its
+    // publish is lost to a reconnect.
+    const installedVersion = resolveInstalledVersion(updateState, fc, device.swVersion);
+    return Boolean(latestVersion && installedVersion && latestVersion !== installedVersion);
   }
 
   let allTabs = $derived.by(() => {

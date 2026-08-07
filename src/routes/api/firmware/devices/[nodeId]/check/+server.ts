@@ -4,6 +4,7 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { firmwareError } from '$lib/server/firmware/http';
 import { resolveFirmwarePackage } from '$lib/server/firmware/packages';
+import { parseFirmwareUpdateState, resolveInstalledVersion } from '$lib/server/firmware/update-state';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 
 export const POST: RequestHandler = async ({ params }) => {
@@ -27,7 +28,11 @@ export const POST: RequestHandler = async ({ params }) => {
         checkTriggered: false
       });
     }
-    if (resolved.manifest.version === device.installedVersion) {
+    const updateEntity = service.firmwareUpdateEntity(nodeId);
+    const updateState = updateEntity
+      ? parseFirmwareUpdateState(service.entityState(updateEntity.id).value)
+      : null;
+    if (resolved.manifest.version === resolveInstalledVersion(updateState, device)) {
       return json({
         ok: true,
         nodeId,

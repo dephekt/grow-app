@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2026 Daniel Snider -->
 
 <script lang="ts">
-  import { parseFirmwareUpdateState, parseProjectVersion } from '$lib/firmware';
+  import { parseFirmwareUpdateState, resolveInstalledVersion } from '$lib/firmware';
   import type { FirmwarePackageManifest } from '$lib/server/firmware/packages';
   import type { DeviceSnapshot, EntityConfig, FirmwareChannel, Snapshot } from '$lib/server/mqtt/types';
 
@@ -45,7 +45,7 @@
   );
   let updateState = $derived(parseFirmwareUpdateState(updateEntity ? states[updateEntity.id]?.value : null));
   let installedVersion = $derived(
-    firmwareConfig?.installedVersion ?? updateState.installedVersion ?? parseProjectVersion(device.swVersion) ?? 'Unknown'
+    resolveInstalledVersion(updateState, firmwareConfig, device.swVersion) ?? 'Unknown'
   );
   let latestVersion = $derived(
     packageInfo?.version ?? (packageLookupComplete ? 'No package' : updateState.latestVersion ?? 'Unknown')

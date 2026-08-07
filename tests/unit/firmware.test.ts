@@ -21,7 +21,7 @@ import {
   type CodebergPackage,
   type FirmwarePackageManifest
 } from '../../src/lib/server/firmware/packages';
-import { parseFirmwareUpdateState } from '../../src/lib/server/firmware/update-state';
+import { parseFirmwareUpdateState, resolveInstalledVersion } from '../../src/lib/server/firmware/update-state';
 
 const topicPrefix = 'grow/daniel-home';
 
@@ -344,5 +344,33 @@ describe('ESPHome update state parsing', () => {
     });
 
     expect(parseFirmwareUpdateState('OFF')).toMatchObject({ state: 'OFF', latestVersion: null });
+  });
+});
+
+describe('resolving which version a node is actually running', () => {
+  const EDGE = 'edge-20260805T205334Z-0a37c0e69bef';
+
+  it('prefers the update entity over a stale retained _firmware/config', () => {
+    // The exhaust-fan case: the OTA had landed, but the retained payload still
+    // advertised the pre-OTA build because its publish was lost to a reconnect.
+    // Trusting it made the app offer an update the device rightly refused.
+    expect(
+      resolveInstalledVersion({ installedVersion: EDGE }, { installedVersion: 'dev' }, `stackdrift.exhaust-fan ${EDGE}`)
+    ).toBe(EDGE);
+  });
+
+  it('falls back to _firmware/config before the device has published update state', () => {
+    expect(resolveInstalledVersion(null, { installedVersion: 'v1.2.3' })).toBe('v1.2.3');
+    expect(resolveInstalledVersion({ installedVersion: null }, { installedVersion: 'v1.2.3' })).toBe('v1.2.3');
+  });
+
+  it('falls back to the discovery swVersion only when both are absent', () => {
+    expect(resolveInstalledVersion(null, null, 'stackdrift.exhaust-fan v1.2.3')).toBe('v1.2.3');
+    expect(resolveInstalledVersion(null, {}, undefined)).toBeNull();
+  });
+
+  it('treats an empty string as absent rather than as a version', () => {
+    expect(resolveInstalledVersion({ installedVersion: '' }, { installedVersion: 'v1.2.3' })).toBe('v1.2.3');
+    expect(resolveInstalledVersion({ installedVersion: '' }, { installedVersion: '' })).toBeNull();
   });
 });
