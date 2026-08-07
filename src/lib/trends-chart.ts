@@ -3,8 +3,8 @@
 
 /**
  * The parts of the trends chart decidable without a DOM — y-axis layout, the rebuild
- * signature, the zoom window and the summary — kept out of `TrendsChart.svelte` so they
- * can be unit-tested. Client-safe: no `$lib/server` imports.
+ * signature and the zoom window — kept out of `TrendsChart.svelte` so they can be
+ * unit-tested. Client-safe: no `$lib/server` imports.
  */
 import type { TrendSeries } from '$lib/trends';
 
@@ -94,39 +94,3 @@ export function zoomWindowLabel(minSec: number, maxSec: number, timeZone?: strin
   return `${fmt.format(minSec * 1000)} → ${fmt.format(maxSec * 1000)}`;
 }
 
-export interface SeriesStat {
-  key: string;
-  label: string;
-  unit: string;
-  min: number | null;
-  max: number | null;
-  avg: number | null;
-}
-
-/** Summarises what is actually on screen — the zoom window, not the fetched range. */
-export function seriesStats(series: TrendSeries[], window: ZoomWindow | null): SeriesStat[] {
-  return series.map((ser) => {
-    let min = Infinity;
-    let max = -Infinity;
-    let sum = 0;
-    let n = 0;
-    for (const p of ser.points) {
-      if (window) {
-        const t = Date.parse(p.t) / 1000;
-        if (t < window.min || t > window.max) continue;
-      }
-      if (!Number.isFinite(p.v)) continue;
-      if (p.v < min) min = p.v;
-      if (p.v > max) max = p.v;
-      sum += p.v;
-      n += 1;
-    }
-    const base = { key: ser.key, label: ser.label, unit: ser.unit };
-    return n === 0 ? { ...base, min: null, max: null, avg: null } : { ...base, min, max, avg: sum / n };
-  });
-}
-
-/** Small readings need the digits a temperature would waste; pwEC at 1 dp is a flat line. */
-export function statDigits(unit: string): number {
-  return unit === 'mS/cm' ? 2 : unit === '%' || unit === '°C' ? 1 : 0;
-}

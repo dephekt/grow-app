@@ -6,8 +6,6 @@
   import uPlot from 'uplot';
   import 'uplot/dist/uPlot.min.css';
   import {
-    seriesStats,
-    statDigits,
     structureSignature,
     yAxisPlans,
     zoomWindowLabel,
@@ -23,8 +21,6 @@
   let structureSig = '';
 
   let zoom = $state<ZoomWindow | null>(null);
-  // Mirrors uPlot's own per-series `show`, which the legend owns once the plot is up.
-  let visible = $state<boolean[]>([]);
 
   function cssVar(name: string, fallback: string): string {
     if (typeof document === 'undefined') return fallback;
@@ -97,8 +93,7 @@
           (u: uPlot, key: string) => {
             if (key === 'x') zoom = zoomedWindow(u.data[0] as number[], u.scales.x.min, u.scales.x.max);
           }
-        ],
-        setSeries: [(u: uPlot) => (visible = u.series.slice(1).map((x) => x.show !== false))]
+        ]
       },
       series: [
         {},
@@ -142,7 +137,6 @@
       plot = null;
       structureSig = '';
       zoom = null;
-      visible = [];
       return;
     }
     const width = el.clientWidth || 600;
@@ -152,7 +146,6 @@
       plot?.destroy();
       plot = new uPlot(buildOpts(s, width), data, el);
       structureSig = sig;
-      visible = plot.series.slice(1).map((x) => x.show !== false);
     } else {
       plot.setData(data);
     }
@@ -187,17 +180,6 @@
   });
 
   let isEmpty = $derived(series.length === 0 || series.every((x: TrendSeries) => x.points.length === 0));
-  // Summarises what is on screen: the zoom window, and only the series the legend shows.
-  let stats = $derived(
-    seriesStats(
-      series.filter((_: TrendSeries, i: number) => visible[i] ?? true),
-      zoom
-    )
-  );
-
-  function fmt(v: number | null, unit: string): string {
-    return v === null ? '—' : v.toFixed(statDigits(unit));
-  }
 </script>
 
 <div class="trends-chart" style="min-height:{height}px">
@@ -217,31 +199,6 @@
     <span class="zoom-hint mono">drag to zoom</span>
   {/if}
 </div>
-
-{#if !isEmpty && stats.length > 0}
-  <div class="stats-scroll">
-    <table class="stats mono">
-      <thead>
-        <tr>
-          <th scope="col" class="stat-name"></th>
-          <th scope="col">Min</th>
-          <th scope="col">Max</th>
-          <th scope="col">Avg</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each stats as s (s.key)}
-          <tr>
-            <th scope="row" class="stat-name">{s.label}</th>
-            <td>{fmt(s.min, s.unit)}</td>
-            <td>{fmt(s.max, s.unit)}</td>
-            <td>{fmt(s.avg, s.unit)}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-{/if}
 
 <style>
   /* The empty-state overlays the chart host rather than stacking under it; the top strip
@@ -280,34 +237,6 @@
     background: var(--panel-2);
   }
 
-  /* Four columns of numbers overflow a phone before they wrap usefully. */
-  .stats-scroll {
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin-top: 10px;
-  }
-  .stats {
-    border-collapse: collapse;
-    font-size: 0.7rem;
-    color: var(--text);
-  }
-  .stats th,
-  .stats td {
-    padding: 2px 10px 2px 0;
-    text-align: right;
-    font-weight: 400;
-  }
-  .stats thead th {
-    color: var(--faint);
-    font-size: 0.62rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .stats .stat-name {
-    text-align: left;
-    color: var(--muted);
-    padding-right: 16px;
-  }
   .empty-state {
     position: absolute;
     inset: 0;

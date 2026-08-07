@@ -5,8 +5,6 @@ import { describe, expect, it } from 'vitest';
 import {
   maxYAxes,
   seriesScale,
-  seriesStats,
-  statDigits,
   structureSignature,
   yAxisPlans,
   zoomWindowLabel,
@@ -163,61 +161,5 @@ describe('zoomWindowLabel', () => {
 
   it('adds the date once the window spans more than a day', () => {
     expect(zoomWindowLabel(noon, noon + 3 * 86400, 'UTC')).toMatch(/Aug/);
-  });
-});
-
-describe('seriesStats', () => {
-  const points = [
-    { t: '2026-08-04T00:00:00Z', v: 10 },
-    { t: '2026-08-04T01:00:00Z', v: 30 },
-    { t: '2026-08-04T02:00:00Z', v: 20 }
-  ];
-  const one = [ser('vwc', '%', { label: 'VWC', points })];
-
-  it('summarises the whole series when nothing is zoomed', () => {
-    expect(seriesStats(one, null)).toEqual([
-      { key: 'vwc', label: 'VWC', unit: '%', min: 10, max: 30, avg: 20 }
-    ]);
-  });
-
-  /** The point of the table is to describe what is on screen, not what was fetched. */
-  it('summarises only the zoom window', () => {
-    const from = Date.parse('2026-08-04T00:30:00Z') / 1000;
-    const to = Date.parse('2026-08-04T02:30:00Z') / 1000;
-    expect(seriesStats(one, { min: from, max: to })[0]).toMatchObject({ min: 20, max: 30, avg: 25 });
-  });
-
-  it('reports nulls rather than NaN for a window with no points', () => {
-    const from = Date.parse('2026-08-05T00:00:00Z') / 1000;
-    expect(seriesStats(one, { min: from, max: from + 3600 })[0]).toMatchObject({
-      min: null,
-      max: null,
-      avg: null
-    });
-  });
-
-  it('reports nulls for a series that recorded nothing', () => {
-    expect(seriesStats([ser('vwc', '%')], null)[0]).toMatchObject({ min: null, max: null, avg: null });
-  });
-
-  it('summarises every series it is given, in order', () => {
-    expect(seriesStats(SUBSTRATE, null).map((s) => s.key)).toEqual(['vwc', 'pwec', 'temp']);
-  });
-});
-
-describe('statDigits', () => {
-  /** pwEC lives around 1-3 mS/cm; at one decimal the whole column reads the same. */
-  it('gives EC the digits its range needs', () => {
-    expect(statDigits('mS/cm')).toBe(2);
-  });
-
-  it('gives VWC and temperature one decimal, matching the substrate card', () => {
-    expect(statDigits('%')).toBe(1);
-    expect(statDigits('°C')).toBe(1);
-  });
-
-  it('rounds anything else, which is counts and ppm', () => {
-    expect(statDigits('ppm')).toBe(0);
-    expect(statDigits('')).toBe(0);
   });
 });
