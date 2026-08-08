@@ -6,6 +6,7 @@
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
   import IrrigationHistory from '$lib/irrigation/IrrigationHistory.svelte';
+  import { MAX_RUN_SECONDS_CEILING } from '$lib/irrigation/model';
   import { resolveSubstrateProbes } from '$lib/substrate';
   import type { Zone } from '$lib/server/opensprinkler/zones';
   import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
@@ -587,7 +588,10 @@
             </select>
           </span>
         </label>
-        <label>Max run (s)<input type="text" inputmode="numeric" bind:value={form.maxRunSeconds} required /></label>
+        <label>
+          Max run (s, max {MAX_RUN_SECONDS_CEILING})
+          <input type="text" inputmode="numeric" bind:value={form.maxRunSeconds} required />
+        </label>
       </div>
       <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Enabled</label>
       <div class="editor-actions">

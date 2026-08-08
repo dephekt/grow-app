@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
+import { MAX_RUN_SECONDS_CEILING } from '$lib/irrigation/model';
 import type { ZoneCreate, ZonePatch } from './zones';
 import type { ScheduleCreate, SchedulePatch } from './schedules';
 
@@ -58,6 +59,17 @@ function requirePositiveInt(value: unknown, field: string): number {
   return n;
 }
 
+/** The zone's own run clamp, itself clamped — see `MAX_RUN_SECONDS_CEILING`. */
+function requireRunSeconds(value: unknown): number {
+  const seconds = requirePositiveInt(value, 'maxRunSeconds');
+  if (seconds > MAX_RUN_SECONDS_CEILING) {
+    throw new Error(
+      `maxRunSeconds must not exceed ${MAX_RUN_SECONDS_CEILING} — the pump plug cuts its own supply on a longer run and needs a physical rearm`
+    );
+  }
+  return seconds;
+}
+
 function requireBoolean(value: unknown, field: string): boolean {
   if (typeof value !== 'boolean') throw new Error(`${field} must be a boolean`);
   return value;
@@ -106,7 +118,7 @@ export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
     substrateVolumeMl: optPositiveNumber(body.substrateVolumeMl, 'substrateVolumeMl'),
     drippers: optPositiveInt(body.drippers, 'drippers'),
     emitterLph: optPositiveNumber(body.emitterLph, 'emitterLph'),
-    maxRunSeconds: body.maxRunSeconds == null ? 300 : requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds'),
+    maxRunSeconds: body.maxRunSeconds == null ? 300 : requireRunSeconds(body.maxRunSeconds),
     substrateNodeId: optString(body.substrateNodeId),
     ...zoneThresholds(body, false),
     enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled'),
@@ -124,7 +136,7 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('substrateVolumeMl' in body) patch.substrateVolumeMl = optPositiveNumber(body.substrateVolumeMl, 'substrateVolumeMl');
   if ('drippers' in body) patch.drippers = optPositiveInt(body.drippers, 'drippers');
   if ('emitterLph' in body) patch.emitterLph = optPositiveNumber(body.emitterLph, 'emitterLph');
-  if ('maxRunSeconds' in body) patch.maxRunSeconds = requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds');
+  if ('maxRunSeconds' in body) patch.maxRunSeconds = requireRunSeconds(body.maxRunSeconds);
   if ('substrateNodeId' in body) patch.substrateNodeId = optString(body.substrateNodeId);
   Object.assign(patch, zoneThresholds(body, true));
   if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
