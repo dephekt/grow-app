@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { describe, expect, it } from 'vitest';
+import { MAX_RUN_SECONDS_CEILING } from '../../src/lib/irrigation/model';
 import { parseZoneCreate, parseZonePatch } from '../../src/lib/server/opensprinkler/validate';
 
 const base = { name: '4x4', stationSid: 0 };
@@ -97,5 +98,48 @@ describe('substrate threshold validation', () => {
     // An empty string is the editor's "no bound", not a hard zero.
     expect(parseZoneCreate({ ...base, pwecMin: '' })).toMatchObject({ pwecMin: null });
     expect(parseZoneCreate({ ...base, pwecMin: '  ' })).toMatchObject({ pwecMin: null });
+  });
+});
+
+/**
+ * The clamp exists so grow-app never commands a run the pump plug would cut short. The plug
+ * latches its supply off after a 12 min dry-run session and only a physical rearm clears it,
+ * so a zone allowed past the ceiling turns a legitimate long soak into a trip to the tent.
+ * Nothing enforced this before: the column defaults to 300 and took any positive integer.
+ */
+describe('max run clamp', () => {
+  it('accepts the ceiling and anything under it', () => {
+    expect(parseZoneCreate({ ...base, maxRunSeconds: MAX_RUN_SECONDS_CEILING })).toMatchObject({
+      maxRunSeconds: MAX_RUN_SECONDS_CEILING
+    });
+    expect(parseZoneCreate({ ...base, maxRunSeconds: 135 })).toMatchObject({ maxRunSeconds: 135 });
+    // Omitted keeps the column default rather than the ceiling.
+    expect(parseZoneCreate(base)).toMatchObject({ maxRunSeconds: 300 });
+  });
+
+  it('rejects a run longer than the pump plug tolerates', () => {
+    expect(() => parseZoneCreate({ ...base, maxRunSeconds: MAX_RUN_SECONDS_CEILING + 1 })).toThrow(
+      /maxRunSeconds/
+    );
+    expect(() => parseZoneCreate({ ...base, maxRunSeconds: 900 })).toThrow(/rearm/);
+  });
+
+  /** The patch path is the one the finding named — the editor writes through it. */
+  it('applies the same ceiling on patch', () => {
+    expect(parseZonePatch({ maxRunSeconds: 600 })).toMatchObject({ maxRunSeconds: 600 });
+    expect(() => parseZonePatch({ maxRunSeconds: 1200 })).toThrow(/maxRunSeconds/);
+    // Not naming it must still leave it untouched.
+    expect('maxRunSeconds' in parseZonePatch({ name: 'x' })).toBe(false);
+  });
+
+  it('still rejects the non-integers it always did', () => {
+    expect(() => parseZoneCreate({ ...base, maxRunSeconds: 0 })).toThrow(/positive integer/);
+    expect(() => parseZoneCreate({ ...base, maxRunSeconds: -5 })).toThrow(/positive integer/);
+    expect(() => parseZoneCreate({ ...base, maxRunSeconds: 12.5 })).toThrow(/positive integer/);
+  });
+
+  /** The ceiling has to stay under the firmware's dry-run timeout or it guarantees the trip. */
+  it('leaves headroom under the 12 min firmware guard', () => {
+    expect(MAX_RUN_SECONDS_CEILING).toBeLessThan(12 * 60);
   });
 });

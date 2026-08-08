@@ -23,6 +23,11 @@ export const RUNOFF_NODE = 'runoff-monitor';
 /** Above the base package's 3 W standby suppression → the pump is genuinely drawing. */
 export const PUMP_DRAW_MIN_W = 5;
 
+/** Ceiling on a zone's run clamp: the pump plug latches its own supply off after a 12 min
+ *  dry-run session, so a legitimate run has to finish well inside that or it trips the cutout
+ *  and needs a physical rearm (grow-fleet devices/irrigation-pump.yaml, `dry_run_timeout`). */
+export const MAX_RUN_SECONDS_CEILING = 600;
+
 /** The runoff pump draws ~20-30 W when running vs ~0-3 W standby, so this floor sits well clear
  *  of both standby and small power-meter glitches. */
 export const RUNOFF_DRAW_MIN_W = 10;
