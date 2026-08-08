@@ -174,11 +174,20 @@ export function vwcPercent(vwc: number | null): number | null {
   return atDisplayPrecision(vwc * 100, DISPLAY_DIGITS.vwc);
 }
 
+/** Which zone a probe sits in and whose pot it is; the client-safe shape of a
+ *  `substrate_probes` row. */
+export interface SubstrateProbeBinding {
+  nodeId: string;
+  zoneId: string | null;
+  /** Free text, e.g. "Gelato A". */
+  name?: string | null;
+}
+
 /** The zone fields this module needs, structurally — so it never imports server code. */
 export interface SubstrateZoneBinding {
+  id: string;
   name: string;
   substrateType: string | null;
-  substrateNodeId: string | null;
   vwcMinPct?: number | null;
   vwcMaxPct?: number | null;
   substrateTempMinC?: number | null;
@@ -197,11 +206,13 @@ function thresholdsFrom(zone: SubstrateZoneBinding | null): SubstrateThresholds 
 
 export interface SubstrateProbe {
   nodeId: string;
-  /** Tab label: the bound zone's name when there is one, else the device's own name. */
+  /** Tab label: the plant it sits in when one is named, else the probe's bus letter. */
   label: string;
   deviceName: string;
   /** The bound zone's name, or null when this probe is not assigned to a zone. */
   zoneName: string | null;
+  /** The operator's name for this pot ("Gelato A"), or null when unnamed. */
+  name: string | null;
   available: boolean;
   serial: string | null;
   substrateType: string | null;
@@ -273,7 +284,8 @@ export function deriveReadings(
 /** Every substrate probe in the snapshot, ordered by node id so tabs keep their position. */
 export function resolveSubstrateProbes(
   snapshot: Snapshot,
-  zones: readonly SubstrateZoneBinding[] = []
+  zones: readonly SubstrateZoneBinding[] = [],
+  bindings: readonly SubstrateProbeBinding[] = []
 ): SubstrateProbe[] {
   const byNode = new Map<string, EntityConfig[]>();
   for (const e of snapshot.entities) {
@@ -293,7 +305,8 @@ export function resolveSubstrateProbes(
     const find = (objectId: string) => list.find((e) => e.objectId === objectId);
     const device = snapshot.devices.find((d) => d.nodeId === node || d.id === node);
     const available = device?.availability !== 'offline';
-    const zone = zones.find((z) => z.substrateNodeId === node) ?? null;
+    const binding = bindings.find((b) => b.nodeId === node) ?? null;
+    const zone = (binding?.zoneId ? zones.find((z) => z.id === binding.zoneId) : null) ?? null;
     const resolved = substrateCurveFor(zone?.substrateType);
 
     const raw = available
@@ -309,9 +322,10 @@ export function resolveSubstrateProbes(
     const readings = deriveReadings(raw, resolved);
     probes.push({
       nodeId: node,
-      label: zone?.name ?? deviceName,
+      label: probeLabelFrom(binding, node, deviceName),
       deviceName,
       zoneName: zone?.name ?? null,
+      name: binding?.name?.trim() || null,
       available,
       serial: liveString(snapshot, find(SUBSTRATE_SERIAL)),
       substrateType: zone?.substrateType ?? null,
@@ -336,11 +350,26 @@ export function hasSubstrateProbe(snapshot: Snapshot): boolean {
   return snapshot.entities.some(isSubstrateCounts);
 }
 
-/** The bound zone's name, else the probe's bus letter ("substrate-a" → "A"). */
+/** The probe's bus letter — `substrate-a` or `teros-a` → "A". */
+function busLetter(nodeId: string): string | null {
+  const match = /^(?:substrate|teros)-(.+)$/.exec(nodeId);
+  return match ? match[1].toUpperCase() : null;
+}
+
+/**
+ * What to call a probe: whatever the operator named it, else its bus letter.
+ *
+ * Deliberately NOT the zone name — several probes share a zone, so that collides. And
+ * deliberately not composed from parts: "Gelato A" and "Gelato B" may be two plants of one
+ * strain or one plant with two probes, and nothing here can tell which.
+ */
+function probeLabelFrom(binding: SubstrateProbeBinding | null, nodeId: string, deviceName: string): string {
+  return (binding?.name ?? '').trim() || busLetter(nodeId) || deviceName;
+}
+
+/** The probe's display name, already resolved by `resolveSubstrateProbes`. */
 export function probeTabLabel(probe: SubstrateProbe): string {
-  if (probe.zoneName) return probe.zoneName;
-  const match = /^substrate-(.+)$/.exec(probe.nodeId);
-  return match ? match[1].toUpperCase() : probe.deviceName;
+  return probe.label;
 }
 
 /** Why pore-water EC is missing, so the card can say so rather than show a bare dash. */

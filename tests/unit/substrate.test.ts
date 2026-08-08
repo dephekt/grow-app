@@ -248,7 +248,8 @@ describe('bandStatus', () => {
         ...liveStates,
         'substrate-a_substrate_temperature': '23.999'
       }),
-      [{ name: '4x4', substrateType: 'Coco', substrateNodeId: 'substrate-a', substrateTempMaxC: 24 }]
+      [{ id: 'z1', name: '4x4', substrateType: 'Coco', substrateTempMaxC: 24 }],
+      [{ nodeId: 'substrate-a', zoneId: 'z1' }]
     );
     // 23.999 prints as "24.0 °C"; judged raw it would read ok, judged as printed it is high.
     expect(probes[0].status.temperatureC).toBe('high');
@@ -273,6 +274,7 @@ describe('poreEcGap', () => {
     label: 'A',
     deviceName: 'substrate-a',
     zoneName: null,
+    name: null,
     available,
     serial: null,
     substrateType: null,
@@ -485,19 +487,25 @@ describe('resolveSubstrateProbes', () => {
   });
 
   it('takes its curve and its label from the zone that claims it', () => {
-    const probes = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [
-      { name: 'Tent 1 — Gelato', substrateType: 'Coco', substrateNodeId: 'substrate-a' }
-    ]);
-    expect(probes[0].label).toBe('Tent 1 — Gelato');
+    const probes = resolveSubstrateProbes(
+      makeSnapshot(probeEntities('substrate-a'), liveStates),
+      [{ id: 'z1', name: 'Tent 1 — Gelato', substrateType: 'Coco' }],
+      [{ nodeId: 'substrate-a', zoneId: 'z1' }]
+    );
+    // The zone supplies the curve and the bands; the label comes from the plant, so an
+    // unnamed probe falls back to its bus letter rather than borrowing the zone's name.
+    expect(probes[0].label).toBe('A');
     expect(probes[0].zoneName).toBe('Tent 1 — Gelato');
     expect(probes[0].readings.curve).toBe('soilless');
     expect(probes[0].readings.curveAssumed).toBe(false);
   });
 
   it('switches curve when the zone is a mineral medium', () => {
-    const probes = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [
-      { name: 'Outdoor bed', substrateType: 'Loam', substrateNodeId: 'substrate-a' }
-    ]);
+    const probes = resolveSubstrateProbes(
+      makeSnapshot(probeEntities('substrate-a'), liveStates),
+      [{ id: 'z1', name: 'Outdoor bed', substrateType: 'Loam' }],
+      [{ nodeId: 'substrate-a', zoneId: 'z1' }]
+    );
     expect(probes[0].readings.curve).toBe('mineral');
     expect(probes[0].readings.vwc).toBeCloseTo(manualMineral(LIVE.counts), 6);
   });
@@ -541,36 +549,43 @@ describe('resolveSubstrateProbes', () => {
    *  every type check. */
   it('compares VWC against the band in percent, not m3/m3', () => {
     const zone = {
+      id: 'z1',
       name: '4x4',
       substrateType: 'Coco',
-      substrateNodeId: 'substrate-a',
       vwcMinPct: 30,
       vwcMaxPct: 60
     };
+    const bound = [{ nodeId: 'substrate-a', zoneId: 'z1' }];
     // The live sample derives to 0.47 m3/m3 = 47 %, inside 30-60.
-    const inside = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [zone]);
+    const inside = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [zone], bound);
     expect(inside[0].readings.vwc).toBeCloseTo(0.47, 1);
     expect(inside[0].status.vwc).toBe('ok');
 
     // Had the raw fraction been compared, 0.47 would read as below a min of 30.
-    const tight = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [
-      { ...zone, vwcMinPct: 50, vwcMaxPct: 60 }
-    ]);
+    const tight = resolveSubstrateProbes(
+      makeSnapshot(probeEntities('substrate-a'), liveStates),
+      [{ ...zone, vwcMinPct: 50, vwcMaxPct: 60 }],
+      bound
+    );
     expect(tight[0].status.vwc).toBe('low');
   });
 
   it('flags substrate temperature and pore EC against their own bands', () => {
-    const probes = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [
+    const probes = resolveSubstrateProbes(
+      makeSnapshot(probeEntities('substrate-a'), liveStates),
+      [
       {
+        id: 'z1',
         name: '4x4',
         substrateType: 'Coco',
-        substrateNodeId: 'substrate-a',
         substrateTempMinC: 18,
         substrateTempMaxC: 24,
         pwecMin: 2,
         pwecMax: 6
       }
-    ]);
+      ],
+      [{ nodeId: 'substrate-a', zoneId: 'z1' }]
+    );
     // 26.6 C is above the 24 ceiling; pore EC derives to ~0.09, below the floor of 2.
     expect(probes[0].status.temperatureC).toBe('high');
     expect(probes[0].status.poreEc).toBe('low');
@@ -586,18 +601,26 @@ describe('resolveSubstrateProbes', () => {
   it('does not judge an offline probe against its bands', () => {
     const probes = resolveSubstrateProbes(
       makeSnapshot(probeEntities('substrate-a'), liveStates, { 'substrate-a': 'offline' }),
-      [{ name: '4x4', substrateType: 'Coco', substrateNodeId: 'substrate-a', vwcMinPct: 30, vwcMaxPct: 60 }]
+      [{ id: 'z1', name: '4x4', substrateType: 'Coco', vwcMinPct: 30, vwcMaxPct: 60 }],
+      [{ nodeId: 'substrate-a', zoneId: 'z1' }]
     );
     expect(probes[0].status.vwc).toBe('unknown');
   });
 
   it('binds each probe to its own zone when several are deployed', () => {
     const entities = [...probeEntities('substrate-a'), ...probeEntities('substrate-b')];
-    const probes = resolveSubstrateProbes(makeSnapshot(entities, {}), [
-      { name: 'Tent 1', substrateType: 'Coco', substrateNodeId: 'substrate-a' },
-      { name: 'Bed 2', substrateType: 'Loam', substrateNodeId: 'substrate-b' }
-    ]);
-    expect(probes.map((p) => p.label)).toEqual(['Tent 1', 'Bed 2']);
+    const probes = resolveSubstrateProbes(
+      makeSnapshot(entities, {}),
+      [
+        { id: 'z1', name: 'Tent 1', substrateType: 'Coco' },
+        { id: 'z2', name: 'Bed 2', substrateType: 'Loam' }
+      ],
+      [
+        { nodeId: 'substrate-a', zoneId: 'z1', name: 'Gelato A' },
+        { nodeId: 'substrate-b', zoneId: 'z2', name: 'Mule A' }
+      ]
+    );
+    expect(probes.map((p) => p.label)).toEqual(['Gelato A', 'Mule A']);
     expect(probes.map((p) => p.readings.curve)).toEqual(['soilless', 'mineral']);
   });
 });

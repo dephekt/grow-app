@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { error, redirect } from '@sveltejs/kit';
+import type { SubstrateProbeBinding } from '$lib/substrate';
 import type { Zone } from '$lib/server/opensprinkler/zones';
 import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
 import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
@@ -24,7 +25,9 @@ export const load = async ({ fetch }) => {
     error(zonesRes.status, 'Could not load irrigation zones');
   }
 
-  const zones = ((await zonesRes.json()) as { zones: ZoneJson[] }).zones ?? [];
+  const zonesBody = (await zonesRes.json()) as { zones: ZoneJson[]; probes?: SubstrateProbeBinding[] };
+  const zones = zonesBody.zones ?? [];
+  const probes = zonesBody.probes ?? [];
 
   // Schedules are non-critical for the page to render; degrade to empty on failure. The
   // response also carries the resolved schedule tz so "Next run" renders in schedule-
@@ -43,5 +46,5 @@ export const load = async ({ fetch }) => {
     events = ((await eventsRes.json()) as { events?: IrrigationEventJson[] }).events ?? [];
   }
 
-  return { zones, schedules, scheduleTimeZone, events };
+  return { zones, probes, schedules, scheduleTimeZone, events };
 };

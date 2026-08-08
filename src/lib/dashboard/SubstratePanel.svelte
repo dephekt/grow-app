@@ -14,6 +14,7 @@
     type PoreEcGap,
     type SubstrateBand,
     type SubstrateProbe,
+    type SubstrateProbeBinding,
     type SubstrateZoneBinding
   } from '$lib/substrate';
   import { poreEcCompare } from '$lib/substrate-compare.svelte';
@@ -22,9 +23,13 @@
 
   // Values are formatted here at the sensor's own resolution; the publisher declares the
   // same precision for the two raw rows.
-  let { snapshot, zones = [] } = $props<{ snapshot: Snapshot; zones?: SubstrateZoneBinding[] }>();
+  let { snapshot, zones = [], probeBindings = [] } = $props<{
+    snapshot: Snapshot;
+    zones?: SubstrateZoneBinding[];
+    probeBindings?: SubstrateProbeBinding[];
+  }>();
 
-  let probes = $derived(resolveSubstrateProbes(snapshot, zones));
+  let probes = $derived(resolveSubstrateProbes(snapshot, zones, probeBindings));
 
   // Selection is held by node id, not index, so a probe dropping off the bus doesn't
   // silently slide the tab onto a different pot.

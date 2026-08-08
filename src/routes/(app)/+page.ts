@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import type { SubstrateZoneBinding } from '$lib/substrate';
+import type { SubstrateProbeBinding, SubstrateZoneBinding } from '$lib/substrate';
 
 /**
  * How long the dashboard will wait for the zone bindings before rendering without them;
@@ -15,13 +15,16 @@ const ZONES_TIMEOUT_MS = 3000;
  */
 export const load = async ({ fetch }) => {
   const empty: SubstrateZoneBinding[] = [];
+  const noProbes: SubstrateProbeBinding[] = [];
   try {
     const response = await fetch('/api/irrigation/zones', { signal: AbortSignal.timeout(ZONES_TIMEOUT_MS) });
-    if (!response.ok) return { zones: empty };
-    const body = (await response.json()) as { zones?: SubstrateZoneBinding[] };
-    const zones = body.zones ?? empty;
-    return { zones };
+    if (!response.ok) return { zones: empty, probes: noProbes };
+    const body = (await response.json()) as {
+      zones?: SubstrateZoneBinding[];
+      probes?: SubstrateProbeBinding[];
+    };
+    return { zones: body.zones ?? empty, probes: body.probes ?? noProbes };
   } catch {
-    return { zones: empty };
+    return { zones: empty, probes: noProbes };
   }
 };

@@ -3,6 +3,7 @@
 
 import type { ZoneCreate, ZonePatch } from './zones';
 import type { ScheduleCreate, SchedulePatch } from './schedules';
+import type { SubstrateProbePatch } from './probes';
 
 /**
  * Pure request-body validation for zone create/update; throws a caller-friendly
@@ -107,7 +108,6 @@ export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
     drippers: optPositiveInt(body.drippers, 'drippers'),
     emitterLph: optPositiveNumber(body.emitterLph, 'emitterLph'),
     maxRunSeconds: body.maxRunSeconds == null ? 300 : requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds'),
-    substrateNodeId: optString(body.substrateNodeId),
     ...zoneThresholds(body, false),
     enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled'),
     schedulesPaused: body.schedulesPaused == null ? false : requireBoolean(body.schedulesPaused, 'schedulesPaused')
@@ -125,10 +125,20 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('drippers' in body) patch.drippers = optPositiveInt(body.drippers, 'drippers');
   if ('emitterLph' in body) patch.emitterLph = optPositiveNumber(body.emitterLph, 'emitterLph');
   if ('maxRunSeconds' in body) patch.maxRunSeconds = requirePositiveInt(body.maxRunSeconds, 'maxRunSeconds');
-  if ('substrateNodeId' in body) patch.substrateNodeId = optString(body.substrateNodeId);
   Object.assign(patch, zoneThresholds(body, true));
   if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
   if ('schedulesPaused' in body) patch.schedulesPaused = requireBoolean(body.schedulesPaused, 'schedulesPaused');
+  return patch;
+}
+
+/**
+ * A probe binding patch. Every field is optional and absence means "leave alone", so
+ * naming a zone cannot blank a name; an explicit null is how a field is cleared.
+ */
+export function parseProbePatch(body: Record<string, unknown>): SubstrateProbePatch {
+  const patch: SubstrateProbePatch = {};
+  if ('zoneId' in body) patch.zoneId = optString(body.zoneId);
+  if ('name' in body) patch.name = optString(body.name);
   return patch;
 }
 

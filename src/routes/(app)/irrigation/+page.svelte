@@ -6,7 +6,7 @@
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
   import IrrigationHistory from '$lib/irrigation/IrrigationHistory.svelte';
-  import { resolveSubstrateProbes } from '$lib/substrate';
+  import { resolveSubstrateProbes, type SubstrateProbeBinding } from '$lib/substrate';
   import type { Zone } from '$lib/server/opensprinkler/zones';
   import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
   import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
@@ -18,6 +18,7 @@
 
   // Seed once from load; manage locally as mutations happen.
   let zones = $state<ZoneJson[]>(untrack(() => data.zones));
+  let probeBindings = $state<SubstrateProbeBinding[]>(untrack(() => data.probes ?? []));
   let schedules = $state<ScheduleJson[]>(untrack(() => data.schedules));
   let history = $state<IrrigationEventJson[]>(untrack(() => data.events));
   let error = $state<string | null>(null);
@@ -25,7 +26,7 @@
 
   // Probes discovered on the MQTT bus, so a zone is bound by picking one rather than by
   // typing a node id that has to match the publisher's exactly.
-  let substrateProbes = $derived(resolveSubstrateProbes(live.snapshot));
+  let substrateProbes = $derived(resolveSubstrateProbes(live.snapshot, [], probeBindings));
 
   // Per-zone shot controls (keyed by zone id).
   let runValue = $state<Record<string, string>>({});
@@ -38,7 +39,6 @@
     name: '',
     stationSid: '',
     substrateType: '',
-    substrateNodeId: '',
     vwcMin: '',
     vwcMax: '',
     tempMin: '',
@@ -102,7 +102,11 @@
   async function refresh(): Promise<void> {
     try {
       const response = await fetch('/api/irrigation/zones');
-      if (response.ok) zones = ((await response.json()) as { zones: ZoneJson[] }).zones;
+      if (response.ok) {
+        const body = (await response.json()) as { zones: ZoneJson[]; probes: SubstrateProbeBinding[] };
+        zones = body.zones;
+        probeBindings = body.probes;
+      }
     } catch {
       /* leave list as-is; the mutation still applied server-side */
     }
@@ -169,7 +173,6 @@
       name: zone.name,
       stationSid: String(zone.stationSid),
       substrateType: zone.substrateType ?? '',
-      substrateNodeId: zone.substrateNodeId ?? '',
       vwcMin: zone.vwcMinPct != null ? String(zone.vwcMinPct) : '',
       vwcMax: zone.vwcMaxPct != null ? String(zone.vwcMaxPct) : '',
       tempMin: zone.substrateTempMinC != null ? String(zone.substrateTempMinC) : '',
@@ -184,6 +187,27 @@
       maxRunSeconds: String(zone.maxRunSeconds),
       enabled: zone.enabled
     };
+  }
+
+  /** Persist one probe field. Each control saves on its own so a half-filled row is never
+   *  a half-applied binding, and the list is re-read so the preview reflects the server. */
+  async function saveProbe(nodeId: string, patch: Record<string, unknown>): Promise<void> {
+    try {
+      const response = await fetch(`/api/irrigation/probes/${encodeURIComponent(nodeId)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch)
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        error = body.error ?? `Could not save ${nodeId}`;
+        return;
+      }
+      error = null;
+      await refresh();
+    } catch {
+      error = `Could not save ${nodeId}`;
+    }
   }
 
   function cancelEdit(): void {
@@ -204,7 +228,6 @@
       name: form.name,
       stationSid: Number(form.stationSid),
       substrateType: form.substrateType.trim() || null,
-      substrateNodeId: form.substrateNodeId.trim() || null,
       // An empty box is an open side, not a zero.
       vwcMinPct: num(form.vwcMin),
       vwcMaxPct: num(form.vwcMax),
@@ -408,7 +431,6 @@
         <p class="meta mono">
           STN {zone.stationSid}
           {#if zone.substrateType}· {zone.substrateType}{/if}
-          {#if zone.substrateNodeId}· {zone.substrateNodeId}{/if}
           {#if zone.substrateVolumeMl}· {zone.substrateVolumeMl} mL{/if}
           {#if zone.drippers && zone.emitterLph}· {zone.drippers}×{zone.emitterLph} L/hr{/if}
           · cap {zone.maxRunSeconds}s
@@ -511,6 +533,45 @@
 
   <IrrigationHistory events={history} timeZone={scheduleTz} />
 
+  {#if isAdmin && substrateProbes.length > 0}
+    <div class="panel editor">
+      <div class="panel-head">
+        <span class="panel-title">Substrate probes</span>
+      </div>
+      <!-- Bound per probe, not per zone: a zone holds several pots. The name is what the
+           card and the chart legend show, so two probes in one zone stay tellable apart. -->
+      {#each substrateProbes as probe (probe.nodeId)}
+        {@const binding = probeBindings.find((b) => b.nodeId === probe.nodeId)}
+        <div class="probe-row">
+          <span class="mono probe-node">{probe.nodeId}</span>
+          <label>
+            Zone
+            <select
+              value={binding?.zoneId ?? ''}
+              onchange={(e) => saveProbe(probe.nodeId, { zoneId: e.currentTarget.value || null })}
+            >
+              <option value="">Unbound</option>
+              {#each zones as zone (zone.id)}
+                <option value={zone.id}>{zone.name}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="probe-name">
+            Name
+            <input
+              type="text"
+              placeholder="Gelato A"
+              value={binding?.name ?? ''}
+              onchange={(e) => saveProbe(probe.nodeId, { name: e.currentTarget.value })}
+            />
+          </label>
+          <span class="probe-preview mono">{probe.label}</span>
+        </div>
+      {/each}
+      <small class="hint">Shown on the substrate card and in chart legends; defaults to the bus letter</small>
+    </div>
+  {/if}
+
   {#if isAdmin}
     <form class="panel editor" onsubmit={saveZone}>
       <div class="panel-head">
@@ -524,21 +585,6 @@
           <small class="hint">0-based · OS Zone 1 = 0</small>
         </label>
         <label>Substrate type<input type="text" list="substrate-types" bind:value={form.substrateType} /></label>
-        <label>
-          Substrate probe
-          <select bind:value={form.substrateNodeId}>
-            <option value="">None</option>
-            {#each substrateProbes as probe (probe.nodeId)}
-              <option value={probe.nodeId}>{probe.nodeId}</option>
-            {/each}
-            <!-- A probe configured before it ever came online has no discovery entry to
-                 list, so keep its binding selectable rather than silently clearing it. -->
-            {#if form.substrateNodeId && !substrateProbes.some((p) => p.nodeId === form.substrateNodeId)}
-              <option value={form.substrateNodeId}>{form.substrateNodeId} (offline)</option>
-            {/if}
-          </select>
-          <small class="hint">Applies this zone's substrate type as its calibration</small>
-        </label>
       </div>
       <div class="grid">
         <label>
@@ -861,5 +907,41 @@
   .schedule-editor .hint {
     color: var(--faint);
     font-size: 0.58rem;
+  }
+
+  .probe-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--rule, rgba(255, 255, 255, 0.08));
+  }
+  .probe-row:last-of-type {
+    border-bottom: none;
+  }
+  .probe-node {
+    min-width: 7rem;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+  .probe-row label {
+    flex: 0 1 9rem;
+  }
+  .probe-row .probe-name {
+    flex: 1 1 12rem;
+  }
+  .probe-row input,
+  .probe-row select {
+    width: 100%;
+  }
+  .probe-preview {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--r-pill, 999px);
+    background: color-mix(in srgb, var(--cyan) 12%, transparent);
+    color: var(--cyan);
+    font-size: 0.72rem;
   }
 </style>
