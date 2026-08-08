@@ -174,8 +174,7 @@ export function vwcPercent(vwc: number | null): number | null {
   return atDisplayPrecision(vwc * 100, DISPLAY_DIGITS.vwc);
 }
 
-/** Which zone a probe sits in and whose pot it is; the client-safe shape of a
- *  `substrate_probes` row. */
+/** The client-safe shape of a `substrate_probes` row. */
 export interface SubstrateProbeBinding {
   nodeId: string;
   zoneId: string | null;
@@ -211,8 +210,6 @@ export interface SubstrateProbe {
   deviceName: string;
   /** The bound zone's name, or null when this probe is not assigned to a zone. */
   zoneName: string | null;
-  /** The operator's name for this pot ("Gelato A"), or null when unnamed. */
-  name: string | null;
   available: boolean;
   serial: string | null;
   substrateType: string | null;
@@ -322,10 +319,9 @@ export function resolveSubstrateProbes(
     const readings = deriveReadings(raw, resolved);
     probes.push({
       nodeId: node,
-      label: probeLabelFrom(binding, node, deviceName),
+      label: probeLabel(binding, node, deviceName),
       deviceName,
       zoneName: zone?.name ?? null,
-      name: binding?.name?.trim() || null,
       available,
       serial: liveString(snapshot, find(SUBSTRATE_SERIAL)),
       substrateType: zone?.substrateType ?? null,
@@ -356,20 +352,13 @@ function busLetter(nodeId: string): string | null {
   return match ? match[1].toUpperCase() : null;
 }
 
-/**
- * What to call a probe: whatever the operator named it, else its bus letter.
- *
- * Deliberately NOT the zone name — several probes share a zone, so that collides. And
- * deliberately not composed from parts: "Gelato A" and "Gelato B" may be two plants of one
- * strain or one plant with two probes, and nothing here can tell which.
- */
-function probeLabelFrom(binding: SubstrateProbeBinding | null, nodeId: string, deviceName: string): string {
-  return (binding?.name ?? '').trim() || busLetter(nodeId) || deviceName;
-}
-
-/** The probe's display name, already resolved by `resolveSubstrateProbes`. */
-export function probeTabLabel(probe: SubstrateProbe): string {
-  return probe.label;
+/** What to call a probe: whatever the operator named it, else its bus letter. */
+export function probeLabel(
+  binding: SubstrateProbeBinding | null | undefined,
+  nodeId: string,
+  deviceName?: string
+): string {
+  return (binding?.name ?? '').trim() || busLetter(nodeId) || deviceName || nodeId;
 }
 
 /** Why pore-water EC is missing, so the card can say so rather than show a bare dash. */

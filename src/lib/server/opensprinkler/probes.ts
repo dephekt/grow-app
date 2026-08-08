@@ -3,18 +3,13 @@
 
 import type { DatabaseSync } from 'node:sqlite';
 
-/**
- * Which zone each substrate probe sits in, and whose pot it is. A probe row is created
- * on first bind rather than on discovery — an unbound probe still charts and still reads,
- * it just has no plant behind it.
- */
+/** Which zone each substrate probe sits in, and whose pot it is. */
 
 export interface SubstrateProbeRecord {
-  /** MQTT node id, e.g. `substrate-a`. The primary key: a probe is in one pot. */
+  /** MQTT node id, e.g. `substrate-a`; the primary key, since a probe is in one pot. */
   nodeId: string;
   zoneId: string | null;
-  /** What the card, the tabs and the chart legend call it — "Gelato A". Free text, because
-   *  the operator's naming (strain, pot, position) is not a structure worth guessing at. */
+  /** Free text the card, the tabs and the chart legend call it by — "Gelato A". */
   name: string | null;
   createdAt: string;
   updatedAt: string;
@@ -52,13 +47,7 @@ export function getProbe(db: DatabaseSync, nodeId: string): SubstrateProbeRecord
   return row ? toProbe(row) : undefined;
 }
 
-/**
- * Create or update one probe's binding. Upsert rather than create/update as a pair because
- * the caller never knows which it is — the row appears the first time a discovered probe is
- * bound, and every later edit is the same operation from the operator's side.
- *
- * Only the keys present in `patch` move, so binding a zone cannot blank a plant name.
- */
+/** Create or update one probe's binding; only the keys present in `patch` move. */
 export function upsertProbe(db: DatabaseSync, nodeId: string, patch: SubstrateProbePatch): SubstrateProbeRecord {
   const now = new Date().toISOString();
   const existing = getProbe(db, nodeId);
@@ -68,12 +57,13 @@ export function upsertProbe(db: DatabaseSync, nodeId: string, patch: SubstratePr
     name: 'name' in patch ? (patch.name ?? null) : (existing?.name ?? null)
   };
 
+  // created_at stays out of the DO UPDATE SET, so the insert's value only lands on a new row.
   db.prepare(
     `INSERT INTO substrate_probes (node_id, zone_id, name, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(node_id) DO UPDATE SET
        zone_id = excluded.zone_id, name = excluded.name, updated_at = excluded.updated_at`
-  ).run(nodeId, merged.zoneId, merged.name, existing?.createdAt ?? now, now);
+  ).run(nodeId, merged.zoneId, merged.name, now, now);
 
   return getProbe(db, nodeId)!;
 }

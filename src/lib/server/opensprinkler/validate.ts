@@ -131,10 +131,7 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   return patch;
 }
 
-/**
- * A probe binding patch. Every field is optional and absence means "leave alone", so
- * naming a zone cannot blank a name; an explicit null is how a field is cleared.
- */
+/** A probe binding patch: an absent field is left alone, an explicit null clears it. */
 export function parseProbePatch(body: Record<string, unknown>): SubstrateProbePatch {
   const patch: SubstrateProbePatch = {};
   if ('zoneId' in body) patch.zoneId = optString(body.zoneId);

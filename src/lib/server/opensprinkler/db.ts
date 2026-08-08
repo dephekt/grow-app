@@ -7,8 +7,7 @@ import { dirname } from 'node:path';
 import { env } from '$lib/server/env';
 
 // Append-only: index +1 is the `PRAGMA user_version`, so never edit an existing entry.
-// Exported so a test can stand a database up at an older version and drive one migration
-// across it — the data-moving ones are otherwise unreachable from a fresh database.
+// Exported so a test can stand a database up at an older version and drive one migration.
 export const MIGRATIONS: string[] = [
   // 1 — irrigation zones + a manual-run audit log
   `
@@ -100,11 +99,8 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE zones ADD COLUMN pwec_min REAL;
   ALTER TABLE zones ADD COLUMN pwec_max REAL;
   `,
-  // 9 — invert the probe↔zone binding. `zones.substrate_node_id` modelled one probe per
-  // zone; a pot holds one probe but a zone holds several, so the reference belongs on the
-  // probe, where node_id as PK also makes "in two zones at once" unrepresentable.
-  // INSERT OR IGNORE because the old shape allowed exactly that: two zones naming one
-  // probe, which `zones.find()` resolved by taking the first — so does this.
+  // 9 — move the probe↔zone reference onto the probe, keyed by node id; the ORDER BY leaves
+  // OR IGNORE the same winner `listZones` order gave the old `zones.find()`.
   `
   CREATE TABLE substrate_probes (
     node_id TEXT PRIMARY KEY,
@@ -116,11 +112,12 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX substrate_probes_zone ON substrate_probes(zone_id);
 
   INSERT OR IGNORE INTO substrate_probes (node_id, zone_id, created_at, updated_at)
-    SELECT substrate_node_id, id,
+    SELECT trim(substrate_node_id), id,
            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
            strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       FROM zones
-     WHERE substrate_node_id IS NOT NULL AND trim(substrate_node_id) <> '';
+     WHERE substrate_node_id IS NOT NULL AND trim(substrate_node_id) <> ''
+     ORDER BY station_sid, name;
 
   ALTER TABLE zones DROP COLUMN substrate_node_id;
   `

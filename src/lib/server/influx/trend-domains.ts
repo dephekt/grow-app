@@ -16,7 +16,6 @@ import {
   SUBSTRATE_COUNTS,
   SUBSTRATE_TEMPERATURE,
   deriveReadings,
-  probeTabLabel,
   resolveSubstrateProbes,
   substrateCurveFor,
   type SubstrateProbeBinding,
@@ -166,7 +165,7 @@ export function assembleDomainSeries(
     const curve = substrateCurveFor(probe.substrateType);
     const counts = pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_COUNTS}`) ?? [];
     if (counts.length === 0) continue;
-    const probeLabel = probeTabLabel(probe);
+    const probeLabel = probe.label;
 
     // Water content is a pointwise function of counts alone, so it charts wherever the
     // sensor recorded — no join, no dropped buckets.

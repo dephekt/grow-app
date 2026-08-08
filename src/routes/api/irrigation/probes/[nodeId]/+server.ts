@@ -9,8 +9,7 @@ import { getZone } from '$lib/server/opensprinkler/zones';
 import { deleteProbe, upsertProbe } from '$lib/server/opensprinkler/probes';
 import { parseProbePatch } from '$lib/server/opensprinkler/validate';
 
-// Bind or rename one probe — admin only, matching zone config: the binding picks the
-// calibration curve and the threshold bands a reading is judged against.
+// Bind or rename one probe — admin only, matching zone config.
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const denied = requireAdmin(locals);
   if (denied) return denied;
@@ -29,9 +28,13 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     return json({ ok: false, error: error instanceof Error ? error.message : 'Invalid probe' }, { status: 400 });
   }
 
+  // Otherwise an empty body would conjure an all-null row for any node id in the URL.
+  if (Object.keys(patch).length === 0) {
+    return json({ ok: false, error: 'No probe fields to update' }, { status: 400 });
+  }
+
   const db = getIrrigationDb();
-  // Checked here rather than left to the FK: a bad zone id should read as a 404 naming the
-  // zone, not a 500 out of a constraint violation.
+  // Checked here rather than left to the FK, so a bad zone id reads as a 404 not a 500.
   if (patch.zoneId != null && !getZone(db, patch.zoneId)) {
     return json({ ok: false, error: 'Zone not found' }, { status: 404 });
   }
@@ -39,8 +42,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   return json({ ok: true, probe: upsertProbe(db, params.nodeId, patch) });
 };
 
-// Forget a probe's binding. The probe keeps publishing and keeps charting; it just goes
-// back to unbound, so this destroys no readings.
+// Forget a probe's binding; the probe keeps publishing and keeps charting.
 export const DELETE: RequestHandler = ({ params, locals }) => {
   const denied = requireAdmin(locals);
   if (denied) return denied;

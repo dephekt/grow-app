@@ -11,9 +11,7 @@ import { getOpenSprinklerConfig } from '$lib/server/opensprinkler/config';
 import { getIrrigationController } from '$lib/server/opensprinkler/controller';
 import { requireAdmin } from '$lib/server/auth/authz';
 
-// List zones — any authenticated user (they need it to view + run zones). Probe bindings
-// ride along because every consumer of a zone's substrate config needs both, and a second
-// round trip would let the dashboard render a probe against a stale zone.
+// List zones and their probe bindings — any authenticated user (they view + run zones).
 export const GET: RequestHandler = () => {
   const db = getIrrigationDb();
   return json({ ok: true, zones: listZones(db).map(toZoneJson), probes: listProbes(db) });

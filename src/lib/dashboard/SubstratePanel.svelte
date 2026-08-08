@@ -8,7 +8,6 @@
     poreEcCompareDeltaPct,
     poreEcGap,
     vwcPercent,
-    probeTabLabel,
     resolveSubstrateProbes,
     type BandStatus,
     type PoreEcGap,
@@ -108,7 +107,7 @@
           class:offline={!probe.available}
           onclick={() => (selected = probe.nodeId)}
         >
-          {probeTabLabel(probe)}
+          {probe.label}
         </button>
       {/each}
     </div>

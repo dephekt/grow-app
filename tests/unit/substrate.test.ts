@@ -274,7 +274,6 @@ describe('poreEcGap', () => {
     label: 'A',
     deviceName: 'substrate-a',
     zoneName: null,
-    name: null,
     available,
     serial: null,
     substrateType: null,

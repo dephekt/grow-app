@@ -6,7 +6,12 @@
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
   import IrrigationHistory from '$lib/irrigation/IrrigationHistory.svelte';
-  import { resolveSubstrateProbes, type SubstrateProbeBinding } from '$lib/substrate';
+  import {
+    probeLabel,
+    resolveSubstrateProbes,
+    type SubstrateProbe,
+    type SubstrateProbeBinding
+  } from '$lib/substrate';
   import type { Zone } from '$lib/server/opensprinkler/zones';
   import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
   import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
@@ -24,9 +29,25 @@
   let error = $state<string | null>(null);
   const isAdmin = $derived(Boolean(data.user?.isAdmin));
 
-  // Probes discovered on the MQTT bus, so a zone is bound by picking one rather than by
+  // Probes discovered on the MQTT bus, so a binding is made by picking one rather than by
   // typing a node id that has to match the publisher's exactly.
-  let substrateProbes = $derived(resolveSubstrateProbes(live.snapshot, [], probeBindings));
+  let substrateProbes = $derived(resolveSubstrateProbes(live.snapshot, zones, probeBindings));
+
+  // A probe bound before it ever came online has no discovery entry, so it is listed from
+  // its stored binding rather than left with an editor row nothing can reach.
+  let probeRows = $derived.by(() => {
+    const rows = substrateProbes.map((p: SubstrateProbe) => ({
+      nodeId: p.nodeId,
+      label: p.label,
+      discovered: true
+    }));
+    const discovered = new Set(rows.map((r: { nodeId: string }) => r.nodeId));
+    for (const binding of probeBindings) {
+      if (discovered.has(binding.nodeId)) continue;
+      rows.push({ nodeId: binding.nodeId, label: probeLabel(binding, binding.nodeId), discovered: false });
+    }
+    return rows.sort((a: { nodeId: string }, b: { nodeId: string }) => a.nodeId.localeCompare(b.nodeId));
+  });
 
   // Per-zone shot controls (keyed by zone id).
   let runValue = $state<Record<string, string>>({});
@@ -103,9 +124,9 @@
     try {
       const response = await fetch('/api/irrigation/zones');
       if (response.ok) {
-        const body = (await response.json()) as { zones: ZoneJson[]; probes: SubstrateProbeBinding[] };
-        zones = body.zones;
-        probeBindings = body.probes;
+        const body = (await response.json()) as { zones?: ZoneJson[]; probes?: SubstrateProbeBinding[] };
+        zones = body.zones ?? [];
+        probeBindings = body.probes ?? [];
       }
     } catch {
       /* leave list as-is; the mutation still applied server-side */
@@ -189,8 +210,7 @@
     };
   }
 
-  /** Persist one probe field. Each control saves on its own so a half-filled row is never
-   *  a half-applied binding, and the list is re-read so the preview reflects the server. */
+  /** Persist one probe field; each control saves on its own. */
   async function saveProbe(nodeId: string, patch: Record<string, unknown>): Promise<void> {
     try {
       const response = await fetch(`/api/irrigation/probes/${encodeURIComponent(nodeId)}`, {
@@ -201,13 +221,14 @@
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         error = body.error ?? `Could not save ${nodeId}`;
-        return;
+      } else {
+        error = null;
       }
-      error = null;
-      await refresh();
     } catch {
       error = `Could not save ${nodeId}`;
     }
+    // Re-read either way, so a rejected edit snaps the control back to what the server holds.
+    await refresh();
   }
 
   function cancelEdit(): void {
@@ -533,22 +554,23 @@
 
   <IrrigationHistory events={history} timeZone={scheduleTz} />
 
-  {#if isAdmin && substrateProbes.length > 0}
+  {#if isAdmin && probeRows.length > 0}
     <div class="panel editor">
       <div class="panel-head">
         <span class="panel-title">Substrate probes</span>
       </div>
-      <!-- Bound per probe, not per zone: a zone holds several pots. The name is what the
-           card and the chart legend show, so two probes in one zone stay tellable apart. -->
-      {#each substrateProbes as probe (probe.nodeId)}
-        {@const binding = probeBindings.find((b) => b.nodeId === probe.nodeId)}
+      <!-- Bound per probe, not per zone, since a zone holds several pots. -->
+      {#each probeRows as row (row.nodeId)}
+        {@const binding = probeBindings.find((b) => b.nodeId === row.nodeId)}
         <div class="probe-row">
-          <span class="mono probe-node">{probe.nodeId}</span>
+          <span class="mono probe-node">
+            {row.nodeId}{#if !row.discovered}<span class="tag">OFFLINE</span>{/if}
+          </span>
           <label>
             Zone
             <select
               value={binding?.zoneId ?? ''}
-              onchange={(e) => saveProbe(probe.nodeId, { zoneId: e.currentTarget.value || null })}
+              onchange={(e) => saveProbe(row.nodeId, { zoneId: e.currentTarget.value || null })}
             >
               <option value="">Unbound</option>
               {#each zones as zone (zone.id)}
@@ -562,10 +584,10 @@
               type="text"
               placeholder="Gelato A"
               value={binding?.name ?? ''}
-              onchange={(e) => saveProbe(probe.nodeId, { name: e.currentTarget.value })}
+              onchange={(e) => saveProbe(row.nodeId, { name: e.currentTarget.value })}
             />
           </label>
-          <span class="probe-preview mono">{probe.label}</span>
+          <span class="probe-preview mono">{row.label}</span>
         </div>
       {/each}
       <small class="hint">Shown on the substrate card and in chart legends; defaults to the bus letter</small>

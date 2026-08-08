@@ -17,6 +17,9 @@ const { GET, POST } = await import('../../src/routes/api/irrigation/zones/+serve
 const { PATCH, DELETE } = await import('../../src/routes/api/irrigation/zones/[id]/+server');
 const { POST: RUN } = await import('../../src/routes/api/irrigation/zones/[id]/run/+server');
 const { POST: STOP } = await import('../../src/routes/api/irrigation/zones/[id]/stop/+server');
+const { PATCH: PROBE_PATCH, DELETE: PROBE_DELETE } = await import(
+  '../../src/routes/api/irrigation/probes/[nodeId]/+server'
+);
 const { getIrrigationDb } = await import('../../src/lib/server/opensprinkler/db');
 
 const admin: AuthenticatedUser = { id: 1, username: 'dan', displayName: null, isAdmin: true, hasLocalPassword: true, oidcLinked: false };
@@ -41,7 +44,7 @@ async function createViaApi(body: Record<string, unknown>): Promise<{ id: string
 }
 
 beforeEach(() => {
-  getIrrigationDb().exec('DELETE FROM zones; DELETE FROM irrigation_events;');
+  getIrrigationDb().exec('DELETE FROM substrate_probes; DELETE FROM zones; DELETE FROM irrigation_events;');
 });
 
 describe('/api/irrigation/zones', () => {
@@ -102,6 +105,61 @@ describe('/api/irrigation/zones/[id]', () => {
 
     res = (await DELETE(event({ id: zone.id }) as unknown as Parameters<typeof DELETE>[0])) as Response;
     expect(res.status).toBe(404);
+  });
+});
+
+describe('/api/irrigation/probes/[nodeId]', () => {
+  function probeEvent(opts: { body?: unknown; user?: AuthenticatedUser | null; nodeId?: string }) {
+    return {
+      request: new Request('http://localhost/api/irrigation/probes/substrate-a', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: opts.body === undefined ? undefined : JSON.stringify(opts.body)
+      }),
+      locals: { user: opts.user === undefined ? admin : opts.user },
+      params: { nodeId: opts.nodeId ?? 'substrate-a' }
+    };
+  }
+  const patch = (opts: Parameters<typeof probeEvent>[0]) =>
+    PROBE_PATCH(probeEvent(opts) as unknown as Parameters<typeof PROBE_PATCH>[0]) as Promise<Response>;
+
+  it('gates behind admin (401 anon, 403 non-admin)', async () => {
+    expect((await patch({ body: { name: 'Gelato A' }, user: null })).status).toBe(401);
+    expect((await patch({ body: { name: 'Gelato A' }, user: member })).status).toBe(403);
+  });
+
+  it('404s a zone that does not exist rather than tripping the foreign key', async () => {
+    expect((await patch({ body: { zoneId: 'nope' } })).status).toBe(404);
+  });
+
+  it('rejects a body that names no field, so no all-null row is conjured', async () => {
+    expect((await patch({ body: {} })).status).toBe(400);
+    expect(((await (await GET(event({}) as unknown as Parameters<typeof GET>[0])).json()) as { probes: unknown[] }).probes).toEqual([]);
+  });
+
+  it('binds a probe, renames it without unbinding, and lists it beside the zones', async () => {
+    const zone = await createViaApi({ name: 'Tent 1', stationSid: 0 });
+    expect((await patch({ body: { zoneId: zone.id } })).status).toBe(200);
+    expect((await (await patch({ body: { name: 'Gelato A' } })).json()).probe).toMatchObject({
+      nodeId: 'substrate-a',
+      zoneId: zone.id,
+      name: 'Gelato A'
+    });
+
+    const listed = (await (await GET(event({}) as unknown as Parameters<typeof GET>[0])).json()) as {
+      probes: { nodeId: string; zoneId: string | null }[];
+    };
+    expect(listed.probes).toHaveLength(1);
+    expect(listed.probes[0]).toMatchObject({ nodeId: 'substrate-a', zoneId: zone.id });
+  });
+
+  it('gates delete behind admin and reports whether a row went', async () => {
+    const del = (user?: AuthenticatedUser | null) =>
+      PROBE_DELETE(probeEvent({ user }) as unknown as Parameters<typeof PROBE_DELETE>[0]) as Promise<Response>;
+    expect((await del(member)).status).toBe(403);
+    expect((await (await del()).json()).deleted).toBe(false);
+    await patch({ body: { name: 'Gelato A' } });
+    expect((await (await del()).json()).deleted).toBe(true);
   });
 });
 

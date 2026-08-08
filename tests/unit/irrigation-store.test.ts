@@ -302,18 +302,26 @@ describe('migration 9 — probe binding backfill', () => {
   });
 
   /**
-   * The old shape allowed two zones to name one probe, and `zones.find()` resolved that by
-   * taking the first. A PRIMARY KEY would abort the whole migration on it, so the insert
-   * ignores the collision and keeps the same winner.
+   * The old shape allowed two zones to name one probe, and the app resolved that with
+   * `zones.find()` over `listZones` — which is ORDER BY station_sid, name, NOT insertion
+   * order. A PRIMARY KEY would abort the whole migration on the collision, so the insert
+   * ignores it; the ORDER BY is what makes the row it keeps the one the app was using.
+   * Seeded so the two orders disagree: z2 is inserted second but sorts first.
    */
-  it('survives two zones that named the same probe, keeping the first', () => {
+  it('survives two zones that named the same probe, keeping the one the app resolved', () => {
     const db = openIrrigationDb(
       atVersion8((seed) => {
-        insertZone(seed, 'z1', 'Tent 1', 0, 'substrate-a');
+        insertZone(seed, 'z1', 'Tent 1', 5, 'substrate-a');
         insertZone(seed, 'z2', 'Tent 2', 1, 'substrate-a');
       })
     );
     expect(listProbes(db)).toHaveLength(1);
+    expect(getProbe(db, 'substrate-a')?.zoneId).toBe('z2');
+  });
+
+  /** A node id stored with stray whitespace has to match the snapshot's node id verbatim. */
+  it('trims the node id it carries over', () => {
+    const db = openIrrigationDb(atVersion8((seed) => insertZone(seed, 'z1', '4x4', 0, '  substrate-a  ')));
     expect(getProbe(db, 'substrate-a')?.zoneId).toBe('z1');
   });
 
