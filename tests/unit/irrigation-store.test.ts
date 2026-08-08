@@ -2,8 +2,11 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { describe, expect, it } from 'vitest';
-import type { DatabaseSync } from 'node:sqlite';
-import { openIrrigationDb } from '../../src/lib/server/opensprinkler/db';
+import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { MIGRATIONS, openIrrigationDb } from '../../src/lib/server/opensprinkler/db';
 import {
   createZone,
   deleteZone,
@@ -13,6 +16,7 @@ import {
   toZoneJson,
   updateZone
 } from '../../src/lib/server/opensprinkler/zones';
+import { getProbe, listProbes, upsertProbe } from '../../src/lib/server/opensprinkler/probes';
 
 function freshDb(): DatabaseSync {
   return openIrrigationDb(':memory:');
@@ -24,38 +28,66 @@ describe('substrate probe binding', () => {
    * substrate type. Nullable throughout, because a probe routinely sits in a test pot
    * before it belongs to any zone and must still read.
    */
-  it('defaults to unbound and round-trips a probe node id', () => {
+  it('defaults to unbound and round-trips a binding', () => {
     const db = freshDb();
     const zone = createZone(db, { name: 'Tent 1', stationSid: 0 });
-    expect(zone.substrateNodeId).toBeNull();
+    expect(getProbe(db, 'substrate-a')).toBeUndefined();
 
-    const bound = updateZone(db, zone.id, { substrateNodeId: 'substrate-a' });
-    expect(bound?.substrateNodeId).toBe('substrate-a');
-    expect(getZone(db, zone.id)?.substrateNodeId).toBe('substrate-a');
+    const bound = upsertProbe(db, 'substrate-a', { zoneId: zone.id });
+    expect(bound.zoneId).toBe(zone.id);
+    expect(getProbe(db, 'substrate-a')?.zoneId).toBe(zone.id);
   });
 
-  it('accepts the binding at creation', () => {
+  /**
+   * The row is keyed on the probe, so binding it a second time moves it rather than
+   * adding a duplicate. Under the old zone-side column two zones could each name the
+   * same probe and `zones.find()` silently resolved it to whichever came first.
+   */
+  it('moves a probe between zones instead of duplicating it', () => {
     const db = freshDb();
-    const zone = createZone(db, {
-      name: 'Tent 1',
-      stationSid: 0,
-      substrateType: 'Coco',
-      substrateNodeId: 'substrate-a'
+    const a = createZone(db, { name: 'Tent 1', stationSid: 0 });
+    const b = createZone(db, { name: 'Tent 2', stationSid: 1 });
+    upsertProbe(db, 'substrate-a', { zoneId: a.id });
+    upsertProbe(db, 'substrate-a', { zoneId: b.id });
+    expect(listProbes(db)).toHaveLength(1);
+    expect(getProbe(db, 'substrate-a')?.zoneId).toBe(b.id);
+  });
+
+  it('records the display name verbatim', () => {
+    const db = freshDb();
+    const zone = createZone(db, { name: '4x4', stationSid: 0 });
+    expect(upsertProbe(db, 'substrate-c', { zoneId: zone.id, name: 'Mule A' })).toMatchObject({
+      name: 'Mule A'
     });
-    expect(zone.substrateNodeId).toBe('substrate-a');
   });
 
-  it('clears the binding when a probe is moved out of the zone', () => {
+  it('unbinds without forgetting whose pot it is', () => {
     const db = freshDb();
-    const zone = createZone(db, { name: 'Tent 1', stationSid: 0, substrateNodeId: 'substrate-a' });
-    expect(updateZone(db, zone.id, { substrateNodeId: null })?.substrateNodeId).toBeNull();
+    const zone = createZone(db, { name: 'Tent 1', stationSid: 0 });
+    upsertProbe(db, 'substrate-a', { zoneId: zone.id, name: 'Gelato A' });
+    const loose = upsertProbe(db, 'substrate-a', { zoneId: null });
+    expect(loose.zoneId).toBeNull();
+    expect(loose.name).toBe('Gelato A');
   });
 
-  /** An unrelated patch must not silently drop the binding. */
+  /** An unrelated patch must not silently drop the rest of the row. */
   it('survives a patch that does not mention it', () => {
     const db = freshDb();
-    const zone = createZone(db, { name: 'Tent 1', stationSid: 0, substrateNodeId: 'substrate-a' });
-    expect(updateZone(db, zone.id, { name: 'Tent A' })?.substrateNodeId).toBe('substrate-a');
+    const zone = createZone(db, { name: 'Tent 1', stationSid: 0 });
+    upsertProbe(db, 'substrate-a', { zoneId: zone.id, name: 'Gelato A' });
+    expect(upsertProbe(db, 'substrate-a', { name: 'Gelato B' })).toMatchObject({
+      zoneId: zone.id,
+      name: 'Gelato B'
+    });
+  });
+
+  /** Deleting a zone must not delete the probe with it — the hardware is still there. */
+  it('keeps the probe when its zone is deleted, just unbound', () => {
+    const db = freshDb();
+    const zone = createZone(db, { name: 'Tent 1', stationSid: 0 });
+    upsertProbe(db, 'substrate-a', { zoneId: zone.id, name: 'Gelato A' });
+    deleteZone(db, zone.id);
+    expect(getProbe(db, 'substrate-a')).toMatchObject({ zoneId: null, name: 'Gelato A' });
   });
 
   it('round-trips the threshold bands, with null meaning an open side', () => {
@@ -63,7 +95,6 @@ describe('substrate probe binding', () => {
     const zone = createZone(db, {
       name: '4x4',
       stationSid: 0,
-      substrateNodeId: 'substrate-a',
       vwcMinPct: 30,
       vwcMaxPct: 60,
       pwecMin: 2.5
@@ -115,16 +146,17 @@ describe('substrate probe binding', () => {
     expect(patched?.vwcMaxPct).toBe(55);
   });
 
-  it('is at schema version 8', () => {
+  it('is at schema version 9', () => {
     const db = freshDb();
-    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(8);
+    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(9);
   });
 
-  /** Migration 7 removed the placeholders the binding replaced. */
-  it('no longer carries the vwc/pwec entity columns', () => {
+  /** Migration 7 removed the placeholders the binding replaced; migration 9 removed the
+   *  binding column itself, once the reference moved onto the probe. */
+  it('no longer carries the vwc/pwec entity or probe-binding columns', () => {
     const db = freshDb();
     const columns = (db.prepare('PRAGMA table_info(zones)').all() as unknown as { name: string }[]).map((c) => c.name);
-    expect(columns).toContain('substrate_node_id');
+    expect(columns).not.toContain('substrate_node_id');
     expect(columns).not.toContain('vwc_entity_id');
     expect(columns).not.toContain('pwec_entity_id');
   });
@@ -139,8 +171,7 @@ describe('substrate probe binding', () => {
       substrateType: 'Coco',
       substrateVolumeMl: 4000,
       drippers: 2,
-      emitterLph: 2,
-      substrateNodeId: 'substrate-a'
+      emitterLph: 2
     });
     const read = getZone(db, zone.id)!;
     expect(read.name).toBe('Tent 1');
@@ -149,7 +180,6 @@ describe('substrate probe binding', () => {
     expect(read.substrateVolumeMl).toBe(4000);
     expect(read.drippers).toBe(2);
     expect(read.emitterLph).toBe(2);
-    expect(read.substrateNodeId).toBe('substrate-a');
   });
 });
 
@@ -224,5 +254,80 @@ describe('irrigation zone store', () => {
     const rows = db.prepare('SELECT seconds, actor FROM irrigation_events').all() as Array<{ seconds: number; actor: string }>;
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ seconds: 30, actor: 'dan' });
+  });
+});
+
+/**
+ * Migration 9 moves the probe→zone reference off `zones.substrate_node_id` and onto its own
+ * row. It is the only migration that carries data rather than reshaping empty structure, so
+ * a fresh database — which every other test uses — never exercises it.
+ */
+describe('migration 9 — probe binding backfill', () => {
+  /** A database left at version 8, with whatever rows the test wants in it. */
+  function atVersion8(seed: (db: DatabaseSync) => void): string {
+    const path = join(mkdtempSync(join(tmpdir(), 'grow-mig-')), 'irrigation.db');
+    const db = new DatabaseSync(path);
+    db.exec('PRAGMA foreign_keys = ON');
+    for (const migration of MIGRATIONS.slice(0, 8)) db.exec(migration);
+    db.exec('PRAGMA user_version = 8');
+    seed(db);
+    db.close();
+    return path;
+  }
+
+  const insertZone = (db: DatabaseSync, id: string, name: string, sid: number, node: string | null) =>
+    db
+      .prepare(
+        `INSERT INTO zones (id, name, station_sid, substrate_node_id, substrate_type, max_run_seconds,
+           enabled, schedules_paused, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'Coco', 300, 1, 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      )
+      .run(id, name, sid, node);
+
+  it('carries a bound probe onto its own row and drops the column', () => {
+    const path = atVersion8((db) => insertZone(db, 'z1', '4x4', 0, 'substrate-a'));
+    const db = openIrrigationDb(path);
+
+    expect(listProbes(db)).toHaveLength(1);
+    expect(getProbe(db, 'substrate-a')).toMatchObject({ zoneId: 'z1', name: null });
+    const columns = (db.prepare('PRAGMA table_info(zones)').all() as unknown as { name: string }[]).map((c) => c.name);
+    expect(columns).not.toContain('substrate_node_id');
+    // The zone itself is untouched by the move.
+    expect(getZone(db, 'z1')?.name).toBe('4x4');
+  });
+
+  it('leaves an unbound zone with no probe row', () => {
+    const db = openIrrigationDb(atVersion8((seed) => insertZone(seed, 'z1', '4x4', 0, null)));
+    expect(listProbes(db)).toHaveLength(0);
+  });
+
+  /**
+   * The old shape allowed two zones to name one probe, and the app resolved that with
+   * `zones.find()` over `listZones` — which is ORDER BY station_sid, name, NOT insertion
+   * order. A PRIMARY KEY would abort the whole migration on the collision, so the insert
+   * ignores it; the ORDER BY is what makes the row it keeps the one the app was using.
+   * Seeded so the two orders disagree: z2 is inserted second but sorts first.
+   */
+  it('survives two zones that named the same probe, keeping the one the app resolved', () => {
+    const db = openIrrigationDb(
+      atVersion8((seed) => {
+        insertZone(seed, 'z1', 'Tent 1', 5, 'substrate-a');
+        insertZone(seed, 'z2', 'Tent 2', 1, 'substrate-a');
+      })
+    );
+    expect(listProbes(db)).toHaveLength(1);
+    expect(getProbe(db, 'substrate-a')?.zoneId).toBe('z2');
+  });
+
+  /** A node id stored with stray whitespace has to match the snapshot's node id verbatim. */
+  it('trims the node id it carries over', () => {
+    const db = openIrrigationDb(atVersion8((seed) => insertZone(seed, 'z1', '4x4', 0, '  substrate-a  ')));
+    expect(getProbe(db, 'substrate-a')?.zoneId).toBe('z1');
+  });
+
+  it('stamps timestamps the app can parse back', () => {
+    const db = openIrrigationDb(atVersion8((seed) => insertZone(seed, 'z1', '4x4', 0, 'substrate-a')));
+    const created = getProbe(db, 'substrate-a')!.createdAt;
+    expect(Number.isNaN(Date.parse(created))).toBe(false);
   });
 });

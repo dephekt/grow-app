@@ -73,7 +73,7 @@
   <div class="water-area"><ReadoutPanel title="WATER" rows={waterRows} deviceId={waterDevice?.nodeId} /></div>
   <div class="climate-area"><ReadoutPanel title="CLIMATE" rows={climateRows} deviceId={climateDevice?.nodeId} /></div>
   <div class="substrate-area">
-    <SubstratePanel snapshot={live.snapshot} zones={data.zones} />
+    <SubstratePanel snapshot={live.snapshot} zones={data.zones} probeBindings={data.probes} />
   </div>
   {#if airQualityDevice}
     <div class="air-quality-area"><ReadoutPanel title="AIR QUALITY" rows={airQualityRows} deviceId={airQualityDevice.nodeId} /></div>

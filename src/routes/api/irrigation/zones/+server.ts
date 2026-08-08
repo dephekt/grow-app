@@ -5,14 +5,16 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getIrrigationDb } from '$lib/server/opensprinkler/db';
 import { createZone, listZones, toZoneJson } from '$lib/server/opensprinkler/zones';
+import { listProbes } from '$lib/server/opensprinkler/probes';
 import { parseZoneCreate } from '$lib/server/opensprinkler/validate';
 import { getOpenSprinklerConfig } from '$lib/server/opensprinkler/config';
 import { getIrrigationController } from '$lib/server/opensprinkler/controller';
 import { requireAdmin } from '$lib/server/auth/authz';
 
-// List zones — any authenticated user (they need it to view + run zones).
+// List zones and their probe bindings — any authenticated user (they view + run zones).
 export const GET: RequestHandler = () => {
-  return json({ ok: true, zones: listZones(getIrrigationDb()).map(toZoneJson) });
+  const db = getIrrigationDb();
+  return json({ ok: true, zones: listZones(db).map(toZoneJson), probes: listProbes(db) });
 };
 
 // Create a zone — admin only (zone config drives physical actuation).

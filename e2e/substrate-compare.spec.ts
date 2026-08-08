@@ -57,7 +57,6 @@ const zones = [
     id: 'z1',
     name: 'Tent 1',
     substrateType: 'Coco',
-    substrateNodeId: NODE,
     pwecMin: 0.2,
     pwecMax: 1.2,
     vwcMinPct: 35,
@@ -65,10 +64,14 @@ const zones = [
   }
 ];
 
+// The zone→probe reference lives on the probe, so the card only gets the zone's curve and
+// bands through this.
+const probes = [{ nodeId: NODE, zoneId: 'z1', name: null }];
+
 test('pore EC comparison toggles on the substrate card', async ({ page }) => {
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: withProbe }));
   await page.route('**/api/events', (route) => route.abort('failed'));
-  await page.route('**/api/irrigation/zones', (route) => route.fulfill({ json: { zones } }));
+  await page.route('**/api/irrigation/zones', (route) => route.fulfill({ json: { zones, probes } }));
 
   await page.goto('/');
   const panel = page.locator('.panel', { hasText: '// SUBSTRATE' });
@@ -117,7 +120,7 @@ function historySeries() {
 test('the substrate chart pairs the comparison with its subject', async ({ page }) => {
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: withProbe }));
   await page.route('**/api/events', (route) => route.abort('failed'));
-  await page.route('**/api/irrigation/zones', (route) => route.fulfill({ json: { zones } }));
+  await page.route('**/api/irrigation/zones', (route) => route.fulfill({ json: { zones, probes } }));
   await page.route('**/api/history**', (route) =>
     route.fulfill({ json: { configured: true, domain: 'substrate', range: '24h', series: historySeries() } })
   );
@@ -142,7 +145,7 @@ test('the substrate chart pairs the comparison with its subject', async ({ page 
 test('the trends header carries no comparison toggle, on any domain', async ({ page }) => {
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: withProbe }));
   await page.route('**/api/events', (route) => route.abort('failed'));
-  await page.route('**/api/irrigation/zones', (route) => route.fulfill({ json: { zones } }));
+  await page.route('**/api/irrigation/zones', (route) => route.fulfill({ json: { zones, probes } }));
   await page.route('**/api/history**', (route) =>
     route.fulfill({ json: { configured: true, domain: 'water', range: '6h', series: [] } })
   );

@@ -13,23 +13,28 @@ import {
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { getIrrigationDb } from '$lib/server/opensprinkler/db';
 import { listZones } from '$lib/server/opensprinkler/zones';
-import type { SubstrateZoneBinding } from '$lib/substrate';
+import { listProbes } from '$lib/server/opensprinkler/probes';
+import type { SubstrateProbeBinding, SubstrateZoneBinding } from '$lib/substrate';
 import type { RequestHandler } from './$types';
 
 /**
- * Zone→probe bindings, which select the calibration curve for the substrate domain.
+ * Zones and their probe bindings, which together select the calibration curve and the
+ * series labels for the substrate domain.
  */
-function substrateBindings(domain: string): SubstrateZoneBinding[] {
-  if (domain !== 'substrate') return [];
+function substrateBindings(domain: string): {
+  zones: SubstrateZoneBinding[];
+  probes: SubstrateProbeBinding[];
+} {
+  if (domain !== 'substrate') return { zones: [], probes: [] };
   try {
-    return listZones(getIrrigationDb()).map((z) => ({
-      name: z.name,
-      substrateType: z.substrateType,
-      substrateNodeId: z.substrateNodeId
-    }));
+    const db = getIrrigationDb();
+    return {
+      zones: listZones(db).map((z) => ({ id: z.id, name: z.name, substrateType: z.substrateType })),
+      probes: listProbes(db)
+    };
   } catch (err) {
     console.warn('[history] could not read zone bindings:', err);
-    return [];
+    return { zones: [], probes: [] };
   }
 }
 
@@ -48,8 +53,8 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   const snapshot = getSiteMqttService().snapshot();
-  const zones = substrateBindings(domain);
-  const specs = resolveDomainSeries(snapshot, domain, zones);
+  const { zones, probes } = substrateBindings(domain);
+  const specs = resolveDomainSeries(snapshot, domain, zones, probes);
 
   const history = await queryHistory(
     specs.map(({ key, node, entity }) => ({ key, node, entity })),
@@ -61,6 +66,6 @@ export const GET: RequestHandler = async ({ url }) => {
     configured: true,
     domain,
     range,
-    series: assembleDomainSeries(snapshot, domain, specs, pointsByKey, zones)
+    series: assembleDomainSeries(snapshot, domain, specs, pointsByKey, zones, probes)
   });
 };

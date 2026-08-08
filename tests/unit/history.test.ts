@@ -301,9 +301,11 @@ describe('substrate trend domain', () => {
       ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
       ['substrate-b:substrate_raw_counts', [{ t: T0, v: 2700 }]]
     ]);
-    const zones = [{ name: 'Tent 1', substrateType: 'Coco', substrateNodeId: 'substrate-a' }];
-    const series = assembleDomainSeries(snapshot, 'substrate', specs, points, zones);
-    expect(series.map((s) => s.label)).toEqual(['Tent 1 VWC', 'B VWC']);
+    const zones = [{ id: 'z1', name: 'Tent 1', substrateType: 'Coco' }];
+    const probes = [{ nodeId: 'substrate-a', zoneId: 'z1', name: 'Gelato A' }];
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points, zones, probes);
+    // The named probe reads as its plant; the unnamed one falls back to its bus letter.
+    expect(series.map((s) => s.label)).toEqual(['Gelato A VWC', 'B VWC']);
   });
 
   it('applies the bound zone’s curve to the history it derives', () => {
@@ -311,12 +313,15 @@ describe('substrate trend domain', () => {
     const specs = resolveDomainSeries(snapshot, 'substrate');
     const points = new Map<string, TrendPoint[]>([['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]]]);
 
-    const soilless = assembleDomainSeries(snapshot, 'substrate', specs, points, [
-      { name: 'Tent 1', substrateType: 'Coco', substrateNodeId: 'substrate-a' }
-    ]);
-    const mineral = assembleDomainSeries(snapshot, 'substrate', specs, points, [
-      { name: 'Bed', substrateType: 'Loam', substrateNodeId: 'substrate-a' }
-    ]);
+    const bound = [{ nodeId: 'substrate-a', zoneId: 'z1' }];
+    const soilless = assembleDomainSeries(
+      snapshot, 'substrate', specs, points,
+      [{ id: 'z1', name: 'Tent 1', substrateType: 'Coco' }], bound
+    );
+    const mineral = assembleDomainSeries(
+      snapshot, 'substrate', specs, points,
+      [{ id: 'z1', name: 'Bed', substrateType: 'Loam' }], bound
+    );
     expect(soilless[0].points[0].v).toBeCloseTo(47.3, 1);
     expect(mineral[0].points[0].v).toBeCloseTo(41.4, 1);
   });
@@ -440,9 +445,10 @@ describe('substrate trend domain', () => {
       ['substrate-b:substrate_raw_counts', [{ t: T0, v: 2700 }]],
       ['substrate-b:substrate_bulk_ec', [{ t: T0, v: 0.4 }]]
     ]);
-    const zones = [{ name: 'Tent 1', substrateType: 'Coco', substrateNodeId: 'substrate-a' }];
-    const series = assembleDomainSeries(snapshot, 'substrate', specs, points, zones);
-    expect(series.find((s) => s.key === 'substrate-a:temperature')?.label).toBe('Tent 1 Temp');
+    const zones = [{ id: 'z1', name: 'Tent 1', substrateType: 'Coco' }];
+    const probes = [{ nodeId: 'substrate-a', zoneId: 'z1', name: 'Gelato A' }];
+    const series = assembleDomainSeries(snapshot, 'substrate', specs, points, zones, probes);
+    expect(series.find((s) => s.key === 'substrate-a:temperature')?.label).toBe('Gelato A Temp');
     expect(series.find((s) => s.key === 'substrate-b:bulk-ec')?.label).toBe('B Bulk EC');
   });
 

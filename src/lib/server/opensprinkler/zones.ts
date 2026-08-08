@@ -17,9 +17,6 @@ export interface Zone {
   drippers: number | null;
   emitterLph: number | null;
   maxRunSeconds: number;
-  /** MQTT node id of the TEROS probe in this zone ("substrate-a"), or null if unbound.
-   *  Selects the calibration curve applied to its raw counts — see `$lib/substrate`. */
-  substrateNodeId: string | null;
   /** Threshold bands for the bound probe's readings. A null end is an open side.
    *  VWC is a PERCENT here, matching every grower-facing surface; the reading it
    *  bounds is m³/m³, so the two differ by 100x. */
@@ -46,7 +43,6 @@ export interface ZoneCreate {
   drippers?: number | null;
   emitterLph?: number | null;
   maxRunSeconds?: number;
-  substrateNodeId?: string | null;
   vwcMinPct?: number | null;
   vwcMaxPct?: number | null;
   substrateTempMinC?: number | null;
@@ -68,7 +64,6 @@ interface ZoneRow {
   drippers: number | null;
   emitter_l_per_hr: number | null;
   max_run_seconds: number;
-  substrate_node_id: string | null;
   vwc_min_pct: number | null;
   vwc_max_pct: number | null;
   substrate_temp_min_c: number | null;
@@ -91,7 +86,6 @@ function toZone(row: ZoneRow): Zone {
     drippers: row.drippers,
     emitterLph: row.emitter_l_per_hr,
     maxRunSeconds: row.max_run_seconds,
-    substrateNodeId: row.substrate_node_id,
     vwcMinPct: row.vwc_min_pct,
     vwcMaxPct: row.vwc_max_pct,
     substrateTempMinC: row.substrate_temp_min_c,
@@ -125,10 +119,10 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
   const id = randomUUID();
   db.prepare(
     `INSERT INTO zones (id, name, station_sid, substrate_type, substrate_volume_ml, drippers,
-       emitter_l_per_hr, max_run_seconds, substrate_node_id,
+       emitter_l_per_hr, max_run_seconds,
        vwc_min_pct, vwc_max_pct, substrate_temp_min_c, substrate_temp_max_c, pwec_min, pwec_max,
        enabled, schedules_paused, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.name,
@@ -138,7 +132,6 @@ export function createZone(db: DatabaseSync, input: ZoneCreate): Zone {
     input.drippers ?? null,
     input.emitterLph ?? null,
     input.maxRunSeconds ?? 300,
-    input.substrateNodeId ?? null,
     input.vwcMinPct ?? null,
     input.vwcMaxPct ?? null,
     input.substrateTempMinC ?? null,
@@ -159,7 +152,6 @@ const NULLABLE_KEYS = [
   'substrateVolumeMl',
   'drippers',
   'emitterLph',
-  'substrateNodeId',
   'vwcMinPct',
   'vwcMaxPct',
   'substrateTempMinC',
@@ -192,7 +184,7 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
   db.prepare(
     `UPDATE zones SET name = ?, station_sid = ?, substrate_type = ?, substrate_volume_ml = ?,
        drippers = ?, emitter_l_per_hr = ?, max_run_seconds = ?,
-       substrate_node_id = ?, vwc_min_pct = ?, vwc_max_pct = ?, substrate_temp_min_c = ?,
+       vwc_min_pct = ?, vwc_max_pct = ?, substrate_temp_min_c = ?,
        substrate_temp_max_c = ?, pwec_min = ?, pwec_max = ?,
        enabled = ?, schedules_paused = ?, updated_at = ? WHERE id = ?`
   ).run(
@@ -203,7 +195,6 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     merged.drippers,
     merged.emitterLph,
     merged.maxRunSeconds,
-    merged.substrateNodeId,
     merged.vwcMinPct,
     merged.vwcMaxPct,
     merged.substrateTempMinC,

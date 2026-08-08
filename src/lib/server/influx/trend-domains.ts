@@ -16,9 +16,9 @@ import {
   SUBSTRATE_COUNTS,
   SUBSTRATE_TEMPERATURE,
   deriveReadings,
-  probeTabLabel,
   resolveSubstrateProbes,
   substrateCurveFor,
+  type SubstrateProbeBinding,
   type SubstrateZoneBinding
 } from '$lib/substrate';
 import type { DeviceSnapshot, Snapshot } from '$lib/server/mqtt/types';
@@ -59,9 +59,13 @@ function thermalLabel(objectId: string): string {
 
 /** The raw series to query; `assembleDomainSeries` derives from them, and keys carry the node id
  *  because every probe publishes the same object ids. */
-function substrateSpecs(snapshot: Snapshot, zones: readonly SubstrateZoneBinding[]): DomainSeriesSpec[] {
+function substrateSpecs(
+  snapshot: Snapshot,
+  zones: readonly SubstrateZoneBinding[],
+  probeBindings: readonly SubstrateProbeBinding[]
+): DomainSeriesSpec[] {
   const specs: DomainSeriesSpec[] = [];
-  for (const probe of resolveSubstrateProbes(snapshot, zones)) {
+  for (const probe of resolveSubstrateProbes(snapshot, zones, probeBindings)) {
     for (const objectId of [SUBSTRATE_COUNTS, SUBSTRATE_TEMPERATURE, SUBSTRATE_BULK_EC]) {
       specs.push({
         key: `${probe.nodeId}:${objectId}`,
@@ -78,7 +82,8 @@ function substrateSpecs(snapshot: Snapshot, zones: readonly SubstrateZoneBinding
 export function resolveDomainSeries(
   snapshot: Snapshot,
   domain: TrendDomain,
-  zones: readonly SubstrateZoneBinding[] = []
+  zones: readonly SubstrateZoneBinding[] = [],
+  probeBindings: readonly SubstrateProbeBinding[] = []
 ): DomainSeriesSpec[] {
   if (domain === 'water') {
     return metricSpecs(snapshot, resolveWaterDevice(snapshot), 'Water ');
@@ -108,7 +113,7 @@ export function resolveDomainSeries(
       .filter((s) => s.node && s.entity);
   }
   if (domain === 'substrate') {
-    return substrateSpecs(snapshot, zones);
+    return substrateSpecs(snapshot, zones, probeBindings);
   }
   return [];
 }
@@ -143,13 +148,14 @@ export function assembleDomainSeries(
   domain: TrendDomain,
   specs: DomainSeriesSpec[],
   pointsByKey: Map<string, TrendPoint[]>,
-  zones: readonly SubstrateZoneBinding[] = []
+  zones: readonly SubstrateZoneBinding[] = [],
+  probeBindings: readonly SubstrateProbeBinding[] = []
 ): TrendSeries[] {
   if (domain !== 'substrate') {
     return specs.map((s) => ({ key: s.key, label: s.label, unit: s.unit, points: pointsByKey.get(s.key) ?? [] }));
   }
 
-  const probes = resolveSubstrateProbes(snapshot, zones);
+  const probes = resolveSubstrateProbes(snapshot, zones, probeBindings);
   // With one probe the readings need no qualifier; with several, each series says whose
   // pot it is. Prefix rather than suffix so the legend's probe names line up.
   const qualify = (label: string, probeLabel: string) => (probes.length > 1 ? `${probeLabel} ${label}` : label);
@@ -159,7 +165,7 @@ export function assembleDomainSeries(
     const curve = substrateCurveFor(probe.substrateType);
     const counts = pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_COUNTS}`) ?? [];
     if (counts.length === 0) continue;
-    const probeLabel = probeTabLabel(probe);
+    const probeLabel = probe.label;
 
     // Water content is a pointwise function of counts alone, so it charts wherever the
     // sensor recorded — no join, no dropped buckets.

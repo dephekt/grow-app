@@ -7,7 +7,12 @@
   import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
   import IrrigationHistory from '$lib/irrigation/IrrigationHistory.svelte';
   import { MAX_RUN_SECONDS_CEILING } from '$lib/irrigation/model';
-  import { resolveSubstrateProbes } from '$lib/substrate';
+  import {
+    probeLabel,
+    resolveSubstrateProbes,
+    type SubstrateProbe,
+    type SubstrateProbeBinding
+  } from '$lib/substrate';
   import type { Zone } from '$lib/server/opensprinkler/zones';
   import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
   import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
@@ -19,14 +24,31 @@
 
   // Seed once from load; manage locally as mutations happen.
   let zones = $state<ZoneJson[]>(untrack(() => data.zones));
+  let probeBindings = $state<SubstrateProbeBinding[]>(untrack(() => data.probes ?? []));
   let schedules = $state<ScheduleJson[]>(untrack(() => data.schedules));
   let history = $state<IrrigationEventJson[]>(untrack(() => data.events));
   let error = $state<string | null>(null);
   const isAdmin = $derived(Boolean(data.user?.isAdmin));
 
-  // Probes discovered on the MQTT bus, so a zone is bound by picking one rather than by
+  // Probes discovered on the MQTT bus, so a binding is made by picking one rather than by
   // typing a node id that has to match the publisher's exactly.
-  let substrateProbes = $derived(resolveSubstrateProbes(live.snapshot));
+  let substrateProbes = $derived(resolveSubstrateProbes(live.snapshot, zones, probeBindings));
+
+  // A probe bound before it ever came online has no discovery entry, so it is listed from
+  // its stored binding rather than left with an editor row nothing can reach.
+  let probeRows = $derived.by(() => {
+    const rows = substrateProbes.map((p: SubstrateProbe) => ({
+      nodeId: p.nodeId,
+      label: p.label,
+      discovered: true
+    }));
+    const discovered = new Set(rows.map((r: { nodeId: string }) => r.nodeId));
+    for (const binding of probeBindings) {
+      if (discovered.has(binding.nodeId)) continue;
+      rows.push({ nodeId: binding.nodeId, label: probeLabel(binding, binding.nodeId), discovered: false });
+    }
+    return rows.sort((a: { nodeId: string }, b: { nodeId: string }) => a.nodeId.localeCompare(b.nodeId));
+  });
 
   // Per-zone shot controls (keyed by zone id).
   let runValue = $state<Record<string, string>>({});
@@ -39,7 +61,6 @@
     name: '',
     stationSid: '',
     substrateType: '',
-    substrateNodeId: '',
     vwcMin: '',
     vwcMax: '',
     tempMin: '',
@@ -103,7 +124,11 @@
   async function refresh(): Promise<void> {
     try {
       const response = await fetch('/api/irrigation/zones');
-      if (response.ok) zones = ((await response.json()) as { zones: ZoneJson[] }).zones;
+      if (response.ok) {
+        const body = (await response.json()) as { zones?: ZoneJson[]; probes?: SubstrateProbeBinding[] };
+        zones = body.zones ?? [];
+        probeBindings = body.probes ?? [];
+      }
     } catch {
       /* leave list as-is; the mutation still applied server-side */
     }
@@ -170,7 +195,6 @@
       name: zone.name,
       stationSid: String(zone.stationSid),
       substrateType: zone.substrateType ?? '',
-      substrateNodeId: zone.substrateNodeId ?? '',
       vwcMin: zone.vwcMinPct != null ? String(zone.vwcMinPct) : '',
       vwcMax: zone.vwcMaxPct != null ? String(zone.vwcMaxPct) : '',
       tempMin: zone.substrateTempMinC != null ? String(zone.substrateTempMinC) : '',
@@ -185,6 +209,27 @@
       maxRunSeconds: String(zone.maxRunSeconds),
       enabled: zone.enabled
     };
+  }
+
+  /** Persist one probe field; each control saves on its own. */
+  async function saveProbe(nodeId: string, patch: Record<string, unknown>): Promise<void> {
+    try {
+      const response = await fetch(`/api/irrigation/probes/${encodeURIComponent(nodeId)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch)
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        error = body.error ?? `Could not save ${nodeId}`;
+      } else {
+        error = null;
+      }
+    } catch {
+      error = `Could not save ${nodeId}`;
+    }
+    // Re-read either way, so a rejected edit snaps the control back to what the server holds.
+    await refresh();
   }
 
   function cancelEdit(): void {
@@ -205,7 +250,6 @@
       name: form.name,
       stationSid: Number(form.stationSid),
       substrateType: form.substrateType.trim() || null,
-      substrateNodeId: form.substrateNodeId.trim() || null,
       // An empty box is an open side, not a zero.
       vwcMinPct: num(form.vwcMin),
       vwcMaxPct: num(form.vwcMax),
@@ -409,7 +453,6 @@
         <p class="meta mono">
           STN {zone.stationSid}
           {#if zone.substrateType}· {zone.substrateType}{/if}
-          {#if zone.substrateNodeId}· {zone.substrateNodeId}{/if}
           {#if zone.substrateVolumeMl}· {zone.substrateVolumeMl} mL{/if}
           {#if zone.drippers && zone.emitterLph}· {zone.drippers}×{zone.emitterLph} L/hr{/if}
           · cap {zone.maxRunSeconds}s
@@ -512,6 +555,46 @@
 
   <IrrigationHistory events={history} timeZone={scheduleTz} />
 
+  {#if isAdmin && probeRows.length > 0}
+    <div class="panel editor">
+      <div class="panel-head">
+        <span class="panel-title">Substrate probes</span>
+      </div>
+      <!-- Bound per probe, not per zone, since a zone holds several pots. -->
+      {#each probeRows as row (row.nodeId)}
+        {@const binding = probeBindings.find((b) => b.nodeId === row.nodeId)}
+        <div class="probe-row">
+          <span class="mono probe-node">
+            {row.nodeId}{#if !row.discovered}<span class="tag">OFFLINE</span>{/if}
+          </span>
+          <label>
+            Zone
+            <select
+              value={binding?.zoneId ?? ''}
+              onchange={(e) => saveProbe(row.nodeId, { zoneId: e.currentTarget.value || null })}
+            >
+              <option value="">Unbound</option>
+              {#each zones as zone (zone.id)}
+                <option value={zone.id}>{zone.name}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="probe-name">
+            Name
+            <input
+              type="text"
+              placeholder="Gelato A"
+              value={binding?.name ?? ''}
+              onchange={(e) => saveProbe(row.nodeId, { name: e.currentTarget.value })}
+            />
+          </label>
+          <span class="probe-preview mono">{row.label}</span>
+        </div>
+      {/each}
+      <small class="hint">Shown on the substrate card and in chart legends; defaults to the bus letter</small>
+    </div>
+  {/if}
+
   {#if isAdmin}
     <form class="panel editor" onsubmit={saveZone}>
       <div class="panel-head">
@@ -525,21 +608,6 @@
           <small class="hint">0-based · OS Zone 1 = 0</small>
         </label>
         <label>Substrate type<input type="text" list="substrate-types" bind:value={form.substrateType} /></label>
-        <label>
-          Substrate probe
-          <select bind:value={form.substrateNodeId}>
-            <option value="">None</option>
-            {#each substrateProbes as probe (probe.nodeId)}
-              <option value={probe.nodeId}>{probe.nodeId}</option>
-            {/each}
-            <!-- A probe configured before it ever came online has no discovery entry to
-                 list, so keep its binding selectable rather than silently clearing it. -->
-            {#if form.substrateNodeId && !substrateProbes.some((p) => p.nodeId === form.substrateNodeId)}
-              <option value={form.substrateNodeId}>{form.substrateNodeId} (offline)</option>
-            {/if}
-          </select>
-          <small class="hint">Applies this zone's substrate type as its calibration</small>
-        </label>
       </div>
       <div class="grid">
         <label>
@@ -865,5 +933,41 @@
   .schedule-editor .hint {
     color: var(--faint);
     font-size: 0.58rem;
+  }
+
+  .probe-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--rule, rgba(255, 255, 255, 0.08));
+  }
+  .probe-row:last-of-type {
+    border-bottom: none;
+  }
+  .probe-node {
+    min-width: 7rem;
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+  .probe-row label {
+    flex: 0 1 9rem;
+  }
+  .probe-row .probe-name {
+    flex: 1 1 12rem;
+  }
+  .probe-row input,
+  .probe-row select {
+    width: 100%;
+  }
+  .probe-preview {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--r-pill, 999px);
+    background: color-mix(in srgb, var(--cyan) 12%, transparent);
+    color: var(--cyan);
+    font-size: 0.72rem;
   }
 </style>
