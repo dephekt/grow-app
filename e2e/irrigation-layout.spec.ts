@@ -137,3 +137,26 @@ test('places probes with zones and reveals the shared zone editor above history'
   await expect(editor.getByLabel('Name')).toHaveValue('North Bed');
   expect((await editor.boundingBox())!.y).toBeLessThan((await history.boundingBox())!.y);
 });
+
+test('scrolls a newly revealed zone editor into view below a long zone grid', async ({ page }) => {
+  const manyZones = Array.from({ length: 12 }, (_, index) => ({
+    ...zone,
+    id: `zone-${index + 1}`,
+    name: `Bed ${index + 1}`,
+    stationSid: index,
+    stationEntityId: `opensprinkler_station_${index}`
+  }));
+  await page.unroute('**/api/irrigation/zones');
+  await page.route('**/api/irrigation/zones', (route) =>
+    route.fulfill({
+      json: { zones: manyZones, probes: [{ nodeId: 'substrate-a', zoneId: manyZones[0].id, name: 'Gelato A' }] }
+    })
+  );
+  await page.goto('/irrigation');
+
+  await page.locator('header').getByRole('button', { name: 'Add zone' }).click();
+
+  const editor = page.locator('#zone-editor');
+  await expect(editor).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+});

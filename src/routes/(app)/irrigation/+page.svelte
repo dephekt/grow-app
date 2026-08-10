@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2026 Daniel Snider -->
 
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
   import IrrigationHistory from '$lib/irrigation/IrrigationHistory.svelte';
@@ -190,7 +190,13 @@
     await live.stopZone(zone.id);
   }
 
-  function startEdit(zone: ZoneJson): void {
+  async function revealZoneEditor(): Promise<void> {
+    zoneEditorOpen = true;
+    await tick();
+    document.getElementById('zone-editor')?.scrollIntoView({ block: 'start', inline: 'nearest' });
+  }
+
+  async function startEdit(zone: ZoneJson): Promise<void> {
     editingId = zone.id;
     form = {
       name: zone.name,
@@ -210,13 +216,13 @@
       maxRunSeconds: String(zone.maxRunSeconds),
       enabled: zone.enabled
     };
-    zoneEditorOpen = true;
+    await revealZoneEditor();
   }
 
-  function startCreate(): void {
+  async function startCreate(): Promise<void> {
     editingId = null;
     form = blankForm();
-    zoneEditorOpen = true;
+    await revealZoneEditor();
   }
 
   /** Persist one probe field; each control saves on its own. */
@@ -705,6 +711,9 @@
   }
   .add-zone {
     margin-left: auto;
+  }
+  #zone-editor {
+    scroll-margin-top: var(--gap);
   }
   .back {
     font-size: 0.72rem;
