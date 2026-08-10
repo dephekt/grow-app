@@ -28,6 +28,7 @@
   let schedules = $state<ScheduleJson[]>(untrack(() => data.schedules));
   let history = $state<IrrigationEventJson[]>(untrack(() => data.events));
   let historyTotal = $state(untrack(() => data.eventTotal ?? data.events.length));
+  let historyAnchorId = $state(untrack(() => data.eventAnchorId ?? 0));
   let historyPage = $state(0);
   let historyLoading = $state(false);
   let historyRequestId = 0;
@@ -144,17 +145,19 @@
   // The history feed is server-persisted; re-fetch it (rather than optimistically mutating)
   // so runoff events and lazily-filled pump energy show up. Only the newest page is polled,
   // so an older page does not shift underneath the reader when a new event lands.
-  async function refreshHistory(page = historyPage, showLoading = false): Promise<boolean> {
+  async function refreshHistory(page = historyPage, showLoading = false, freshSnapshot = false): Promise<boolean> {
     const requestId = ++historyRequestId;
     if (showLoading) historyLoading = true;
     try {
       const offset = page * HISTORY_PAGE_SIZE;
-      const response = await fetch(`/api/irrigation/events?limit=${HISTORY_PAGE_SIZE}&offset=${offset}`);
+      const anchor = freshSnapshot ? '' : `&anchorId=${historyAnchorId}`;
+      const response = await fetch(`/api/irrigation/events?limit=${HISTORY_PAGE_SIZE}&offset=${offset}${anchor}`);
       if (!response.ok) return false;
-      const body = (await response.json()) as { events?: IrrigationEventJson[]; total?: number };
+      const body = (await response.json()) as { events?: IrrigationEventJson[]; total?: number; anchorId?: number };
       if (requestId !== historyRequestId) return false;
       history = body.events ?? [];
       historyTotal = typeof body.total === 'number' && Number.isInteger(body.total) ? body.total : history.length;
+      if (Number.isSafeInteger(body.anchorId) && (body.anchorId as number) >= 0) historyAnchorId = body.anchorId as number;
       historyPage = page;
       return true;
     } catch {
@@ -176,7 +179,7 @@
 
   $effect(() => {
     const id = setInterval(() => {
-      if (historyPage === 0) void refreshHistory(0);
+      if (historyPage === 0 && !historyLoading) void refreshHistory(0, false, true);
     }, 30_000);
     return () => clearInterval(id);
   });
@@ -211,7 +214,7 @@
     }
     error = null;
     await live.runZoneShot(zone.id, { [unitFor(zone.id)]: amount });
-    await refreshHistory(0);
+    await refreshHistory(0, false, true);
   }
 
   async function stopZone(zone: ZoneJson): Promise<void> {

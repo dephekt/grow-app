@@ -102,20 +102,29 @@ describe('/api/irrigation/events', () => {
   it('defaults to the newest 25 rows and reports the full count', async () => {
     insertEvents(30);
     const body = await getEvents().json();
-    expect(body).toMatchObject({ total: 30, limit: 25, offset: 0 });
+    expect(body).toMatchObject({ total: 30, limit: 25, offset: 0, anchorId: expect.any(Number) });
     expect(body.events).toHaveLength(25);
     expect(body.events[0].stationSid).toBe(29);
     expect(body.events[24].stationSid).toBe(5);
   });
 
-  it('returns an offset page and clamps invalid pagination values', async () => {
+  it('holds an offset page at its anchor and clamps invalid pagination values', async () => {
     insertEvents(30);
-    let body = await getEvents('?limit=5&offset=25').json();
+    const firstPage = await getEvents().json();
+    getIrrigationDb()
+      .prepare(
+        `INSERT INTO irrigation_events (kind, station_sid, source, seconds, ts)
+         VALUES ('irrigation', 99, 'manual', 30, '2026-08-10T11:00:00.000Z')`
+      )
+      .run();
+
+    let body = await getEvents(`?limit=5&offset=25&anchorId=${firstPage.anchorId}`).json();
     expect(body).toMatchObject({ total: 30, limit: 5, offset: 25 });
     expect(body.events.map((event: { stationSid: number }) => event.stationSid)).toEqual([4, 3, 2, 1, 0]);
 
-    body = await getEvents('?limit=0&offset=-1').json();
-    expect(body).toMatchObject({ limit: 25, offset: 0 });
+    body = await getEvents('?limit=0&offset=-1&anchorId=999999').json();
+    expect(body).toMatchObject({ limit: 25, offset: 0, anchorId: expect.any(Number) });
+    expect(body.anchorId).toBeLessThan(999999);
   });
 });
 

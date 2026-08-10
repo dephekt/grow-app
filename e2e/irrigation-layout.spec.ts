@@ -90,7 +90,7 @@ test.beforeEach(async ({ page }) => {
     route.fulfill({ json: { schedules: [], tz: 'America/Chicago' } })
   );
   await page.route('**/api/irrigation/events?*', (route) =>
-    route.fulfill({ json: { events: [], total: 0, limit: 25, offset: 0 } })
+    route.fulfill({ json: { events: [], total: 0, limit: 25, offset: 0, anchorId: 0 } })
   );
 });
 
@@ -164,6 +164,7 @@ test('scrolls a newly revealed zone editor into view below a long zone grid', as
 });
 
 test('pages through irrigation history 25 entries at a time', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-08-10T12:30:00.000Z') });
   const events = Array.from({ length: 30 }, (_, index) => ({
     id: 30 - index,
     kind: 'irrigation',
@@ -181,12 +182,39 @@ test('pages through irrigation history 25 entries at a time', async ({ page }) =
     peakW: null,
     noDraw: false
   }));
+  let pageZeroRequests = 0;
+  let olderAnchorId: number | null = null;
+  let markOlderRequested: () => void;
+  const olderRequested = new Promise<void>((resolve) => {
+    markOlderRequested = resolve;
+  });
+  let releaseOlder: () => void;
+  const olderGate = new Promise<void>((resolve) => {
+    releaseOlder = resolve;
+  });
   await page.unroute('**/api/irrigation/events?*');
-  await page.route('**/api/irrigation/events?*', (route) => {
+  await page.route('**/api/irrigation/events?*', async (route) => {
     const url = new URL(route.request().url());
     const limit = Number(url.searchParams.get('limit'));
     const offset = Number(url.searchParams.get('offset'));
-    return route.fulfill({ json: { events: events.slice(offset, offset + limit), total: events.length, limit, offset } });
+    const requestedAnchor = url.searchParams.get('anchorId');
+    const anchorId = requestedAnchor === null ? Math.max(0, ...events.map((event) => event.id)) : Number(requestedAnchor);
+    const anchoredEvents = events.filter((event) => event.id <= anchorId);
+    if (offset === 0) pageZeroRequests += 1;
+    if (offset === 25) {
+      olderAnchorId = anchorId;
+      markOlderRequested();
+      await olderGate;
+    }
+    return route.fulfill({
+      json: {
+        events: anchoredEvents.slice(offset, offset + limit),
+        total: anchoredEvents.length,
+        limit,
+        offset,
+        anchorId
+      }
+    });
   });
   await page.goto('/irrigation');
 
@@ -195,7 +223,19 @@ test('pages through irrigation history 25 entries at a time', async ({ page }) =
   await expect(history).toContainText('History run 1');
   await expect(history).not.toContainText('History run 26');
 
-  await history.getByRole('button', { name: 'Older' }).click();
+  events.unshift({
+    ...events[0],
+    id: 31,
+    ts: '2026-08-10T12:01:00.000Z',
+    zoneName: 'Concurrent history run'
+  });
+  const olderClick = history.getByRole('button', { name: 'Older' }).click();
+  await olderRequested;
+  await page.clock.fastForward(30_000);
+  expect(pageZeroRequests).toBe(1);
+  expect(olderAnchorId).toBe(30);
+  releaseOlder();
+  await olderClick;
 
   await expect(history).toContainText('26–30 / 30');
   await expect(history).toContainText('Page 2 of 2');
