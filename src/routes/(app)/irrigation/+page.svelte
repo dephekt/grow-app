@@ -55,6 +55,7 @@
   let runUnit = $state<Record<string, string>>({});
 
   // Zone editor — doubles as create (editingId null) and update.
+  let zoneEditorOpen = $state(false);
   let editingId = $state<string | null>(null);
   let saving = $state(false);
   const blankForm = () => ({
@@ -209,6 +210,13 @@
       maxRunSeconds: String(zone.maxRunSeconds),
       enabled: zone.enabled
     };
+    zoneEditorOpen = true;
+  }
+
+  function startCreate(): void {
+    editingId = null;
+    form = blankForm();
+    zoneEditorOpen = true;
   }
 
   /** Persist one probe field; each control saves on its own. */
@@ -233,6 +241,7 @@
   }
 
   function cancelEdit(): void {
+    zoneEditorOpen = false;
     editingId = null;
     form = blankForm();
   }
@@ -429,12 +438,21 @@
   <header>
     <a class="back" href="/">← Dashboard</a>
     <h1>Irrigation</h1>
+    {#if isAdmin}
+      <button
+        type="button"
+        class="add-zone"
+        aria-expanded={zoneEditorOpen}
+        aria-controls="zone-editor"
+        onclick={startCreate}
+      >+ Add zone</button>
+    {/if}
   </header>
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}
 
   {#if zones.length === 0}
-    <p class="empty mono">No zones yet.{isAdmin ? ' Add one below.' : ' An admin can add one.'}</p>
+    <p class="empty mono">No zones yet.{isAdmin ? ' Use Add zone to create one.' : ' An admin can add one.'}</p>
   {/if}
 
   <div class="zones">
@@ -551,52 +569,49 @@
         {/if}
       </article>
     {/each}
+    {#if isAdmin && probeRows.length > 0}
+      <div class="panel editor probes">
+        <div class="panel-head">
+          <span class="panel-title">Substrate probes</span>
+        </div>
+        <!-- Bound per probe, not per zone, since a zone holds several pots. -->
+        {#each probeRows as row (row.nodeId)}
+          {@const binding = probeBindings.find((b) => b.nodeId === row.nodeId)}
+          <div class="probe-row">
+            <span class="mono probe-node">
+              {row.nodeId}{#if !row.discovered}<span class="tag">OFFLINE</span>{/if}
+            </span>
+            <label>
+              Zone
+              <select
+                value={binding?.zoneId ?? ''}
+                onchange={(e) => saveProbe(row.nodeId, { zoneId: e.currentTarget.value || null })}
+              >
+                <option value="">Unbound</option>
+                {#each zones as zone (zone.id)}
+                  <option value={zone.id}>{zone.name}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="probe-name">
+              Name
+              <input
+                type="text"
+                placeholder="Gelato A"
+                value={binding?.name ?? ''}
+                onchange={(e) => saveProbe(row.nodeId, { name: e.currentTarget.value })}
+              />
+            </label>
+            <span class="probe-preview mono">{row.label}</span>
+          </div>
+        {/each}
+        <small class="hint">Shown on the substrate card and in chart legends; defaults to the bus letter</small>
+      </div>
+    {/if}
   </div>
 
-  <IrrigationHistory events={history} timeZone={scheduleTz} />
-
-  {#if isAdmin && probeRows.length > 0}
-    <div class="panel editor">
-      <div class="panel-head">
-        <span class="panel-title">Substrate probes</span>
-      </div>
-      <!-- Bound per probe, not per zone, since a zone holds several pots. -->
-      {#each probeRows as row (row.nodeId)}
-        {@const binding = probeBindings.find((b) => b.nodeId === row.nodeId)}
-        <div class="probe-row">
-          <span class="mono probe-node">
-            {row.nodeId}{#if !row.discovered}<span class="tag">OFFLINE</span>{/if}
-          </span>
-          <label>
-            Zone
-            <select
-              value={binding?.zoneId ?? ''}
-              onchange={(e) => saveProbe(row.nodeId, { zoneId: e.currentTarget.value || null })}
-            >
-              <option value="">Unbound</option>
-              {#each zones as zone (zone.id)}
-                <option value={zone.id}>{zone.name}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="probe-name">
-            Name
-            <input
-              type="text"
-              placeholder="Gelato A"
-              value={binding?.name ?? ''}
-              onchange={(e) => saveProbe(row.nodeId, { name: e.currentTarget.value })}
-            />
-          </label>
-          <span class="probe-preview mono">{row.label}</span>
-        </div>
-      {/each}
-      <small class="hint">Shown on the substrate card and in chart legends; defaults to the bus letter</small>
-    </div>
-  {/if}
-
-  {#if isAdmin}
-    <form class="panel editor" onsubmit={saveZone}>
+  {#if isAdmin && zoneEditorOpen}
+    <form id="zone-editor" class="panel editor" onsubmit={saveZone}>
       <div class="panel-head">
         <span class="panel-title">{editingId ? 'Edit zone' : 'Add zone'}</span>
       </div>
@@ -664,10 +679,12 @@
       <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Enabled</label>
       <div class="editor-actions">
         <button type="submit" disabled={saving}>{editingId ? 'Save' : 'Add zone'}</button>
-        {#if editingId}<button type="button" onclick={cancelEdit}>Cancel</button>{/if}
+        <button type="button" onclick={cancelEdit}>Cancel</button>
       </div>
     </form>
   {/if}
+
+  <IrrigationHistory events={history} timeZone={scheduleTz} />
 
   <datalist id="substrate-types">
     <option value="Rockwool"></option>
@@ -685,6 +702,9 @@
     display: flex;
     align-items: baseline;
     gap: 16px;
+  }
+  .add-zone {
+    margin-left: auto;
   }
   .back {
     font-size: 0.72rem;
