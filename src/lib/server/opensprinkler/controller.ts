@@ -105,10 +105,18 @@ export function getIrrigationController(): IrrigationController {
   return singleton;
 }
 
+let driverStarted = false;
+
 /** Initialize the OpenSprinkler driver at server start — web app only, never the read-only recorder. */
 export function startOpenSprinklerDriver(): void {
+  // Idempotent like startIrrigationScheduler: the subscription below is never unsubscribed,
+  // so a second invocation (a dev-HMR re-eval of hooks.server.ts) would stack another
+  // listener on the shared emitter — duplicate discovery publishes on every reconnect, and
+  // Node's MaxListenersExceededWarning once ten of them pile up.
+  if (driverStarted) return;
   const config = getOpenSprinklerConfig();
   if (!config.enabled) return;
+  driverStarted = true;
 
   const service = getSiteMqttService();
   const controller = getIrrigationController();
@@ -128,9 +136,15 @@ export function startOpenSprinklerDriver(): void {
       if (sid !== null) controller.noteStationState(sid, event.state.value === 'ON');
     }
   });
-  // Only when the broker is already up: this covers the case where it connected before we
-  // subscribed, so the event above has already fired and will not fire again. At an ordinary
-  // cold start it has not, and publishing into a client that is still dialling rejects —
-  // which publishZoneDiscovery reports as a failure, on a boot where nothing is wrong.
+  // Covers a start that happens after the broker is already up, where the connect event has
+  // fired and will not fire again. That does NOT happen at today's only call site —
+  // hooks.server.ts calls getSiteMqttService() (which dials) and this function in one
+  // synchronous block, and mqtt.js cannot emit 'connect' synchronously — so treat this as
+  // defensive against a future bootstrap order, not as a path in use.
+  //
+  // The guard is the load-bearing half. Without it this call publishes into a client that is
+  // still dialling, publishRaw rejects, and publishZoneDiscovery reports that through
+  // console.error with a stack trace, on every boot, for work the subscription above then
+  // does correctly.
   if (service.brokerConnected()) publish();
 }
