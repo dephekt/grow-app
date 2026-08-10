@@ -7,6 +7,7 @@ import { getIrrigationDb } from '$lib/server/opensprinkler/db';
 import { getZone } from '$lib/server/opensprinkler/zones';
 import { getOpenSprinklerConfig } from '$lib/server/opensprinkler/config';
 import { getIrrigationController } from '$lib/server/opensprinkler/controller';
+import { BrokerNotConnectedError } from '$lib/server/mqtt/service';
 
 /** Stop a zone's station immediately. Any authenticated user. */
 export const POST: RequestHandler = async ({ params }) => {
@@ -21,7 +22,9 @@ export const POST: RequestHandler = async ({ params }) => {
     await getIrrigationController().stopStation(zone.stationSid);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Stop failed';
-    return json({ ok: false, error: message }, { status: message.includes('not connected') ? 503 : 500 });
+    // Typed, not sniffed — see the run route.
+    const status = error instanceof BrokerNotConnectedError ? 503 : 500;
+    return json({ ok: false, error: message }, { status });
   }
 
   return json({ ok: true });

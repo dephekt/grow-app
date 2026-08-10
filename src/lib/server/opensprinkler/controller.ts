@@ -71,7 +71,13 @@ export class IrrigationController {
     void this.service
       .publishOsDiscovery(topic, JSON.stringify(payload))
       .catch((error) =>
-        notePublishFailure('discovery publish', error, 'every zone is republished on the next connect')
+        // Station-qualified: a reconnect window mid-publishAllDiscovery emits one of these per
+        // zone, and undifferentiated lines just read as a repeated line.
+        notePublishFailure(
+          `discovery publish for station ${zone.stationSid}`,
+          error,
+          'every zone is republished on the next connect'
+        )
       );
   }
 
@@ -84,7 +90,13 @@ export class IrrigationController {
       void this.service
         .publishOsDiscovery(topic, '')
         .catch((error) =>
-          notePublishFailure('retract', error, `station ${sid}'s retained config stays until it is retracted again`)
+          // Topic-qualified: a station retracts two topics, so an unqualified message would
+          // print the identical line twice and read as one duplicated warning.
+          notePublishFailure(
+            `retract of ${topic}`,
+            error,
+            `station ${sid}'s retained value on it stays until it is retracted again`
+          )
         );
     }
   }
@@ -172,9 +184,11 @@ export function startOpenSprinklerDriver(): void {
   // synchronous block, and mqtt.js cannot emit 'connect' synchronously — so treat this as
   // defensive against a future bootstrap order, not as a path in use.
   //
-  // The guard is the load-bearing half. Without it this call publishes into a client that is
-  // still dialling, publishRaw rejects, and publishZoneDiscovery reports that through
-  // console.error with a stack trace, on every boot, for work the subscription above then
-  // does correctly.
+  // The guard is still the load-bearing half. Without it this call publishes into a client
+  // that is still dialling, publishRaw rejects, and publishZoneDiscovery reports a skipped
+  // publish on every boot for work the subscription above then does correctly. Since
+  // notePublishFailure, that report is a warn with no stack rather than an error with one —
+  // so what the guard buys is not logging a non-event at all, rather than not logging it
+  // alarmingly. Still worth keeping: the quietest line is the one nobody has to read.
   if (service.brokerConnected()) publish();
 }

@@ -7,7 +7,7 @@ import { stationEntityId } from '../../src/lib/server/opensprinkler/discovery';
 import { BrokerNotConnectedError, type SiteMqttService } from '../../src/lib/server/mqtt/service';
 import type { OpenSprinklerConfig } from '../../src/lib/server/opensprinkler/config';
 import type { EntityState } from '../../src/lib/server/mqtt/types';
-import type { Zone } from '../../src/lib/server/opensprinkler/zones';
+import { settle, ZONE } from './fixtures';
 
 const config: OpenSprinklerConfig = { enabled: true, baseTopic: 'grow/test/os', discoveryPrefix: 'homeassistant' };
 
@@ -40,27 +40,6 @@ describe('IrrigationController.isStationRunning', () => {
   });
 });
 
-const ZONE: Zone = {
-  id: 'z1',
-  name: '4x4',
-  stationSid: 1,
-  substrateType: null,
-  substrateVolumeMl: null,
-  drippers: null,
-  emitterLph: null,
-  maxRunSeconds: 300,
-  vwcMinPct: null,
-  vwcMaxPct: null,
-  substrateTempMinC: null,
-  substrateTempMaxC: null,
-  pwecMin: null,
-  pwecMax: null,
-  enabled: true,
-  schedulesPaused: false,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z'
-};
-
 /** A controller whose retained publishes always reject with `rejection`. */
 function makeFailingController(rejection: Error) {
   const service = {
@@ -72,9 +51,6 @@ function makeFailingController(rejection: Error) {
   } as unknown as SiteMqttService;
   return new IrrigationController(service, config);
 }
-
-/** Let the `void`-ed publish promise and its .catch settle. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('background publish failures are classified, not blanket-errored', () => {
   let warn: ReturnType<typeof vi.spyOn>;
@@ -95,8 +71,13 @@ describe('background publish failures are classified, not blanket-errored', () =
 
     expect(error).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
+    // The message is the WHOLE call: passing the error as a second argument is what puts the
+    // stack back in the log, so "without a stack trace" has to be asserted, not just named.
+    expect(warn.mock.calls[0]).toHaveLength(1);
     // The recovery clause is the point of the line: it says the work is not lost.
     expect(warn.mock.calls[0][0]).toContain('republished on the next connect');
+    // Station-qualified, so N zones failing in one reconnect window are tellable apart.
+    expect(warn.mock.calls[0][0]).toContain(`station ${ZONE.stationSid}`);
   });
 
   it('still errors, with the original, on a real publish fault', async () => {
@@ -105,7 +86,12 @@ describe('background publish failures are classified, not blanket-errored', () =
     await settle();
 
     expect(warn).not.toHaveBeenCalled();
-    expect(error).toHaveBeenCalledWith(expect.stringContaining('discovery publish failed'), fault);
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error.mock.calls[0][0]).toContain('discovery publish');
+    expect(error.mock.calls[0][0]).toContain('failed');
+    // The original error object, so the stack survives — that is the half of the split that
+    // must NOT change.
+    expect(error.mock.calls[0][1]).toBe(fault);
   });
 
   it('tells the truth about a skipped retract, which nothing reissues', async () => {
@@ -117,6 +103,8 @@ describe('background publish failures are classified, not blanket-errored', () =
     expect(warn).toHaveBeenCalledTimes(2);
     // Deliberately NOT the discovery path's "republished on the next connect" — no later pass
     // clears a retained config for a station that no longer exists.
-    expect(warn.mock.calls[0][0]).toContain('until it is retracted again');
+    for (const call of warn.mock.calls) expect(call[0]).toContain('until it is retracted again');
+    // Topic-qualified, so the pair does not read as one line printed twice.
+    expect(warn.mock.calls[0][0]).not.toEqual(warn.mock.calls[1][0]);
   });
 });

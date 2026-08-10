@@ -181,8 +181,9 @@ export class SiteMqttService {
 
     const command = buildCommandPublish(entity, request);
 
-    // Delegated rather than hand-rolled: this was a byte-identical copy of publishRaw, so the
-    // two could drift — and did, once BrokerNotConnectedError had to be introduced twice.
+    // Delegated rather than hand-rolled: this was a semantically identical copy of publishRaw,
+    // and the two had NOT drifted — but a sentinel that has to be introduced in two places is
+    // one refactor away from only being thrown by one of them.
     await this.publishRaw(command.topic, command.payload, command.retain);
   }
 
