@@ -6,13 +6,12 @@
  * (`TrendsPanel`), the chart (`TrendsChart`), and the server-side resolver
  * (`server/influx/trend-domains.ts`). Client-safe — no `$lib/server` imports.
  */
-export type TrendDomain = 'water' | 'climate' | 'thermal' | 'air-quality' | 'substrate';
+export type TrendDomain = 'water' | 'climate' | 'thermal' | 'substrate';
 
 export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string; planned?: boolean }> = [
   { key: 'water', label: 'Water' },
   { key: 'climate', label: 'Climate' },
   { key: 'thermal', label: 'Thermal' },
-  { key: 'air-quality', label: 'Air Quality' },
   // Substrate charts derived VWC / pore EC beside the raw temp and bulk EC, per probe.
   { key: 'substrate', label: 'Substrate' }
 ];

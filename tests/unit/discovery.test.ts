@@ -166,6 +166,30 @@ describe('MQTT discovery parsing', () => {
     expect(service.firmwareUpdateEntity('atlas-hydro-monitor')?.commandTopic).toContain('/atlas-hydro-monitor/');
     expect(service.firmwareUpdateEntity('atoms3u-sensor-rig')?.commandTopic).toContain('/atoms3u-sensor-rig/');
   });
+
+  it('ignores discovery retained for the retired AirQ node', () => {
+    const service = new SiteMqttService({
+      site: 'daniel-home',
+      mqttUrl: 'mqtt://localhost:1883',
+      topicPrefix: 'grow/daniel-home',
+      discoveryPrefix: prefix
+    });
+    const receive = (service as unknown as { handleMessage(topic: string, payload: string): void }).handleMessage.bind(service);
+    const stateTopic = 'grow/daniel-home/m5stack-airq/sensor/co2/state';
+
+    receive(
+      `${prefix}/sensor/m5stack-airq/co2/config`,
+      JSON.stringify({
+        name: 'CO2',
+        uniq_id: 'm5stack_airq_co2',
+        stat_t: stateTopic,
+        dev: { ids: ['airq-hardware-id'], name: 'M5Stack AirQ' }
+      })
+    );
+    receive(stateTopic, '900');
+
+    expect(service.snapshot()).toMatchObject({ devices: [], entities: [], states: {} });
+  });
 });
 
 describe('device UI metadata parsing', () => {

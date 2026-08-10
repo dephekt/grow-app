@@ -40,7 +40,7 @@ function substrateBindings(domain: string): {
 
 /**
  * Server-mediated time-series read: browsers ask for a trend domain
- * (water/climate/thermal/air-quality/substrate) and never touch InfluxDB directly.
+ * (water/climate/thermal/substrate) and never touch InfluxDB directly.
  */
 export const GET: RequestHandler = async ({ url }) => {
   const rangeParam = url.searchParams.get('range');
