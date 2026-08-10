@@ -3,7 +3,6 @@
 
 <script lang="ts">
   import TrendsChart from '$lib/TrendsChart.svelte';
-  import { poreEcCompare } from '$lib/substrate-compare.svelte';
   import {
     DEFAULT_HISTORY_RANGE,
     DEFAULT_TREND_DOMAIN,
@@ -28,11 +27,6 @@
 
   let activeDomain = $derived(TREND_DOMAINS.find((d) => d.key === domain));
   let isPlanned = $derived(activeDomain?.planned ?? false);
-
-  // The comparison series always comes down with the response, so the toggle costs no refetch.
-  let charted = $derived(
-    poreEcCompare.enabled ? series : series.filter((s: TrendSeries) => s.compareOf === undefined)
-  );
 
   // Refetch on domain or range change, race-guarded so a slow earlier request can't
   // clobber the latest selection. A `planned` domain (e.g. substrate) is a static
@@ -92,7 +86,7 @@
     </div>
   {:else}
     <div class="chart-wrap" class:loading>
-      <TrendsChart series={charted} height={300} />
+      <TrendsChart {series} height={300} />
     </div>
   {/if}
 </div>

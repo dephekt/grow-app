@@ -233,11 +233,7 @@ describe('substrate trend domain', () => {
     expect(pwec.points[3].v).toBeCloseTo(pwec.points[2].v, 10);
   });
 
-  /**
-   * The comparison series ships whether or not the dashboard is showing it, so flipping the
-   * toggle is a client-side filter rather than a refetch.
-   */
-  it('carries the coir pore EC beside the committed one, pointing back at it', () => {
+  it('uses the bound medium profile for pore EC history', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
     const points = new Map<string, TrendPoint[]>([
@@ -245,41 +241,19 @@ describe('substrate trend domain', () => {
       ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
       ['substrate-a:substrate_bulk_ec', [{ t: T0, v: 0.025 }]]
     ]);
-    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
+    const bound = [{ nodeId: 'substrate-a', zoneId: 'z1' }];
+    const pwecFor = (substrateType: 'Coco' | 'Rockwool') =>
+      assembleDomainSeries(
+        snapshot,
+        'substrate',
+        specs,
+        points,
+        [{ id: 'z1', name: 'Tent 1', substrateType }],
+        bound
+      ).find((s) => s.key === 'substrate-a:pwec')!.points[0].v;
 
-    const coir = series.find((s) => s.key === 'substrate-a:pwec-coir');
-    expect(coir?.compareOf).toBe('substrate-a:pwec');
-    expect(coir?.label).toBe('pwEC coir');
-    expect(coir?.unit).toBe('mS/cm');
-    // A smaller offset leaves a bigger denominator, so it tracks about 11 % below.
-    expect(coir?.points[0].v).toBeCloseTo(0.0866, 4);
-
-    // Only the comparison series is filterable; nothing else carries `compareOf`.
-    expect(series.filter((s) => s.compareOf !== undefined).map((s) => s.key)).toEqual(['substrate-a:pwec-coir']);
-  });
-
-  it('names the comparison after its probe too, once there is more than one', () => {
-    const snapshot = substrateSnapshot(['substrate-a', 'substrate-b']);
-    const specs = resolveDomainSeries(snapshot, 'substrate');
-    const points = new Map<string, TrendPoint[]>([
-      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
-      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]],
-      ['substrate-a:substrate_bulk_ec', [{ t: T0, v: 0.025 }]],
-      ['substrate-b:substrate_raw_counts', [{ t: T0, v: 2700 }]]
-    ]);
-    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
-    expect(series.find((s) => s.key === 'substrate-a:pwec-coir')?.label).toBe('A pwEC coir');
-  });
-
-  it('charts no comparison where the committed pore EC never derived', () => {
-    const snapshot = substrateSnapshot(['substrate-a']);
-    const specs = resolveDomainSeries(snapshot, 'substrate');
-    const points = new Map<string, TrendPoint[]>([
-      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]],
-      ['substrate-a:substrate_temperature', [{ t: T0, v: 26.6 }]]
-    ]);
-    const series = assembleDomainSeries(snapshot, 'substrate', specs, points);
-    expect(series.find((s) => s.key === 'substrate-a:pwec-coir')).toBeUndefined();
+    expect(pwecFor('Coco')).toBeCloseTo(0.0866, 4);
+    expect(pwecFor('Rockwool')).toBeCloseTo(0.0972, 4);
   });
 
   it('charts no pore EC when a series was never recorded at all', () => {
@@ -380,9 +354,8 @@ describe('substrate trend domain', () => {
     expect(bulk?.points[0].v).toBe(0.025);
     expect(bulk?.hidden).toBe(true);
 
-    // Nothing else ships hidden, and bulk EC is not a comparison series.
+    // Nothing else ships hidden.
     expect(series.filter((s) => s.hidden).map((s) => s.key)).toEqual(['substrate-a:bulk-ec']);
-    expect(series.filter((s) => s.compareOf !== undefined).map((s) => s.key)).toEqual(['substrate-a:pwec-coir']);
   });
 
   /**
@@ -468,7 +441,6 @@ describe('substrate trend domain', () => {
     expect(assembleDomainSeries(snapshot, 'substrate', specs, points).map((s) => s.key)).toEqual([
       'substrate-a:vwc',
       'substrate-a:pwec',
-      'substrate-a:pwec-coir',
       'substrate-a:temperature',
       'substrate-a:bulk-ec'
     ]);
