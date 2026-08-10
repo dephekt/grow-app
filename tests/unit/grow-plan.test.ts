@@ -24,22 +24,17 @@ describe('resolveGrowState', () => {
     const s = resolveGrowState(new Date('2026-08-10'));
     expect(s.week).toBe(1);
     expect(s.stage.key).toBe('veg');
-    expect(s.ppfdTarget).toBe(200);
+    expect(s.ppfdTarget).toBe(400);
     expect(s.onHours).toBe(18);
     expect(s.offHours).toBe(6);
     expect(s.dayOfGrow).toBe(0);
-    expect(s.nextRamp).toEqual({ onDay: 3, ppfd: 300 });
+    expect(s.nextRamp).toBeNull();
   });
 
-  it('steps the veg wk-1 target up over the first week (200 → 300 → 400)', () => {
-    expect(resolveGrowState(new Date('2026-08-12')).ppfdTarget).toBe(200);
-    const d3 = resolveGrowState(new Date('2026-08-13'));
-    expect(d3.dayOfGrow).toBe(3);
-    expect(d3.ppfdTarget).toBe(300);
-    expect(d3.nextRamp).toEqual({ onDay: 5, ppfd: 400 });
-    const d5 = resolveGrowState(new Date('2026-08-15'));
-    expect(d5.ppfdTarget).toBe(400);
-    expect(d5.nextRamp).toBeNull();
+  it('holds the 400 PPFD target throughout veg week 1', () => {
+    expect(resolveGrowState(new Date('2026-08-12')).ppfdTarget).toBe(400);
+    expect(resolveGrowState(new Date('2026-08-13')).ppfdTarget).toBe(400);
+    expect(resolveGrowState(new Date('2026-08-15')).ppfdTarget).toBe(400);
     expect(resolveGrowState(new Date('2026-08-16')).ppfdTarget).toBe(400);
   });
 
@@ -47,7 +42,7 @@ describe('resolveGrowState', () => {
     const s = resolveGrowState(new Date('2026-08-09'));
     expect(s.week).toBe(1);
     expect(s.stage.key).toBe('veg');
-    expect(s.ppfdTarget).toBe(200);
+    expect(s.ppfdTarget).toBe(400);
   });
 
   it('reaches veg week 2 seven days after named veg starts', () => {

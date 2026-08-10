@@ -42,16 +42,7 @@ export interface GrowWeek {
 /** Schedule for the current grow (Gelato 41 BX F2 · Double Down Mule #1, clones, CO₂). The first
  *  week after transplant was rooting-in time; named veg starts after that week is complete. */
 export const WEEKLY_PLAN: GrowWeek[] = [
-  {
-    week: 1,
-    stage: 'veg',
-    ppfdTarget: 400, // week ceiling for the chart; the live target follows the day-stepped ramp
-    ramp: [
-      { fromDay: 0, ppfd: 200 }, // days 1–3: gentle start to named veg (CCI veg wk1 band is 200–400)
-      { fromDay: 3, ppfd: 300 }, // days 4–5: begin the climb
-      { fromDay: 5, ppfd: 400 } // days 6–7: top of the wk-1 band
-    ]
-  },
+  { week: 1, stage: 'veg', ppfdTarget: 400 },
   { week: 2, stage: 'veg', ppfdTarget: 555 },
   { week: 3, stage: 'flower', ppfdTarget: 925 },
   { week: 4, stage: 'flower', ppfdTarget: 1020 },
