@@ -3,10 +3,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrokerSnapshot, SnapshotEvent } from '../../src/lib/server/mqtt/types';
-import type { Zone } from '../../src/lib/server/opensprinkler/zones';
+import { settle, ZONE } from './fixtures';
 
-/** Typed, not cast, so a new required field on either shape fails here rather than letting
- *  the fixture drift away from what the driver is actually handed at runtime. */
+/** Typed, not cast, so a new required field on BrokerSnapshot fails here rather than letting
+ *  the fixture drift away from what the driver is actually handed at runtime. (The zone
+ *  fixture earns the same guarantee from ./fixtures, which both driver tests now share.) */
 const broker: BrokerSnapshot = {
   connected: false,
   connecting: false,
@@ -15,47 +16,36 @@ const broker: BrokerSnapshot = {
   lastMessageAt: null
 };
 
-const ZONE: Zone = {
-  id: 'z1',
-  name: '4x4',
-  stationSid: 1,
-  substrateType: null,
-  substrateVolumeMl: null,
-  drippers: null,
-  emitterLph: null,
-  maxRunSeconds: 300,
-  vwcMinPct: null,
-  vwcMaxPct: null,
-  substrateTempMinC: null,
-  substrateTempMaxC: null,
-  pwecMin: null,
-  pwecMax: null,
-  enabled: true,
-  schedulesPaused: false,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z'
-};
-
 const published: Array<[topic: string, payload: string]> = [];
 /** Every listener handed to subscribe(), so a repeat start's extra subscription is visible. */
 const subscribers: Array<(event: SnapshotEvent) => void> = [];
 
-vi.mock('$lib/server/mqtt/service', () => ({
-  getSiteMqttService: () => ({
-    brokerConnected: () => broker.connected,
-    subscribe: (fn: (event: SnapshotEvent) => void) => {
-      subscribers.push(fn);
-      return () => {};
-    },
-    // Mirrors the real one: a publish while the client is still dialling rejects.
-    publishOsDiscovery: async (topic: string, payload: string) => {
-      if (!broker.connected) throw new Error('Broker is not connected');
-      published.push([topic, payload]);
-    },
-    publishOsCommand: async () => {},
-    entityState: () => ({ value: null, updatedAt: null })
-  })
-}));
+// The real BrokerNotConnectedError is kept, not redeclared: the controller resolves that
+// class through THIS mock, so its `instanceof` check and the rejection below have to be the
+// same class or the classification silently never matches.
+vi.mock('$lib/server/mqtt/service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/server/mqtt/service')>();
+  return {
+    BrokerNotConnectedError: actual.BrokerNotConnectedError,
+    getSiteMqttService: () => ({
+      brokerConnected: () => broker.connected,
+      subscribe: (fn: (event: SnapshotEvent) => void) => {
+        subscribers.push(fn);
+        return () => {};
+      },
+      // Mirrors the real one: a publish while the client is still dialling rejects with the
+      // sentinel, NOT a bare Error. Getting this wrong would make the assertions below pass
+      // for the wrong reason — a bare Error is reported through console.error, so a deleted
+      // brokerConnected() guard would still be caught by the error spy alone.
+      publishOsDiscovery: async (topic: string, payload: string) => {
+        if (!broker.connected) throw new actual.BrokerNotConnectedError();
+        published.push([topic, payload]);
+      },
+      publishOsCommand: async () => {},
+      entityState: () => ({ value: null, updatedAt: null })
+    })
+  };
+});
 
 vi.mock('$lib/server/opensprinkler/config', () => ({
   getOpenSprinklerConfig: () => ({
@@ -94,11 +84,11 @@ const emitBrokerEvent = (): void => {
   for (const listener of [...subscribers]) listener({ type: 'broker', broker });
 };
 
-/** Let the `void`-ed publish promise and its .catch settle. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 const stubConsoleError = () => vi.spyOn(console, 'error').mockImplementation(() => {});
 let errors: ReturnType<typeof stubConsoleError>;
+/** Watched alongside errors: a skipped publish is now reported at warn, so asserting only on
+ *  console.error would let a deleted brokerConnected() guard through silently. */
+let warnings: ReturnType<typeof stubConsoleError>;
 
 beforeEach(() => {
   vi.resetModules();
@@ -108,6 +98,7 @@ beforeEach(() => {
   // Installed per test rather than inline, so a failed assertion can't leave console.error
   // stubbed for every test that follows.
   errors = stubConsoleError();
+  warnings = vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -119,10 +110,12 @@ describe('startOpenSprinklerDriver', () => {
     await startDriver();
     await settle();
 
-    // The whole point: no publish attempt, so no "Broker is not connected" stack trace
-    // on a boot where nothing is actually wrong.
+    // The whole point: no publish attempt, so not a word about the broker on a boot where
+    // nothing is actually wrong. Both levels are asserted — the skipped-publish report is a
+    // warn now, so console.error alone would no longer notice the guard going missing.
     expect(published).toEqual([]);
     expect(errors).not.toHaveBeenCalled();
+    expect(warnings).not.toHaveBeenCalled();
 
     broker.connected = true;
     emitBrokerEvent();
@@ -130,6 +123,7 @@ describe('startOpenSprinklerDriver', () => {
 
     expect(published).toEqual(DISCOVERY);
     expect(errors).not.toHaveBeenCalled();
+    expect(warnings).not.toHaveBeenCalled();
   });
 
   it('still publishes immediately when the broker connected before we subscribed', async () => {
@@ -141,6 +135,7 @@ describe('startOpenSprinklerDriver', () => {
     // only thing that publishes discovery — the reason it is not simply deleted.
     expect(published).toEqual(DISCOVERY);
     expect(errors).not.toHaveBeenCalled();
+    expect(warnings).not.toHaveBeenCalled();
   });
 
   it('is idempotent: a second start adds no second subscription and no duplicate publish', async () => {
@@ -159,5 +154,6 @@ describe('startOpenSprinklerDriver', () => {
 
     expect(published).toEqual([...DISCOVERY, ...DISCOVERY]);
     expect(errors).not.toHaveBeenCalled();
+    expect(warnings).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import { getZone, recordEvent } from '$lib/server/opensprinkler/zones';
 import { clampSeconds, resolveShotSeconds } from '$lib/server/opensprinkler/shots';
 import { getOpenSprinklerConfig } from '$lib/server/opensprinkler/config';
 import { getIrrigationController } from '$lib/server/opensprinkler/controller';
+import { BrokerNotConnectedError } from '$lib/server/mqtt/service';
 
 /** Coerce a JSON value (number or numeric string) to a number for the audit log, or null when absent/non-numeric. */
 function numOrNull(value: unknown): number | null {
@@ -47,7 +48,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     await getIrrigationController().runStation(zone.stationSid, seconds);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Run failed';
-    return json({ ok: false, error: message }, { status: message.includes('not connected') ? 503 : 500 });
+    // Typed, not sniffed: the 503 used to hinge on the publish error's wording, so rephrasing
+    // it would have silently downgraded every reconnect window to a 500.
+    const status = error instanceof BrokerNotConnectedError ? 503 : 500;
+    return json({ ok: false, error: message }, { status });
   }
 
   // The valve has already fired, so a failed audit write must not report the run as failed.

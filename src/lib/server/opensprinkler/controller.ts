@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import { getSiteMqttService, type SiteMqttService } from '$lib/server/mqtt/service';
+import { BrokerNotConnectedError, getSiteMqttService, type SiteMqttService } from '$lib/server/mqtt/service';
 import type { SnapshotEvent } from '$lib/server/mqtt/types';
 import { getOpenSprinklerConfig, type OpenSprinklerConfig } from './config';
 import { buildRunCommand, buildStopCommand } from './commands';
@@ -12,6 +12,27 @@ import { listZones, type Zone } from './zones';
 
 /** Extra seconds past the requested run before the driver-side watchdog force-stops a station. */
 const WATCHDOG_GRACE_SECONDS = 10;
+
+/**
+ * Report a retained publish that nobody is awaiting.
+ *
+ * A disconnected broker is not a fault — the client reconnects — so it gets a warning rather
+ * than an error with a stack trace. Reporting it as an error is what made an ordinary
+ * reconnect window read as a failure, at boot and on any zone edit that landed in one.
+ * Anything else is a genuine fault and keeps both its level and its stack.
+ *
+ * `recovery` is a per-caller sentence rather than a fixed one, because what happens next is
+ * the whole question and it is NOT the same everywhere: a skipped discovery publish is
+ * reissued for every zone on the next connect, while a skipped retract is simply lost — no
+ * later pass clears a retained config for a zone that no longer exists.
+ */
+function notePublishFailure(what: string, error: unknown, recovery: string): void {
+  if (error instanceof BrokerNotConnectedError) {
+    console.warn(`[opensprinkler] ${what} skipped: broker not connected — ${recovery}`);
+    return;
+  }
+  console.error(`[opensprinkler] ${what} failed`, error);
+}
 
 /**
  * The irrigation control seam, translating zone runs into OpenSprinkler MQTT commands —
@@ -49,7 +70,15 @@ export class IrrigationController {
     });
     void this.service
       .publishOsDiscovery(topic, JSON.stringify(payload))
-      .catch((error) => console.error('[opensprinkler] discovery publish failed', error));
+      .catch((error) =>
+        // Station-qualified: a reconnect window mid-publishAllDiscovery emits one of these per
+        // zone, and undifferentiated lines just read as a repeated line.
+        notePublishFailure(
+          `discovery publish for station ${zone.stationSid}`,
+          error,
+          'every zone is republished on the next connect'
+        )
+      );
   }
 
   /** Clear a station's retained discovery config AND its normalized state so a later
@@ -60,7 +89,15 @@ export class IrrigationController {
     for (const topic of topics) {
       void this.service
         .publishOsDiscovery(topic, '')
-        .catch((error) => console.error('[opensprinkler] retract failed', error));
+        .catch((error) =>
+          // Topic-qualified: a station retracts two topics, so an unqualified message would
+          // print the identical line twice and read as one duplicated warning.
+          notePublishFailure(
+            `retract of ${topic}`,
+            error,
+            `station ${sid}'s retained value on it stays until it is retracted again`
+          )
+        );
     }
   }
 
@@ -81,6 +118,11 @@ export class IrrigationController {
     this.clearWatchdog(sid);
     const timer = setTimeout(() => {
       this.watchdogs.delete(sid);
+      // Deliberately NOT notePublishFailure: this is the safety path. A stop that never
+      // reached the controller is worth the loud line whatever the cause, and unlike a
+      // discovery publish nothing reissues it. (The run still ends on OpenSprinkler's own
+      // duration — buildRunCommand sends one — so this is the backstop failing, not the
+      // only thing standing between a station and running forever.)
       void this.service
         .publishOsCommand(buildStopCommand(sid))
         .catch((error) => console.error('[opensprinkler] watchdog stop failed', error));
@@ -142,9 +184,11 @@ export function startOpenSprinklerDriver(): void {
   // synchronous block, and mqtt.js cannot emit 'connect' synchronously — so treat this as
   // defensive against a future bootstrap order, not as a path in use.
   //
-  // The guard is the load-bearing half. Without it this call publishes into a client that is
-  // still dialling, publishRaw rejects, and publishZoneDiscovery reports that through
-  // console.error with a stack trace, on every boot, for work the subscription above then
-  // does correctly.
+  // The guard is still the load-bearing half. Without it this call publishes into a client
+  // that is still dialling, publishRaw rejects, and publishZoneDiscovery reports a skipped
+  // publish on every boot for work the subscription above then does correctly. Since
+  // notePublishFailure, that report is a warn with no stack rather than an error with one —
+  // so what the guard buys is not logging a non-event at all, rather than not logging it
+  // alarmingly. Still worth keeping: the quietest line is the one nobody has to read.
   if (service.brokerConnected()) publish();
 }

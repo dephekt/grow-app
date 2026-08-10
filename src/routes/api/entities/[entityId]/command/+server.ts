@@ -3,7 +3,7 @@
 
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { devSnapshotCommandResult } from '$lib/server/dev-snapshot';
-import { getSiteMqttService } from '$lib/server/mqtt/service';
+import { BrokerNotConnectedError, getSiteMqttService } from '$lib/server/mqtt/service';
 import type { CommandRequest } from '$lib/server/mqtt/types';
 
 export const POST: RequestHandler = async ({ fetch, params, request }) => {
@@ -22,6 +22,11 @@ export const POST: RequestHandler = async ({ fetch, params, request }) => {
     return json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Command failed';
+    // A disconnected broker is a transient server-side condition, not a malformed request:
+    // it must not land in the 400 bucket, where a client reads it as "don't retry this".
+    if (error instanceof BrokerNotConnectedError) {
+      return json({ ok: false, error: message }, { status: 503 });
+    }
     const status = message === 'Unknown entity' ? 404 : message.includes('Confirmation') ? 409 : 400;
     return json({ ok: false, error: message }, { status });
   }
