@@ -24,27 +24,39 @@ describe('resolveGrowState', () => {
     const s = resolveGrowState(new Date('2026-08-10'));
     expect(s.week).toBe(1);
     expect(s.stage.key).toBe('veg');
-    expect(s.ppfdTarget).toBe(555);
+    expect(s.ppfdTarget).toBe(200);
     expect(s.onHours).toBe(18);
     expect(s.offHours).toBe(6);
     expect(s.dayOfGrow).toBe(0);
-    expect(s.nextRamp).toBeNull();
+    expect(s.nextRamp).toEqual({ onDay: 3, ppfd: 300 });
+  });
+
+  it('steps the veg wk-1 target up over the first week (200 → 300 → 400)', () => {
+    expect(resolveGrowState(new Date('2026-08-12')).ppfdTarget).toBe(200);
+    const d3 = resolveGrowState(new Date('2026-08-13'));
+    expect(d3.dayOfGrow).toBe(3);
+    expect(d3.ppfdTarget).toBe(300);
+    expect(d3.nextRamp).toEqual({ onDay: 5, ppfd: 400 });
+    const d5 = resolveGrowState(new Date('2026-08-15'));
+    expect(d5.ppfdTarget).toBe(400);
+    expect(d5.nextRamp).toBeNull();
+    expect(resolveGrowState(new Date('2026-08-16')).ppfdTarget).toBe(400);
   });
 
   it('clamps to veg week 1 during the pre-plan rooting-in week', () => {
     const s = resolveGrowState(new Date('2026-08-09'));
     expect(s.week).toBe(1);
     expect(s.stage.key).toBe('veg');
-    expect(s.ppfdTarget).toBe(555);
+    expect(s.ppfdTarget).toBe(200);
   });
 
-  it('reaches flower week 2 seven days after named veg starts', () => {
+  it('reaches veg week 2 seven days after named veg starts', () => {
     const s = resolveGrowState(new Date('2026-08-17'));
     expect(s.week).toBe(2);
-    expect(s.stage.key).toBe('flower');
-    expect(s.ppfdTarget).toBe(925);
-    expect(s.onHours).toBe(12);
-    expect(s.dliTarget).toBeCloseTo(39.96, 2);
+    expect(s.stage.key).toBe('veg');
+    expect(s.ppfdTarget).toBe(555);
+    expect(s.onHours).toBe(18);
+    expect(s.dliTarget).toBeCloseTo(35.96, 2);
   });
 
   it('clamps to the final week well past the end', () => {
