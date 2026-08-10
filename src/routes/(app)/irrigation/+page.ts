@@ -10,12 +10,14 @@ import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
 export type ZoneJson = Zone & { stationEntityId: string };
 export type { ScheduleJson, IrrigationEventJson };
 
+const HISTORY_PAGE_SIZE = 25;
+
 export const load = async ({ fetch }) => {
   // Zones, schedules, and the history feed are independent reads; fetch them in parallel.
   const [zonesRes, schedulesRes, eventsRes] = await Promise.all([
     fetch('/api/irrigation/zones'),
     fetch('/api/irrigation/schedules'),
-    fetch('/api/irrigation/events')
+    fetch(`/api/irrigation/events?limit=${HISTORY_PAGE_SIZE}&offset=0`)
   ]);
 
   if (zonesRes.status === 401 || zonesRes.status === 403) {
@@ -42,9 +44,12 @@ export const load = async ({ fetch }) => {
 
   // History is non-critical too; degrade to empty on failure.
   let events: IrrigationEventJson[] = [];
+  let eventTotal = 0;
   if (eventsRes.ok) {
-    events = ((await eventsRes.json()) as { events?: IrrigationEventJson[] }).events ?? [];
+    const body = (await eventsRes.json()) as { events?: IrrigationEventJson[]; total?: number };
+    events = body.events ?? [];
+    eventTotal = Number.isInteger(body.total) ? (body.total as number) : events.length;
   }
 
-  return { zones, probes, schedules, scheduleTimeZone, events };
+  return { zones, probes, schedules, scheduleTimeZone, events, eventTotal };
 };

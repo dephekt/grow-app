@@ -4,7 +4,27 @@
 <script lang="ts">
   import type { IrrigationEventJson } from '$lib/server/opensprinkler/events';
 
-  let { events, timeZone = 'UTC' }: { events: IrrigationEventJson[]; timeZone?: string } = $props();
+  let {
+    events,
+    timeZone = 'UTC',
+    total,
+    page,
+    pageSize,
+    loading = false,
+    onPageChange
+  }: {
+    events: IrrigationEventJson[];
+    timeZone?: string;
+    total: number;
+    page: number;
+    pageSize: number;
+    loading?: boolean;
+    onPageChange: (page: number) => void | Promise<void>;
+  } = $props();
+
+  const pageCount = $derived(Math.max(1, Math.ceil(total / pageSize)));
+  const rangeStart = $derived(total === 0 ? 0 : page * pageSize + 1);
+  const rangeEnd = $derived(Math.min(total, page * pageSize + events.length));
 
   // Rendered in the site/schedule zone, not the viewer's, to match the "Next run" column.
   function fmtTime(iso: string): string {
@@ -42,10 +62,10 @@
   }
 </script>
 
-<div class="panel history">
+<div id="irrigation-history" class="panel history" aria-busy={loading}>
   <div class="panel-head">
     <span class="panel-title">History</span>
-    <span class="count mono">{events.length}</span>
+    <span class="count mono">{total === 0 ? '0' : `${rangeStart}–${rangeEnd} / ${total}`}</span>
   </div>
 
   {#if events.length === 0}
@@ -76,6 +96,14 @@
       {/each}
     </ul>
   {/if}
+
+  {#if total > pageSize}
+    <nav class="pagination" aria-label="Irrigation history pages">
+      <button type="button" disabled={loading || page === 0} onclick={() => onPageChange(page - 1)}>Newer</button>
+      <span class="page mono" aria-live="polite">Page {page + 1} of {pageCount}</span>
+      <button type="button" disabled={loading || page + 1 >= pageCount} onclick={() => onPageChange(page + 1)}>Older</button>
+    </nav>
+  {/if}
 </div>
 
 <style>
@@ -83,6 +111,7 @@
     /* Full-width row below the zones grid. */
     display: grid;
     gap: 4px;
+    scroll-margin-top: var(--gap);
   }
   .panel-head {
     display: flex;
@@ -174,5 +203,34 @@
   }
   .warn-spacer {
     display: inline-block;
+  }
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .pagination button {
+    min-height: var(--tap);
+    padding: 6px 12px;
+    font-size: 0.7rem;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-control);
+    cursor: pointer;
+  }
+  .pagination button:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+  .page {
+    min-width: 7.5rem;
+    color: var(--muted);
+    font-size: 0.68rem;
+    text-align: center;
   }
 </style>

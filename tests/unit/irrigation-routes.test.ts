@@ -17,6 +17,7 @@ const { GET, POST } = await import('../../src/routes/api/irrigation/zones/+serve
 const { PATCH, DELETE } = await import('../../src/routes/api/irrigation/zones/[id]/+server');
 const { POST: RUN } = await import('../../src/routes/api/irrigation/zones/[id]/run/+server');
 const { POST: STOP } = await import('../../src/routes/api/irrigation/zones/[id]/stop/+server');
+const { GET: EVENTS_GET } = await import('../../src/routes/api/irrigation/events/+server');
 const { PATCH: PROBE_PATCH, DELETE: PROBE_DELETE } = await import(
   '../../src/routes/api/irrigation/probes/[nodeId]/+server'
 );
@@ -83,6 +84,38 @@ describe('/api/irrigation/zones', () => {
     const res = (await POST(event({ body: { name: 'Tent 2', stationSid: 0 }, user: admin }) as unknown as Parameters<typeof POST>[0])) as Response;
     expect(res.status).toBe(409);
     expect((await res.json()).error).toMatch(/station 0/i);
+  });
+});
+
+describe('/api/irrigation/events', () => {
+  function insertEvents(count: number): void {
+    const insert = getIrrigationDb().prepare(
+      `INSERT INTO irrigation_events (kind, station_sid, source, seconds, ts)
+       VALUES ('irrigation', ?, 'manual', 30, ?)`
+    );
+    for (let i = 0; i < count; i++) insert.run(i, `2026-08-10T10:${String(i).padStart(2, '0')}:00.000Z`);
+  }
+
+  const getEvents = (query = '') =>
+    EVENTS_GET({ url: new URL(`http://localhost/api/irrigation/events${query}`) } as Parameters<typeof EVENTS_GET>[0]) as Response;
+
+  it('defaults to the newest 25 rows and reports the full count', async () => {
+    insertEvents(30);
+    const body = await getEvents().json();
+    expect(body).toMatchObject({ total: 30, limit: 25, offset: 0 });
+    expect(body.events).toHaveLength(25);
+    expect(body.events[0].stationSid).toBe(29);
+    expect(body.events[24].stationSid).toBe(5);
+  });
+
+  it('returns an offset page and clamps invalid pagination values', async () => {
+    insertEvents(30);
+    let body = await getEvents('?limit=5&offset=25').json();
+    expect(body).toMatchObject({ total: 30, limit: 5, offset: 25 });
+    expect(body.events.map((event: { stationSid: number }) => event.stationSid)).toEqual([4, 3, 2, 1, 0]);
+
+    body = await getEvents('?limit=0&offset=-1').json();
+    expect(body).toMatchObject({ limit: 25, offset: 0 });
   });
 });
 

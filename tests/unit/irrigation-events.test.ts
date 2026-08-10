@@ -7,6 +7,7 @@ import { openIrrigationDb } from '../../src/lib/server/opensprinkler/db';
 import { createZone, deleteZone, recordEvent } from '../../src/lib/server/opensprinkler/zones';
 import {
   listEvents,
+  countEvents,
   recordRunoffEvent,
   markEventEnergy,
   listEnergyPending,
@@ -106,10 +107,11 @@ describe('irrigation events feed — persistence + shaping', () => {
     expect(e.stationSid).toBe(4);
   });
 
-  it('respects the limit', () => {
+  it('returns a counted page at the requested offset', () => {
     const db = freshDb();
     for (let i = 0; i < 5; i++) insertRaw(db, { ts: `2026-07-12T10:0${i}:00.000Z`, stationSid: i });
-    expect(listEvents(db, 2)).toHaveLength(2);
+    expect(countEvents(db)).toBe(5);
+    expect(listEvents(db, 2, 1).map((event) => event.stationSid)).toEqual([3, 2]);
   });
 });
 

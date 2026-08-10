@@ -87,7 +87,7 @@ export function toEventJson(row: EventRow): IrrigationEventJson {
 
 /** The mixed history feed, newest first. LEFT JOIN zones so each row carries the current
  *  zone name (null once a zone is deleted — the run still happened). */
-export function listEvents(db: DatabaseSync, limit = 100): IrrigationEventJson[] {
+export function listEvents(db: DatabaseSync, limit = 100, offset = 0): IrrigationEventJson[] {
   const rows = db
     .prepare(
       `SELECT e.id, e.kind, e.ts, e.zone_id, z.name AS zone_name, e.station_sid, e.source, e.actor,
@@ -95,10 +95,15 @@ export function listEvents(db: DatabaseSync, limit = 100): IrrigationEventJson[]
        FROM irrigation_events e
        LEFT JOIN zones z ON z.id = e.zone_id
        ORDER BY e.ts DESC, e.id DESC
-       LIMIT ?`
+       LIMIT ? OFFSET ?`
     )
-    .all(limit) as unknown as EventRow[];
+    .all(limit, offset) as unknown as EventRow[];
   return rows.map(toEventJson);
+}
+
+export function countEvents(db: DatabaseSync): number {
+  const row = db.prepare('SELECT COUNT(*) AS total FROM irrigation_events').get() as { total: number };
+  return row.total;
 }
 
 /** Persist a runoff-pump run at its start; duration stays null because a burst is often a

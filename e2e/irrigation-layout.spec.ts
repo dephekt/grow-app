@@ -89,7 +89,9 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/irrigation/schedules', (route) =>
     route.fulfill({ json: { schedules: [], tz: 'America/Chicago' } })
   );
-  await page.route('**/api/irrigation/events', (route) => route.fulfill({ json: { events: [] } }));
+  await page.route('**/api/irrigation/events?*', (route) =>
+    route.fulfill({ json: { events: [], total: 0, limit: 25, offset: 0 } })
+  );
 });
 
 test('places probes with zones and reveals the shared zone editor above history', async ({ page }, testInfo) => {
@@ -159,4 +161,46 @@ test('scrolls a newly revealed zone editor into view below a long zone grid', as
   const editor = page.locator('#zone-editor');
   await expect(editor).toBeInViewport();
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+});
+
+test('pages through irrigation history 25 entries at a time', async ({ page }) => {
+  const events = Array.from({ length: 30 }, (_, index) => ({
+    id: 30 - index,
+    kind: 'irrigation',
+    ts: new Date(Date.parse('2026-08-10T12:00:00.000Z') - index * 60_000).toISOString(),
+    zoneId: zone.id,
+    zoneName: `History run ${index + 1}`,
+    stationSid: zone.stationSid,
+    source: 'manual',
+    actor: 'dan',
+    requestedPercent: null,
+    requestedMl: 100,
+    seconds: 30,
+    scheduleId: null,
+    energyWh: null,
+    peakW: null,
+    noDraw: false
+  }));
+  await page.unroute('**/api/irrigation/events?*');
+  await page.route('**/api/irrigation/events?*', (route) => {
+    const url = new URL(route.request().url());
+    const limit = Number(url.searchParams.get('limit'));
+    const offset = Number(url.searchParams.get('offset'));
+    return route.fulfill({ json: { events: events.slice(offset, offset + limit), total: events.length, limit, offset } });
+  });
+  await page.goto('/irrigation');
+
+  const history = page.locator('#irrigation-history');
+  await expect(history).toContainText('1–25 / 30');
+  await expect(history).toContainText('History run 1');
+  await expect(history).not.toContainText('History run 26');
+
+  await history.getByRole('button', { name: 'Older' }).click();
+
+  await expect(history).toContainText('26–30 / 30');
+  await expect(history).toContainText('Page 2 of 2');
+  await expect(history).toContainText('History run 26');
+  await expect(history).not.toContainText('History run 25');
+  await expect(history.getByRole('button', { name: 'Newer' })).toBeEnabled();
+  await expect(history.getByRole('button', { name: 'Older' })).toBeDisabled();
 });
