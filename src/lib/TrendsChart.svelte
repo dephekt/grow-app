@@ -67,19 +67,11 @@
     return [xs, ...ys] as uPlot.AlignedData;
   }
 
-  /** A comparison series rides its subject's colour, so the dash is what tells them apart. */
-  function strokeFor(s: TrendSeries[], indexByKey: Map<string, number>, i: number, colors: string[]): string {
-    const compareOf = s[i].compareOf;
-    const subject = compareOf === undefined ? undefined : indexByKey.get(compareOf);
-    return colors[(subject ?? i) % colors.length];
-  }
-
   function buildOpts(s: TrendSeries[], width: number): uPlot.Options {
     const { colors, axis: axisColor } = theme();
     const grid = 'rgba(255,255,255,0.06)';
     const mono = '11px "IBM Plex Mono", ui-monospace, monospace';
     const labelFont = '600 10px "IBM Plex Mono", ui-monospace, monospace';
-    const indexByKey = new Map(s.map((ser, i) => [ser.key, i]));
     const plans = yAxisPlans(s, width);
 
     return {
@@ -100,8 +92,7 @@
         ...s.map((ser, i) => ({
           label: ser.unit ? `${ser.label} (${ser.unit})` : ser.label,
           scale: ser.unit || ser.key,
-          stroke: strokeFor(s, indexByKey, i, colors),
-          dash: ser.compareOf === undefined ? undefined : [4, 4],
+          stroke: colors[i % colors.length],
           width: 1.5,
           show: !ser.hidden,
           points: { show: false },
@@ -123,7 +114,7 @@
           grid: { show: p.grid, stroke: grid, width: 1 },
           ticks: { show: false },
           // With several axes the colour is what pairs one with its lines.
-          stroke: plans.length > 1 ? strokeFor(s, indexByKey, p.seriesIndex, colors) : axisColor,
+          stroke: plans.length > 1 ? colors[p.seriesIndex % colors.length] : axisColor,
           font: mono
         }))
       ]

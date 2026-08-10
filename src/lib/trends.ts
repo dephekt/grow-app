@@ -64,8 +64,6 @@ export interface TrendSeries {
   label: string;
   unit: string;
   points: TrendPoint[];
-  /** Key of the series this one shadows for comparison — charted in its colour, dashed. */
-  compareOf?: string;
   /** Charted but switched off until the legend turns it on — a secondary reading. */
   hidden?: boolean;
 }

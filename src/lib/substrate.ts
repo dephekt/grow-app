@@ -31,7 +31,7 @@ function cubic(c: readonly [number, number, number, number], x: number): number 
 const COUNTS_MIN = 0;
 const COUNTS_MAX = 10000;
 
-export type PoreEcOffsetKey = 'committed' | 'coir';
+export type PoreEcOffsetKey = 'coco' | 'rockwool' | 'generic';
 
 /** A value of εσb=0 — the permittivity a medium reads at zero bulk EC, Hilhorst's one free term. */
 export interface PoreEcOffset {
@@ -41,15 +41,16 @@ export interface PoreEcOffset {
   source: string;
 }
 
-/** The committed offset every stored and alerted-on reading uses, and the coir-specific
- *  measurement carried beside it for comparison. */
+/** Published Hilhorst offsets. Coco and rockwool are explicit zone profiles; the generic
+ *  TEROS value remains the fallback for other media. */
 export const PORE_EC_OFFSETS: Record<PoreEcOffsetKey, PoreEcOffset> = {
-  committed: { key: 'committed', value: 4.1, label: 'generic', source: 'Hilhorst 2000' },
-  coir: { key: 'coir', value: 1.64, label: 'coir', source: 'Lee & Kim 2024' }
+  coco: { key: 'coco', value: 1.64, label: 'coco', source: 'Lee & Kim 2024' },
+  rockwool: { key: 'rockwool', value: 4.1, label: 'rockwool', source: 'Hilhorst 2000' },
+  generic: { key: 'generic', value: 4.1, label: 'generic', source: 'TEROS 11/12 manual' }
 };
 
 /** Hilhorst's generic offset (TEROS 12 manual §3.3.4); medium-specific in principle. */
-const PERMITTIVITY_AT_ZERO_EC = PORE_EC_OFFSETS.committed.value;
+const PERMITTIVITY_AT_ZERO_EC = PORE_EC_OFFSETS.generic.value;
 
 /** METER's stated validity floor for the pore-water model. */
 const PORE_EC_MIN_VWC = 0.1;
@@ -88,24 +89,43 @@ export function poreWaterEc(args: {
   return (waterPermittivity * bulkEc) / (permittivity - offset);
 }
 
-/** Soilless is tested first so "potting soil" resolves there, where METER puts it. */
-const SOILLESS_MEDIA = /coco|coir|peat|perlite|vermiculite|rockwool|stonewool|potting|soilless|pro-?mix|sphagnum|bark|hydroton|clay pebble/i;
+const COCO_MEDIA = /coco|coir/i;
+const ROCKWOOL_MEDIA = /rockwool|stonewool/i;
+/** Soilless is tested before mineral so "potting soil" resolves where METER puts it. */
+const SOILLESS_MEDIA = /peat|perlite|vermiculite|potting|soilless|pro-?mix|sphagnum|bark|hydroton|clay pebble/i;
 const MINERAL_MEDIA = /soil|mineral|loam|sand|clay|silt|dirt|field/i;
 
-export interface ResolvedCurve {
+export type SubstrateCalibrationProfile = 'coco' | 'rockwool' | 'soilless' | 'mineral';
+
+export interface ResolvedSubstrateCalibration {
+  profile: SubstrateCalibrationProfile;
   curve: SubstrateCurve;
+  poreEcOffset: PoreEcOffset;
   /** False when the zone named no medium, or named one neither pattern recognises. */
   assumed: boolean;
 }
 
-/** The calibration a zone's medium calls for; unrecognised falls back to soilless, flagged. */
-export function substrateCurveFor(substrateType: string | null | undefined): ResolvedCurve {
+const calibration = (
+  profile: SubstrateCalibrationProfile,
+  curve: SubstrateCurve,
+  poreEcOffset: PoreEcOffset,
+  assumed = false
+): ResolvedSubstrateCalibration => ({ profile, curve, poreEcOffset, assumed });
+
+/** The VWC curve and Hilhorst offset a zone's medium calls for. The explicit defaults are
+ *  TEROS soilless + Lee & Kim's 1.64 for coco, and TEROS soilless + Hilhorst's 4.1 for
+ *  rockwool. Unknown media retain the prior generic soilless fallback, flagged as assumed. */
+export function substrateCalibrationFor(
+  substrateType: string | null | undefined
+): ResolvedSubstrateCalibration {
   const text = (substrateType ?? '').trim();
   if (text) {
-    if (SOILLESS_MEDIA.test(text)) return { curve: 'soilless', assumed: false };
-    if (MINERAL_MEDIA.test(text)) return { curve: 'mineral', assumed: false };
+    if (COCO_MEDIA.test(text)) return calibration('coco', 'soilless', PORE_EC_OFFSETS.coco);
+    if (ROCKWOOL_MEDIA.test(text)) return calibration('rockwool', 'soilless', PORE_EC_OFFSETS.rockwool);
+    if (SOILLESS_MEDIA.test(text)) return calibration('soilless', 'soilless', PORE_EC_OFFSETS.generic);
+    if (MINERAL_MEDIA.test(text)) return calibration('mineral', 'mineral', PORE_EC_OFFSETS.generic);
   }
-  return { curve: 'soilless', assumed: true };
+  return calibration('soilless', 'soilless', PORE_EC_OFFSETS.generic, true);
 }
 
 /** Everything the SUBSTRATE card shows for one probe, raw and derived. */
@@ -118,12 +138,11 @@ export interface SubstrateReadings {
   vwc: number | null;
   /** mS/cm; null wherever the Hilhorst model does not hold. */
   poreEc: number | null;
-  /** The same reading under the coir-specific εσb=0, null wherever `poreEc` is — shown for
-   *  comparison, never acted on. */
-  poreEcCoir: number | null;
   permittivity: number | null;
+  calibrationProfile: SubstrateCalibrationProfile;
   curve: SubstrateCurve;
-  curveAssumed: boolean;
+  poreEcOffset: number;
+  calibrationAssumed: boolean;
 }
 
 /** One threshold band; a null end is an open side, not a zero. */
@@ -159,13 +178,6 @@ export const DISPLAY_DIGITS = { vwc: 1, temperatureC: 1, poreEc: 2 } as const;
 export function atDisplayPrecision(value: number | null, digits: number): number | null {
   if (value === null || !Number.isFinite(value)) return null;
   return Number(value.toFixed(digits));
-}
-
-/** How far the coir offset moves pore EC, in percent of the committed reading. */
-export function poreEcCompareDeltaPct(readings: SubstrateReadings): number | null {
-  const { poreEc, poreEcCoir } = readings;
-  if (poreEc === null || poreEcCoir === null || poreEc === 0) return null;
-  return ((poreEcCoir - poreEc) / poreEc) * 100;
 }
 
 /** The single place m³/m³ becomes percent. */
@@ -253,28 +265,32 @@ function liveString(snapshot: Snapshot, entity: EntityConfig | undefined): strin
 /** Derive the full reading set from one probe's raw values. */
 export function deriveReadings(
   raw: { counts: number | null; temperatureC: number | null; bulkEc: number | null },
-  resolved: ResolvedCurve
+  resolved: ResolvedSubstrateCalibration
 ): SubstrateReadings {
   const { counts, temperatureC, bulkEc } = raw;
   const vwc = counts === null ? null : vwcFromCounts(counts, resolved.curve);
   const permittivity = counts === null ? null : permittivityFromCounts(counts);
-  const at =
+  const poreEc =
     bulkEc === null || permittivity === null || temperatureC === null || vwc === null
-      ? () => null
-      : (offset: number) => poreWaterEc({ bulkEc, permittivity, temperatureC, vwc, offset });
-  // A smaller offset moves the pole up into wetter ground, where the model returns huge
-  // numbers it cannot support, so the comparison only stands where the committed one does.
-  const poreEc = at(PORE_EC_OFFSETS.committed.value);
+      ? null
+      : poreWaterEc({
+          bulkEc,
+          permittivity,
+          temperatureC,
+          vwc,
+          offset: resolved.poreEcOffset.value
+        });
   return {
     counts,
     temperatureC,
     bulkEc,
     vwc,
     poreEc,
-    poreEcCoir: poreEc === null ? null : at(PORE_EC_OFFSETS.coir.value),
     permittivity,
+    calibrationProfile: resolved.profile,
     curve: resolved.curve,
-    curveAssumed: resolved.assumed
+    poreEcOffset: resolved.poreEcOffset.value,
+    calibrationAssumed: resolved.assumed
   };
 }
 
@@ -304,7 +320,7 @@ export function resolveSubstrateProbes(
     const available = device?.availability !== 'offline';
     const binding = bindings.find((b) => b.nodeId === node) ?? null;
     const zone = (binding?.zoneId ? zones.find((z) => z.id === binding.zoneId) : null) ?? null;
-    const resolved = substrateCurveFor(zone?.substrateType);
+    const resolved = substrateCalibrationFor(zone?.substrateType);
 
     const raw = available
       ? {

@@ -10,13 +10,12 @@ import {
 } from '$lib/entity-match';
 import { type TrendDomain, type TrendPoint, type TrendSeries } from '$lib/trends';
 import {
-  PORE_EC_OFFSETS,
   SUBSTRATE_BULK_EC,
   SUBSTRATE_COUNTS,
   SUBSTRATE_TEMPERATURE,
   deriveReadings,
   resolveSubstrateProbes,
-  substrateCurveFor,
+  substrateCalibrationFor,
   type SubstrateProbeBinding,
   type SubstrateZoneBinding
 } from '$lib/substrate';
@@ -156,7 +155,7 @@ export function assembleDomainSeries(
 
   const series: TrendSeries[] = [];
   for (const probe of probes) {
-    const curve = substrateCurveFor(probe.substrateType);
+    const calibration = substrateCalibrationFor(probe.substrateType);
     const counts = pointsByKey.get(`${probe.nodeId}:${SUBSTRATE_COUNTS}`) ?? [];
     if (counts.length === 0) continue;
     const probeLabel = probe.label;
@@ -164,7 +163,7 @@ export function assembleDomainSeries(
     // Water content is a pointwise function of counts alone, so it charts wherever the
     // sensor recorded — no join, no dropped buckets.
     const vwc = counts.flatMap((p) => {
-      const derived = deriveReadings({ counts: p.v, temperatureC: null, bulkEc: null }, curve).vwc;
+      const derived = deriveReadings({ counts: p.v, temperatureC: null, bulkEc: null }, calibration).vwc;
       return derived === null ? [] : [{ t: p.t, v: derived * 100 }];
     });
     // Every count can be rejected as out of range, and an empty series is a legend entry
@@ -181,28 +180,12 @@ export function assembleDomainSeries(
       const temperatureC = temps(p.t);
       const bulkEc = bulk(p.t);
       if (temperatureC === null || bulkEc === null) return [];
-      return [{ t: p.t, readings: deriveReadings({ counts: p.v, temperatureC, bulkEc }, curve) }];
+      return [{ t: p.t, readings: deriveReadings({ counts: p.v, temperatureC, bulkEc }, calibration) }];
     });
 
-    const poreEcKey = `${probe.nodeId}:pwec`;
     const poreEc = derived.flatMap((d) => (d.readings.poreEc === null ? [] : [{ t: d.t, v: d.readings.poreEc }]));
     if (poreEc.length > 0) {
-      series.push({ key: poreEcKey, label: qualify('pwEC', probeLabel), unit: 'mS/cm', points: poreEc });
-    }
-
-    // Emitted whether or not the comparison is switched on, so flipping it is a client-side
-    // filter rather than a refetch.
-    const poreEcCoir = derived.flatMap((d) =>
-      d.readings.poreEcCoir === null ? [] : [{ t: d.t, v: d.readings.poreEcCoir }]
-    );
-    if (poreEcCoir.length > 0) {
-      series.push({
-        key: `${probe.nodeId}:pwec-coir`,
-        label: qualify(`pwEC ${PORE_EC_OFFSETS.coir.label}`, probeLabel),
-        unit: 'mS/cm',
-        points: poreEcCoir,
-        compareOf: poreEcKey
-      });
+      series.push({ key: `${probe.nodeId}:pwec`, label: qualify('pwEC', probeLabel), unit: 'mS/cm', points: poreEc });
     }
 
     // Charted from the same step-carried readers pwEC derives from, so a temperature that

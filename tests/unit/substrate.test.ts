@@ -8,14 +8,13 @@ import {
   atDisplayPrecision,
   bandStatus,
   deriveReadings,
-  poreEcCompareDeltaPct,
   vwcPercent,
   poreEcGap,
   hasSubstrateProbe,
   permittivityFromCounts,
   poreWaterEc,
   resolveSubstrateProbes,
-  substrateCurveFor,
+  substrateCalibrationFor,
   vwcFromCounts
 } from '../../src/lib/substrate';
 import type { DeviceSnapshot, EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';
@@ -171,26 +170,55 @@ describe('pore-water EC (Hilhorst)', () => {
   });
 });
 
-describe('curve selection from the zone medium', () => {
-  it('recognises the media the zone editor offers', () => {
-    expect(substrateCurveFor('Coco')).toEqual({ curve: 'soilless', assumed: false });
-    expect(substrateCurveFor('Rockwool')).toEqual({ curve: 'soilless', assumed: false });
+describe('calibration selection from the zone medium', () => {
+  it('gives coco the TEROS soilless curve and Lee & Kim offset', () => {
+    expect(substrateCalibrationFor('Coco')).toEqual({
+      profile: 'coco',
+      curve: 'soilless',
+      poreEcOffset: PORE_EC_OFFSETS.coco,
+      assumed: false
+    });
+    expect(substrateCalibrationFor('coir').poreEcOffset.value).toBe(1.64);
+  });
+
+  it('gives rockwool the TEROS soilless curve and Hilhorst offset', () => {
+    expect(substrateCalibrationFor('Rockwool')).toEqual({
+      profile: 'rockwool',
+      curve: 'soilless',
+      poreEcOffset: PORE_EC_OFFSETS.rockwool,
+      assumed: false
+    });
+    expect(substrateCalibrationFor('stonewool').poreEcOffset.value).toBe(4.1);
   });
 
   it('puts potting soil on the soilless curve, where METER puts it', () => {
     // Contains both keywords; soilless must win.
-    expect(substrateCurveFor('Potting soil')).toEqual({ curve: 'soilless', assumed: false });
+    expect(substrateCalibrationFor('Potting soil')).toEqual({
+      profile: 'soilless',
+      curve: 'soilless',
+      poreEcOffset: PORE_EC_OFFSETS.generic,
+      assumed: false
+    });
   });
 
   it('recognises mineral media', () => {
-    expect(substrateCurveFor('Loam')).toEqual({ curve: 'mineral', assumed: false });
-    expect(substrateCurveFor('Living soil')).toEqual({ curve: 'mineral', assumed: false });
+    expect(substrateCalibrationFor('Loam')).toMatchObject({ profile: 'mineral', curve: 'mineral', assumed: false });
+    expect(substrateCalibrationFor('Living soil')).toMatchObject({
+      profile: 'mineral',
+      curve: 'mineral',
+      assumed: false
+    });
   });
 
   it('falls back to soilless but flags that it assumed', () => {
-    expect(substrateCurveFor(null)).toEqual({ curve: 'soilless', assumed: true });
-    expect(substrateCurveFor('  ')).toEqual({ curve: 'soilless', assumed: true });
-    expect(substrateCurveFor('something new')).toEqual({ curve: 'soilless', assumed: true });
+    for (const medium of [null, '  ', 'something new']) {
+      expect(substrateCalibrationFor(medium)).toEqual({
+        profile: 'soilless',
+        curve: 'soilless',
+        poreEcOffset: PORE_EC_OFFSETS.generic,
+        assumed: true
+      });
+    }
   });
 });
 
@@ -283,10 +311,11 @@ describe('poreEcGap', () => {
       bulkEc: 0.025,
       vwc: 0.47,
       poreEc: null,
-      poreEcCoir: null,
       permittivity: 24.1,
+      calibrationProfile: 'soilless' as const,
       curve: 'soilless' as const,
-      curveAssumed: true,
+      poreEcOffset: 4.1,
+      calibrationAssumed: true,
       ...readings
     },
     thresholds: { vwcPct: OPEN, temperatureC: OPEN, poreEc: OPEN },
@@ -319,7 +348,10 @@ describe('poreEcGap', () => {
 
 describe('deriveReadings', () => {
   it('leaves everything derived null when the probe reported nothing', () => {
-    const r = deriveReadings({ counts: null, temperatureC: null, bulkEc: null }, { curve: 'soilless', assumed: true });
+    const r = deriveReadings(
+      { counts: null, temperatureC: null, bulkEc: null },
+      substrateCalibrationFor(null)
+    );
     expect(r.vwc).toBeNull();
     expect(r.poreEc).toBeNull();
     expect(r.permittivity).toBeNull();
@@ -327,22 +359,20 @@ describe('deriveReadings', () => {
 
   /** A TEROS 11 omits bulk EC entirely; water content must still read. */
   it('still derives VWC when the probe reports no bulk EC', () => {
-    const r = deriveReadings({ ...LIVE, bulkEc: null }, { curve: 'soilless', assumed: false });
+    const r = deriveReadings({ ...LIVE, bulkEc: null }, substrateCalibrationFor('Coco'));
     expect(r.vwc).toBeCloseTo(0.473, 2);
     expect(r.poreEc).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// The coir εσb=0 carried alongside the committed one
+// Medium-specific Hilhorst offsets
 // ---------------------------------------------------------------------------
 
-describe('pore EC offset comparison', () => {
-  const soilless = { curve: 'soilless' as const, assumed: false };
-
-  it('commits to the generic offset and carries the coir one beside it', () => {
-    expect(PORE_EC_OFFSETS.committed.value).toBe(4.1);
-    expect(PORE_EC_OFFSETS.coir.value).toBe(1.64);
+describe('medium-specific pore EC', () => {
+  it('publishes the selected literature offsets', () => {
+    expect(PORE_EC_OFFSETS.coco.value).toBe(1.64);
+    expect(PORE_EC_OFFSETS.rockwool.value).toBe(4.1);
   });
 
   /** Hilhorst by hand at the live sample, so a swapped offset shows up as a mismatch. */
@@ -355,21 +385,26 @@ describe('pore EC offset comparison', () => {
     expect(poreWaterEc({ ...args, offset: 1.64 })).toBeCloseTo((water * LIVE.bulkEc) / (permittivity - 1.64), 10);
   });
 
-  it('defaults to the committed offset when none is named', () => {
+  it('defaults the low-level formula to the TEROS generic offset when none is named', () => {
     const permittivity = permittivityFromCounts(LIVE.counts)!;
     const args = { bulkEc: LIVE.bulkEc, permittivity, temperatureC: LIVE.temperatureC, vwc: 0.47 };
-    expect(poreWaterEc(args)).toBe(poreWaterEc({ ...args, offset: PORE_EC_OFFSETS.committed.value }));
+    expect(poreWaterEc(args)).toBe(poreWaterEc({ ...args, offset: PORE_EC_OFFSETS.generic.value }));
   });
 
-  /** A smaller offset leaves a bigger denominator, so the coir reading always sits lower. */
-  it('reads lower than the committed value at the live sample', () => {
-    const r = deriveReadings(LIVE, soilless);
-    expect(r.poreEc).toBeCloseTo(0.097, 3);
-    expect(r.poreEcCoir).toBeLessThan(r.poreEc!);
-    expect(poreEcCompareDeltaPct(r)).toBeCloseTo(-11, 0);
+  /** A smaller offset leaves a bigger denominator, so coco reads below rockwool. */
+  it('uses each selected offset in the derived reading', () => {
+    const coco = deriveReadings(LIVE, substrateCalibrationFor('Coco'));
+    const rockwool = deriveReadings(LIVE, substrateCalibrationFor('Rockwool'));
+
+    expect(coco.vwc).toBe(rockwool.vwc);
+    expect(coco.poreEc).toBeCloseTo(0.0866, 4);
+    expect(coco.poreEcOffset).toBe(1.64);
+    expect(rockwool.poreEc).toBeCloseTo(0.0972, 4);
+    expect(rockwool.poreEcOffset).toBe(4.1);
+    expect(coco.poreEc).toBeLessThan(rockwool.poreEc!);
   });
 
-  /** The offset is the pole the model divides by, so the headroom gate moves with it. */
+  /** The selected offset is the pole the model divides by, so the headroom gate moves with it. */
   it('gates each offset against its own pole', () => {
     const permittivity = 4.6;
     const args = { bulkEc: 0.5, permittivity, temperatureC: 20, vwc: 0.2 };
@@ -377,33 +412,13 @@ describe('pore EC offset comparison', () => {
     expect(poreWaterEc({ ...args, offset: 1.64 })).not.toBeNull();
   });
 
-  /**
-   * Between roughly 12 % and 23 % VWC the committed offset is already past its pole while
-   * the coir one is not, and Hilhorst there returns tens of mS/cm the model cannot support.
-   * Deriving it anyway would put nonsense on the card during exactly the dryback someone
-   * turned the comparison on to watch.
-   */
-  it('withholds the comparison wherever the committed reading does not derive', () => {
-    for (let counts = 1900; counts <= 2055; counts += 5) {
-      const r = deriveReadings({ counts, temperatureC: 22, bulkEc: 1.2 }, soilless);
-      expect(r.poreEc).toBeNull();
-      expect(r.poreEcCoir).toBeNull();
-    }
-    // Just the other side of it both derive again, and the comparison reads lower as always.
-    const wet = deriveReadings({ counts: 2100, temperatureC: 22, bulkEc: 1.2 }, soilless);
-    expect(wet.poreEc).not.toBeNull();
-    expect(wet.poreEcCoir).toBeLessThan(wet.poreEc!);
-  });
-
-  it('reports no delta when the committed reading is missing', () => {
-    expect(poreEcCompareDeltaPct(deriveReadings({ ...LIVE, bulkEc: null }, soilless))).toBeNull();
-  });
-
-  /** Zero bulk EC drives both readings to zero, and a percentage off zero is meaningless. */
-  it('reports no delta when the committed reading is zero', () => {
-    const r = deriveReadings({ ...LIVE, bulkEc: 0 }, soilless);
-    expect(r.poreEc).toBe(0);
-    expect(poreEcCompareDeltaPct(r)).toBeNull();
+  it('records the selected profile beside its readings', () => {
+    expect(deriveReadings(LIVE, substrateCalibrationFor('Coco'))).toMatchObject({
+      calibrationProfile: 'coco',
+      curve: 'soilless',
+      poreEcOffset: 1.64,
+      calibrationAssumed: false
+    });
   });
 });
 
@@ -481,7 +496,7 @@ describe('resolveSubstrateProbes', () => {
     expect(probes[0].nodeId).toBe('substrate-a');
     expect(probes[0].serial).toBe('T12-00065327');
     expect(probes[0].readings.vwc).toBeCloseTo(0.473, 2);
-    expect(probes[0].readings.curveAssumed).toBe(true);
+    expect(probes[0].readings.calibrationAssumed).toBe(true);
     expect(probes[0].zoneName).toBeNull();
   });
 
@@ -496,7 +511,7 @@ describe('resolveSubstrateProbes', () => {
     expect(probes[0].label).toBe('A');
     expect(probes[0].zoneName).toBe('Tent 1 — Gelato');
     expect(probes[0].readings.curve).toBe('soilless');
-    expect(probes[0].readings.curveAssumed).toBe(false);
+    expect(probes[0].readings.calibrationAssumed).toBe(false);
   });
 
   it('switches curve when the zone is a mineral medium', () => {
