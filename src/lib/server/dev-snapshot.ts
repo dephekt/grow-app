@@ -5,6 +5,7 @@ import { dev } from '$app/environment';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { env } from '$lib/server/env';
+import { filterRetiredDevicesFromSnapshot } from '$lib/device-retirement';
 import { buildCommandPublish } from './mqtt/discovery';
 import type { CommandRequest, Snapshot } from './mqtt/types';
 
@@ -55,7 +56,7 @@ export async function loadDevSnapshot(
         ? await readSnapshot(config.file, readFileImpl)
         : null;
 
-    return isSnapshot(value) ? value : null;
+    return isSnapshot(value) ? filterRetiredDevicesFromSnapshot(value) : null;
   } catch {
     return null;
   }

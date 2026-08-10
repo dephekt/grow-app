@@ -33,8 +33,7 @@ function mk(
   } satisfies EntityConfig;
 }
 
-// The scd4x split-high/low shape from the M5Stack AirQ (see commit d39a001:
-// co2_low_alert publishes discovery but never a state).
+// A split-high/low shape where one paired alert publishes discovery but never a state.
 const liveSensor = mk({ component: 'sensor', objectId: 'co2', name: 'CO2' });
 const highThreshold = mk({ component: 'number', objectId: 'co2_high_threshold' });
 const lowThreshold = mk({ component: 'number', objectId: 'co2_low_threshold' });
@@ -213,7 +212,7 @@ describe('alertStatus: full sensor coverage', () => {
 });
 
 describe('alertStatus: partial sensor coverage (silent paired sensor)', () => {
-  // d39a001: the AirQ's co2_low_alert never publishes a state.
+  // A paired low alert may be discovered without ever publishing a state.
   it('falls back to the live reading when the silent direction is quiet', () => {
     expect(alertStatus(splitRule(), splitStates({ [highAlert.id]: 'OFF' }))).toBe('OK');
     expect(alertStatus(splitRule(), splitStates({ [highAlert.id]: 'OFF', [liveSensor.id]: '300' }))).toBe('LOW');

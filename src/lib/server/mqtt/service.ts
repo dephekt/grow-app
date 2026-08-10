@@ -14,6 +14,7 @@ import { toDialSpectrum } from '$lib/spectrum/dial';
 import { parseLightsConfigPayload } from './light-metadata';
 import { resolveSiteTimeZone } from '$lib/server/settings/site-timezone';
 import { findQuantumPpfdEntity } from '$lib/entity-match';
+import { isRetiredDeviceNode } from '$lib/device-retirement';
 import {
   buildFirmwareChannelConfig,
   parseFirmwareChannelPayload,
@@ -424,12 +425,14 @@ export class SiteMqttService {
 
     const discovered = parseDiscoveryPayload(topic, payload, this.config.discoveryPrefix);
     if (discovered) {
+      if (isRetiredDeviceNode(discovered.nodeId ?? discovered.device.identifiers[0])) return;
       this.upsertEntity(discovered);
       return;
     }
 
     const uiConfig = parseUiConfigPayload(topic, payload, this.config.topicPrefix);
     if (uiConfig) {
+      if (isRetiredDeviceNode(uiConfig.nodeId)) return;
       if (uiConfig.config) this.uiByNodeId.set(uiConfig.nodeId, uiConfig.config);
       else this.uiByNodeId.delete(uiConfig.nodeId);
       this.emit({ type: 'ui', nodeId: uiConfig.nodeId, uiConfig: uiConfig.config ?? undefined });
@@ -439,6 +442,7 @@ export class SiteMqttService {
 
     const lightsConfig = parseLightsConfigPayload(topic, payload, this.config.topicPrefix);
     if (lightsConfig) {
+      if (isRetiredDeviceNode(lightsConfig.nodeId)) return;
       if (lightsConfig.fragment) this.lightsByNodeId.set(lightsConfig.nodeId, lightsConfig.fragment);
       else this.lightsByNodeId.delete(lightsConfig.nodeId);
       // No dedicated event — logical lights are derived state re-computed in snapshot().
@@ -448,6 +452,7 @@ export class SiteMqttService {
 
     const firmwareDevice = parseFirmwareDevicePayload(topic, payload, this.config.topicPrefix);
     if (firmwareDevice) {
+      if (isRetiredDeviceNode(firmwareDevice.nodeId)) return;
       if (firmwareDevice.config) this.firmwareByNodeId.set(firmwareDevice.nodeId, firmwareDevice.config);
       else this.firmwareByNodeId.delete(firmwareDevice.nodeId);
       this.emitFirmware();
@@ -456,6 +461,7 @@ export class SiteMqttService {
 
     const firmwareChannel = parseFirmwareChannelPayload(topic, payload, this.config.topicPrefix);
     if (firmwareChannel) {
+      if (isRetiredDeviceNode(firmwareChannel.nodeId)) return;
       if (firmwareChannel.config) this.firmwareChannelByNodeId.set(firmwareChannel.nodeId, firmwareChannel.config);
       else this.firmwareChannelByNodeId.delete(firmwareChannel.nodeId);
       this.emitFirmware();
@@ -465,6 +471,7 @@ export class SiteMqttService {
     // Bulk spectrometer frame: kept out of the scalar state map (camera precedent).
     const spectrum = parseSpectrumPayload(topic, payload, this.config.topicPrefix);
     if (spectrum) {
+      if (isRetiredDeviceNode(spectrum.nodeId)) return;
       this.ingestSpectrum(spectrum.nodeId, spectrum.frame);
       return;
     }

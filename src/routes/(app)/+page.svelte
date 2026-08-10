@@ -7,7 +7,6 @@
     findQuantumPpfdEntity,
     hasUnreadableState,
     liveQuantumPpfd,
-    resolveAirQualityDevice,
     resolveClimateDevice,
     resolveWaterDevice
   } from '$lib/entity-match';
@@ -56,11 +55,6 @@
   });
 
   let climateRows = $derived([...metricRows(climateDevice), ...(parRow ? [parRow] : [])]);
-
-  // Resolved by its air-quality metrics so it gets its own card even though it also reports CO₂.
-  let airQualityDevice = $derived(resolveAirQualityDevice(live.snapshot));
-  let airQualityRows = $derived(metricRows(airQualityDevice));
-
 </script>
 
 <svelte:head>
@@ -75,9 +69,6 @@
   <div class="substrate-area">
     <SubstratePanel snapshot={live.snapshot} zones={data.zones} probeBindings={data.probes} />
   </div>
-  {#if airQualityDevice}
-    <div class="air-quality-area"><ReadoutPanel title="AIR QUALITY" rows={airQualityRows} deviceId={airQualityDevice.nodeId} /></div>
-  {/if}
 </div>
 
 <style>
@@ -96,7 +87,6 @@
   }
   .water-area,
   .climate-area,
-  .air-quality-area,
   .substrate-area {
     grid-column: span 4;
   }
@@ -108,7 +98,6 @@
     }
     .water-area,
     .climate-area,
-    .air-quality-area,
     .substrate-area {
       grid-column: span 6;
     }
@@ -122,7 +111,6 @@
     .thermal-area,
     .water-area,
     .climate-area,
-    .air-quality-area,
     .substrate-area {
       grid-column: span 1;
     }

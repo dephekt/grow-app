@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import type { DeviceSnapshot, EntityConfig, Snapshot } from '$lib/server/mqtt/types';
+import { isRetiredDeviceNode } from '$lib/device-retirement';
 import { isNoReadingValue } from '$lib/state-format';
 
 /** Entity recognisers and device resolvers shared by the dashboard panels and the trend charts. */
@@ -59,15 +60,6 @@ export function isCo2(e: EntityConfig): boolean {
       /(^|_)co2(_|$)/i.test(e.objectId ?? '') ||
       /co2|carbon diox/i.test(e.name))
   );
-}
-
-/** A PM / VOC / NOx reading — the signals unique to the air-quality monitor. */
-export function isAirQualityMetric(e: EntityConfig): boolean {
-  if (!isNumericSensor(e)) return false;
-  if (e.deviceClass === 'pm1' || e.deviceClass === 'pm25' || e.deviceClass === 'pm10') return true;
-  const oid = (e.objectId ?? '').toLowerCase();
-  // PM4 has no HA device class, so the id must match both separated and compact forms.
-  return /(^|_)pm(_|\d)/.test(oid) || /(^|_)(voc|nox)(_|$)/.test(oid);
 }
 
 /** The Apogee PPFD entity: objectId 'ppfd', with a µmol-unit fallback since PPFD has no device class. */
@@ -150,23 +142,16 @@ export function resolveWaterDevice(snapshot: Snapshot): DeviceSnapshot | undefin
 
 /** CLIMATE device: CO₂, then humidity, then a bare ambient temperature. */
 export function resolveClimateDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
-  // The air monitor also reports CO₂/temp/RH; without this the CLIMATE winner flips across restarts.
-  const airNodeId = resolveAirQualityDevice(snapshot)?.nodeId;
-  const notAirMonitor = (pred: (e: EntityConfig) => boolean) => (e: EntityConfig) =>
-    pred(e) && (airNodeId == null || e.nodeId !== airNodeId);
+  const activeDevice = (pred: (e: EntityConfig) => boolean) => (e: EntityConfig) =>
+    pred(e) && !isRetiredDeviceNode(e.nodeId ?? e.device.identifiers[0]);
   return (
-    deviceOwning(snapshot, notAirMonitor(isCo2)) ??
-    deviceOwning(snapshot, notAirMonitor(isHumidity)) ??
-    deviceOwning(snapshot, notAirMonitor(isAmbientTemperature))
+    deviceOwning(snapshot, activeDevice(isCo2)) ??
+    deviceOwning(snapshot, activeDevice(isHumidity)) ??
+    deviceOwning(snapshot, activeDevice(isAmbientTemperature))
   );
 }
 
 /** THERMAL panel/trends device: the rig carrying the MLX90640 thermal array. */
 export function resolveThermalDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
   return deviceOwning(snapshot, isThermalArrayTemp);
-}
-
-/** AIR QUALITY device: the particulate/gas monitor, kept separate from CLIMATE. */
-export function resolveAirQualityDevice(snapshot: Snapshot): DeviceSnapshot | undefined {
-  return deviceOwning(snapshot, isAirQualityMetric);
 }

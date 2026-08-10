@@ -75,6 +75,59 @@ describe('dev snapshot simulation', () => {
     expect(loaded?.entities[0]?.id).toBe('co2_high_threshold');
   });
 
+  it('removes retired devices and their metadata from an imported snapshot', async () => {
+    const staleSnapshot = structuredClone(snapshot) as Snapshot;
+    staleSnapshot.devices.push({
+      id: 'airq-hardware-id',
+      nodeId: 'm5stack-airq',
+      name: 'M5Stack AirQ',
+      availability: 'offline',
+      entityIds: ['airq_co2']
+    });
+    staleSnapshot.entities.push({
+      ...staleSnapshot.entities[0],
+      id: 'airq_co2',
+      uniqueId: 'm5stack_airq_co2',
+      objectId: 'co2',
+      nodeId: 'm5stack-airq',
+      device: { identifiers: ['airq-hardware-id'], name: 'M5Stack AirQ' },
+      commandTopic: 'grow/daniel-home/m5stack-airq/number/co2/command'
+    });
+    staleSnapshot.states.airq_co2 = { value: '900', updatedAt: '2026-06-30T09:59:30.000Z' };
+    staleSnapshot.uiConfigs['m5stack-airq'] = {
+      schema: 'grow-ui.v1',
+      nodeId: 'm5stack-airq',
+      groups: [],
+      entities: []
+    };
+    staleSnapshot.firmware.devices['m5stack-airq'] = {
+      schema: 'grow-firmware-device.v1',
+      nodeId: 'm5stack-airq',
+      projectName: 'stackdrift.m5stack-airq',
+      packageOwner: 'dephekt',
+      package: 'grow-fleet-m5stack-airq',
+      device: 'm5stack-airq',
+      chipFamily: 'esp32'
+    };
+    staleSnapshot.firmware.channels['m5stack-airq'] = {
+      schema: 'grow-firmware-channel.v1',
+      nodeId: 'm5stack-airq',
+      channel: 'edge',
+      updatedAt: '2026-06-30T09:59:30.000Z'
+    };
+    staleSnapshot.spectrometerNodeIds = ['m5stack-airq', 'active-spectrum'];
+
+    const loaded = await loadDevSnapshot(config, fetchSnapshot(staleSnapshot));
+
+    expect(loaded?.devices.map((device) => device.nodeId)).toEqual(['atoms3u-sensor-rig']);
+    expect(loaded?.entities.map((entity) => entity.id)).toEqual(['co2_high_threshold']);
+    expect(loaded?.states).not.toHaveProperty('airq_co2');
+    expect(loaded?.uiConfigs).not.toHaveProperty('m5stack-airq');
+    expect(loaded?.firmware.devices).not.toHaveProperty('m5stack-airq');
+    expect(loaded?.firmware.channels).not.toHaveProperty('m5stack-airq');
+    expect(loaded?.spectrometerNodeIds).toEqual(['active-spectrum']);
+  });
+
   it('mocks valid entity commands against the snapshot metadata', async () => {
     const result = await devSnapshotCommandResult('co2_high_threshold', { value: 1650 }, config, fetchSnapshot(snapshot));
 
