@@ -39,33 +39,23 @@ export interface GrowWeek {
   ramp?: RampStep[];
 }
 
-/** Schedule for the current grow (Gelato 41 BX F2 · Double Down Mule #1, clones, CO₂); veg is
- *  two weeks because the 3 gal coco needs two rooting-in drybacks first. */
+/** Schedule for the current grow (Gelato 41 BX F2 · Double Down Mule #1, clones, CO₂). The first
+ *  week after transplant was rooting-in time; named veg starts after that week is complete. */
 export const WEEKLY_PLAN: GrowWeek[] = [
-  {
-    week: 1,
-    stage: 'veg',
-    ppfdTarget: 400, // week ceiling for the chart; the live target follows the day-stepped ramp
-    ramp: [
-      { fromDay: 0, ppfd: 200 }, // days 1–3: rooting in, plug roots only (CCI veg wk1 band is 200–400)
-      { fromDay: 3, ppfd: 300 }, // days 4–5: ~20%/day climb once the droop passes
-      { fromDay: 5, ppfd: 400 } // days 6–7: top of the wk-1 band
-    ]
-  },
-  { week: 2, stage: 'veg', ppfdTarget: 555 },
-  { week: 3, stage: 'flower', ppfdTarget: 925 },
-  { week: 4, stage: 'flower', ppfdTarget: 1020 },
-  { week: 5, stage: 'flower', ppfdTarget: 1080 },
-  { week: 6, stage: 'flower', ppfdTarget: 1120 },
-  { week: 7, stage: 'flower', ppfdTarget: 1155 },
-  { week: 8, stage: 'flower', ppfdTarget: 1100 },
-  { week: 9, stage: 'ripen', ppfdTarget: 1000 },
-  { week: 10, stage: 'ripen', ppfdTarget: 925 }
+  { week: 1, stage: 'veg', ppfdTarget: 555 },
+  { week: 2, stage: 'flower', ppfdTarget: 925 },
+  { week: 3, stage: 'flower', ppfdTarget: 1020 },
+  { week: 4, stage: 'flower', ppfdTarget: 1080 },
+  { week: 5, stage: 'flower', ppfdTarget: 1120 },
+  { week: 6, stage: 'flower', ppfdTarget: 1155 },
+  { week: 7, stage: 'flower', ppfdTarget: 1100 },
+  { week: 8, stage: 'ripen', ppfdTarget: 1000 },
+  { week: 9, stage: 'ripen', ppfdTarget: 925 }
 ];
 
-/** Week-1 day 1 = transplant day, when the rooted clones go into the coco (local midnight). Before
- *  this the plan clamps to veg wk 1; weeksSince(now) drives stage/week thereafter. */
-export const GROW_START = '2026-08-03';
+/** Week-1 day 1 = the first day of named veg, after the transplanted clones' rooting-in week (local
+ *  midnight). Before this the plan clamps to veg wk 1; weeksSince(now) drives stage/week thereafter. */
+export const GROW_START = '2026-08-10';
 
 /** Fixture falloff model (this light, measured): peak PPFD at 100% at the peak distance, and a
  *  ~1/distance falloff (NOT inverse-square). Intensity scales ~linearly with the dimmer duty. */

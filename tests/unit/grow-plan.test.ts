@@ -20,42 +20,31 @@ describe('dliFor', () => {
 });
 
 describe('resolveGrowState', () => {
-  it('starts in veg week 1 at the grow start (~200 PPFD, rooting in)', () => {
-    const s = resolveGrowState(new Date('2026-08-03'));
-    expect(s.week).toBe(1);
-    expect(s.stage.key).toBe('veg');
-    expect(s.ppfdTarget).toBe(200);
-    expect(s.onHours).toBe(18);
-    expect(s.offHours).toBe(6);
-    expect(s.dayOfGrow).toBe(0);
-    expect(s.nextRamp).toEqual({ onDay: 3, ppfd: 300 });
-  });
-
-  it('steps the veg wk-1 target up over the first week (200 → 300 → 400)', () => {
-    expect(resolveGrowState(new Date('2026-08-05')).ppfdTarget).toBe(200); // day 2 — rooting in
-    const d3 = resolveGrowState(new Date('2026-08-06'));
-    expect(d3.dayOfGrow).toBe(3);
-    expect(d3.ppfdTarget).toBe(300);
-    expect(d3.nextRamp).toEqual({ onDay: 5, ppfd: 400 });
-    const d5 = resolveGrowState(new Date('2026-08-08'));
-    expect(d5.ppfdTarget).toBe(400); // day 5 — top of the wk-1 band
-    expect(d5.nextRamp).toBeNull();
-    expect(resolveGrowState(new Date('2026-08-09')).ppfdTarget).toBe(400); // day 6 — holds at the cap
-  });
-
-  it('clamps to veg week 1 before transplant', () => {
-    const s = resolveGrowState(new Date('2026-08-02'));
-    expect(s.week).toBe(1);
-    expect(s.stage.key).toBe('veg');
-  });
-
-  it('reaches veg week 2 seven days after the start', () => {
+  it('starts in veg week 1 after the rooting-in week', () => {
     const s = resolveGrowState(new Date('2026-08-10'));
-    expect(s.week).toBe(2);
+    expect(s.week).toBe(1);
     expect(s.stage.key).toBe('veg');
     expect(s.ppfdTarget).toBe(555);
     expect(s.onHours).toBe(18);
-    expect(s.dliTarget).toBeCloseTo(35.96, 2);
+    expect(s.offHours).toBe(6);
+    expect(s.dayOfGrow).toBe(0);
+    expect(s.nextRamp).toBeNull();
+  });
+
+  it('clamps to veg week 1 during the pre-plan rooting-in week', () => {
+    const s = resolveGrowState(new Date('2026-08-09'));
+    expect(s.week).toBe(1);
+    expect(s.stage.key).toBe('veg');
+    expect(s.ppfdTarget).toBe(555);
+  });
+
+  it('reaches flower week 2 seven days after named veg starts', () => {
+    const s = resolveGrowState(new Date('2026-08-17'));
+    expect(s.week).toBe(2);
+    expect(s.stage.key).toBe('flower');
+    expect(s.ppfdTarget).toBe(925);
+    expect(s.onHours).toBe(12);
+    expect(s.dliTarget).toBeCloseTo(39.96, 2);
   });
 
   it('clamps to the final week well past the end', () => {
@@ -67,7 +56,7 @@ describe('resolveGrowState', () => {
   it('marks exactly one week current in the weekly series', () => {
     const s = resolveGrowState(new Date('2026-08-10'), GROW_START);
     expect(s.weekly.filter((w) => w.current)).toHaveLength(1);
-    expect(s.weekly.find((w) => w.current)?.week).toBe(2);
+    expect(s.weekly.find((w) => w.current)?.week).toBe(1);
     expect(s.weekly).toHaveLength(WEEKLY_PLAN.length);
   });
 });
