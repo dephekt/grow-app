@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SnapshotEvent } from '../../src/lib/server/mqtt/types';
 
 const broker = { connected: false };
-const published: string[] = [];
+const published: Array<[topic: string, payload: string]> = [];
 let subscriber: ((event: SnapshotEvent) => void) | null = null;
 
 vi.mock('$lib/server/mqtt/service', () => ({
   getSiteMqttService: () => ({
-    snapshot: () => ({ broker }),
+    brokerConnected: () => broker.connected,
     subscribe: (fn: (event: SnapshotEvent) => void) => {
       subscriber = fn;
       return () => {};
     },
     // Mirrors the real one: a publish while the client is still dialling rejects.
-    publishOsDiscovery: async (topic: string) => {
+    publishOsDiscovery: async (topic: string, payload: string) => {
       if (!broker.connected) throw new Error('Broker is not connected');
-      published.push(topic);
+      published.push([topic, payload]);
     },
     publishOsCommand: async () => {},
     entityState: () => ({ value: null, updatedAt: null })
@@ -40,23 +40,34 @@ vi.mock('$lib/server/opensprinkler/zones', () => ({
 }));
 
 import { startOpenSprinklerDriver } from '../../src/lib/server/opensprinkler/controller';
-import { stationDiscoveryTopic } from '../../src/lib/server/opensprinkler/discovery';
+import { buildStationDiscovery } from '../../src/lib/server/opensprinkler/discovery';
 
-/** Derived, not spelled out, so a discovery-topic change fails on its own test. */
-const TOPIC = stationDiscoveryTopic('homeassistant', 1);
+/** Derived, not spelled out, so a discovery-topic or payload change fails on its own test —
+ *  what this one pins is that the mocked zone's name and sid reach the builder intact. */
+const built = buildStationDiscovery({ discoveryPrefix: 'homeassistant', baseTopic: 'grow/test/os', sid: 1, name: '4x4' });
+const DISCOVERY: Array<[string, string]> = [[built.topic, JSON.stringify(built.payload)]];
 
 /** Let the `void`-ed publish promise and its .catch settle. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const stubConsoleError = () => vi.spyOn(console, 'error').mockImplementation(() => {});
+let errors: ReturnType<typeof stubConsoleError>;
 
 beforeEach(() => {
   broker.connected = false;
   published.length = 0;
   subscriber = null;
+  // Installed per test rather than inline, so a failed assertion can't leave console.error
+  // stubbed for every test that follows.
+  errors = stubConsoleError();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('startOpenSprinklerDriver', () => {
   it('publishes nothing at a cold start, then publishes once the broker connects', async () => {
-    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     startOpenSprinklerDriver();
     await settle();
 
@@ -69,9 +80,8 @@ describe('startOpenSprinklerDriver', () => {
     subscriber?.({ type: 'broker', broker } as SnapshotEvent);
     await settle();
 
-    expect(published).toEqual([TOPIC]);
+    expect(published).toEqual(DISCOVERY);
     expect(errors).not.toHaveBeenCalled();
-    errors.mockRestore();
   });
 
   it('still publishes immediately when the broker connected before we subscribed', async () => {
@@ -81,6 +91,7 @@ describe('startOpenSprinklerDriver', () => {
 
     // That connect event has already fired and will not fire again, so this call is the
     // only thing that publishes discovery — the reason it is not simply deleted.
-    expect(published).toEqual([TOPIC]);
+    expect(published).toEqual(DISCOVERY);
+    expect(errors).not.toHaveBeenCalled();
   });
 });

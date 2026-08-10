@@ -141,6 +141,13 @@ export class SiteMqttService {
     };
   }
 
+  /** Just the broker's live connection flag. `snapshot()` rebuilds the whole world — every
+   *  entity sorted, devices, lights, firmware, the resolved site zone — which is far too much
+   *  machinery for a caller that only needs to know whether a publish can land right now. */
+  brokerConnected(): boolean {
+    return this.broker.connected;
+  }
+
   subscribe(listener: Listener): () => void {
     this.emitter.on('event', listener);
     return () => this.emitter.off('event', listener);

@@ -128,12 +128,9 @@ export function startOpenSprinklerDriver(): void {
       if (sid !== null) controller.noteStationState(sid, event.state.value === 'ON');
     }
   });
-  // Only when the broker is already up. This call exists for the case where it connected
-  // before we subscribed, so the event above has already fired and will not fire again.
-  // At an ordinary cold start it has NOT connected yet, and publishing into a client that
-  // is still dialling rejects with "Broker is not connected" — which publishZoneDiscovery
-  // reports through console.error, printing a stack trace on every single boot for work
-  // the subscription performs correctly a moment later. It read as a startup failure and
-  // was repeatedly investigated as one.
-  if (service.snapshot().broker.connected) publish();
+  // Only when the broker is already up: this covers the case where it connected before we
+  // subscribed, so the event above has already fired and will not fire again. At an ordinary
+  // cold start it has not, and publishing into a client that is still dialling rejects —
+  // which publishZoneDiscovery reports as a failure, on a boot where nothing is wrong.
+  if (service.brokerConnected()) publish();
 }
