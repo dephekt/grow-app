@@ -141,6 +141,18 @@ export class SiteMqttService {
     };
   }
 
+  /** Whether a publish can land right now — the SAME predicate `publishRaw` gates on, so a
+   *  caller that checks this and then publishes cannot get "Broker is not connected" back.
+   *
+   *  Deliberately NOT `this.broker.connected`: that one is a cached value written by the
+   *  `connect`/`close`/`reconnect` handlers, and mqtt.js's `offline` event has no handler
+   *  here, so a client that goes away without a `close` keeps reporting connected. It is
+   *  also not `snapshot()`, which rebuilds the whole world — every entity sorted, devices,
+   *  lights, firmware, the resolved site zone — for one boolean. */
+  brokerConnected(): boolean {
+    return this.client?.connected ?? false;
+  }
+
   subscribe(listener: Listener): () => void {
     this.emitter.on('event', listener);
     return () => this.emitter.off('event', listener);
