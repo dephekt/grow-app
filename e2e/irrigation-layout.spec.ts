@@ -89,7 +89,9 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/irrigation/schedules', (route) =>
     route.fulfill({ json: { schedules: [], tz: 'America/Chicago' } })
   );
-  await page.route('**/api/irrigation/events', (route) => route.fulfill({ json: { events: [] } }));
+  await page.route('**/api/irrigation/events?*', (route) =>
+    route.fulfill({ json: { events: [], total: 0, limit: 25, offset: 0, anchorId: 0 } })
+  );
 });
 
 test('places probes with zones and reveals the shared zone editor above history', async ({ page }, testInfo) => {
@@ -159,4 +161,86 @@ test('scrolls a newly revealed zone editor into view below a long zone grid', as
   const editor = page.locator('#zone-editor');
   await expect(editor).toBeInViewport();
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+});
+
+test('pages through irrigation history 25 entries at a time', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-08-10T12:30:00.000Z') });
+  const events = Array.from({ length: 30 }, (_, index) => ({
+    id: 30 - index,
+    kind: 'irrigation',
+    ts: new Date(Date.parse('2026-08-10T12:00:00.000Z') - index * 60_000).toISOString(),
+    zoneId: zone.id,
+    zoneName: `History run ${index + 1}`,
+    stationSid: zone.stationSid,
+    source: 'manual',
+    actor: 'dan',
+    requestedPercent: null,
+    requestedMl: 100,
+    seconds: 30,
+    scheduleId: null,
+    energyWh: null,
+    peakW: null,
+    noDraw: false
+  }));
+  let pageZeroRequests = 0;
+  let olderAnchorId: number | null = null;
+  let markOlderRequested: () => void;
+  const olderRequested = new Promise<void>((resolve) => {
+    markOlderRequested = resolve;
+  });
+  let releaseOlder: () => void;
+  const olderGate = new Promise<void>((resolve) => {
+    releaseOlder = resolve;
+  });
+  await page.unroute('**/api/irrigation/events?*');
+  await page.route('**/api/irrigation/events?*', async (route) => {
+    const url = new URL(route.request().url());
+    const limit = Number(url.searchParams.get('limit'));
+    const offset = Number(url.searchParams.get('offset'));
+    const requestedAnchor = url.searchParams.get('anchorId');
+    const anchorId = requestedAnchor === null ? Math.max(0, ...events.map((event) => event.id)) : Number(requestedAnchor);
+    const anchoredEvents = events.filter((event) => event.id <= anchorId);
+    if (offset === 0) pageZeroRequests += 1;
+    if (offset === 25) {
+      olderAnchorId = anchorId;
+      markOlderRequested();
+      await olderGate;
+    }
+    return route.fulfill({
+      json: {
+        events: anchoredEvents.slice(offset, offset + limit),
+        total: anchoredEvents.length,
+        limit,
+        offset,
+        anchorId
+      }
+    });
+  });
+  await page.goto('/irrigation');
+
+  const history = page.locator('#irrigation-history');
+  await expect(history).toContainText('1–25 / 30');
+  await expect(history).toContainText('History run 1');
+  await expect(history).not.toContainText('History run 26');
+
+  events.unshift({
+    ...events[0],
+    id: 31,
+    ts: '2026-08-10T12:01:00.000Z',
+    zoneName: 'Concurrent history run'
+  });
+  const olderClick = history.getByRole('button', { name: 'Older' }).click();
+  await olderRequested;
+  await page.clock.fastForward(30_000);
+  expect(pageZeroRequests).toBe(1);
+  expect(olderAnchorId).toBe(30);
+  releaseOlder();
+  await olderClick;
+
+  await expect(history).toContainText('26–30 / 30');
+  await expect(history).toContainText('Page 2 of 2');
+  await expect(history).toContainText('History run 26');
+  await expect(history).not.toContainText('History run 25');
+  await expect(history.getByRole('button', { name: 'Newer' })).toBeEnabled();
+  await expect(history.getByRole('button', { name: 'Older' })).toBeDisabled();
 });

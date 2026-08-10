@@ -27,8 +27,15 @@
   let probeBindings = $state<SubstrateProbeBinding[]>(untrack(() => data.probes ?? []));
   let schedules = $state<ScheduleJson[]>(untrack(() => data.schedules));
   let history = $state<IrrigationEventJson[]>(untrack(() => data.events));
+  let historyTotal = $state(untrack(() => data.eventTotal ?? data.events.length));
+  let historyAnchorId = $state(untrack(() => data.eventAnchorId ?? 0));
+  let historyPage = $state(0);
+  let historyLoading = $state(false);
+  let historyRequestId = 0;
   let error = $state<string | null>(null);
   const isAdmin = $derived(Boolean(data.user?.isAdmin));
+
+  const HISTORY_PAGE_SIZE = 25;
 
   // Probes discovered on the MQTT bus, so a binding is made by picking one rather than by
   // typing a node id that has to match the publisher's exactly.
@@ -136,19 +143,44 @@
   }
 
   // The history feed is server-persisted; re-fetch it (rather than optimistically mutating)
-  // so runoff events and lazily-filled pump energy show up. Polled lightly, and nudged right
-  // after a manual run so the fresh event appears without waiting for the next tick.
-  async function refreshHistory(): Promise<void> {
+  // so runoff events and lazily-filled pump energy show up. Only the newest page is polled,
+  // so an older page does not shift underneath the reader when a new event lands.
+  async function refreshHistory(page = historyPage, showLoading = false, freshSnapshot = false): Promise<boolean> {
+    const requestId = ++historyRequestId;
+    if (showLoading) historyLoading = true;
     try {
-      const response = await fetch('/api/irrigation/events');
-      if (response.ok) history = ((await response.json()) as { events: IrrigationEventJson[] }).events;
+      const offset = page * HISTORY_PAGE_SIZE;
+      const anchor = freshSnapshot ? '' : `&anchorId=${historyAnchorId}`;
+      const response = await fetch(`/api/irrigation/events?limit=${HISTORY_PAGE_SIZE}&offset=${offset}${anchor}`);
+      if (!response.ok) return false;
+      const body = (await response.json()) as { events?: IrrigationEventJson[]; total?: number; anchorId?: number };
+      if (requestId !== historyRequestId) return false;
+      history = body.events ?? [];
+      historyTotal = typeof body.total === 'number' && Number.isInteger(body.total) ? body.total : history.length;
+      if (Number.isSafeInteger(body.anchorId) && (body.anchorId as number) >= 0) historyAnchorId = body.anchorId as number;
+      historyPage = page;
+      return true;
     } catch {
       /* leave feed as-is */
+      return false;
+    } finally {
+      if (requestId === historyRequestId) historyLoading = false;
     }
   }
 
+  async function changeHistoryPage(page: number): Promise<void> {
+    const lastPage = Math.max(0, Math.ceil(historyTotal / HISTORY_PAGE_SIZE) - 1);
+    const nextPage = Math.min(Math.max(0, page), lastPage);
+    if (nextPage === historyPage) return;
+    if (!(await refreshHistory(nextPage, true))) return;
+    await tick();
+    document.getElementById('irrigation-history')?.scrollIntoView({ block: 'start', inline: 'nearest' });
+  }
+
   $effect(() => {
-    const id = setInterval(refreshHistory, 30_000);
+    const id = setInterval(() => {
+      if (historyPage === 0 && !historyLoading) void refreshHistory(0, false, true);
+    }, 30_000);
     return () => clearInterval(id);
   });
 
@@ -182,7 +214,7 @@
     }
     error = null;
     await live.runZoneShot(zone.id, { [unitFor(zone.id)]: amount });
-    await refreshHistory();
+    await refreshHistory(0, false, true);
   }
 
   async function stopZone(zone: ZoneJson): Promise<void> {
@@ -690,7 +722,15 @@
     </form>
   {/if}
 
-  <IrrigationHistory events={history} timeZone={scheduleTz} />
+  <IrrigationHistory
+    events={history}
+    timeZone={scheduleTz}
+    total={historyTotal}
+    page={historyPage}
+    pageSize={HISTORY_PAGE_SIZE}
+    loading={historyLoading}
+    onPageChange={changeHistoryPage}
+  />
 
   <datalist id="substrate-types">
     <option value="Rockwool"></option>

@@ -85,20 +85,40 @@ export function toEventJson(row: EventRow): IrrigationEventJson {
   };
 }
 
+/** Highest inserted event ID. Holding this value across page requests gives the reader a
+ *  stable snapshot even if later inserts carry timestamps that sort into an older page. */
+export function latestEventId(db: DatabaseSync): number {
+  const row = db.prepare('SELECT MAX(id) AS id FROM irrigation_events').get() as { id: number | null };
+  return row.id ?? 0;
+}
+
 /** The mixed history feed, newest first. LEFT JOIN zones so each row carries the current
- *  zone name (null once a zone is deleted — the run still happened). */
-export function listEvents(db: DatabaseSync, limit = 100): IrrigationEventJson[] {
+ *  zone name (null once a zone is deleted — the run still happened). `anchorId` freezes the
+ *  inserted row set across offset-based page requests. */
+export function listEvents(db: DatabaseSync, limit = 100, offset = 0, anchorId?: number): IrrigationEventJson[] {
+  const where = anchorId === undefined ? '' : 'WHERE e.id <= ?';
+  const params = anchorId === undefined ? [limit, offset] : [anchorId, limit, offset];
   const rows = db
     .prepare(
       `SELECT e.id, e.kind, e.ts, e.zone_id, z.name AS zone_name, e.station_sid, e.source, e.actor,
               e.requested_percent, e.requested_ml, e.seconds, e.schedule_id, e.pump_energy_wh, e.pump_peak_w
        FROM irrigation_events e
        LEFT JOIN zones z ON z.id = e.zone_id
+       ${where}
        ORDER BY e.ts DESC, e.id DESC
-       LIMIT ?`
+       LIMIT ? OFFSET ?`
     )
-    .all(limit) as unknown as EventRow[];
+    .all(...params) as unknown as EventRow[];
   return rows.map(toEventJson);
+}
+
+export function countEvents(db: DatabaseSync, anchorId?: number): number {
+  const row = (
+    anchorId === undefined
+      ? db.prepare('SELECT COUNT(*) AS total FROM irrigation_events').get()
+      : db.prepare('SELECT COUNT(*) AS total FROM irrigation_events WHERE id <= ?').get(anchorId)
+  ) as { total: number };
+  return row.total;
 }
 
 /** Persist a runoff-pump run at its start; duration stays null because a burst is often a
