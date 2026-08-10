@@ -41,6 +41,23 @@ import type {
 
 type Listener = (event: SnapshotEvent) => void;
 
+/**
+ * The broker was not connected when a publish was attempted.
+ *
+ * A distinct type because this is the one publish failure that is expected, transient and
+ * self-correcting — the client reconnects, and the callers that care republish on the
+ * broker event. Every other rejection out of a publish (an mqtt.js callback error, a
+ * malformed topic) is a real fault. Background callers cannot tell those apart from an
+ * `Error` carrying a message, so they logged both at `console.error` with a stack trace,
+ * and a reconnect window read as a fault in the log.
+ */
+export class BrokerNotConnectedError extends Error {
+  constructor() {
+    super('Broker is not connected');
+    this.name = 'BrokerNotConnectedError';
+  }
+}
+
 export class SiteMqttService {
   private client: MqttClient | null = null;
   private started = false;
@@ -164,17 +181,9 @@ export class SiteMqttService {
 
     const command = buildCommandPublish(entity, request);
 
-    await new Promise<void>((resolve, reject) => {
-      if (!this.client || !this.client.connected) {
-        reject(new Error('Broker is not connected'));
-        return;
-      }
-
-      this.client.publish(command.topic, command.payload, { qos: 0, retain: command.retain }, (error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
+    // Delegated rather than hand-rolled: this was a byte-identical copy of publishRaw, so the
+    // two could drift — and did, once BrokerNotConnectedError had to be introduced twice.
+    await this.publishRaw(command.topic, command.payload, command.retain);
   }
 
   /** Publish a raw OpenSprinkler command string to `<osBaseTopic>/cmd`. */
@@ -654,7 +663,7 @@ export class SiteMqttService {
   private publishRaw(topic: string, payload: string, retain: boolean): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       if (!this.client || !this.client.connected) {
-        reject(new Error('Broker is not connected'));
+        reject(new BrokerNotConnectedError());
         return;
       }
 
