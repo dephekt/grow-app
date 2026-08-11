@@ -10,32 +10,12 @@ import { getInfluxConfig, getInfluxDB } from '$lib/server/influx/client';
 import { READING_MEASUREMENT } from '$lib/server/influx/query';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { getSiteSlug } from '$lib/server/site';
+import { isRecordable, numericValue } from '$lib/server/history/values';
 import type { EntityConfig, EntityState, Snapshot } from '$lib/server/mqtt/types';
 
 // Default to a recorder-specific MQTT client id so we never collide with the web app.
 if (!process.env.MQTT_CLIENT_ID) {
   process.env.MQTT_CLIENT_ID = `grow-history-recorder-${getSiteSlug()}`;
-}
-
-function isRecordable(entity: EntityConfig): boolean {
-  if (entity.entityCategory === 'diagnostic') return false;
-  return entity.component === 'sensor' || entity.component === 'binary_sensor';
-}
-
-function numericValue(entity: EntityConfig, state: EntityState): number | null {
-  if (state.value === null) return null;
-
-  if (entity.component === 'binary_sensor') {
-    if (state.value === (entity.payloadOn ?? 'ON')) return 1;
-    if (state.value === (entity.payloadOff ?? 'OFF')) return 0;
-    const lc = state.value.trim().toLowerCase();
-    if (['on', 'true', '1'].includes(lc)) return 1;
-    if (['off', 'false', '0'].includes(lc)) return 0;
-    return null;
-  }
-
-  const n = Number(state.value);
-  return Number.isFinite(n) ? n : null;
 }
 
 function main(): void {
