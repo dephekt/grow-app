@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
+import { resolveEntityRef, type EntityRef } from '$lib/entity-match';
 import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
 /**
@@ -8,12 +9,7 @@ import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
  * imported type-only to keep it client-safe.
  */
 
-/** A (node, objectId) reference — strict pairing is required because the two pump plugs
- *  publish colliding objectIds (`voltage`, `current`, `total_daily_energy`). */
-export interface EntityRef {
-  node: string;
-  objectId: string;
-}
+export type { EntityRef };
 
 /** The plugs' nodeIds, NOT necessarily `device.identifiers[0]`: these ESPHome plugs omit device
  *  `ids` in discovery, so match snapshot devices on `nodeId`. */
@@ -32,12 +28,9 @@ export const MAX_RUN_SECONDS_CEILING = 600;
  *  of both standby and small power-meter glitches. */
 export const RUNOFF_DRAW_MIN_W = 10;
 
-/** Resolve a (node, objectId) ref to its discovered entity. */
-export function resolveEntity(snapshot: Snapshot, ref: EntityRef): EntityConfig | undefined {
-  return snapshot.entities.find(
-    (entity) => entity.objectId === ref.objectId && (entity.nodeId ?? entity.device.identifiers[0]) === ref.node
-  );
-}
+/** Resolve a (node, objectId) ref to its discovered entity. Kept as a named export for the
+ *  irrigation call sites; the implementation is shared with lights and plugs. */
+export const resolveEntity = resolveEntityRef;
 
 /** Raw live value for a resolved entity, or null. */
 export function rawValue(snapshot: Snapshot, entity: EntityConfig | undefined): string | null {

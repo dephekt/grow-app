@@ -272,12 +272,21 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
   const entityMetadata = metadataByEntity(config);
   const groups = groupById(config);
   const consumed = new Set<string>();
+  // An entity is suppressed as "already on the dashboard" only when a dashboard surface
+  // genuinely renders it: metrics (ReadoutPanel) and camera-attached controls (ThermalPanel).
+  //
+  // A bare quick-control is NOT suppressed. Suppressing those is what made the exhaust fan
+  // relay unreachable — it is a dashboard-surface quick-control, and once the dashboard
+  // stopped rendering the quick-controls array (8386fd5) declaring it became the only thing
+  // hiding it, on both surfaces at once. A control must survive somewhere even if the
+  // surface that claimed it goes away; worst case it lands in the Other fallback.
   const dashboardEntityIds = new Set(
     settingsEntities
       .map((entity) => {
         const metadata = entityMetadata.get(entityMatchKey(entity));
         const group = metadata ? groups.get(metadata.group) : undefined;
-        return group?.surface === 'dashboard' ? entity.id : null;
+        const rendered = metadata?.role === 'metric' || group?.variant === 'metrics' || group?.variant === 'camera';
+        return group?.surface === 'dashboard' && rendered ? entity.id : null;
       })
       .filter((id): id is string => Boolean(id))
   );

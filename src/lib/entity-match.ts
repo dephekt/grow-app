@@ -136,6 +136,40 @@ export function liveQuantumMetric(snapshot: Snapshot, objectId: string): number 
   return Number.isFinite(value) ? value : null;
 }
 
+/** A (node, objectId) reference. The strict pairing is required because sibling devices
+ *  publish colliding objectIds — every Athom plug exposes `voltage`, `current` and
+ *  `total_daily_energy`, so an objectId alone resolves to whichever plug sorted first. */
+export interface EntityRef {
+  node: string;
+  objectId: string;
+}
+
+/** The node an entity belongs to. `nodeId` is authoritative; the device identifier is the
+ *  fallback for entities discovered without one. */
+export function entityNodeKey(entity: EntityConfig): string {
+  return entity.nodeId ?? entity.device.identifiers[0];
+}
+
+/** Resolve a (node, objectId) ref to its discovered entity. */
+export function resolveEntityRef(snapshot: Snapshot, ref: EntityRef | undefined): EntityConfig | undefined {
+  if (!ref) return undefined;
+  return snapshot.entities.find((e) => e.objectId === ref.objectId && entityNodeKey(e) === ref.node);
+}
+
+/** The device for a node key, matched on nodeId OR device id: the server keys availability on
+ *  `device.identifiers[0]`, but the ESPHome plugs omit device `ids` in discovery so their `d.id`
+ *  is a uniq_id slug while `d.nodeId` is reliable. Matching only one form silently misses them. */
+export function deviceForNode(snapshot: Snapshot, nodeKey: string): DeviceSnapshot | undefined {
+  return snapshot.devices.find((d) => d.nodeId === nodeKey || d.id === nodeKey);
+}
+
+/** Whether an entity's device has published an offline LWT. A device that has never published
+ *  one reads `unknown`, which is not offline — absence of news is not bad news here. */
+export function isEntityOffline(snapshot: Snapshot, entity: EntityConfig | undefined): boolean {
+  if (!entity) return false;
+  return deviceForNode(snapshot, entityNodeKey(entity))?.availability === 'offline';
+}
+
 /** The device that owns the first entity matching `pred` (resolved by nodeId). */
 export function deviceOwning(
   snapshot: Snapshot,

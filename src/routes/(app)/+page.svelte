@@ -19,6 +19,7 @@
   import ThermalPanel from '$lib/dashboard/ThermalPanel.svelte';
   import ReadoutPanel from '$lib/dashboard/ReadoutPanel.svelte';
   import SubstratePanel from '$lib/dashboard/SubstratePanel.svelte';
+  import SmartPlugsPanel from '$lib/dashboard/SmartPlugsPanel.svelte';
 
   let { data } = $props();
   const live = getLiveSnapshot();
@@ -100,6 +101,7 @@
   <div class="substrate-area">
     <SubstratePanel snapshot={live.snapshot} zones={data.zones} probeBindings={data.probes} />
   </div>
+  <div class="plugs-area"><SmartPlugsPanel {live} /></div>
 </div>
 
 <style>
@@ -121,10 +123,15 @@
   .substrate-area {
     grid-column: span 4;
   }
+  /* Its own full-width row: the four plugs lay out in columns inside the panel. */
+  .plugs-area {
+    grid-column: span 12;
+  }
 
   @media (max-width: 960px) {
     .trends-area,
-    .thermal-area {
+    .thermal-area,
+    .plugs-area {
       grid-column: span 12;
     }
     .water-area,
@@ -142,7 +149,8 @@
     .thermal-area,
     .water-area,
     .climate-area,
-    .substrate-area {
+    .substrate-area,
+    .plugs-area {
       grid-column: span 1;
     }
   }

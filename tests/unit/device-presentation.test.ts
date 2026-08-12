@@ -458,3 +458,58 @@ describe('deviceSettingsPresentation diagnostics folding', () => {
     expect(diagnostics!.groups[0].entries.map((entry) => entry.entity.objectId)).toEqual(['wifi_signal', 'mac_address']);
   });
 });
+
+// The exhaust fan relay was invisible in both surfaces at once: it is a dashboard-surface
+// quick-control, so device settings suppressed it as "already on the dashboard" while the
+// dashboard had stopped rendering the quick-controls array (8386fd5). Declaring it was the
+// only thing hiding it. A control must stay reachable even if its claimed surface goes away.
+describe('deviceSettingsPresentation keeps controls reachable', () => {
+  const relay = makeAtomEntity({
+    id: 'exhaust_fan',
+    component: 'switch',
+    name: 'Exhaust Fan',
+    objectId: 'exhaust_fan',
+    writable: true
+  });
+  const power = makeAtomEntity({
+    id: 'fan_power',
+    component: 'sensor',
+    name: 'Fan Power',
+    objectId: 'fan_power',
+    unit: 'W'
+  });
+
+  const uiConfigs = {
+    'atoms3u-sensor-rig': {
+      schema: 'grow-ui.v1',
+      nodeId: 'atoms3u-sensor-rig',
+      groups: [
+        { id: 'overview', title: 'Overview', order: 10, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
+        { id: 'controls', title: 'Controls', order: 20, variant: 'quick-controls', surface: 'dashboard', defaultOpen: true }
+      ],
+      entities: [
+        { component: 'sensor', objectId: 'fan_power', group: 'overview', role: 'metric', order: 10 },
+        { component: 'switch', objectId: 'exhaust_fan', group: 'controls', role: 'quick-control', order: 10 }
+      ]
+    }
+  } as unknown as Snapshot['uiConfigs'];
+
+  const snapshot = makeSnapshot(uiConfigs, {
+    devices: [{ ...device, entityIds: [relay.id, power.id] }],
+    entities: [relay, power]
+  });
+
+  it('surfaces a dashboard quick-control rather than hiding it everywhere', () => {
+    const objectIds = deviceSettingsPresentation(snapshot, { ...device, entityIds: [relay.id, power.id] })
+      .flatMap((panel) => panel.groups)
+      .flatMap((group) => group.entries.map((entry) => entry.entity.objectId));
+    expect(objectIds).toContain('exhaust_fan');
+  });
+
+  it('still suppresses dashboard metrics, which the readout panels do render', () => {
+    const objectIds = deviceSettingsPresentation(snapshot, { ...device, entityIds: [relay.id, power.id] })
+      .flatMap((panel) => panel.groups)
+      .flatMap((group) => group.entries.map((entry) => entry.entity.objectId));
+    expect(objectIds).not.toContain('fan_power');
+  });
+});
