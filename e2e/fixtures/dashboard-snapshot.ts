@@ -3,6 +3,129 @@
 
 import type { Snapshot } from '../../src/lib/server/mqtt/types';
 
+const PLUG_TS = new Date('2026-06-13T12:00:00Z').toISOString();
+
+interface PlugFixture {
+  node: string;
+  name: string;
+  relay?: { objectId: string; on: boolean };
+  arms?: Array<{ objectId: string; name: string; on: boolean }>;
+  power: { objectId: string; watts: string };
+  dailyKwh: string;
+}
+
+/**
+ * The four Athom plugs, each chosen to exercise a distinct activity state:
+ * exhaust = armed + sub-floor draw, light = running, pump = idle, runoff = monitor-only.
+ *
+ * `device.identifiers[0]` is deliberately a uniq_id-style slug rather than the node name —
+ * that is how these plugs really publish discovery, and resolving past it is the thing the
+ * card has to get right.
+ */
+const PLUG_FIXTURES: PlugFixture[] = [
+  {
+    node: 'exhaust-fan',
+    name: 'Exhaust Fan',
+    relay: { objectId: 'exhaust_fan', on: true },
+    arms: [
+      { objectId: 'fan_cycle', name: 'Fan Cycle', on: true },
+      { objectId: 'fan_schedule', name: 'Fan Schedule', on: false }
+    ],
+    power: { objectId: 'fan_power', watts: '0' },
+    dailyKwh: '0.04'
+  },
+  {
+    node: 'grow-light',
+    name: 'Grow Light',
+    relay: { objectId: 'grow_light', on: true },
+    arms: [{ objectId: 'light_schedule', name: 'Light Schedule', on: false }],
+    power: { objectId: 'light_power', watts: '312.4' },
+    dailyKwh: '4.71'
+  },
+  {
+    node: 'irrigation-pump',
+    name: 'Irrigation Pump',
+    relay: { objectId: 'irrigation_pump', on: true },
+    power: { objectId: 'pump_power', watts: '0' },
+    dailyKwh: '0.31'
+  },
+  {
+    node: 'runoff-monitor',
+    name: 'Runoff Monitor',
+    power: { objectId: 'runoff_pump_power', watts: '24.2' },
+    dailyKwh: '0.02'
+  }
+];
+
+const plugSlug = (node: string) => `${node.replace(/-/g, '')}a1b2c3`;
+
+function plugSwitch(node: string, name: string, objectId: string) {
+  return {
+    id: `${node}_${objectId}`,
+    component: 'switch',
+    name,
+    uniqueId: `${node}_${objectId}`,
+    objectId,
+    nodeId: node,
+    device: { identifiers: [plugSlug(node)], name },
+    stateTopic: `grow/daniel-home/${node}/switch/${objectId}/state`,
+    commandTopic: `grow/daniel-home/${node}/switch/${objectId}/command`,
+    payloadOn: 'ON',
+    payloadOff: 'OFF',
+    payloadAvailable: 'online',
+    payloadNotAvailable: 'offline',
+    dangerous: false,
+    writable: true,
+    raw: {}
+  };
+}
+
+function plugSensor(node: string, name: string, objectId: string, unit: string) {
+  return {
+    id: `${node}_${objectId}`,
+    component: 'sensor',
+    name,
+    uniqueId: `${node}_${objectId}`,
+    objectId,
+    nodeId: node,
+    device: { identifiers: [plugSlug(node)], name },
+    stateTopic: `grow/daniel-home/${node}/sensor/${objectId}/state`,
+    unit,
+    suggestedDisplayPrecision: 2,
+    payloadAvailable: 'online',
+    payloadNotAvailable: 'offline',
+    dangerous: false,
+    writable: false,
+    raw: {}
+  };
+}
+
+const plugEntities = PLUG_FIXTURES.flatMap((p) => [
+  ...(p.relay ? [plugSwitch(p.node, p.name, p.relay.objectId)] : []),
+  ...(p.arms ?? []).map((arm) => plugSwitch(p.node, arm.name, arm.objectId)),
+  plugSensor(p.node, `${p.name} Power`, p.power.objectId, 'W'),
+  plugSensor(p.node, 'Daily Energy', 'total_daily_energy', 'kWh')
+]);
+
+const plugDevices = PLUG_FIXTURES.map((p) => ({
+  id: plugSlug(p.node),
+  nodeId: p.node,
+  name: p.name,
+  manufacturer: 'Athom',
+  model: 'Smart Plug US V2',
+  availability: 'online' as const,
+  entityIds: plugEntities.filter((e) => e.nodeId === p.node).map((e) => e.id)
+}));
+
+const plugStates = Object.fromEntries(
+  PLUG_FIXTURES.flatMap((p) => [
+    ...(p.relay ? [[`${p.node}_${p.relay.objectId}`, { value: p.relay.on ? 'ON' : 'OFF', updatedAt: PLUG_TS }]] : []),
+    ...(p.arms ?? []).map((arm) => [`${p.node}_${arm.objectId}`, { value: arm.on ? 'ON' : 'OFF', updatedAt: PLUG_TS }]),
+    [`${p.node}_${p.power.objectId}`, { value: p.power.watts, updatedAt: PLUG_TS }],
+    [`${p.node}_total_daily_energy`, { value: p.dailyKwh, updatedAt: PLUG_TS }]
+  ])
+);
+
 export const dashboardSnapshot = {
   site: 'daniel-home',
   topicPrefix: 'grow/daniel-home',
@@ -54,7 +177,8 @@ export const dashboardSnapshot = {
         'atlas_firmware_update',
         'atlas_check_firmware_update'
       ]
-    }
+    },
+    ...plugDevices
   ],
   entities: [
     {
@@ -363,9 +487,11 @@ export const dashboardSnapshot = {
       dangerous: true,
       writable: true,
       raw: {}
-    }
+    },
+    ...plugEntities
   ],
   states: {
+    ...plugStates,
     atoms3u_temperature: { value: '24.8', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
     atoms3u_co2_high_threshold: { value: '1500', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
     atoms3u_co2_high_alert: { value: 'OFF', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },

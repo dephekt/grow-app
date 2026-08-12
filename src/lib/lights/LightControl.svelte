@@ -5,6 +5,7 @@
   import type { EntityConfig, LightConfig } from '$lib/server/mqtt/types';
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
   import { computeSchedule, entityByRef, formatCountdown, photoperiodHours } from '$lib/lights/model';
+  import { isEntityOffline } from '$lib/entity-match';
   import { toTimeInputValue } from '$lib/time-entity';
 
   let {
@@ -29,12 +30,10 @@
   const armed = $derived(Boolean(arm && live.stateFor(arm).value === arm.payloadOn));
   const hasSchedule = $derived(Boolean(arm || onTime || offTime));
 
-  // Availability of the plug that owns on/off.
-  const powerDevice = $derived.by(() => {
-    if (!power) return undefined;
-    return snap.devices.find((d) => d.id === power.device.identifiers[0]);
-  });
-  const offline = $derived(powerDevice?.availability === 'offline');
+  // Availability of the plug that owns on/off. Resolved by nodeId OR device id: the Athom
+  // plugs ship discovery with no device `ids`, so `d.id` is a uniq_id slug and matching on
+  // it alone silently found nothing — leaving the controls enabled against a dead plug.
+  const offline = $derived(isEntityOffline(snap, power));
 
   // Live clock so the countdown ticks.
   let now = $state(new Date());

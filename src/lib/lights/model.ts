@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
+import { resolveEntityRef } from '$lib/entity-match';
 import type { EntityConfig, LightRoleRef, Snapshot } from '$lib/server/mqtt/types';
 import { parseTimeParts } from '$lib/time-entity';
 
@@ -8,10 +9,7 @@ import { parseTimeParts } from '$lib/time-entity';
  *  The strict (node, objectId) pairing is intentional — `service.ts:deviceEntity`
  *  keeps a broader match on purpose. */
 export function entityByRef(snapshot: Snapshot, ref: LightRoleRef | undefined): EntityConfig | undefined {
-  if (!ref) return undefined;
-  return snapshot.entities.find(
-    (entity) => entity.objectId === ref.objectId && (entity.nodeId ?? entity.device.identifiers[0]) === ref.node
-  );
+  return resolveEntityRef(snapshot, ref);
 }
 
 /** Seconds-of-day from a raw `time` entity state value — either the ESPHome JSON

@@ -628,3 +628,78 @@ test('keeps a not-yet-reported metric visible instead of dropping its row', asyn
   await expect(climate).toContainText('No state yet');
   await expect(climate).not.toContainText(/\bnan\b/i);
 });
+
+// The exhaust fan relay was published, retained and in the snapshot, yet drawn nowhere:
+// device settings suppressed it as a dashboard entity while the dashboard had stopped
+// rendering quick-controls (8386fd5). These pin the card that surfaces it.
+test.describe('smart plugs card', () => {
+  const plugs = (page: Page) => page.locator('.plugs-area');
+
+  test('renders every discovered plug with its activity', async ({ page }) => {
+    await page.goto('/');
+
+    const card = plugs(page);
+    await expect(card).toContainText('SMART PLUGS');
+    await expect(card).toContainText('Exhaust Fan');
+    await expect(card).toContainText('Grow Light');
+    await expect(card).toContainText('Irrigation Pump');
+    await expect(card).toContainText('Runoff Pump');
+
+    // Light draws 312 W → measurably running. Pump reads 0 W and cannot run sub-floor → idle.
+    await expect(card).toContainText('running');
+    await expect(card).toContainText('idle');
+  });
+
+  // The fan at low speed draws under the plug's 3 W meter floor, so a 0 W reading is not
+  // evidence it is stopped. Reporting that as idle would be a measurement the plug can't make.
+  test('does not claim a sub-floor draw means the fan is idle', async ({ page }) => {
+    await page.goto('/');
+    await expect(plugs(page)).toContainText('draw below meter floor');
+  });
+
+  // While an arm is on the plug re-asserts the relay every 10 s, so a toggle here reverts.
+  test('warns that a toggle reverts while a firmware arm is armed', async ({ page }) => {
+    await page.goto('/');
+    const card = plugs(page);
+    await expect(card).toContainText('cycle ARMED');
+    await expect(card).toContainText('schedule disarmed');
+    await expect(card).toContainText(/reverts within ~10\s?s while armed/i);
+  });
+
+  test('offers no toggle for a monitor-only plug', async ({ page }) => {
+    await page.goto('/');
+    await expect(plugs(page)).toContainText('monitor only');
+    // Runoff's relay is internal:true in firmware, so only the three others are switchable.
+    await expect(plugs(page).locator('.ctl-toggle')).toHaveCount(3);
+  });
+
+  test('publishes a relay command when a plug is toggled', async ({ page }) => {
+    const commands = await captureThresholdCommands(page, snapshot);
+    await page.goto('/');
+
+    // The fan starts ON in the fixture → toggling publishes false, and it is not dangerous.
+    await plugs(page).locator('.ctl-toggle').filter({ hasText: 'Exhaust Fan' }).click();
+    await expect.poll(() => commands.length).toBe(1);
+    expect(commands[0].url).toContain('/api/entities/exhaust-fan_exhaust_fan/command');
+    expect(commands[0].body).toMatchObject({ value: false, confirm: false });
+  });
+
+  // The pump switch is the supply cut-off, not the irrigation actuator — switching it off
+  // stops all irrigation silently, so it must not be a bare one-click toggle.
+  test('confirms before switching the irrigation pump supply', async ({ page }) => {
+    const commands = await captureThresholdCommands(page, snapshot);
+    const messages: string[] = [];
+    page.on('dialog', (dialog) => {
+      messages.push(dialog.message());
+      return dialog.dismiss();
+    });
+    await page.goto('/');
+
+    const pumpToggle = plugs(page).locator('.ctl-toggle').filter({ hasText: 'Irrigation Pump' });
+    await pumpToggle.click();
+    await expect.poll(() => messages.length).toBe(1);
+    expect(messages[0]).toMatch(/irrigation/i);
+    // Dismissed → nothing published.
+    expect(commands).toHaveLength(0);
+  });
+});
