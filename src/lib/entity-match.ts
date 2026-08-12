@@ -53,6 +53,16 @@ export function isThermalMeanTemp(e: EntityConfig): boolean {
   return isNumericSensor(e) && /mlx90640_mean_temp$/.test(e.objectId ?? '');
 }
 
+/** The MLX90640 ROI MEAN temperature — leaf temperature, when the ROI box frames the canopy. */
+export function isThermalRoiMeanTemp(e: EntityConfig): boolean {
+  return isNumericSensor(e) && /mlx90640_roi_mean_temp$/.test(e.objectId ?? '');
+}
+
+/** The rig's air VPD sensor — the row leaf VPD is inserted beside. */
+export function isAirVpd(e: EntityConfig): boolean {
+  return isNumericSensor(e) && /^(air_)?vpd$/.test((e.objectId ?? '').toLowerCase());
+}
+
 export function isCo2(e: EntityConfig): boolean {
   return (
     isNumericSensor(e) &&
