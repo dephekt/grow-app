@@ -24,13 +24,30 @@ export function isWaterTemperature(e: EntityConfig): boolean {
 }
 
 export function isHumidity(e: EntityConfig): boolean {
-  return isNumericSensor(e) && e.deviceClass === 'humidity';
+  return isNumericSensor(e) && e.deviceClass === 'humidity' && !isExternalReference(e);
 }
 
-/** Room/air temperature — not the water probe, a substrate probe, a board temp, or an aggregate. */
+/**
+ * An outside-the-grow reference sensor, e.g. the room node the exhaust fan draws from.
+ *
+ * These read like perfectly good air sensors, which is the problem: resolveClimateDevice
+ * falls back to humidity and then ambient temperature, so a room sensor would capture the
+ * tent's CLIMATE card whenever the in-tent rig is undiscovered and quietly present room air
+ * as canopy air. Anything that genuinely wants the room reads it by node id.
+ */
+export function isExternalReference(e: EntityConfig): boolean {
+  const oid = (e.objectId ?? '').toLowerCase();
+  const name = e.name.toLowerCase();
+  // Segment/word anchored so "next_temperature" and "Extractor" are not caught.
+  return /(^|_)(ext|external|outside|outdoor)(_|$)/.test(oid) || /\b(ext|external|outside|outdoor)\b/.test(name);
+}
+
+/** Room/air temperature — not the water probe, a substrate probe, a board temp, an aggregate,
+ *  or an outside-the-tent reference. */
 export function isAmbientTemperature(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
   if (e.deviceClass !== 'temperature' && e.unit !== '°C') return false;
+  if (isExternalReference(e)) return false;
   const oid = (e.objectId ?? '').toLowerCase();
   const name = e.name.toLowerCase();
   if (/water/.test(oid) || /water/.test(name)) return false;
