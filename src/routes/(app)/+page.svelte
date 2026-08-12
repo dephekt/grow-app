@@ -6,13 +6,15 @@
   import {
     findQuantumPpfdEntity,
     hasUnreadableState,
+    isAirVpd,
     liveQuantumPpfd,
     resolveClimateDevice,
     resolveWaterDevice
   } from '$lib/entity-match';
+  import { liveLeafVpd } from '$lib/vpd';
   import { formatEntityState } from '$lib/state-format';
   import { presentedNumericMetrics } from '$lib/device-presentation';
-  import type { DeviceSnapshot } from '$lib/server/mqtt/types';
+  import type { DeviceSnapshot, EntityConfig } from '$lib/server/mqtt/types';
   import TrendsPanel from '$lib/dashboard/TrendsPanel.svelte';
   import ThermalPanel from '$lib/dashboard/ThermalPanel.svelte';
   import ReadoutPanel from '$lib/dashboard/ReadoutPanel.svelte';
@@ -22,20 +24,23 @@
   const live = getLiveSnapshot();
 
   type Row = { label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' };
+  // Carries the entity so a derived row can be positioned relative to a published one.
+  type MetricRow = Row & { entity: EntityConfig };
 
   // These resolvers are shared with the trend charts so readout and trends always
   // agree on the device.
   let waterDevice = $derived(resolveWaterDevice(live.snapshot));
   let climateDevice = $derived(resolveClimateDevice(live.snapshot));
 
-  function metricRows(device: DeviceSnapshot | undefined, stripPrefix = ''): Row[] {
+  function metricRows(device: DeviceSnapshot | undefined, stripPrefix = ''): MetricRow[] {
     if (!device) return [];
     return presentedNumericMetrics(live.snapshot, device, stripPrefix)
       .filter((m) => !hasUnreadableState(live.snapshot, m.entity))
       .map((m) => ({
         label: m.label,
         value: live.formatState(m.entity),
-        status: 'ok'
+        status: 'ok',
+        entity: m.entity
       }));
   }
 
@@ -54,7 +59,33 @@
     return { label: 'PAR', value: formatEntityState(display, { value: String(ppfd), updatedAt: null }), status: 'ok' };
   });
 
-  let climateRows = $derived([...metricRows(climateDevice), ...(parRow ? [parRow] : [])]);
+  // Leaf VPD is derived from the thermal ROI, so it has no entity of its own and cannot
+  // arrive through presentedNumericMetrics.
+  let leafVpdRow = $derived.by<Row | null>(() => {
+    const vpd = liveLeafVpd(live.snapshot);
+    if (vpd === null) return null;
+    // Formatted through the air VPD entity so both rows keep the same precision and unit.
+    const air = live.snapshot.entities.find(isAirVpd);
+    const value = air
+      ? formatEntityState(
+          { ...air, suggestedDisplayPrecision: air.suggestedDisplayPrecision ?? 2 },
+          { value: String(vpd), updatedAt: null }
+        )
+      : `${vpd.toFixed(2)} kPa`;
+    return { label: 'Leaf VPD', value, status: 'ok' };
+  });
+
+  let climateRows = $derived.by<Row[]>(() => {
+    const metrics = metricRows(climateDevice);
+    const rows: Row[] = [...metrics];
+    if (leafVpdRow) {
+      // Beside the air VPD it is read against, rather than appended after everything else.
+      const i = metrics.findIndex((r) => isAirVpd(r.entity));
+      rows.splice(i >= 0 ? i + 1 : rows.length, 0, leafVpdRow);
+    }
+    if (parRow) rows.push(parRow);
+    return rows;
+  });
 </script>
 
 <svelte:head>
