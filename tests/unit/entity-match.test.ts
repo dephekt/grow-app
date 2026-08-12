@@ -6,6 +6,9 @@ import {
   findQuantumPpfdEntity,
   hasUnreadableState,
   hasQuantumPpfd,
+  isAmbientTemperature,
+  isExternalReference,
+  isHumidity,
   isQuantumPpfd,
   liveQuantumMetric,
   liveQuantumPpfd,
@@ -388,5 +391,70 @@ describe('hasUnreadableState', () => {
   it('does not flag an entity that has simply not reported yet', () => {
     expect(hasUnreadableState(snapshotWithLux(undefined), lux)).toBe(false);
     expect(hasUnreadableState(snapshotWithLux(''), lux)).toBe(false);
+  });
+});
+
+// The room node the exhaust fan draws from reads like a perfectly good air sensor, which is
+// exactly the hazard: resolveClimateDevice falls back to humidity and then ambient
+// temperature, so it would capture the tent's CLIMATE card whenever the in-tent rig is
+// undiscovered and present room air as canopy air.
+describe('external reference sensors', () => {
+  const extTemp = makeEntity('feather-air-monitor', {
+    id: 'feather_ext_temperature',
+    name: 'Ext Temperature',
+    objectId: 'ext_temperature',
+    deviceClass: 'temperature',
+    unit: '°C'
+  });
+  const extHumidity = makeEntity('feather-air-monitor', {
+    id: 'feather_ext_humidity',
+    name: 'Ext Humidity',
+    objectId: 'ext_humidity',
+    deviceClass: 'humidity'
+  });
+
+  it('recognises the ext prefix on both objectId and display name', () => {
+    expect(isExternalReference(extTemp)).toBe(true);
+    expect(isExternalReference(extHumidity)).toBe(true);
+    expect(
+      isExternalReference(
+        makeEntity('n', { id: 'a', name: 'Ext. Temperature', objectId: 'whatever', deviceClass: 'temperature' })
+      )
+    ).toBe(true);
+  });
+
+  it('keeps them out of the ambient air slots', () => {
+    expect(isAmbientTemperature(extTemp)).toBe(false);
+    expect(isHumidity(extHumidity)).toBe(false);
+  });
+
+  it('never binds CLIMATE to the external node when no in-tent rig has been discovered', () => {
+    expect(resolveClimateDevice(makeSnapshot([extTemp, extHumidity]))).toBeUndefined();
+
+    // Positive control on the SAME fixture: only the naming differs, so this asserts the
+    // exclusion is what rejected it rather than a malformed snapshot.
+    const tentTemp = makeEntity('feather-air-monitor', {
+      id: 'feather_ext_temperature',
+      name: 'Temperature',
+      objectId: 'temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    expect(resolveClimateDevice(makeSnapshot([tentTemp]))?.nodeId).toBe('feather-air-monitor');
+  });
+
+  it('yields CLIMATE to the in-tent rig even when the external node is discovered first', () => {
+    const rigCo2 = makeEntity('atoms3u-sensor-rig', { id: 'rig_co2', name: 'CO2', objectId: 'co2' });
+    expect(resolveClimateDevice(makeSnapshot([extTemp, extHumidity, rigCo2]))?.nodeId).toBe('atoms3u-sensor-rig');
+  });
+
+  // Word/segment anchored so ordinary ids that merely contain the letters are unaffected.
+  it('does not catch unrelated names that merely contain the letters', () => {
+    expect(
+      isExternalReference(makeEntity('n', { id: 'b', name: 'Next Temperature', objectId: 'next_temperature' }))
+    ).toBe(false);
+    expect(isExternalReference(makeEntity('n', { id: 'c', name: 'Extractor Power', objectId: 'extractor_power' }))).toBe(
+      false
+    );
   });
 });
