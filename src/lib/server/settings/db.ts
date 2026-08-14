@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import type { DatabaseSync } from 'node:sqlite';
 import { env } from '$lib/server/env';
+import { openMigratedDb } from '$lib/server/db/migrate';
 
 // Ordered, append-only migrations whose index +1 is the schema version stored in
 // `PRAGMA user_version` — never edit an existing entry, add a new one.
@@ -19,36 +18,11 @@ const MIGRATIONS: string[] = [
   `
 ];
 
-function migrate(db: DatabaseSync): void {
-  const row = db.prepare('PRAGMA user_version').get() as { user_version: number };
-  const current = row?.user_version ?? 0;
-
-  for (let version = current; version < MIGRATIONS.length; version++) {
-    db.exec('BEGIN');
-    try {
-      db.exec(MIGRATIONS[version]);
-      // user_version can't be parameterised; version is a loop integer, not input.
-      db.exec(`PRAGMA user_version = ${version + 1}`);
-      db.exec('COMMIT');
-    } catch (error) {
-      db.exec('ROLLBACK');
-      throw error;
-    }
-  }
-}
-
 /**
  * Open (or create) the settings database at `path`, apply pragmas + migrations, and return it.
  */
 export function openSettingsDb(path: string): DatabaseSync {
-  if (path !== ':memory:') {
-    mkdirSync(dirname(path), { recursive: true });
-  }
-  const db = new DatabaseSync(path);
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA foreign_keys = ON');
-  migrate(db);
-  return db;
+  return openMigratedDb(path, MIGRATIONS);
 }
 
 export function getSettingsDbPath(): string {

@@ -12,6 +12,7 @@
     resolveWaterDevice
   } from '$lib/entity-match';
   import { liveLeafVpd } from '$lib/vpd';
+  import { resolveGrowState } from '$lib/lights/grow-plan';
   import { formatEntityState } from '$lib/state-format';
   import { presentedNumericMetrics } from '$lib/device-presentation';
   import type { DeviceSnapshot, EntityConfig } from '$lib/server/mqtt/types';
@@ -76,6 +77,21 @@
     return { label: 'Leaf VPD', value, status: 'ok' };
   });
 
+  // The week's cited air-VPD target, so the card says what the reading above it is aiming at.
+  // Resolved from WEEKLY_PLAN and the wall clock alone — no request, and it cannot disagree
+  // with /climate because both read the same table.
+  const growWeek = resolveGrowState(new Date());
+
+  let vpdTargetRow = $derived.by<Row | null>(() => {
+    const air = live.snapshot.entities.find(isAirVpd);
+    if (!air) return null;
+    return {
+      label: 'VPD target',
+      value: `${growWeek.airVpdTarget.toFixed(2)} kPa · wk ${growWeek.week}`,
+      status: 'none'
+    };
+  });
+
   let climateRows = $derived.by<Row[]>(() => {
     const metrics = metricRows(climateDevice);
     const rows: Row[] = [...metrics];
@@ -84,6 +100,7 @@
       const i = metrics.findIndex((r) => isAirVpd(r.entity));
       rows.splice(i >= 0 ? i + 1 : rows.length, 0, leafVpdRow);
     }
+    if (vpdTargetRow) rows.push(vpdTargetRow);
     if (parRow) rows.push(parRow);
     return rows;
   });

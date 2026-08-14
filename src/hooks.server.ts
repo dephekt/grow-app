@@ -8,6 +8,7 @@ import { startOpenSprinklerDriver } from '$lib/server/opensprinkler/controller';
 import { startIrrigationScheduler } from '$lib/server/opensprinkler/scheduler';
 import { startRunoffMonitor } from '$lib/server/opensprinkler/runoff-monitor';
 import { startIrrigationEnergyBackfill } from '$lib/server/opensprinkler/energy-backfill';
+import { startClimateLoop } from '$lib/server/climate/loop';
 import { warmSiteTimeZone } from '$lib/server/settings/site-timezone';
 import { startSiteTimezoneReconciler } from '$lib/server/mqtt/tz-reconciler';
 import { getAuthDb } from '$lib/server/auth/db';
@@ -28,6 +29,8 @@ startIrrigationScheduler();
 startRunoffMonitor();
 // Web app only; runs on a timer off the request path.
 startIrrigationEnergyBackfill();
+// Inert until armed: the shipped config leaves the fan to its firmware and only observes.
+startClimateLoop();
 // Web app only — the read-only recorder never opens the settings DB nor publishes.
 try {
   warmSiteTimeZone();

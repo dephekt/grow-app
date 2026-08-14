@@ -40,6 +40,7 @@
   const onDashboard = $derived(pathname === '/');
   const onLights = $derived(pathname.startsWith('/lights'));
   const onIrrigation = $derived(pathname.startsWith('/irrigation'));
+  const onClimate = $derived(pathname.startsWith('/climate'));
   const onMixing = $derived(pathname.startsWith('/mixing'));
   const onSettings = $derived(pathname.startsWith('/device-settings'));
 </script>
@@ -54,6 +55,7 @@
     <a class="tab" class:active={onDashboard} href="/">DASHBOARD</a>
     <a class="tab" class:active={onLights} href="/lights">LIGHTS</a>
     <a class="tab" class:active={onIrrigation} href="/irrigation">IRRIGATION</a>
+    <a class="tab" class:active={onClimate} href="/climate">CLIMATE</a>
     <a class="tab" class:active={onMixing} href="/mixing">MIXING</a>
     <a class="tab" class:active={onSettings} href="/device-settings">
       <span>SETTINGS</span>

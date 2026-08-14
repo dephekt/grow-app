@@ -42,6 +42,19 @@ export function isExternalReference(e: EntityConfig): boolean {
   return /(^|_)(ext|external|outside|outdoor)(_|$)/.test(oid) || /\b(ext|external|outside|outdoor)\b/.test(name);
 }
 
+/** The outside-the-tent air temperature — the room the exhaust fan draws from. Matched on the
+ *  same guard that keeps it OUT of the CLIMATE card, so the two can never disagree. */
+export function isExternalTemperature(e: EntityConfig): boolean {
+  if (!isNumericSensor(e) || !isExternalReference(e)) return false;
+  if (e.deviceClass !== 'temperature' && e.unit !== '°C') return false;
+  return !/(vpd|humid)/i.test(e.objectId ?? '');
+}
+
+/** The outside-the-tent relative humidity. */
+export function isExternalHumidity(e: EntityConfig): boolean {
+  return isNumericSensor(e) && e.deviceClass === 'humidity' && isExternalReference(e);
+}
+
 /** Room/air temperature — not the water probe, a substrate probe, a board temp, an aggregate,
  *  or an outside-the-tent reference. */
 export function isAmbientTemperature(e: EntityConfig): boolean {
@@ -114,6 +127,16 @@ export function findQuantumPpfdEntity(entities: Iterable<EntityConfig>): EntityC
 /** Whether a PPFD sensor is registered at all, so the UI can tell "offline" from "no sensor". */
 export function hasQuantumPpfd(snapshot: Snapshot): boolean {
   return findQuantumPpfdEntity(snapshot.entities) !== undefined;
+}
+
+/** An entity's state as a finite number, or null when absent, blank or unreadable. Blank is
+ *  explicitly not zero — `Number('')` is 0, which reads as a live measurement. */
+export function entityNumericState(snapshot: Snapshot, entity: EntityConfig | undefined): number | null {
+  if (!entity) return null;
+  const raw = snapshot.states[entity.id]?.value;
+  if (raw == null || raw.trim() === '' || isNoReadingValue(raw)) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** Whether an entity published a value it cannot report (`nan`); an entity yet to report is not this. */
