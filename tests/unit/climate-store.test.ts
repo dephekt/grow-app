@@ -63,6 +63,16 @@ describe('climate config', () => {
     expect(getClimateConfig(db).mode).toBe('observe');
   });
 
+  it('recreates the singleton row rather than silently saving nothing', () => {
+    // A DB restored from a partial copy could be missing it; an UPDATE ... WHERE id = 1 would
+    // match zero rows while still reporting success, and the PATCH response would contradict
+    // itself when the route re-read the config.
+    db.exec('DELETE FROM climate_config');
+    const next = updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+    expect(next.mode).toBe('active');
+    expect(getClimateConfig(db)).toEqual(next);
+  });
+
   it('round-trips a null override back to the plan', () => {
     updateClimateConfig(db, { airVpdOverride: 1.05 }, NOW_ISO);
     expect(getClimateConfig(db).airVpdOverride).toBe(1.05);

@@ -98,7 +98,7 @@
     air ? absoluteHumidityGPerM3(air.tempC, air.rhPct).toFixed(1) : '—';
 
   const MODE_HELP: Record<ClimateMode, string> = {
-    off: 'The loop stops deciding entirely. Nothing is logged.',
+    off: 'The loop stops deciding entirely. Only the switch to off is logged.',
     observe: 'Decides and logs every tick, publishes nothing. The dry run.',
     active: 'Publishes to whichever actuators are armed below.'
   };
@@ -217,7 +217,7 @@
       </button>
       <p class="hint">
         {#if climate.humidifier.present}
-          Engages at the 1.20 hard ceiling and releases at the top of band — outside the exhaust's range, so the two never fight.
+          Engages at the 1.20 hard ceiling and releases back at the week's target — outside the exhaust's range, so the two never fight.
         {:else}
           No humidifier plug discovered. RH stays delegated to the humidistat; a too-high VPD logs as <em>delegated</em> rather than vanishing.
         {/if}

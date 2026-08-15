@@ -15,27 +15,56 @@ import { ventedAirVpdKpa } from '$lib/climate/psychro';
 import { resolveGrowState } from '$lib/lights/grow-plan';
 
 /**
- * Live loop state: the same inputs, band and verdict the timer is working from, recomputed on
- * read so the page never has to guess. The decision here is a preview — it publishes nothing.
+ * Config, week and the resolved band — a SQLite read and some arithmetic, nothing else.
+ *
+ * Split out because the dashboard needs only the effective target, and it is the most-loaded
+ * route in the app: making it walk the entity list and evaluate the control law on every SSR
+ * render and client navigation would be a real cost for two scalars.
  */
-function liveState() {
+function planState() {
   const db = getClimateDb();
   const config = getClimateConfig(db);
   const now = new Date();
   const grow = resolveGrowState(now);
   const target = config.airVpdOverride ?? grow.airVpdTarget;
-  const band = controlBand(target, config.deadbandKpa);
+  return {
+    config,
+    now,
+    grow,
+    band: controlBand(target, config.deadbandKpa),
+    week: grow.week,
+    stage: grow.stage.label,
+    planTarget: grow.airVpdTarget,
+    climateRef: grow.climateRef
+  };
+}
+
+export type ClimateBriefState = Omit<ReturnType<typeof planState>, 'now' | 'grow'>;
+
+/**
+ * Live loop state: the same inputs, band and verdict the timer is working from, recomputed on
+ * read so the page never has to guess. The decision here is a preview — it publishes nothing.
+ */
+function liveState() {
+  const { config, now, grow, band, week, stage, planTarget, climateRef } = planState();
 
   const inputs = resolveClimateInputs(getSiteMqttService().snapshot(), now.getTime());
   const state = getClimateLoopState();
-  const smoothedAirVpd = state.airVpd.value() ?? inputs.airVpd;
+  // Null when there is no live reading, even if the loop's window still holds one: falling back
+  // to a pre-failure median would hand decideClimate a VPD with no tent behind it, skipping the
+  // fail-safe and quietly evaluating both temperature limits as false.
+  const smoothedAirVpd = inputs.airVpd === null ? null : (state.airVpd.value() ?? inputs.airVpd);
+  // Same smoothing the loop applies, so the previewed verdict matches the acted-on one.
+  const smoothedTempC = state.tentTempC.value();
+  const tent =
+    inputs.tent === null || smoothedTempC === null ? inputs.tent : { ...inputs.tent, tempC: smoothedTempC };
 
   const decision = decideClimate({
     nowMs: now.getTime(),
     config,
     band,
     reading: {
-      tent: inputs.tent,
+      tent,
       room: inputs.room,
       airVpd: smoothedAirVpd,
       leafVpd: inputs.leafVpd,
@@ -53,11 +82,11 @@ function liveState() {
   return {
     config,
     band,
-    week: grow.week,
-    stage: grow.stage.label,
-    planTarget: grow.airVpdTarget,
-    climateRef: grow.climateRef,
-    tent: inputs.tent,
+    week,
+    stage,
+    planTarget,
+    climateRef,
+    tent,
     room: inputs.room,
     airVpd: smoothedAirVpd,
     instantAirVpd: inputs.airVpd,
@@ -77,7 +106,14 @@ function liveState() {
 
 export type ClimateLiveState = ReturnType<typeof liveState>;
 
-export const GET: RequestHandler = () => json({ ok: true, ...liveState() });
+export const GET: RequestHandler = ({ url }) => {
+  // `?brief=1` skips the snapshot walk and the control-law evaluation; see planState.
+  if (url.searchParams.has('brief')) {
+    const { now: _now, grow: _grow, ...brief } = planState();
+    return json({ ok: true, ...brief });
+  }
+  return json({ ok: true, ...liveState() });
+};
 
 const PATCHABLE = [
   'mode',

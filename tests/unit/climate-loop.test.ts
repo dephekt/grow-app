@@ -61,8 +61,8 @@ const ENTITIES: EntityConfig[] = [
   sw(EXHAUST_NODE, 'fan_sch', 'fan_schedule')
 ];
 
-function snapshotWith(values: Record<string, string>): Snapshot {
-  const nodes = [...new Set(ENTITIES.map((e) => e.nodeId ?? ''))];
+function snapshotWith(values: Record<string, string>, entities: EntityConfig[] = ENTITIES): Snapshot {
+  const nodes = [...new Set(entities.map((e) => e.nodeId ?? ''))];
   const devices: DeviceSnapshot[] = nodes.map(
     (nodeId) =>
       ({
@@ -70,7 +70,7 @@ function snapshotWith(values: Record<string, string>): Snapshot {
         nodeId,
         name: nodeId,
         availability: 'online',
-        entityIds: ENTITIES.filter((e) => e.nodeId === nodeId).map((e) => e.id)
+        entityIds: entities.filter((e) => e.nodeId === nodeId).map((e) => e.id)
       }) as DeviceSnapshot
   );
   const states: Record<string, EntityState> = {};
@@ -83,7 +83,7 @@ function snapshotWith(values: Record<string, string>): Snapshot {
     generatedAt: NOW_ISO,
     broker: { connected: true, connecting: false, error: null, lastConnectedAt: null, lastMessageAt: null },
     devices,
-    entities: ENTITIES,
+    entities,
     states,
     uiConfigs: {},
     lights: [],
@@ -105,10 +105,10 @@ const WANTS_VENT = {
 let db: DatabaseSync;
 let published: Array<{ entityId: string; on: boolean }>;
 
-function deps(values: Record<string, string>, state: ClimateLoopState, nowMs = NOW) {
+function deps(values: Record<string, string>, state: ClimateLoopState, nowMs = NOW, entities?: EntityConfig[]) {
   return {
     db,
-    snapshot: snapshotWith(values),
+    snapshot: snapshotWith(values, entities),
     state,
     nowMs,
     publish: async (entityId: string, on: boolean) => {
@@ -179,7 +179,7 @@ describe('runClimateTick', () => {
   it('collapses an unchanged verdict into one row, then heartbeats', async () => {
     const state = new ClimateLoopState();
     // Inside the band: a hold, repeated.
-    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '66.5' };
+    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' };
     for (let i = 0; i < 5; i++) {
       await runClimateTick(deps(inBand, state, NOW + i * 30_000));
     }
@@ -241,7 +241,7 @@ describe('runClimateTick', () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
     const state = new ClimateLoopState();
     // Inside the band, so the verdict is a plain hold and only the arms distinguish the tick.
-    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '66.5', fan_cyc: 'ON' };
+    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0', fan_cyc: 'ON' };
     await runClimateTick(deps(inBand, state));
 
     const [row] = listClimateEvents(db);
@@ -253,7 +253,7 @@ describe('runClimateTick', () => {
   it('logs the moment a firmware arm starts fighting a previously quiet loop', async () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
     const state = new ClimateLoopState();
-    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '66.5' };
+    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' };
 
     await runClimateTick(deps(inBand, state, NOW));
     await runClimateTick(deps(inBand, state, NOW + 30_000));
@@ -263,6 +263,117 @@ describe('runClimateTick', () => {
     await runClimateTick(deps({ ...inBand, fan_cyc: 'ON' }, state, NOW + 60_000));
     expect(listClimateEvents(db)).toHaveLength(2);
     expect(listClimateEvents(db)[0].reason).toContain('disarmed fan_cycle');
+  });
+
+  it('logs the loop going blind, even straight after an in-band hold', async () => {
+    // Both are `hold`, so keying the dedup on the action kind alone left the fail-safe — the
+    // one hold that matters — invisible for up to a whole heartbeat.
+    const state = new ClimateLoopState();
+    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' };
+    await runClimateTick(deps(inBand, state, NOW));
+    expect(listClimateEvents(db)).toHaveLength(1);
+
+    await runClimateTick(deps({ ...inBand, rig_t: '', rig_h: '' }, state, NOW + 30_000));
+    const rows = listClimateEvents(db);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].reason).toContain('failing safe');
+  });
+
+  it('does not log a fresh row for the same verdict at a different reading', async () => {
+    // The numbers are blanked out of the dedup key, so drifting within the band stays quiet.
+    const state = new ClimateLoopState();
+    await runClimateTick(deps({ ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' }, state, NOW));
+    await runClimateTick(deps({ ...WANTS_VENT, rig_t: '27.2', rig_h: '71.5' }, state, NOW + 30_000));
+    expect(listClimateEvents(db)).toHaveLength(1);
+  });
+
+  it('marks an armed-but-unreachable tick as a publish failure, not a dry run', async () => {
+    // Without this the row is `published: false` with an unmodified reason — byte-identical to
+    // an observe-mode row, so an outage reads as a deliberate dry run.
+    updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+    await runClimateTick({ ...deps(WANTS_VENT, new ClimateLoopState()), canPublish: () => false });
+
+    const [row] = listClimateEvents(db);
+    expect(row.published).toBe(false);
+    expect(row.reason).toContain('broker not connected');
+  });
+
+  it('records the switch to off once, then stays quiet through the heartbeat', async () => {
+    updateClimateConfig(db, { mode: 'off' }, NOW_ISO);
+    const state = new ClimateLoopState();
+    await runClimateTick(deps(WANTS_VENT, state, NOW));
+    expect(listClimateEvents(db)).toHaveLength(1);
+
+    await runClimateTick(deps(WANTS_VENT, state, NOW + 20 * 60_000));
+    expect(listClimateEvents(db)).toHaveLength(1);
+  });
+
+  describe('temperature smoothing', () => {
+    // The limits outrank VPD and bypass both the minimum-off and the predictive gate, so an
+    // unsmoothed temperature would let one bad sample move the relay on its own.
+    const settle = async (state: ClimateLoopState, values: Record<string, string>) => {
+      for (let i = 0; i < 5; i++) await runClimateTick(deps(values, state, NOW + i * 30_000));
+    };
+
+    it('ignores a single hot outlier', async () => {
+      updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+      const state = new ClimateLoopState();
+      const calm = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' };
+      await settle(state, calm);
+      published = [];
+
+      const result = await runClimateTick(deps({ ...calm, rig_t: '33.0' }, state, NOW + 150_000));
+      expect(result.decision.action.kind).toBe('hold');
+      expect(published).toEqual([]);
+    });
+
+    it('ignores a single cold outlier while the fan runs', async () => {
+      updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+      const state = new ClimateLoopState();
+      const running = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0', fan_relay: 'ON' };
+      await settle(state, running);
+      published = [];
+
+      // 12 °C is far under the 20 °C floor, which force-stops the fan ahead of every timer.
+      const result = await runClimateTick(deps({ ...running, rig_t: '12.0' }, state, NOW + 150_000));
+      expect(result.decision.action.kind).toBe('hold');
+      expect(published).toEqual([]);
+    });
+
+    it('force-stops on a sustained cold excursion', async () => {
+      updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+      const state = new ClimateLoopState();
+      const cold = { ...WANTS_VENT, rig_t: '12.0', rig_h: '72.0', fan_relay: 'ON' };
+      await settle(state, cold);
+
+      const result = await runClimateTick(deps(cold, state, NOW + 150_000));
+      expect(result.decision.action).toMatchObject({ kind: 'exhaust', on: false });
+      expect(result.decision.action.reason).toContain('regardless of VPD');
+    });
+
+    it('still acts on a sustained excursion', async () => {
+      updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+      const state = new ClimateLoopState();
+      await settle(state, { ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' });
+      const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' }, state, NOW + 150_000));
+      expect(result.decision.action).toMatchObject({ kind: 'exhaust', on: true });
+      expect(result.decision.action.reason).toContain('vent limit');
+    });
+  });
+
+  it('does not read an undiscovered plug as OFF, so discovery is not a transition', async () => {
+    // Otherwise the first snapshot after a restart looks like the fan just started, and the
+    // loop refuses to stop a fan that has in fact been running for hours.
+    const state = new ClimateLoopState();
+    // The ENTITY has to go, not just its state: discovery is what makes a plug commandable.
+    const beforeDiscovery = ENTITIES.filter((e) => e.id !== 'fan_relay');
+
+    await runClimateTick(deps(WANTS_VENT, state, NOW, beforeDiscovery));
+    expect(state.exhaustOn).toBeNull();
+
+    await runClimateTick(deps({ ...WANTS_VENT, fan_relay: 'ON' }, state, NOW + 30_000));
+    expect(state.exhaustOn).toBe(true);
+    expect(state.exhaustChangedMs).toBeNull();
   });
 
   it('stamps a relay change it did not cause, so a hand-flip serves the same minimum', async () => {

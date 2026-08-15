@@ -112,12 +112,22 @@ export function updateClimateConfig(
     throw new ClimateConfigError('ventNeverBelowC must be below ventAlwaysAboveC');
   }
 
+  // Upsert rather than UPDATE ... WHERE id = 1: if the singleton row is ever missing (a DB
+  // restored from a partial copy), the UPDATE would match nothing while this function still
+  // returned `next`, and the PATCH response — re-read from the DB — would silently contradict
+  // it, flipping the toggle back in the UI with no error.
   db.prepare(
-    `UPDATE climate_config
-     SET mode = ?, exhaust_source = ?, rh_source = ?, deadband_kpa = ?, min_on_seconds = ?,
-         min_off_seconds = ?, min_gain_kpa = ?, vent_always_above_c = ?, vent_never_below_c = ?,
-         air_vpd_override = ?, updated_at = ?
-     WHERE id = 1`
+    `INSERT INTO climate_config
+       (id, mode, exhaust_source, rh_source, deadband_kpa, min_on_seconds, min_off_seconds,
+        min_gain_kpa, vent_always_above_c, vent_never_below_c, air_vpd_override, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       mode = excluded.mode, exhaust_source = excluded.exhaust_source,
+       rh_source = excluded.rh_source, deadband_kpa = excluded.deadband_kpa,
+       min_on_seconds = excluded.min_on_seconds, min_off_seconds = excluded.min_off_seconds,
+       min_gain_kpa = excluded.min_gain_kpa, vent_always_above_c = excluded.vent_always_above_c,
+       vent_never_below_c = excluded.vent_never_below_c,
+       air_vpd_override = excluded.air_vpd_override, updated_at = excluded.updated_at`
   ).run(
     next.mode,
     next.exhaustSource,

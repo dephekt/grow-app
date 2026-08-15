@@ -38,7 +38,9 @@ export const load = async ({ fetch }) => {
 
   const climatePromise = (async (): Promise<{ airVpdTarget: number; week: number } | null> => {
     try {
-      const response = await fetch('/api/climate', { signal: AbortSignal.timeout(ZONES_TIMEOUT_MS) });
+      // `brief` so the dashboard does not pay for a full snapshot walk and control-law
+      // evaluation to print two scalars.
+      const response = await fetch('/api/climate?brief=1', { signal: AbortSignal.timeout(ZONES_TIMEOUT_MS) });
       if (!response.ok) return null;
       const body = (await response.json()) as { band?: { target?: number }; week?: number };
       const target = body.band?.target;

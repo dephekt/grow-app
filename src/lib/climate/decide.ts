@@ -60,6 +60,11 @@ export interface ClimateDecision {
 const kpa = (n: number) => n.toFixed(2);
 const degC = (n: number) => n.toFixed(1);
 
+/** Minimum gap the humidifier's release point keeps below its engage point, whatever the band
+ *  and override conspire to produce. Below this the two collapse onto one reading and the
+ *  hysteresis stops existing. */
+export const HUMIDIFIER_MIN_SEPARATION_KPA = 0.05;
+
 /** Milliseconds since the relay last moved, or null when that has never been observed. */
 function elapsedSince(lastChangeMs: number | null, nowMs: number): number | null {
   return lastChangeMs === null ? null : Math.max(0, nowMs - lastChangeMs);
@@ -114,9 +119,12 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
       : `air VPD ${kpa(vpd)} cleared the ${kpa(band.high)} top of band`;
   } else {
     wantExhaust = vpd < band.low;
-    why = wantExhaust
-      ? `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band`
-      : `air VPD ${kpa(vpd)} inside the ${kpa(band.low)}–${kpa(band.high)} band`;
+    // Three cases, not two: with the fan already off, "not below the floor" covers both inside
+    // the band and above it. Collapsing them would have the log and the /climate verdict row
+    // assert the tent is in band while it sits over the ceiling.
+    if (wantExhaust) why = `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band`;
+    else if (vpd > band.high) why = `air VPD ${kpa(vpd)} above the ${kpa(band.high)} top of band`;
+    else why = `air VPD ${kpa(vpd)} inside the ${kpa(band.low)}–${kpa(band.high)} band`;
   }
 
   // Mutual exclusion, checked before anything else. Sequential operation cannot reach this —
@@ -166,6 +174,10 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
   }
 
   if (!wantExhaust && exhaust.on) {
+    // Guarded like the start leg: a plug that published its offline LWT still shows its last
+    // retained relay position, and commanding one we have already judged uncommandable buys a
+    // wasted publish and a log row claiming an action that never left the broker.
+    if (!exhaust.present) return hold(`${why}, but the exhaust plug is not discovered`);
     const runMs = elapsedSince(exhaust.lastChangeMs, nowMs);
     const withinMinOn = runMs !== null && runMs < config.minOnSeconds * 1000;
     // The book's hard ceiling outranks the minimum on-time; a stuck-on fan is the failure the
@@ -181,12 +193,14 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
     return decide({ kind: 'exhaust', on: false, reason: `${why}${suffix}` });
   }
 
-  // Humidifier: on at the hard ceiling, off back at the week's TARGET. Releasing at the target
-  // rather than the top of band is load-bearing — from grow week 6 on, `band.high` clamps to
-  // exactly AIR_VPD_HARD_MAX, so releasing there would put both thresholds on the same reading
-  // and cycle a mains humidifier every tick. The target is always at least a deadband below it.
+  // Humidifier: on at the hard ceiling, off back at the week's target. Releasing at the top of
+  // band would not work — from grow week 6 on `band.high` clamps to exactly AIR_VPD_HARD_MAX,
+  // putting both thresholds on one reading and cycling a mains humidifier every tick. The
+  // separation floor covers the remaining case the target alone does not: `airVpdOverride` is
+  // free to sit AT the ceiling, which collapses `band.target` onto it too.
   if (!wantExhaust) {
-    const wantHumidify = humidifier.on ? vpd > band.target : vpd >= AIR_VPD_HARD_MAX;
+    const release = Math.min(band.target, AIR_VPD_HARD_MAX - HUMIDIFIER_MIN_SEPARATION_KPA);
+    const wantHumidify = humidifier.on ? vpd > release : vpd >= AIR_VPD_HARD_MAX;
 
     if (wantHumidify && !humidifier.on) {
       const reason = `air VPD ${kpa(vpd)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling`;
@@ -204,7 +218,8 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
     }
 
     if (!wantHumidify && humidifier.on && ownedByLoop(config.rhSource)) {
-      const reason = `air VPD ${kpa(vpd)} back below the ${kpa(band.target)} target`;
+      if (!humidifier.present) return hold(`air VPD ${kpa(vpd)} back below ${kpa(release)}, but the humidifier plug is not discovered`);
+      const reason = `air VPD ${kpa(vpd)} back below the ${kpa(release)} release point`;
       const runMs = elapsedSince(humidifier.lastChangeMs, nowMs);
       if (runMs !== null && runMs < config.minOnSeconds * 1000) {
         return hold(`${reason}, holding out the ${config.minOnSeconds}s minimum on`);

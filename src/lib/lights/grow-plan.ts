@@ -61,30 +61,27 @@ export interface GrowWeek {
  * 2 veg weeks + 8 flower weeks, which is a 1:1 match for this plan's ten. °F converted to °C.
  * PPFD stays as measured for this fixture rather than the book's range.
  */
+/** The book's four climate blocks, named once so correcting a figure is one edit rather than
+ *  five sibling literals with nothing to catch a missed one. */
+const EARLY = { day: { tempC: 28.9, rhPct: 75 }, night: { tempC: 28.9, rhPct: 75 } } as const;
+const BULKING = { day: { tempC: 27.8, rhPct: 70 }, night: { tempC: 21.1, rhPct: 55 } } as const;
+const FADE_EARLY = { day: { tempC: 24.4, rhPct: 62 }, night: { tempC: 18.3, rhPct: 55 } } as const;
+const FADE_LATE = { day: { tempC: 21.1, rhPct: 55 }, night: { tempC: 15.6, rhPct: 40 } } as const;
+
 export const WEEKLY_PLAN: GrowWeek[] = [
   // Veg wk 1-2 and flower wk 1-3: one climate for the whole block, no night differential.
-  { week: 1, stage: 'veg', ppfdTarget: 400, airVpdTarget: 1.0,
-    climateRef: { day: { tempC: 28.9, rhPct: 75 }, night: { tempC: 28.9, rhPct: 75 } } },
-  { week: 2, stage: 'veg', ppfdTarget: 555, airVpdTarget: 1.0,
-    climateRef: { day: { tempC: 28.9, rhPct: 75 }, night: { tempC: 28.9, rhPct: 75 } } },
-  { week: 3, stage: 'flower', ppfdTarget: 925, airVpdTarget: 1.0,
-    climateRef: { day: { tempC: 28.9, rhPct: 75 }, night: { tempC: 28.9, rhPct: 75 } } },
-  { week: 4, stage: 'flower', ppfdTarget: 1020, airVpdTarget: 1.0,
-    climateRef: { day: { tempC: 28.9, rhPct: 75 }, night: { tempC: 28.9, rhPct: 75 } } },
-  { week: 5, stage: 'flower', ppfdTarget: 1080, airVpdTarget: 1.0,
-    climateRef: { day: { tempC: 28.9, rhPct: 75 }, night: { tempC: 28.9, rhPct: 75 } } },
+  { week: 1, stage: 'veg', ppfdTarget: 400, airVpdTarget: 1.0, climateRef: EARLY },
+  { week: 2, stage: 'veg', ppfdTarget: 555, airVpdTarget: 1.0, climateRef: EARLY },
+  { week: 3, stage: 'flower', ppfdTarget: 925, airVpdTarget: 1.0, climateRef: EARLY },
+  { week: 4, stage: 'flower', ppfdTarget: 1020, airVpdTarget: 1.0, climateRef: EARLY },
+  { week: 5, stage: 'flower', ppfdTarget: 1080, airVpdTarget: 1.0, climateRef: EARLY },
   // Bulking: the book opens a 10 °F day/night split here and drops night RH to hold VPD.
-  { week: 6, stage: 'flower', ppfdTarget: 1120, airVpdTarget: 1.1,
-    climateRef: { day: { tempC: 27.8, rhPct: 70 }, night: { tempC: 21.1, rhPct: 55 } } },
-  { week: 7, stage: 'flower', ppfdTarget: 1155, airVpdTarget: 1.1,
-    climateRef: { day: { tempC: 27.8, rhPct: 70 }, night: { tempC: 21.1, rhPct: 55 } } },
-  { week: 8, stage: 'flower', ppfdTarget: 1100, airVpdTarget: 1.1,
-    climateRef: { day: { tempC: 27.8, rhPct: 70 }, night: { tempC: 21.1, rhPct: 55 } } },
+  { week: 6, stage: 'flower', ppfdTarget: 1120, airVpdTarget: 1.1, climateRef: BULKING },
+  { week: 7, stage: 'flower', ppfdTarget: 1155, airVpdTarget: 1.1, climateRef: BULKING },
+  { week: 8, stage: 'flower', ppfdTarget: 1100, airVpdTarget: 1.1, climateRef: BULKING },
   // Fade. The book gives 1.1-1.2 for these; 1.15 is its midpoint, and the band clamps at 1.2.
-  { week: 9, stage: 'ripen', ppfdTarget: 1000, airVpdTarget: 1.15,
-    climateRef: { day: { tempC: 24.4, rhPct: 62 }, night: { tempC: 18.3, rhPct: 55 } } },
-  { week: 10, stage: 'ripen', ppfdTarget: 925, airVpdTarget: 1.15,
-    climateRef: { day: { tempC: 21.1, rhPct: 55 }, night: { tempC: 15.6, rhPct: 40 } } }
+  { week: 9, stage: 'ripen', ppfdTarget: 1000, airVpdTarget: 1.15, climateRef: FADE_EARLY },
+  { week: 10, stage: 'ripen', ppfdTarget: 925, airVpdTarget: 1.15, climateRef: FADE_LATE }
 ];
 
 /** Hard rails for the whole grow, CCI Black Book p.61: "never let the VPD dip below .8 during the

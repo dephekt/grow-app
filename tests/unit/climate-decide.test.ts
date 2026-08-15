@@ -92,6 +92,24 @@ describe('decideClimate — fail-safe', () => {
     expect(d.action.kind).toBe('hold');
     expect(d.action.reason).toContain('not discovered');
   });
+
+  it('will not command OFF a plug it has judged uncommandable either', () => {
+    // An offline plug still reports its last retained relay position, so the release leg needs
+    // the same presence guard the start leg has.
+    const d = decideClimate(input({ airVpd: 1.15, exhaust: { present: false, on: true } }));
+    expect(d.action.kind).toBe('hold');
+    expect(d.action.reason).toContain('not discovered');
+  });
+});
+
+describe('decideClimate — reason text', () => {
+  it('distinguishes above-band from in-band when the fan is already off', () => {
+    // With the fan off, "not below the floor" covers both; collapsing them would have the log
+    // and the /climate verdict row claim the tent is in band while it sits over the ceiling.
+    expect(decideClimate(input({ airVpd: 1.0 })).action.reason).toContain('inside the');
+    expect(decideClimate(input({ airVpd: 1.19 })).action.reason).toContain('above the 1.10 top of band');
+    expect(decideClimate(input({ airVpd: 0.85, room: null })).action.reason).toContain('below the 0.90 floor');
+  });
 });
 
 describe('decideClimate — hysteresis', () => {
@@ -303,6 +321,30 @@ describe('decideClimate — humidifier', () => {
     expect(at(1.2, true).kind).toBe('hold');
     expect(at(1.15, true).kind).toBe('hold');
     expect(at(1.1, true)).toMatchObject({ kind: 'humidify', on: false });
+  });
+
+  it('keeps engage and release apart even when an override sits ON the hard ceiling', () => {
+    // store.ts permits airVpdOverride up to 2.0 and controlBand clamps it to the ceiling, so
+    // band.target can equal AIR_VPD_HARD_MAX and collapse onto the engage point.
+    const atCeiling = controlBand(AIR_VPD_HARD_MAX, 0.1);
+    expect(atCeiling.target).toBe(AIR_VPD_HARD_MAX);
+
+    const at = (airVpd: number, on: boolean) =>
+      decideClimate({
+        ...input({ airVpd, config: loopRh, humidifier: { present: true, on } }),
+        band: atCeiling
+      }).action;
+
+    expect(at(1.2, false)).toMatchObject({ kind: 'humidify', on: true });
+    // Still on at the engage point, so the two thresholds are genuinely separated.
+    expect(at(1.2, true).kind).toBe('hold');
+    expect(at(1.15, true)).toMatchObject({ kind: 'humidify', on: false });
+  });
+
+  it('will not command OFF a humidifier plug that is not discovered', () => {
+    const d = decideClimate(input({ airVpd: 0.95, config: loopRh, humidifier: { present: false, on: true } }));
+    expect(d.action.kind).toBe('hold');
+    expect(d.action.reason).toContain('not discovered');
   });
 
   it('serves min-off before re-engaging and min-on before releasing', () => {
