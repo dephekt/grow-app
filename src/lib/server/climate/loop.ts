@@ -9,7 +9,7 @@ import { resolveGrowState } from '$lib/lights/grow-plan';
 import { controlBand, type ClimateConfig, type ControlBand } from '$lib/climate/model';
 import { decideClimate, type ClimateAction, type ClimateDecision, type ClimateDecisionInput } from '$lib/climate/decide';
 import { resolveClimateInputs, type ClimateInputs } from '$lib/climate/inputs';
-import { ventedAirVpdKpa } from '$lib/climate/psychro';
+import { airVpdKpa, ventedAirVpdKpa, type AirState } from '$lib/climate/psychro';
 import { RollingMedian } from '$lib/climate/smoothing';
 import { getClimateDb } from './db';
 import { getClimateConfig, recordClimateEvent } from './store';
@@ -21,15 +21,14 @@ const SMOOTHING_WINDOW_MS = 5 * 60 * 1000;
 /** A quiet loop still says so on this cadence, so a gap in the log means an outage. */
 const HEARTBEAT_MS = 15 * 60 * 1000;
 
-/** Cross-tick state: the smoothing windows, when each relay last moved, and what was last
- *  logged. Held in memory because all of it is re-derivable and a restart should just resume. */
+/** Cross-tick state, held in memory because all of it is re-derivable on restart. */
 export class ClimateLoopState {
-  readonly airVpd = new RollingMedian(SMOOTHING_WINDOW_MS);
-  /** Smoothed for the same reason air VPD is, and more urgently: the temperature limits
-   *  outrank VPD and bypass both the minimum-off and the futility gate. */
+  /** The MEASUREMENTS are smoothed and everything else derived from them, so a logged row can
+   *  be replayed. */
   readonly tentTempC = new RollingMedian(SMOOTHING_WINDOW_MS);
-  /** Smoothed too, since one bad room sample would otherwise refuse a needed start. */
-  readonly ventedAirVpd = new RollingMedian(SMOOTHING_WINDOW_MS);
+  readonly tentRhPct = new RollingMedian(SMOOTHING_WINDOW_MS);
+  readonly roomTempC = new RollingMedian(SMOOTHING_WINDOW_MS);
+  readonly roomRhPct = new RollingMedian(SMOOTHING_WINDOW_MS);
   exhaustOn: boolean | null = null;
   exhaustChangedMs: number | null = null;
   humidifierOn: boolean | null = null;
@@ -44,8 +43,7 @@ export class ClimateLoopState {
     humidifier: { present: boolean; on: boolean },
     nowMs: number
   ): void {
-    // An undiscovered plug reads OFF from switchIsOn, which is absence, not a position; taking
-    // it as one makes the first discovery after a restart look like a transition.
+    // An undiscovered plug reads OFF, which is absence, not a position.
     if (exhaust.present && this.exhaustOn !== exhaust.on) {
       // A cold start is not a transition, so the stamp stays null and the first action goes.
       if (this.exhaustOn !== null) this.exhaustChangedMs = nowMs;
@@ -72,8 +70,8 @@ export class ClimateLoopState {
   }
 }
 
-/** Dedup identity: the kind, plus the reason with its live numbers blanked out. The reason has
- *  to be in there because `hold` covers outcomes that are nothing alike, including failing safe. */
+/** Dedup identity: the kind plus the reason with its numbers blanked, since `hold` covers
+ *  outcomes as unalike as in-band and failing safe. */
 function logKey(action: ClimateAction): string {
   const shape = action.reason.replace(/[\d.]+/g, '#');
   switch (action.kind) {
@@ -91,22 +89,28 @@ function logKey(action: ClimateAction): string {
 /** Feed this tick's readings into the smoothing windows. The loop calls this; readers do not,
  *  so a page refresh cannot advance the state the loop decides on. */
 export function updateClimateSmoothing(state: ClimateLoopState, inputs: ClimateInputs, nowMs: number): void {
-  if (inputs.airVpd === null) state.airVpd.reset();
-  else state.airVpd.push(inputs.airVpd, nowMs);
-
-  if (inputs.tent === null) state.tentTempC.reset();
-  else state.tentTempC.push(inputs.tent.tempC, nowMs);
-
-  if (inputs.room === null) state.ventedAirVpd.reset();
-  else state.ventedAirVpd.push(ventedAirVpdKpa(inputs.room, inputs.lightsOn), nowMs);
+  pushAir(state.tentTempC, state.tentRhPct, inputs.tent, nowMs);
+  pushAir(state.roomTempC, state.roomRhPct, inputs.room, nowMs);
 }
 
-/**
- * Assemble the control law's input from a snapshot and the smoothing state.
- *
- * Shared with /api/climate so the page previews the decision the loop actually reaches; two
- * copies drifted apart within one review round last time.
- */
+function pushAir(t: RollingMedian, h: RollingMedian, live: AirState | null, nowMs: number): void {
+  if (live === null) {
+    t.reset();
+    h.reset();
+    return;
+  }
+  t.push(live.tempC, nowMs);
+  h.push(live.rhPct, nowMs);
+}
+
+/** The smoothed pair, or null when there is no live reading — a window must never outlive its
+ *  sensor. */
+function smoothedAir(t: RollingMedian, h: RollingMedian, live: AirState | null, nowMs: number): AirState | null {
+  if (live === null) return null;
+  return { tempC: t.value(nowMs) ?? live.tempC, rhPct: h.value(nowMs) ?? live.rhPct };
+}
+
+/** Shared with /api/climate so the page previews the decision the loop actually reaches. */
 export function buildDecisionInput(
   inputs: ClimateInputs,
   state: ClimateLoopState,
@@ -114,19 +118,17 @@ export function buildDecisionInput(
   band: ControlBand,
   nowMs: number
 ): ClimateDecisionInput {
-  // Null whenever there is no live reading, even if the window still holds one: a pre-failure
-  // median would skip the fail-safe and evaluate both temperature limits as false.
-  const airVpd = inputs.airVpd === null ? null : (state.airVpd.value(nowMs) ?? inputs.airVpd);
-  const smoothedTempC = state.tentTempC.value(nowMs);
-  const tent = inputs.tent === null || smoothedTempC === null ? inputs.tent : { ...inputs.tent, tempC: smoothedTempC };
-  const ventedAirVpd =
-    inputs.room === null ? null : (state.ventedAirVpd.value(nowMs) ?? ventedAirVpdKpa(inputs.room, inputs.lightsOn));
+  const tent = smoothedAir(state.tentTempC, state.tentRhPct, inputs.tent, nowMs);
+  const room = smoothedAir(state.roomTempC, state.roomRhPct, inputs.room, nowMs);
+  // Derived, so airVpdKpa(logged tent pair) === logged air_vpd exactly.
+  const airVpd = tent === null ? null : airVpdKpa(tent.tempC, tent.rhPct);
+  const ventedAirVpd = room === null ? null : ventedAirVpdKpa(room, inputs.lightsOn);
 
   return {
     nowMs,
     config,
     band,
-    reading: { tent, room: inputs.room, airVpd, ventedAirVpd, leafVpd: inputs.leafVpd, lightsOn: inputs.lightsOn },
+    reading: { tent, room, airVpd, ventedAirVpd, leafVpd: inputs.leafVpd, lightsOn: inputs.lightsOn },
     exhaust: { present: inputs.exhaust.present, on: inputs.exhaust.on, lastChangeMs: state.exhaustChangedMs },
     humidifier: {
       present: inputs.humidifier.present,
@@ -177,16 +179,14 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
   const reconciled: string[] = [];
   let publishError: string | null = null;
 
-  // Armed but unreachable, recorded explicitly: the row would otherwise be indistinguishable
-  // from an observe-mode dry run, and an outage would read as a deliberate one.
+  // Recorded explicitly, or an outage reads as a deliberate dry run.
   const wouldPublish = action.kind === 'exhaust' || action.kind === 'humidify' || decision.reconcileArms.length > 0;
   if (config.mode === 'active' && !canPublish() && wouldPublish) {
     publishError = 'broker not connected';
   }
 
   if (config.mode === 'active' && canPublish()) {
-    // Caught, not thrown: unwinding here would skip the log at exactly the tick that failed to
-    // move the relay.
+    // Caught, or the log skips exactly the tick that failed to move the relay.
     try {
       for (const objectId of decision.reconcileArms) {
         const arm = inputs.arms.find((a) => a.objectId === objectId);
@@ -207,8 +207,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
     }
   }
 
-  // Both join the reason AND the dedup key, so a firmware arm the loop fights every 30 s cannot
-  // read as a silent loop.
+  // Both join the dedup key, so an arm the loop fights every 30 s is not a silent loop.
   const notes = [
     reconciled.length > 0 ? `disarmed ${reconciled.join(', ')}` : null,
     publishError ? `publish failed: ${publishError}` : null
@@ -221,19 +220,18 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
       ts: new Date(nowMs).toISOString(),
       action: logged,
       mode: config.mode,
-      // Strictly whether THIS action reached the broker: a successful arm disarm followed by a
-      // failed relay publish must not render as "exhaust ON" on a row that says it failed.
+      // Strictly whether THIS action reached the broker.
       published,
       airVpd: decisionInput.reading.airVpd,
       leafVpd: inputs.leafVpd,
       target,
       bandLow: band.low,
       bandHigh: band.high,
-      // The smoothed values, because those are the ones the verdict was reached on.
+      // The smoothed pairs the verdict was reached on, so the row can be replayed.
       tentTempC: decisionInput.reading.tent?.tempC ?? null,
       tentRhPct: decisionInput.reading.tent?.rhPct ?? null,
-      roomTempC: inputs.room?.tempC ?? null,
-      roomRhPct: inputs.room?.rhPct ?? null,
+      roomTempC: decisionInput.reading.room?.tempC ?? null,
+      roomRhPct: decisionInput.reading.room?.rhPct ?? null,
       lightsOn: inputs.lightsOn
     });
     state.markLogged(logged, nowMs, notes.join('|'));

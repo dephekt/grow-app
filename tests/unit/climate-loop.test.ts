@@ -7,6 +7,7 @@ import { openClimateDb } from '../../src/lib/server/climate/db';
 import { listClimateEvents, updateClimateConfig } from '../../src/lib/server/climate/store';
 import { ClimateLoopState, runClimateTick } from '../../src/lib/server/climate/loop';
 import { EXHAUST_NODE } from '../../src/lib/climate/model';
+import { airVpdKpa } from '../../src/lib/climate/psychro';
 import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
 
 const RIG = 'atoms3u-sensor-rig';
@@ -213,10 +214,26 @@ describe('runClimateTick', () => {
 
   it('clears the smoothing window when the input goes away, so it cannot outlive the sensor', async () => {
     const state = new ClimateLoopState();
-    await runClimateTick(deps(WANTS_VENT, state));
-    expect(state.airVpd.value(NOW)).not.toBeNull();
-    await runClimateTick(deps({ ...WANTS_VENT, rig_t: '' }, state, NOW + 30_000));
-    expect(state.airVpd.value(NOW + 30_000)).toBeNull();
+    const first = await runClimateTick(deps(WANTS_VENT, state));
+    expect(first.decisionInput.reading.airVpd).not.toBeNull();
+    expect(state.tentTempC.value(NOW)).not.toBeNull();
+
+    const second = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '' }, state, NOW + 30_000));
+    expect(second.decisionInput.reading.airVpd).toBeNull();
+    expect(state.tentTempC.value(NOW + 30_000)).toBeNull();
+  });
+
+  it('logs a row that replays exactly: airVpdKpa(logged tent pair) === logged airVpd', async () => {
+    // The pair and the VPD used to be smoothed independently, so the audit row could not be
+    // used to reconstruct the decision it recorded.
+    const state = new ClimateLoopState();
+    await runClimateTick(deps(WANTS_VENT, state, NOW));
+    await runClimateTick(deps({ ...WANTS_VENT, rig_t: '29.9', rig_h: '77.0' }, state, NOW + 30_000));
+
+    for (const row of listClimateEvents(db)) {
+      if (row.tentTempC === null || row.tentRhPct === null || row.airVpd === null) continue;
+      expect(airVpdKpa(row.tentTempC, row.tentRhPct)).toBeCloseTo(row.airVpd, 9);
+    }
   });
 
   it('still records the decision when the publish fails', async () => {

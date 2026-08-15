@@ -8,25 +8,24 @@ import { openMigratedDb } from '$lib/server/db/migrate';
 // Append-only: index +1 is the `PRAGMA user_version`, so never edit an existing entry.
 // Exported so a test can stand a database up at an older version and drive one migration.
 export const MIGRATIONS: string[] = [
-  // 1 — single-row loop config, and the audit log of what it decided and why. The config row
-  // is seeded here so every read has a row to find and defaults live in exactly one place.
+  // 1 — single-row loop config, and the audit log of what it decided and why. No column
+  // DEFAULTs and no seed row: DEFAULT_CLIMATE_CONFIG is the single source, getClimateConfig
+  // returns it when the row is absent, and updateClimateConfig upserts every column.
   `
   CREATE TABLE climate_config (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    mode TEXT NOT NULL DEFAULT 'observe',
-    exhaust_source TEXT NOT NULL DEFAULT 'firmware',
-    rh_source TEXT NOT NULL DEFAULT 'external',
-    deadband_kpa REAL NOT NULL DEFAULT 0.10,
-    min_on_seconds INTEGER NOT NULL DEFAULT 120,
-    min_off_seconds INTEGER NOT NULL DEFAULT 300,
-    min_gain_kpa REAL NOT NULL DEFAULT 0.05,
-    vent_always_above_c REAL NOT NULL DEFAULT 31,
-    vent_never_below_c REAL NOT NULL DEFAULT 20,
+    mode TEXT NOT NULL,
+    exhaust_source TEXT NOT NULL,
+    rh_source TEXT NOT NULL,
+    deadband_kpa REAL NOT NULL,
+    min_on_seconds INTEGER NOT NULL,
+    min_off_seconds INTEGER NOT NULL,
+    min_gain_kpa REAL NOT NULL,
+    vent_always_above_c REAL NOT NULL,
+    vent_never_below_c REAL NOT NULL,
     air_vpd_override REAL,
     updated_at TEXT NOT NULL
   );
-
-  INSERT INTO climate_config (id, updated_at) VALUES (1, '1970-01-01T00:00:00.000Z');
 
   CREATE TABLE climate_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -13,13 +13,8 @@ import { decideClimate } from '$lib/climate/decide';
 import { resolveClimateInputs } from '$lib/climate/inputs';
 import { resolveGrowState } from '$lib/lights/grow-plan';
 
-/**
- * Config, week and the resolved band — a SQLite read and some arithmetic, nothing else.
- *
- * Split out because the dashboard needs only the effective target, and it is the most-loaded
- * route in the app: making it walk the entity list and evaluate the control law on every SSR
- * render and client navigation would be a real cost for two scalars.
- */
+/** Config, week and band — a SQLite read and arithmetic, so the dashboard is not made to walk
+ *  the entity list and run the control law for two scalars. */
 function planState() {
   const db = getClimateDb();
   const config = getClimateConfig(db);
@@ -40,18 +35,13 @@ function planState() {
 
 export type ClimateBriefState = Omit<ReturnType<typeof planState>, 'now' | 'grow'>;
 
-/**
- * Live loop state: the same inputs, band and verdict the timer is working from, recomputed on
- * read so the page never has to guess. The decision here is a preview — it publishes nothing.
- */
+/** The inputs, band and verdict the timer is working from; a preview that publishes nothing. */
 function liveState() {
   const { config, now, grow, band, week, stage, planTarget, climateRef } = planState();
 
   const inputs = resolveClimateInputs(getSiteMqttService().snapshot(), now.getTime());
   const state = getClimateLoopState();
-  // Built by the loop's own assembler, never a second copy of it: the page's whole claim is
-  // that it shows the verdict the loop reaches. Deliberately does NOT push into the smoothing
-  // windows — a page refresh must not advance the state the loop decides on.
+  // The loop's own assembler, and read-only: a page refresh must not advance its state.
   const decisionInput = buildDecisionInput(inputs, state, config, band, now.getTime());
   const decision = decideClimate(decisionInput);
 

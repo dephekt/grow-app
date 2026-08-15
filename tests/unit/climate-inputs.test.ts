@@ -258,6 +258,30 @@ describe('resolveClimateInputs', () => {
     expect(inputs.room).toEqual({ tempC: 25.02, rhPct: 61.4 });
   });
 
+  it('picks the room reference deterministically when two exist', () => {
+    // A bare .find() would bind whichever entity happened to sort first in discovery order,
+    // silently switching the futility gate's input between restarts.
+    const spare = makeEntity('spare-feather', {
+      id: 'spare_t',
+      name: 'Ext Temperature',
+      objectId: 'ext_temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    const spareRh = makeEntity('spare-feather', {
+      id: 'spare_h',
+      name: 'Ext Humidity',
+      objectId: 'ext_humidity',
+      deviceClass: 'humidity',
+      unit: '%'
+    });
+    const values = { ...LIVE_VALUES, spare_t: '30.0', spare_h: '20.0' };
+    const forward = resolveClimateInputs(makeSnapshot([...fullFleet(), spare, spareRh], values), NOW);
+    const reversed = resolveClimateInputs(makeSnapshot([spare, spareRh, ...fullFleet()], values), NOW);
+    expect(forward.roomNode).toBe(reversed.roomNode);
+    expect(forward.room).toEqual(reversed.room);
+  });
+
   it('never takes a daily-max aggregate as the room reference', () => {
     const withDailyMax = [
       makeEntity(ROOM, {

@@ -9,15 +9,8 @@ import type { SubstrateProbeBinding, SubstrateZoneBinding } from '$lib/substrate
  */
 const ZONES_TIMEOUT_MS = 3000;
 
-/**
- * The dashboard's server-backed reads: the zone→probe bindings the SUBSTRATE card needs to pick
- * a calibration curve, and the climate loop's EFFECTIVE air-VPD target.
- *
- * The target is fetched rather than resolved from WEEKLY_PLAN client-side because an operator
- * can override it on /climate; deriving it here would show the plan's figure while the loop
- * regulated a different one. Null when unavailable, and the card then omits the row rather than
- * guessing.
- */
+/** The dashboard's server-backed reads: zone→probe bindings for the SUBSTRATE card, and the
+ *  loop's EFFECTIVE air-VPD target, which an override on /climate can move off the plan. */
 export const load = async ({ fetch }) => {
   const empty: SubstrateZoneBinding[] = [];
   const noProbes: SubstrateProbeBinding[] = [];

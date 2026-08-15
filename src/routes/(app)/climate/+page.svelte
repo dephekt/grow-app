@@ -31,27 +31,27 @@
     return () => clearInterval(timer);
   });
 
-  // Monotonic, so a poll issued before a save cannot land after it and revert the controls.
-  let latestRequest = 0;
-
-  function accept(seq: number, next: ClimateLiveState): void {
-    if (seq < latestRequest) return;
-    latestRequest = seq;
-    climate = next;
-  }
+  /** Bumped by every save. A poll that straddles one is discarded rather than ordered against
+   *  it: ordering by issue time let a later-issued poll win with pre-save data. */
+  let saveGeneration = 0;
 
   async function refresh(): Promise<void> {
-    const seq = ++latestRequest;
+    if (saving) return;
+    const gen = saveGeneration;
     try {
       const res = await fetch('/api/climate');
-      if (res.ok) accept(seq, (await res.json()) as ClimateLiveState);
+      if (!res.ok) return;
+      const next = (await res.json()) as ClimateLiveState;
+      if (gen !== saveGeneration || saving) return;
+      climate = next;
+      if (logOffset === 0) await loadEvents(0);
     } catch {
       // A dropped poll is not worth surfacing; the next one recovers.
     }
   }
 
   async function patch(body: Record<string, unknown>): Promise<void> {
-    const seq = ++latestRequest;
+    const gen = ++saveGeneration;
     saving = true;
     error = '';
     try {
@@ -65,7 +65,8 @@
         error = json.error ?? 'Could not save';
         return;
       }
-      accept(seq, json);
+      // A newer save supersedes this one.
+      if (gen === saveGeneration) climate = json;
     } catch (e) {
       error = e instanceof Error ? e.message : 'Could not save';
     } finally {
@@ -90,6 +91,9 @@
     void patch({ [key]: n });
   }
 
+  /** Page 1 only while polling, so paging back through history is not yanked to the top. */
+  let logOffset = $state(0);
+
   async function loadEvents(offset: number): Promise<boolean> {
     try {
       const res = await fetch(`/api/climate/events?limit=${LOG_PAGE_SIZE}&offset=${offset}&anchorId=${eventAnchorId}`);
@@ -98,6 +102,7 @@
       events = body.events ?? [];
       if (Number.isInteger(body.total)) eventTotal = body.total as number;
       if (Number.isSafeInteger(body.anchorId)) eventAnchorId = body.anchorId as number;
+      logOffset = offset;
       return true;
     } catch {
       return false;

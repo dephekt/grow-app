@@ -2,6 +2,7 @@
 <!-- Copyright (C) 2026 Daniel Snider -->
 
 <script lang="ts">
+  import { onMount, untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import {
     findQuantumPpfdEntity,
@@ -76,16 +77,32 @@
     return { label: 'Leaf VPD', value, status: 'ok' };
   });
 
-  // The climate loop's EFFECTIVE target, so the card says what the reading above it is aiming
-  // at. Comes from the server (see +page.ts) because an override on /climate would otherwise
-  // make this row contradict the loop it is describing.
+  // From the server, since an override on /climate moves it off the plan.
+  let climateTarget = $state<{ airVpdTarget: number; week: number } | null>(untrack(() => data.climate));
+
+  // Re-fetched because the dashboard is long-lived and a week rollover would strand it.
+  onMount(() => {
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch('/api/climate?brief=1');
+        if (!res.ok) return;
+        const body = (await res.json()) as { band?: { target?: number }; week?: number };
+        if (typeof body.band?.target === 'number' && typeof body.week === 'number') {
+          climateTarget = { airVpdTarget: body.band.target, week: body.week };
+        }
+      } catch {
+        // Keeps the last good value; the next tick recovers.
+      }
+    }, 300_000);
+    return () => clearInterval(timer);
+  });
+
   let vpdTargetRow = $derived.by<Row | null>(() => {
-    if (!data.climate) return null;
-    const air = live.snapshot.entities.find(isAirVpd);
-    if (!air) return null;
+    if (!climateTarget) return null;
+    if (!live.snapshot.entities.some(isAirVpd)) return null;
     return {
       label: 'VPD target',
-      value: `${data.climate.airVpdTarget.toFixed(2)} kPa · wk ${data.climate.week}`,
+      value: `${climateTarget.airVpdTarget.toFixed(2)} kPa · wk ${climateTarget.week}`,
       status: 'none'
     };
   });

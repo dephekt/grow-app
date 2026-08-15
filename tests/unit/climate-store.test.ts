@@ -205,12 +205,20 @@ describe('RollingMedian', () => {
     expect(m.value(0)).toBeNull();
   });
 
-  it('prunes on READ, so a reader that never pushes cannot be served a stale median', () => {
-    // /api/climate reads without pushing; if the loop stops ticking the page must not go on
-    // showing an hours-old value as the live smoothed reading.
+  it('windows on READ, so a reader that never pushes cannot be served a stale median', () => {
     const m = new RollingMedian(10_000);
     m.push(1, 0);
     expect(m.value(5_000)).toBe(1);
     expect(m.value(60_000)).toBeNull();
+  });
+
+  it('does not MUTATE on read — /api/climate reads the loop’s shared singleton', () => {
+    // A read at a skewed or stale clock must not delete the samples the loop just pushed.
+    const m = new RollingMedian(10_000);
+    m.push(1, 5_000);
+    expect(m.value(0)).toBeNull();
+    expect(m.value(60_000)).toBeNull();
+    expect(m.value(5_000)).toBe(1);
+    expect(m.size).toBe(1);
   });
 });

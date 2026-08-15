@@ -110,9 +110,11 @@ export function resolveClimateInputs(snapshot: Snapshot, nowMs: number): Climate
 
   const tent = airStateFrom(snapshot, onTent(isAmbientTemperature), onTent(isHumidity), nowMs);
 
-  // The room pair is matched by the external-reference guard rather than a hardcoded node, so
-  // renaming or replacing the feather does not silently drop the loop's room input.
-  const roomTemp = snapshot.entities.find(isExternalTemperature);
+  // Matched by the external-reference guard rather than a hardcoded node, but sorted before
+  // picking so a second outside sensor cannot switch the gate's input between restarts.
+  const roomTemp = snapshot.entities
+    .filter(isExternalTemperature)
+    .sort((a, b) => `${entityNodeKey(a)}/${a.objectId}`.localeCompare(`${entityNodeKey(b)}/${b.objectId}`))[0];
   const roomNode = roomTemp ? entityNodeKey(roomTemp) : null;
   const roomHumidity = roomNode
     ? snapshot.entities.find((e) => isExternalHumidity(e) && entityNodeKey(e) === roomNode)

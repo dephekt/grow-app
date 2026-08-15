@@ -14,14 +14,13 @@ export type ActuatorSource = 'loop' | 'firmware' | 'external' | 'none';
 
 export const CLIMATE_MODES: ClimateMode[] = ['off', 'observe', 'active'];
 
-/** The exhaust plug, and the arms baked into its firmware that would otherwise fight the loop.
- *  Read off the plug registry rather than restated: a second copy of these objectIds would let
- *  a firmware rename land in one place and leave the loop reconciling an arm that no longer
- *  resolves — silently, since an unresolved arm is simply filtered out. */
+/** Read off the plug registry, and thrown on rather than defaulted: a fallback would let a
+ *  rename leave the loop silently reconciling arms that no longer resolve. */
 const EXHAUST_SPEC = PLUGS.find((plug) => plug.node === EXHAUST_NODE);
+if (!EXHAUST_SPEC?.relay) throw new Error(`plug registry has no relay for ${EXHAUST_NODE}`);
 
-export const EXHAUST_RELAY = EXHAUST_SPEC?.relay ?? 'exhaust_fan';
-export const EXHAUST_ARMS: readonly string[] = (EXHAUST_SPEC?.arms ?? []).map((arm) => arm.objectId);
+export const EXHAUST_RELAY = EXHAUST_SPEC.relay;
+export const EXHAUST_ARMS: readonly string[] = (EXHAUST_SPEC.arms ?? []).map((arm) => arm.objectId);
 
 export { EXHAUST_NODE };
 

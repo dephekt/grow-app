@@ -56,7 +56,18 @@ export function getClimateConfig(db: DatabaseSync): ClimateConfig {
 
 export class ClimateConfigError extends Error {}
 
-const NUMERIC_BOUNDS: Record<string, { min: number; max: number }> = {
+type NumericKey =
+  | 'deadbandKpa'
+  | 'minOnSeconds'
+  | 'minOffSeconds'
+  | 'minGainKpa'
+  | 'ventAlwaysAboveC'
+  | 'ventNeverBelowC'
+  | 'airVpdOverride';
+
+/** Keyed to the union, so adding a numeric field without its bounds is a compile error rather
+ *  than a raw TypeError that escapes the route's ClimateConfigError handler as a 500. */
+const NUMERIC_BOUNDS: Record<NumericKey, { min: number; max: number }> = {
   deadbandKpa: { min: 0.01, max: 0.4 },
   minOnSeconds: { min: 0, max: 3600 },
   minOffSeconds: { min: 0, max: 3600 },
@@ -68,7 +79,7 @@ const NUMERIC_BOUNDS: Record<string, { min: number; max: number }> = {
   airVpdOverride: { min: AIR_VPD_HARD_MIN, max: AIR_VPD_HARD_MAX }
 };
 
-function checkNumber(key: string, value: number): number {
+function checkNumber(key: NumericKey, value: number): number {
   const bounds = NUMERIC_BOUNDS[key];
   if (!Number.isFinite(value)) throw new ClimateConfigError(`${key} must be a number`);
   if (value < bounds.min || value > bounds.max) {
@@ -116,10 +127,8 @@ export function updateClimateConfig(
     throw new ClimateConfigError('ventNeverBelowC must be below ventAlwaysAboveC');
   }
 
-  // Upsert rather than UPDATE ... WHERE id = 1: if the singleton row is ever missing (a DB
-  // restored from a partial copy), the UPDATE would match nothing while this function still
-  // returned `next`, and the PATCH response — re-read from the DB — would silently contradict
-  // it, flipping the toggle back in the UI with no error.
+  // Upsert, because an UPDATE against a missing singleton row would report success and then be
+  // contradicted by the PATCH response re-reading the DB.
   db.prepare(
     `INSERT INTO climate_config
        (id, mode, exhaust_source, rh_source, deadband_kpa, min_on_seconds, min_off_seconds,
