@@ -33,7 +33,6 @@ const LIVE_STATE = {
   tent: { tempC: 27.18, rhPct: 63.5 },
   room: { tempC: 25.02, rhPct: 61.4 },
   airVpd: 1.32,
-  instantAirVpd: 1.32,
   leafVpd: 1.04,
   lightsOn: true,
   tentNode: 'atoms3u-sensor-rig',

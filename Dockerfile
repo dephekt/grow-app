@@ -37,6 +37,7 @@ ENV GROW_AUTH_DB=/data/auth.db
 ENV GROW_IRRIGATION_DB=/data/irrigation.db
 ENV GROW_SETTINGS_DB=/data/settings.db
 ENV GROW_SPECTRUM_DB=/data/spectrum.db
+ENV GROW_CLIMATE_DB=/data/climate.db
 
 WORKDIR /app
 

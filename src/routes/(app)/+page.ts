@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import type { SubstrateProbeBinding, SubstrateZoneBinding } from '$lib/substrate';
+import type { ClimateBriefState } from '../api/climate/+server';
 
 /**
  * How long the dashboard will wait for the zone bindings before rendering without them;
@@ -35,7 +36,7 @@ export const load = async ({ fetch }) => {
       // evaluation to print two scalars.
       const response = await fetch('/api/climate?brief=1', { signal: AbortSignal.timeout(ZONES_TIMEOUT_MS) });
       if (!response.ok) return null;
-      const body = (await response.json()) as { band?: { target?: number }; week?: number };
+      const body = (await response.json()) as Partial<ClimateBriefState>;
       const target = body.band?.target;
       if (typeof target !== 'number' || typeof body.week !== 'number') return null;
       return { airVpdTarget: target, week: body.week };

@@ -13,6 +13,7 @@
     resolveWaterDevice
   } from '$lib/entity-match';
   import { liveLeafVpd } from '$lib/vpd';
+  import type { ClimateBriefState } from '../api/climate/+server';
   import { formatEntityState } from '$lib/state-format';
   import { presentedNumericMetrics } from '$lib/device-presentation';
   import type { DeviceSnapshot, EntityConfig } from '$lib/server/mqtt/types';
@@ -86,7 +87,7 @@
       try {
         const res = await fetch('/api/climate?brief=1');
         if (!res.ok) return;
-        const body = (await res.json()) as { band?: { target?: number }; week?: number };
+        const body = (await res.json()) as Partial<ClimateBriefState>;
         if (typeof body.band?.target === 'number' && typeof body.week === 'number') {
           climateTarget = { airVpdTarget: body.band.target, week: body.week };
         }

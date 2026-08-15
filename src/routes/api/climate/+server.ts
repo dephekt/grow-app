@@ -52,10 +52,10 @@ function liveState() {
     stage,
     planTarget,
     climateRef,
+    // Both smoothed, so the AIR table and the vented prediction below it are the same reading.
     tent: decisionInput.reading.tent,
-    room: inputs.room,
+    room: decisionInput.reading.room,
     airVpd: decisionInput.reading.airVpd,
-    instantAirVpd: inputs.airVpd,
     leafVpd: inputs.leafVpd,
     lightsOn: inputs.lightsOn,
     tentNode: inputs.tentNode,
