@@ -6,13 +6,14 @@ import type { DatabaseSync } from 'node:sqlite';
 import { openClimateDb } from '../../src/lib/server/climate/db';
 import { listClimateEvents, updateClimateConfig } from '../../src/lib/server/climate/store';
 import {
+  buildDecisionInput,
   ClimateLoopState,
   MIN_SMOOTHING_SAMPLES,
   runClimateTick,
   updateClimateSmoothing
 } from '../../src/lib/server/climate/loop';
 import { resolveClimateInputs } from '../../src/lib/climate/inputs';
-import { EXHAUST_NODE } from '../../src/lib/climate/model';
+import { controlBand, DEFAULT_CLIMATE_CONFIG, EXHAUST_NODE } from '../../src/lib/climate/model';
 import { airVpdKpa } from '../../src/lib/climate/psychro';
 import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
 
@@ -143,6 +144,48 @@ function warmed(values: Record<string, string>, nowMs = NOW, entities?: EntityCo
   }
   return state;
 }
+
+const BAND = controlBand(1.0, DEFAULT_CLIMATE_CONFIG.deadbandKpa);
+
+describe('buildDecisionInput — the two windows', () => {
+  /** RH falling 79 → 67 over five minutes: a vent run, which is when the windows diverge. */
+  function ramped(): ClimateLoopState {
+    const state = new ClimateLoopState();
+    const rh = [79.1, 76.7, 74.3, 71.9, 69.5, 67.1];
+    rh.forEach((h, i) => {
+      const at = NOW - (rh.length - 1 - i) * 60_000;
+      updateClimateSmoothing(state, resolveClimateInputs(snapshotWith({ ...WANTS_VENT, rig_h: String(h) }), at), at);
+    });
+    return state;
+  }
+
+  it('reports a fast reading ahead of the median while VPD is climbing', () => {
+    const state = ramped();
+    const inputs = resolveClimateInputs(snapshotWith({ ...WANTS_VENT, rig_h: '67.1' }), NOW);
+    const built = buildDecisionInput(inputs, state, DEFAULT_CLIMATE_CONFIG, BAND, NOW);
+
+    expect(built.reading.airVpd).not.toBeNull();
+    expect(built.reading.airVpdFast).not.toBeNull();
+    // The whole point: on a rising leg the short window is nearer the tent than the median.
+    expect(built.reading.airVpdFast!).toBeGreaterThan(built.reading.airVpd!);
+  });
+
+  it('agrees with the median once the tent settles', () => {
+    const state = new ClimateLoopState();
+    for (let i = 5; i >= 0; i--) {
+      const at = NOW - i * 60_000;
+      updateClimateSmoothing(state, resolveClimateInputs(snapshotWith(WANTS_VENT), at), at);
+    }
+    const built = buildDecisionInput(
+      resolveClimateInputs(snapshotWith(WANTS_VENT), NOW),
+      state,
+      DEFAULT_CLIMATE_CONFIG,
+      BAND,
+      NOW
+    );
+    expect(built.reading.airVpdFast!).toBeCloseTo(built.reading.airVpd!, 6);
+  });
+});
 
 describe('runClimateTick', () => {
   it('resolves the week target from the grow plan', async () => {

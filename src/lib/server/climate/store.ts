@@ -172,6 +172,8 @@ export interface ClimateEventInput {
   /** False in `observe`, where the loop decides and logs but never publishes. */
   published: boolean;
   airVpd: number | null;
+  /** The short-window reading the band edges act on; `airVpd` remains the 5 min median. */
+  airVpdFast: number | null;
   leafVpd: number | null;
   target: number;
   bandLow: number;
@@ -201,6 +203,7 @@ interface EventRow {
   mode: string;
   published: number;
   air_vpd: number | null;
+  air_vpd_fast: number | null;
   leaf_vpd: number | null;
   target: number | null;
   band_low: number | null;
@@ -231,9 +234,9 @@ export function recordClimateEvent(db: DatabaseSync, event: ClimateEventInput): 
   const { actuator, on } = actionTarget(event.action);
   db.prepare(
     `INSERT INTO climate_events
-       (ts, kind, actuator, on_state, reason, mode, published, air_vpd, leaf_vpd, target,
-        band_low, band_high, tent_temp_c, tent_rh_pct, room_temp_c, room_rh_pct, lights_on)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (ts, kind, actuator, on_state, reason, mode, published, air_vpd, air_vpd_fast, leaf_vpd,
+        target, band_low, band_high, tent_temp_c, tent_rh_pct, room_temp_c, room_rh_pct, lights_on)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     event.ts,
     event.action.kind,
@@ -243,6 +246,7 @@ export function recordClimateEvent(db: DatabaseSync, event: ClimateEventInput): 
     event.mode,
     event.published ? 1 : 0,
     event.airVpd,
+    event.airVpdFast,
     event.leafVpd,
     event.target,
     event.bandLow,
@@ -266,6 +270,7 @@ function toEventJson(row: EventRow): ClimateEventJson {
     mode: row.mode as ClimateMode,
     published: row.published === 1,
     airVpd: row.air_vpd,
+    airVpdFast: row.air_vpd_fast,
     leafVpd: row.leaf_vpd,
     target: row.target ?? 0,
     bandLow: row.band_low ?? 0,

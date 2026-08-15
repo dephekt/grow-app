@@ -56,6 +56,9 @@ function liveState() {
     tent: decisionInput.reading.tent,
     room: decisionInput.reading.room,
     airVpd: decisionInput.reading.airVpd,
+    // The band edges act on this one; surfaced so a release at the top of band is explicable
+    // from the API alone rather than only from the event row.
+    airVpdFast: decisionInput.reading.airVpdFast,
     leafVpd: inputs.leafVpd,
     lightsOn: inputs.lightsOn,
     tentNode: inputs.tentNode,

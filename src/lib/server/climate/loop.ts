@@ -18,6 +18,12 @@ import { getClimateConfig, pruneClimateEvents, recordClimateEvent } from './stor
  *  than the tent's ~20 min exchange time constant. */
 const SMOOTHING_WINDOW_MS = 5 * 60 * 1000;
 
+/** The window for the edges that cannot afford to lag. At the default 30 s tick this holds
+ *  three samples — enough for a median to reject one spike — while trailing the tent by ~30 s
+ *  rather than ~2.5 min. Measured 2026-08-15: a daylight vent run crosses the whole band in
+ *  3.5 min, so the 5 min median released the fan at 1.14 while the tent was already at 1.42. */
+const FAST_SMOOTHING_WINDOW_MS = 60 * 1000;
+
 /** A quiet loop still says so on this cadence, so a gap in the log means an outage. */
 const HEARTBEAT_MS = 15 * 60 * 1000;
 
@@ -30,6 +36,10 @@ export class ClimateLoopState {
    *  be replayed. */
   readonly tentTempC = new RollingMedian(SMOOTHING_WINDOW_MS);
   readonly tentRhPct = new RollingMedian(SMOOTHING_WINDOW_MS);
+  /** Only the tent gets a fast pair: it is the sole input to a band edge. The room feeds the
+   *  vented prediction, which moves on the room's timescale and has no edge to overshoot. */
+  readonly tentTempFastC = new RollingMedian(FAST_SMOOTHING_WINDOW_MS);
+  readonly tentRhFastPct = new RollingMedian(FAST_SMOOTHING_WINDOW_MS);
   readonly roomTempC = new RollingMedian(SMOOTHING_WINDOW_MS);
   readonly roomRhPct = new RollingMedian(SMOOTHING_WINDOW_MS);
   exhaustOn: boolean | null = null;
@@ -92,6 +102,7 @@ function logKey(action: ClimateAction): string {
  *  so a page refresh cannot advance the state the loop decides on. */
 export function updateClimateSmoothing(state: ClimateLoopState, inputs: ClimateInputs, nowMs: number): void {
   pushAir(state.tentTempC, state.tentRhPct, inputs.tent, nowMs);
+  pushAir(state.tentTempFastC, state.tentRhFastPct, inputs.tent, nowMs);
   pushAir(state.roomTempC, state.roomRhPct, inputs.room, nowMs);
 }
 
@@ -121,9 +132,11 @@ export function buildDecisionInput(
   nowMs: number
 ): ClimateDecisionInput {
   const tent = smoothedAir(state.tentTempC, state.tentRhPct, inputs.tent, nowMs);
+  const tentFast = smoothedAir(state.tentTempFastC, state.tentRhFastPct, inputs.tent, nowMs);
   const room = smoothedAir(state.roomTempC, state.roomRhPct, inputs.room, nowMs);
   // Derived, so airVpdKpa(logged tent pair) === logged air_vpd exactly.
   const airVpd = tent === null ? null : airVpdKpa(tent.tempC, tent.rhPct);
+  const airVpdFast = tentFast === null ? null : airVpdKpa(tentFast.tempC, tentFast.rhPct);
   const ventedAirVpd = room === null ? null : ventedAirVpdKpa(room, inputs.lightsOn);
 
   return {
@@ -134,6 +147,7 @@ export function buildDecisionInput(
       tent,
       room,
       airVpd,
+      airVpdFast,
       ventedAirVpd,
       leafVpd: inputs.leafVpd,
       lightsOn: inputs.lightsOn,
@@ -223,6 +237,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
       // Strictly whether THIS action reached the broker.
       published,
       airVpd: decisionInput.reading.airVpd,
+      airVpdFast: decisionInput.reading.airVpdFast,
       leafVpd: inputs.leafVpd,
       target,
       bandLow: band.low,

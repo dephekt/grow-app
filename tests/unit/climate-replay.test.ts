@@ -47,6 +47,9 @@ function replay(
         tent: { tempC: s.tempC, rhPct: s.rhPct },
         room: opts.room,
         airVpd,
+        // The harness replays recorded samples directly rather than through two windows, so
+        // both readings are the same series; the fast/slow split is covered in climate-decide.
+        airVpdFast: airVpd,
         ventedAirVpd: opts.room === null ? null : ventedAirVpdKpa(opts.room, opts.lightsOn),
         leafVpd: null,
         lightsOn: opts.lightsOn,

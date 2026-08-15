@@ -29,6 +29,9 @@ const actuator = (over: Partial<ActuatorState> = {}): ActuatorState => ({
 function input(over: {
   config?: Partial<ClimateConfig>;
   airVpd?: number | null;
+  /** Defaults to `airVpd`, so a case that does not care about the fast/slow split reads as it
+   *  did before the split existed. */
+  airVpdFast?: number | null;
   tentTempC?: number | null;
   room?: { tempC: number; rhPct: number } | null;
   exhaust?: Partial<ActuatorState>;
@@ -50,6 +53,8 @@ function input(over: {
       tent: tentTempC === null ? null : { tempC: tentTempC, rhPct: 65 },
       room,
       airVpd: over.airVpd === undefined ? 1.0 : over.airVpd,
+      airVpdFast:
+        over.airVpdFast === undefined ? (over.airVpd === undefined ? 1.0 : over.airVpd) : over.airVpdFast,
       // Derived from `room` exactly as the loop derives it, so the gate cases stay meaningful.
       ventedAirVpd: room === null ? null : ventedAirVpdKpa(room, lightsOn),
       leafVpd: null,
@@ -157,6 +162,53 @@ describe('decideClimate — hysteresis', () => {
     for (const vpd of [1.09, 1.0, 0.91, 0.9]) {
       expect(decideClimate(input({ airVpd: vpd, exhaust: { on: false } })).kind).toBe('hold');
     }
+  });
+});
+
+describe('decideClimate — asymmetric smoothing', () => {
+  // Live run 2026-08-15: a daylight vent crossed the band in 3.5 min, so the 5 min median
+  // released the fan at 1.14 while the tent was already at 1.42, spending 8.7% of the day
+  // past the 1.20 rail. The stop edge has to read the short window.
+  it('stops on the fast reading, not the lagging median', () => {
+    const d = decideClimate(input({ airVpd: 1.02, airVpdFast: 1.14, exhaust: { on: true } }));
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+    expect(d.reason).toContain('1.14');
+  });
+
+  it('keeps venting while the fast reading is still inside the band', () => {
+    const d = decideClimate(input({ airVpd: 0.95, airVpdFast: 1.04, exhaust: { on: true } }));
+    expect(d.kind).toBe('hold');
+    expect(d.reason).toContain('still below');
+  });
+
+  // The other edge keeps the long window: the tent re-humidifies ~0.02 kPa/min, so lag costs
+  // nothing there, while a single dropout would otherwise start the fan on noise.
+  it('starts on the median, ignoring a fast reading that dips below the floor', () => {
+    expect(decideClimate(input({ airVpd: 0.95, airVpdFast: 0.80 })).kind).toBe('hold');
+  });
+
+  it('starts once the median itself falls below the floor', () => {
+    expect(decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89 }))).toMatchObject({
+      kind: 'exhaust',
+      on: true
+    });
+  });
+
+  it('falls back to the median when there is no fast window yet', () => {
+    const d = decideClimate(input({ airVpd: 1.11, airVpdFast: null, exhaust: { on: true } }));
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+  });
+
+  it('breaches the hard ceiling urgently on the fast reading, voiding the minimum on', () => {
+    const d = decideClimate(
+      input({
+        airVpd: 1.05,
+        airVpdFast: 1.24,
+        exhaust: { on: true, lastChangeMs: NOW - 10_000 },
+        config: { minOnSeconds: 600 }
+      })
+    );
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
   });
 });
 

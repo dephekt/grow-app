@@ -11,6 +11,10 @@ export interface ClimateReading {
   room: AirState | null;
   /** Smoothed air VPD, the control input; null whenever the tent sensor cannot be trusted. */
   airVpd: number | null;
+  /** The same quantity over a far shorter window, for the edges that must not lag. Venting
+   *  moves air VPD ~0.15 kPa/min in daylight, so the 5 min median trails a vent run by more
+   *  than the band is wide. Null falls back to `airVpd`. */
+  airVpdFast: number | null;
   /** Smoothed prediction of where venting would settle it; null with no room reference. */
   ventedAirVpd: number | null;
   /** Recorded beside every decision, never an input to one. */
@@ -129,8 +133,19 @@ function applyTransition(
     : { kind: 'humidify', on: desire.on, reason: `${desire.why}${suffix}` };
 }
 
-/** Hysteresis plus the overrides, as a single desired fan state. */
-function desireExhaust(input: ClimateDecisionInput, vpd: number, tentC: number | null): Desire {
+/** Hysteresis plus the overrides, as a single desired fan state.
+ *
+ *  `vpd` is the 5 min median and `fast` a ~1 min one. Which applies is decided by the leg, not
+ *  by preference: venting is the only thing that drives air VPD up quickly, so every branch
+ *  reached with the fan running reads `fast`, and every branch reached with it off reads `vpd`,
+ *  where the tent re-humidifies an order of magnitude slower and noise rejection is worth more
+ *  than latency. */
+function desireExhaust(
+  input: ClimateDecisionInput,
+  vpd: number,
+  fast: number,
+  tentC: number | null
+): Desire {
   const { config, band, reading, exhaust } = input;
   const tooHot = tentC !== null && tentC >= config.ventAlwaysAboveC;
   const tooCold = tentC !== null && tentC <= config.ventNeverBelowC;
@@ -151,19 +166,19 @@ function desireExhaust(input: ClimateDecisionInput, vpd: number, tentC: number |
   if (exhaust.on) {
     // `>= high`: from grow week 6 band.high clamps to the rail, and holding there parks the
     // fan on it.
-    if (vpd >= band.high) {
+    if (fast >= band.high) {
       return {
         on: false,
         // Urgent only PAST the band's top, or the minimum on is void for weeks 6 to 10.
-        urgent: vpd > band.high && vpd >= AIR_VPD_HARD_MAX,
-        why: `air VPD ${kpa(vpd)} reached the ${kpa(band.high)} top of band`
+        urgent: fast > band.high && fast >= AIR_VPD_HARD_MAX,
+        why: `air VPD ${kpa(fast)} reached the ${kpa(band.high)} top of band`
       };
     }
     // Futility's stop half: a room that turns humid mid-run never lets VPD reach the top.
-    if (vented !== null && vented < vpd - config.minGainKpa) {
-      return { on: false, why: `venting now predicts ${kpa(vented)} against the current ${kpa(vpd)} — no longer helping` };
+    if (vented !== null && vented < fast - config.minGainKpa) {
+      return { on: false, why: `venting now predicts ${kpa(vented)} against the current ${kpa(fast)} — no longer helping` };
     }
-    return { on: true, why: `air VPD ${kpa(vpd)} still below the ${kpa(band.high)} top of band` };
+    return { on: true, why: `air VPD ${kpa(fast)} still below the ${kpa(band.high)} top of band` };
   }
 
   if (vpd < band.low) {
@@ -182,17 +197,21 @@ function desireExhaust(input: ClimateDecisionInput, vpd: number, tentC: number |
 }
 
 /** Engages at the hard ceiling, releases at the target, with a separation floor for the case
- *  an override sits ON the ceiling. */
-function desireHumidifier(band: ControlBand, vpd: number, on: boolean): Desire {
+ *  an override sits ON the ceiling.
+ *
+ *  Same split as the exhaust and for the same reason: the approach to the ceiling is the fast
+ *  leg, so engaging reads `fast`, while a running humidifier walks VPD back down slowly and
+ *  releases on the median. */
+function desireHumidifier(band: ControlBand, vpd: number, fast: number, on: boolean): Desire {
   const release = Math.min(band.target, AIR_VPD_HARD_MAX - HUMIDIFIER_MIN_SEPARATION_KPA);
   if (on) {
     return vpd > release
       ? { on: true, why: `air VPD ${kpa(vpd)} still above the ${kpa(release)} release point` }
       : { on: false, why: `air VPD ${kpa(vpd)} back below the ${kpa(release)} release point` };
   }
-  return vpd >= AIR_VPD_HARD_MAX
-    ? { on: true, why: `air VPD ${kpa(vpd)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` }
-    : { on: false, why: `air VPD ${kpa(vpd)} below the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
+  return fast >= AIR_VPD_HARD_MAX
+    ? { on: true, why: `air VPD ${kpa(fast)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` }
+    : { on: false, why: `air VPD ${kpa(fast)} below the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
 }
 
 export function decideClimate(input: ClimateDecisionInput): ClimateAction {
@@ -205,7 +224,10 @@ export function decideClimate(input: ClimateDecisionInput): ClimateAction {
   if (reading.warmingUp) return { kind: 'hold', reason: 'smoothing window still filling' };
 
   const vpd = reading.airVpd;
-  const fan = desireExhaust(input, vpd, reading.tent?.tempC ?? null);
+  // A tent that has only just appeared has no fast window yet; the median is the safe stand-in
+  // because it is the slower of the two, never the more eager.
+  const fast = reading.airVpdFast ?? vpd;
+  const fan = desireExhaust(input, vpd, fast, reading.tent?.tempC ?? null);
 
   // Never both: neither hysteresis band escapes two opposed actuators fighting each other.
   // Urgent, because that state is worse than an early humidifier stop — and it is unreachable
@@ -222,7 +244,7 @@ export function decideClimate(input: ClimateDecisionInput): ClimateAction {
 
   // Only while the fan is idle, so the two can never be commanded together.
   if (!fan.on) {
-    const rh = desireHumidifier(band, vpd, humidifier.on);
+    const rh = desireHumidifier(band, vpd, fast, humidifier.on);
     const rhAction = applyTransition('humidify', humidifier, rh, config.rhSource, config, nowMs);
     if (rhAction) return rhAction;
   }
