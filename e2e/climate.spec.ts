@@ -138,10 +138,12 @@ test.describe('climate page — real API reads', () => {
   });
 
   test('fails safe with no sensors rather than claiming a reading', async ({ page }) => {
-    // No broker in e2e, so the snapshot is empty and the loop must refuse to act.
+    // No broker in e2e, so the snapshot is empty and the loop must refuse to act. Scope to the
+    // verdict row: once the loop has ticked, the log carries the same reason text.
     await page.goto('/climate');
-    await expect(page.getByText('Holding')).toBeVisible();
-    await expect(page.getByText(/failing safe/)).toBeVisible();
+    const verdict = page.locator('.verdict-row');
+    await expect(verdict).toContainText('Holding');
+    await expect(verdict).toContainText(/failing safe/);
   });
 
   test('arming publishes the change and reflects it', async ({ page }) => {
