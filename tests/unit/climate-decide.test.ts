@@ -36,6 +36,7 @@ function input(over: {
   armsOn?: string[];
   nowMs?: number;
   lightsOn?: boolean;
+  warmingUp?: boolean;
 }): ClimateDecisionInput {
   const tentTempC = over.tentTempC === undefined ? 27 : over.tentTempC;
   const room = over.room === undefined ? DRY_ROOM : over.room;
@@ -52,7 +53,8 @@ function input(over: {
       // Derived from `room` exactly as the loop derives it, so the gate cases stay meaningful.
       ventedAirVpd: room === null ? null : ventedAirVpdKpa(room, lightsOn),
       leafVpd: null,
-      lightsOn
+      lightsOn,
+      warmingUp: over.warmingUp ?? false
     },
     exhaust: actuator(over.exhaust),
     humidifier: actuator({ present: false, ...over.humidifier }),
@@ -92,7 +94,14 @@ describe('decideClimate — fail-safe', () => {
     expect(d.reconcileArms).toEqual([]);
   });
 
-  it('reports an undiscovered plug as blocked, in both directions', () => {
+  it('reports an actuator it does not own as DELEGATED even when the plug is absent', () => {
+    // The shipped default: RH external with no humidifier plug. Reporting that as `blocked`
+    // painted the normal state red and contradicted the page's own copy.
+    const d = decideClimate(input({ airVpd: 1.3, config: { rhSource: 'external' }, humidifier: { present: false } }));
+    expect(d.action).toMatchObject({ kind: 'delegated', want: 'humidify', on: true });
+  });
+
+  it('reports an undiscovered plug it DOES own as blocked, in both directions', () => {
     // Wanting to act and being unable to is a block, not a hold — and an offline plug still
     // reports its last retained relay position, so the release leg needs the guard too.
     const start = decideClimate(input({ airVpd: 0.5, exhaust: { present: false } }));

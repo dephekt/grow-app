@@ -5,7 +5,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { DatabaseSync } from 'node:sqlite';
 import { openClimateDb } from '../../src/lib/server/climate/db';
 import { listClimateEvents, updateClimateConfig } from '../../src/lib/server/climate/store';
-import { ClimateLoopState, runClimateTick } from '../../src/lib/server/climate/loop';
+import {
+  ClimateLoopState,
+  MIN_SMOOTHING_SAMPLES,
+  runClimateTick,
+  updateClimateSmoothing
+} from '../../src/lib/server/climate/loop';
+import { resolveClimateInputs } from '../../src/lib/climate/inputs';
 import { EXHAUST_NODE } from '../../src/lib/climate/model';
 import { airVpdKpa } from '../../src/lib/climate/psychro';
 import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
@@ -124,6 +130,20 @@ beforeEach(() => {
   published = [];
 });
 
+/**
+ * A state whose smoothing window is already filled, i.e. the loop as it is after its first
+ * minute. Fills it through updateClimateSmoothing rather than by ticking, so no log rows and
+ * no relay stamps come with it and the tests below stay about the verdict they assert.
+ */
+function warmed(values: Record<string, string>, nowMs = NOW, entities?: EntityConfig[]): ClimateLoopState {
+  const state = new ClimateLoopState();
+  const inputs = resolveClimateInputs(snapshotWith(values, entities), nowMs);
+  for (let i = MIN_SMOOTHING_SAMPLES - 1; i > 0; i--) {
+    updateClimateSmoothing(state, inputs, nowMs - i * 30_000);
+  }
+  return state;
+}
+
 describe('runClimateTick', () => {
   it('resolves the week target from the grow plan', async () => {
     const result = await runClimateTick(deps(WANTS_VENT, new ClimateLoopState()));
@@ -131,7 +151,7 @@ describe('runClimateTick', () => {
   });
 
   it('decides and logs in observe mode but publishes nothing', async () => {
-    const result = await runClimateTick(deps(WANTS_VENT, new ClimateLoopState()));
+    const result = await runClimateTick(deps(WANTS_VENT, warmed(WANTS_VENT)));
     expect(result.decision.action).toMatchObject({ kind: 'delegated', want: 'exhaust' });
     expect(published).toEqual([]);
 
@@ -142,7 +162,7 @@ describe('runClimateTick', () => {
 
   it('publishes once armed, and records the reading it decided on', async () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    const result = await runClimateTick(deps(WANTS_VENT, new ClimateLoopState()));
+    const result = await runClimateTick(deps(WANTS_VENT, warmed(WANTS_VENT)));
 
     expect(result.decision.action).toMatchObject({ kind: 'exhaust', on: true });
     expect(published).toEqual([{ entityId: 'fan_relay', on: true }]);
@@ -157,13 +177,14 @@ describe('runClimateTick', () => {
 
   it('never publishes while the broker is down', async () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    await runClimateTick({ ...deps(WANTS_VENT, new ClimateLoopState()), canPublish: () => false });
+    await runClimateTick({ ...deps(WANTS_VENT, warmed(WANTS_VENT)), canPublish: () => false });
     expect(published).toEqual([]);
   });
 
   it('reconciles an armed firmware cycle off before acting', async () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    await runClimateTick(deps({ ...WANTS_VENT, fan_cyc: 'ON', fan_sch: 'ON' }, new ClimateLoopState()));
+    const armed = { ...WANTS_VENT, fan_cyc: 'ON', fan_sch: 'ON' };
+    await runClimateTick(deps(armed, warmed(armed)));
     expect(published).toEqual([
       { entityId: 'fan_cyc', on: false },
       { entityId: 'fan_sch', on: false },
@@ -173,14 +194,14 @@ describe('runClimateTick', () => {
 
   it('leaves the firmware arms alone while firmware still owns the fan', async () => {
     updateClimateConfig(db, { mode: 'active' }, NOW_ISO);
-    await runClimateTick(deps({ ...WANTS_VENT, fan_cyc: 'ON' }, new ClimateLoopState()));
+    const armed = { ...WANTS_VENT, fan_cyc: 'ON' };
+    await runClimateTick(deps(armed, warmed(armed)));
     expect(published).toEqual([]);
   });
 
   it('collapses an unchanged verdict into one row, then heartbeats', async () => {
-    const state = new ClimateLoopState();
-    // Inside the band: a hold, repeated.
     const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' };
+    const state = warmed(inBand);
     for (let i = 0; i < 5; i++) {
       await runClimateTick(deps(inBand, state, NOW + i * 30_000));
     }
@@ -192,16 +213,18 @@ describe('runClimateTick', () => {
 
   it('logs again as soon as the verdict changes', async () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    const state = new ClimateLoopState();
+    const state = warmed(WANTS_VENT);
     await runClimateTick(deps(WANTS_VENT, state));
-    // Fan now running and VPD driven clear of the top of band.
-    await runClimateTick(deps({ ...WANTS_VENT, fan_relay: 'ON', rig_t: '28.0', rig_h: '60.0' }, state, NOW + 600_000));
 
-    const kinds = listClimateEvents(db).map((r) => [r.kind, r.on]);
-    expect(kinds).toEqual([
-      ['exhaust', false],
-      ['exhaust', true]
-    ]);
+    // Several ticks, because one dry sample cannot move a median — which is the point of it.
+    // The intervening holds are logged too, so assert on the commands rather than every row.
+    const dry = { ...WANTS_VENT, fan_relay: 'ON', rig_t: '28.0', rig_h: '55.0' };
+    for (let i = 1; i <= 4; i++) await runClimateTick(deps(dry, state, NOW + i * 30_000));
+
+    const commands = listClimateEvents(db)
+      .filter((r) => r.kind === 'exhaust')
+      .map((r) => r.on);
+    expect(commands).toEqual([false, true]);
   });
 
   it('holds when the tent sensor drops out mid-run', async () => {
@@ -226,7 +249,7 @@ describe('runClimateTick', () => {
   it('logs a row that replays exactly: airVpdKpa(logged tent pair) === logged airVpd', async () => {
     // The pair and the VPD used to be smoothed independently, so the audit row could not be
     // used to reconstruct the decision it recorded.
-    const state = new ClimateLoopState();
+    const state = warmed(WANTS_VENT);
     await runClimateTick(deps(WANTS_VENT, state, NOW));
     await runClimateTick(deps({ ...WANTS_VENT, rig_t: '29.9', rig_h: '77.0' }, state, NOW + 30_000));
 
@@ -241,7 +264,7 @@ describe('runClimateTick', () => {
     // clean gap in the audit log at exactly the tick that failed to move the relay.
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
     const result = await runClimateTick({
-      ...deps(WANTS_VENT, new ClimateLoopState()),
+      ...deps(WANTS_VENT, warmed(WANTS_VENT)),
       publish: async () => {
         throw new Error('Broker is not connected');
       }
@@ -256,9 +279,9 @@ describe('runClimateTick', () => {
 
   it('records the arms it disarmed, so a firmware arm it is fighting is visible', async () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    const state = new ClimateLoopState();
     // Inside the band, so the verdict is a plain hold and only the arms distinguish the tick.
     const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0', fan_cyc: 'ON' };
+    const state = warmed(inBand);
     await runClimateTick(deps(inBand, state));
 
     const [row] = listClimateEvents(db);
@@ -270,8 +293,8 @@ describe('runClimateTick', () => {
 
   it('logs the moment a firmware arm starts fighting a previously quiet loop', async () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    const state = new ClimateLoopState();
     const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' };
+    const state = warmed(inBand);
 
     await runClimateTick(deps(inBand, state, NOW));
     await runClimateTick(deps(inBand, state, NOW + 30_000));
@@ -286,8 +309,8 @@ describe('runClimateTick', () => {
   it('logs the loop going blind, even straight after an in-band hold', async () => {
     // Both are `hold`, so keying the dedup on the action kind alone left the fail-safe — the
     // one hold that matters — invisible for up to a whole heartbeat.
-    const state = new ClimateLoopState();
     const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' };
+    const state = warmed(inBand);
     await runClimateTick(deps(inBand, state, NOW));
     expect(listClimateEvents(db)).toHaveLength(1);
 
@@ -299,7 +322,7 @@ describe('runClimateTick', () => {
 
   it('does not log a fresh row for the same verdict at a different reading', async () => {
     // The numbers are blanked out of the dedup key, so drifting within the band stays quiet.
-    const state = new ClimateLoopState();
+    const state = warmed({ ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' });
     await runClimateTick(deps({ ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' }, state, NOW));
     await runClimateTick(deps({ ...WANTS_VENT, rig_t: '27.2', rig_h: '71.5' }, state, NOW + 30_000));
     expect(listClimateEvents(db)).toHaveLength(1);
@@ -309,7 +332,7 @@ describe('runClimateTick', () => {
     // Without this the row is `published: false` with an unmodified reason — byte-identical to
     // an observe-mode row, so an outage reads as a deliberate dry run.
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    await runClimateTick({ ...deps(WANTS_VENT, new ClimateLoopState()), canPublish: () => false });
+    await runClimateTick({ ...deps(WANTS_VENT, warmed(WANTS_VENT)), canPublish: () => false });
 
     const [row] = listClimateEvents(db);
     expect(row.published).toBe(false);
@@ -324,6 +347,48 @@ describe('runClimateTick', () => {
 
     await runClimateTick(deps(WANTS_VENT, state, NOW + 20 * 60_000));
     expect(listClimateEvents(db)).toHaveLength(1);
+  });
+
+  describe('restart warm-up', () => {
+    // The loop restarts on every deploy, and on tick 1 the median IS the single sample while
+    // every relay timer is still null — so nothing else would damp a glitch.
+    it('refuses to act on a hot glitch in the first samples after a restart', async () => {
+      updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+      const cold = new ClimateLoopState();
+      const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '33.0' }, cold, NOW));
+
+      expect(result.decision.action).toEqual({ kind: 'hold', reason: 'smoothing window still filling' });
+      expect(published).toEqual([]);
+    });
+
+    it('refuses to act on a cold glitch that would force-stop a running fan', async () => {
+      updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+      const cold = new ClimateLoopState();
+      const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '12.0', fan_relay: 'ON' }, cold, NOW));
+
+      expect(result.decision.action.kind).toBe('hold');
+      expect(published).toEqual([]);
+    });
+
+    it('acts once the window has filled', async () => {
+      updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+      const state = new ClimateLoopState();
+      for (let i = 0; i < MIN_SMOOTHING_SAMPLES - 1; i++) {
+        await runClimateTick(deps(WANTS_VENT, state, NOW + i * 30_000));
+      }
+      expect(published).toEqual([]);
+
+      const result = await runClimateTick(deps(WANTS_VENT, state, NOW + (MIN_SMOOTHING_SAMPLES - 1) * 30_000));
+      expect(result.decision.action).toMatchObject({ kind: 'exhaust', on: true });
+    });
+
+    it('re-warms after the sensor drops out and returns', async () => {
+      // reset() empties the window, so a returning sensor is a cold start again.
+      const state = warmed(WANTS_VENT);
+      await runClimateTick(deps({ ...WANTS_VENT, rig_t: '' }, state, NOW));
+      const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '33.0' }, state, NOW + 30_000));
+      expect(result.decision.action.reason).toContain('smoothing window still filling');
+    });
   });
 
   describe('temperature smoothing', () => {

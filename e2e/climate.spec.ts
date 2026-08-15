@@ -199,8 +199,8 @@ test.describe('climate page — populated state', () => {
 
   test('distinguishes a published decision from a dry-run one in the log', async ({ page }) => {
     await open(page);
-    await expect(page.getByText('exhaust OFF', { exact: true })).toBeVisible();
-    await expect(page.getByText('blocked · exhaust')).toBeVisible();
+    await expect(page.getByText('set exhaust OFF', { exact: true })).toBeVisible();
+    await expect(page.getByText('blocked · exhaust ON')).toBeVisible();
     await expect(page.getByText(/venting predicts only 0\.87/)).toBeVisible();
   });
 

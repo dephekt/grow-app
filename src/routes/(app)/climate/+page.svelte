@@ -5,7 +5,7 @@
   import { onMount, untrack } from 'svelte';
   import BandGauge from '$lib/climate/BandGauge.svelte';
   import ClimateLog from '$lib/climate/ClimateLog.svelte';
-  import { CLIMATE_MODES, type ActuatorSource, type ClimateMode } from '$lib/climate/model';
+  import { AIR_VPD_HARD_MAX, CLIMATE_MODES, type ActuatorSource, type ClimateMode } from '$lib/climate/model';
   import { absoluteHumidityGPerM3 } from '$lib/climate/psychro';
   import { LOG_PAGE_SIZE, type ClimateEventJson, type ClimateLiveState } from './+page';
 
@@ -44,7 +44,9 @@
       const next = (await res.json()) as ClimateLiveState;
       if (gen !== saveGeneration || saving) return;
       climate = next;
-      if (logOffset === 0) await loadEvents(0);
+      // Page 1 only: the verdict updating while the ACTIONS panel sat frozen read as a loop
+      // that was not recording, on the page whose job is to prove it does.
+      if (logOffset === 0) await loadEvents(0, true);
     } catch {
       // A dropped poll is not worth surfacing; the next one recovers.
     }
@@ -80,23 +82,40 @@
   }
 
   /** Commit a number only when it parses and actually changed, so a half-typed field is inert. */
-  function commitNumber(key: string, raw: string, current: number | null): void {
+  function commitNumber(key: string, raw: string, current: number | null): 'restore' | void {
     const trimmed = raw.trim();
     if (trimmed === '') {
-      if (key === 'airVpdOverride' && current !== null) void patch({ airVpdOverride: null });
-      return;
+      // Blank means "follow the plan" for the override, and a discarded edit everywhere else.
+      if (key === 'airVpdOverride') {
+        if (current !== null) void patch({ airVpdOverride: null });
+        return;
+      }
+      return 'restore';
     }
     const n = Number(trimmed);
-    if (!Number.isFinite(n) || n === current) return;
+    if (!Number.isFinite(n) || n === current) return 'restore';
     void patch({ [key]: n });
+  }
+
+  /** Put the stored value back when the edit was not taken, so a cleared box cannot sit blank
+   *  against a config that never changed. */
+  function commitField(event: Event, key: string, current: number | null): void {
+    const input = event.currentTarget as HTMLInputElement;
+    if (commitNumber(key, input.value, current) === 'restore') {
+      input.value = current === null ? '' : String(current);
+    }
   }
 
   /** Page 1 only while polling, so paging back through history is not yanked to the top. */
   let logOffset = $state(0);
 
-  async function loadEvents(offset: number): Promise<boolean> {
+  /** `fresh` takes a new anchor instead of reusing the load-time one. Reusing it forever meant
+   *  `WHERE id <= it` hid every row written afterwards, and hid all of them on a fresh install
+   *  where the anchor starts at 0. */
+  async function loadEvents(offset: number, fresh = false): Promise<boolean> {
     try {
-      const res = await fetch(`/api/climate/events?limit=${LOG_PAGE_SIZE}&offset=${offset}&anchorId=${eventAnchorId}`);
+      const anchor = fresh || eventAnchorId === 0 ? '' : `&anchorId=${eventAnchorId}`;
+      const res = await fetch(`/api/climate/events?limit=${LOG_PAGE_SIZE}&offset=${offset}${anchor}`);
       if (!res.ok) return false;
       const body = (await res.json()) as { events?: ClimateEventJson[]; total?: number; anchorId?: number };
       events = body.events ?? [];
@@ -233,7 +252,7 @@
       </button>
       <p class="hint">
         {#if climate.humidifier.present}
-          Engages at the 1.20 hard ceiling and releases back at the week's target — outside the exhaust's range, so the two never fight.
+          Engages at the {AIR_VPD_HARD_MAX.toFixed(2)} hard ceiling and releases back at the week's target — outside the exhaust's range, so the two never fight.
         {:else}
           No humidifier plug discovered. RH stays delegated to the humidistat; a too-high VPD logs as <em>delegated</em> rather than vanishing.
         {/if}
@@ -331,7 +350,7 @@
           max="0.4"
           value={config.deadbandKpa}
           disabled={saving}
-          onchange={(e) => commitNumber('deadbandKpa', e.currentTarget.value, config.deadbandKpa)}
+          onchange={(e) => commitField(e, 'deadbandKpa', config.deadbandKpa)}
         />
         <span class="field-hint">Half-width of the band. The band is the debounce.</span>
       </label>
@@ -347,7 +366,7 @@
           value={config.airVpdOverride ?? ''}
           placeholder={climate.planTarget.toFixed(2)}
           disabled={saving}
-          onchange={(e) => commitNumber('airVpdOverride', e.currentTarget.value, config.airVpdOverride)}
+          onchange={(e) => commitField(e, 'airVpdOverride', config.airVpdOverride)}
         />
         <span class="field-hint">Blank follows the week's cited target.</span>
       </label>
@@ -362,7 +381,7 @@
           max="3600"
           value={config.minOnSeconds}
           disabled={saving}
-          onchange={(e) => commitNumber('minOnSeconds', e.currentTarget.value, config.minOnSeconds)}
+          onchange={(e) => commitField(e, 'minOnSeconds', config.minOnSeconds)}
         />
         <span class="field-hint">Anti-chatter only. The hard ceiling overrides it.</span>
       </label>
@@ -377,7 +396,7 @@
           max="3600"
           value={config.minOffSeconds}
           disabled={saving}
-          onchange={(e) => commitNumber('minOffSeconds', e.currentTarget.value, config.minOffSeconds)}
+          onchange={(e) => commitField(e, 'minOffSeconds', config.minOffSeconds)}
         />
         <span class="field-hint">Rarely binding — the off leg runs close to an hour.</span>
       </label>
@@ -392,7 +411,7 @@
           max="1"
           value={config.minGainKpa}
           disabled={saving}
-          onchange={(e) => commitNumber('minGainKpa', e.currentTarget.value, config.minGainKpa)}
+          onchange={(e) => commitField(e, 'minGainKpa', config.minGainKpa)}
         />
         <span class="field-hint">A start is refused below this predicted improvement.</span>
       </label>
@@ -407,7 +426,7 @@
           max="45"
           value={config.ventAlwaysAboveC}
           disabled={saving}
-          onchange={(e) => commitNumber('ventAlwaysAboveC', e.currentTarget.value, config.ventAlwaysAboveC)}
+          onchange={(e) => commitField(e, 'ventAlwaysAboveC', config.ventAlwaysAboveC)}
         />
         <span class="field-hint">Heat safety — vents regardless of VPD.</span>
       </label>
@@ -422,7 +441,7 @@
           max="30"
           value={config.ventNeverBelowC}
           disabled={saving}
-          onchange={(e) => commitNumber('ventNeverBelowC', e.currentTarget.value, config.ventNeverBelowC)}
+          onchange={(e) => commitField(e, 'ventNeverBelowC', config.ventNeverBelowC)}
         />
         <span class="field-hint">Cold protection — blocks venting.</span>
       </label>

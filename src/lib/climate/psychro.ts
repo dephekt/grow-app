@@ -38,10 +38,8 @@ export function ventedOffsetC(lightsOn: boolean): number {
   return lightsOn ? VENTED_OFFSET_LIGHTS_ON_C : VENTED_OFFSET_LIGHTS_OFF_C;
 }
 
-/** Air VPD the tent would settle at if fully ventilated with room air right now. Vapour
- *  pressure carries over unchanged — heating at constant total pressure conserves the mole
- *  fraction of water, so only the saturation term moves. (Holding g·m⁻³ constant instead
- *  inflates `e` by T_vented/T_room, biasing the prediction ~0.01 kPa low.) */
+/** Air VPD the tent would settle at if fully ventilated right now; vapour pressure carries
+ *  over unchanged because heating at constant total pressure conserves the mole fraction. */
 export function ventedAirVpdKpa(room: AirState, lightsOn: boolean): number {
   const ventedTempC = room.tempC + ventedOffsetC(lightsOn);
   return saturationVapourPressureKpa(ventedTempC) - actualVapourPressureKpa(room.tempC, room.rhPct);

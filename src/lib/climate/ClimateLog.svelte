@@ -45,9 +45,9 @@
   function verdict(e: ClimateEventJson): string {
     switch (e.kind) {
       case 'exhaust':
-        return `${e.published ? 'exhaust' : 'would set exhaust'} ${e.on ? 'ON' : 'OFF'}`;
+        return `${commandPrefix(e)} exhaust ${e.on ? 'ON' : 'OFF'}`;
       case 'humidify':
-        return `${e.published ? 'humidifier' : 'would set humidifier'} ${e.on ? 'ON' : 'OFF'}`;
+        return `${commandPrefix(e)} humidifier ${e.on ? 'ON' : 'OFF'}`;
       // Direction matters most here: wanting to STOP venting is the over-venting case the dry
       // run exists to surface, and it would otherwise read the same as wanting to start.
       case 'delegated':
@@ -59,10 +59,20 @@
     }
   }
 
+  /** Unpublished while ARMED is a failure, not a dry run; rendering both as "would set" made a
+   *  broker outage read as a deliberate observe-mode tick. */
+  function commandPrefix(e: ClimateEventJson): string {
+    if (e.published) return 'set';
+    return e.mode === 'active' ? 'FAILED to set' : 'would set';
+  }
+
   function tone(e: ClimateEventJson): string {
     if (e.kind === 'blocked') return 'alert';
     if (e.kind === 'delegated') return 'warn';
-    if (e.kind === 'exhaust' || e.kind === 'humidify') return e.published ? 'ok' : 'dry';
+    if (e.kind === 'exhaust' || e.kind === 'humidify') {
+      if (e.published) return 'ok';
+      return e.mode === 'active' ? 'alert' : 'dry';
+    }
     return 'muted';
   }
 

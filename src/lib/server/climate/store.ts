@@ -270,6 +270,14 @@ function toEventJson(row: EventRow): ClimateEventJson {
   };
 }
 
+/** Drop decisions older than `days`, returning how many went; `0` disables. Days only, no row
+ *  cap — unlike the auth audit log, this table's write rate is bounded by the loop's own tick. */
+export function pruneClimateEvents(db: DatabaseSync, nowMs: number, days: number): number {
+  if (days <= 0) return 0;
+  const cutoff = new Date(nowMs - days * 24 * 60 * 60 * 1000).toISOString();
+  return Number(db.prepare('DELETE FROM climate_events WHERE ts < ?').run(cutoff).changes ?? 0);
+}
+
 /** Highest inserted event ID — freezes the row set across offset-based page requests. */
 export function latestClimateEventId(db: DatabaseSync): number {
   const row = db.prepare('SELECT MAX(id) AS id FROM climate_events').get() as { id: number | null };

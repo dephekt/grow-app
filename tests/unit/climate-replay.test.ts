@@ -49,7 +49,8 @@ function replay(
         airVpd,
         ventedAirVpd: opts.room === null ? null : ventedAirVpdKpa(opts.room, opts.lightsOn),
         leafVpd: null,
-        lightsOn: opts.lightsOn
+        lightsOn: opts.lightsOn,
+        warmingUp: false
       },
       exhaust: { present: true, on, lastChangeMs },
       humidifier: { present: false, on: false, lastChangeMs: null },

@@ -30,6 +30,11 @@ export class RollingMedian {
     return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
   }
 
+  /** How many samples fall in the window as of `nowMs`. */
+  count(nowMs: number): number {
+    return this.inWindow(nowMs).length;
+  }
+
   /** Drop everything, so a stale window cannot outlive the input that filled it. */
   reset(): void {
     this.samples = [];

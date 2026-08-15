@@ -76,9 +76,8 @@ export function controlBand(target: number, deadbandKpa: number): ControlBand {
   // Rounded because binary subtraction leaves 1.15 − 0.10 at 1.0499999999999998, which would
   // be written to the log and drawn on the page in that form.
   const round = (n: number) => Math.round(n * 1000) / 1000;
-  // The TARGET is clamped first, not just its edges. Clamping only the edges inverts the band
-  // for any target outside the rails — a 1.5 override yields low 1.4 / high 1.2, and `vpd <
-  // low` is then true at every reachable reading, so the fan is demanded on and never released.
+  // Clamp the TARGET, not only its edges: edge-only clamping inverts the band for a target
+  // outside the rails.
   const clamped = Math.min(AIR_VPD_HARD_MAX, Math.max(AIR_VPD_HARD_MIN, target));
   return {
     target: round(clamped),

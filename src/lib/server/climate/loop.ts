@@ -12,7 +12,7 @@ import { resolveClimateInputs, type ClimateInputs } from '$lib/climate/inputs';
 import { airVpdKpa, ventedAirVpdKpa, type AirState } from '$lib/climate/psychro';
 import { RollingMedian } from '$lib/climate/smoothing';
 import { getClimateDb } from './db';
-import { getClimateConfig, recordClimateEvent } from './store';
+import { getClimateConfig, pruneClimateEvents, recordClimateEvent } from './store';
 
 /** Median window for the control inputs: long enough to swallow one bad sample, far shorter
  *  than the tent's ~20 min exchange time constant. */
@@ -20,6 +20,9 @@ const SMOOTHING_WINDOW_MS = 5 * 60 * 1000;
 
 /** A quiet loop still says so on this cadence, so a gap in the log means an outage. */
 const HEARTBEAT_MS = 15 * 60 * 1000;
+
+/** Samples the window needs before its median can reject an outlier rather than be one. */
+export const MIN_SMOOTHING_SAMPLES = 3;
 
 /** Cross-tick state, held in memory because all of it is re-derivable on restart. */
 export class ClimateLoopState {
@@ -128,7 +131,15 @@ export function buildDecisionInput(
     nowMs,
     config,
     band,
-    reading: { tent, room, airVpd, ventedAirVpd, leafVpd: inputs.leafVpd, lightsOn: inputs.lightsOn },
+    reading: {
+      tent,
+      room,
+      airVpd,
+      ventedAirVpd,
+      leafVpd: inputs.leafVpd,
+      lightsOn: inputs.lightsOn,
+      warmingUp: tent !== null && state.tentTempC.count(nowMs) < MIN_SMOOTHING_SAMPLES
+    },
     exhaust: { present: inputs.exhaust.present, on: inputs.exhaust.on, lastChangeMs: state.exhaustChangedMs },
     humidifier: {
       present: inputs.humidifier.present,
@@ -235,9 +246,16 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
       lightsOn: inputs.lightsOn
     });
     state.markLogged(logged, nowMs, notes.join('|'));
+    // On write, since writes are the only thing that grows the table.
+    pruneClimateEvents(db, nowMs, getClimateLogRetentionDays());
   }
 
   return { config, band, inputs, decisionInput, decision, published };
+}
+
+/** Decision-log retention in days (`GROW_CLIMATE_LOG_RETENTION_DAYS`, 0 disables). */
+export function getClimateLogRetentionDays(): number {
+  return intEnv('GROW_CLIMATE_LOG_RETENTION_DAYS', 90);
 }
 
 /** Tick interval in ms (`GROW_CLIMATE_TICK_SECONDS`, default 30s, floored at 5s). */

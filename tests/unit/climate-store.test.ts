@@ -10,6 +10,7 @@ import {
   getClimateConfig,
   latestClimateEventId,
   listClimateEvents,
+  pruneClimateEvents,
   recordClimateEvent,
   updateClimateConfig
 } from '../../src/lib/server/climate/store';
@@ -156,6 +157,26 @@ describe('climate events', () => {
     const page2 = listClimateEvents(db, 2, 2, anchor);
     expect(page2.map((r) => r.reason)).toEqual(['tick 2', 'tick 1']);
     expect(countClimateEvents(db, anchor)).toBe(5);
+  });
+
+  it('prunes rows past the retention window and keeps the rest', () => {
+    const at = (iso: string) => ({ ...base, ts: iso, action: { kind: 'hold' as const, reason: iso } });
+    recordClimateEvent(db, at('2026-05-01T00:00:00.000Z'));
+    recordClimateEvent(db, at('2026-08-01T00:00:00.000Z'));
+    recordClimateEvent(db, at('2026-08-14T00:00:00.000Z'));
+
+    const now = Date.parse('2026-08-14T12:00:00.000Z');
+    expect(pruneClimateEvents(db, now, 90)).toBe(1);
+    expect(listClimateEvents(db).map((r) => r.reason)).toEqual([
+      '2026-08-14T00:00:00.000Z',
+      '2026-08-01T00:00:00.000Z'
+    ]);
+  });
+
+  it('treats a retention of zero as disabled', () => {
+    recordClimateEvent(db, { ...base, ts: '2020-01-01T00:00:00.000Z', action: { kind: 'hold', reason: 'ancient' } });
+    expect(pruneClimateEvents(db, Date.parse('2026-08-14T12:00:00.000Z'), 0)).toBe(0);
+    expect(listClimateEvents(db)).toHaveLength(1);
   });
 
   it('reports a zero anchor on an empty log', () => {

@@ -16,6 +16,8 @@ export interface ClimateReading {
   /** Recorded beside every decision, never an input to one. */
   leafVpd: number | null;
   lightsOn: boolean;
+  /** True until the smoothing window can reject an outlier instead of being one. */
+  warmingUp: boolean;
 }
 
 export interface ActuatorState {
@@ -95,12 +97,14 @@ function applyTransition(
 ): ClimateAction | null {
   if (desire.on === state.on) return null;
 
-  if (!state.present) {
-    return { kind: 'blocked', want: actuator, on: desire.on, reason: `${desire.why}, but the ${ACTUATOR_LABEL[actuator]} plug is not discovered` };
-  }
-  if (desire.blocked) return { kind: 'blocked', want: actuator, on: desire.on, reason: desire.blocked };
+  // Ownership first: whether a relay we do not own is present changes nothing about the
+  // verdict, and reporting its absence as `blocked` paints the shipped default red.
   if (!ownedByLoop(source)) {
     return { kind: 'delegated', want: actuator, on: desire.on, reason: `${desire.why}; ${ACTUATOR_LABEL[actuator]} is owned by ${source}` };
+  }
+  if (desire.blocked) return { kind: 'blocked', want: actuator, on: desire.on, reason: desire.blocked };
+  if (!state.present) {
+    return { kind: 'blocked', want: actuator, on: desire.on, reason: `${desire.why}, but the ${ACTUATOR_LABEL[actuator]} plug is not discovered` };
   }
 
   const elapsed = elapsedSince(state.lastChangeMs, nowMs);
@@ -194,6 +198,9 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
   if (reading.airVpd === null) {
     return { action: { kind: 'hold', reason: 'no tent air reading — failing safe' }, reconcileArms: [] };
   }
+  // After a restart the median is one sample and every relay timer is null, so a single glitch
+  // would reach an urgent override with nothing damping it.
+  if (reading.warmingUp) return decide({ kind: 'hold', reason: 'smoothing window still filling' });
 
   const vpd = reading.airVpd;
   const fan = desireExhaust(input, vpd, reading.tent?.tempC ?? null);

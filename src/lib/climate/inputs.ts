@@ -51,9 +51,8 @@ export interface ClimateInputs {
   arms: ResolvedArm[];
 }
 
-/** Staleness bound for air readings: far beyond the SHT45s' 10 s cadence, but short enough
- *  that a node dying without an LWT stops driving a relay off a frozen number. Receipt time,
- *  so retained values redelivered on reconnect look fresh — this bounds the steady state. */
+/** Staleness bound for air readings, so a node dying without an LWT stops driving a relay off
+ *  a frozen number. */
 const MAX_READING_AGE_MS = 10 * 60 * 1000;
 
 function isFresh(snapshot: Snapshot, entity: EntityConfig, nowMs: number): boolean {
@@ -94,9 +93,8 @@ function resolveActuator(snapshot: Snapshot, node: string, objectId: string): Re
  *  so being wrong shifts a prediction rather than moving a relay. */
 function resolveLightsOn(snapshot: Snapshot): boolean {
   const relay = resolveEntityRef(snapshot, { node: GROW_LIGHT_NODE, objectId: 'grow_light' });
-  // Offline falls through to PPFD rather than reading the retained relay state, matching how
-  // resolveActuator treats an offline plug. Discovery is retained, so the entity outlives the
-  // device — believing its last known position flips the vented-temperature offset by 2.8 °C.
+  // Offline falls through to PPFD: discovery outlives the device, and believing its last
+  // known position flips the vented-temperature offset by 2.8 °C.
   if (relay && !isEntityOffline(snapshot, relay)) return switchIsOn(snapshot, relay);
   const ppfd = liveQuantumPpfd(snapshot);
   return ppfd !== null && ppfd > 20;
