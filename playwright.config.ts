@@ -27,12 +27,15 @@ export default defineConfig({
     {
       // Seed a local admin via the product's own bootstrap env (no test-only auth
       // bypass). The auth DB is ephemeral and reset each run.
-      command: 'rm -f .playwright/auth.db* && pnpm build && pnpm preview --port 4173',
+      command: 'rm -f .playwright/auth.db* .playwright/climate.db* && pnpm build && pnpm preview --port 4173',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
         GROW_AUTH_DB: '.playwright/auth.db',
+        // Reset whenever this command actually runs — note reuseExistingServer skips it
+        // locally, so determinism rests on the specs mocking every PATCH, not on the rm.
+        GROW_CLIMATE_DB: '.playwright/climate.db',
         GROW_AUTH_ADMIN_USERNAME: 'e2e-admin',
         GROW_AUTH_ADMIN_PASSWORD: 'e2e-password',
         // Point the app at the mock OP so the "Sign in with SSO" path is live. The

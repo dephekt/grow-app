@@ -23,8 +23,19 @@ export function isWaterTemperature(e: EntityConfig): boolean {
   return /water/.test(oid) && (e.deviceClass === 'temperature' || e.unit === '°C');
 }
 
+/** An air humidity reading, wherever it is sited; the inside/outside split is applied by the
+ *  two callers so the exclusions cannot drift between them, as they did until round 6. */
+function isAirHumidity(e: EntityConfig): boolean {
+  if (!isNumericSensor(e) || e.deviceClass !== 'humidity') return false;
+  const oid = (e.objectId ?? '').toLowerCase();
+  const name = e.name.toLowerCase();
+  if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name)) return false;
+  if (/(^|_)(daily|moving|average|avg|min|max|mean)(_|$)/.test(oid)) return false;
+  return true;
+}
+
 export function isHumidity(e: EntityConfig): boolean {
-  return isNumericSensor(e) && e.deviceClass === 'humidity' && !isExternalReference(e);
+  return isAirHumidity(e) && !isExternalReference(e);
 }
 
 /**
@@ -42,12 +53,17 @@ export function isExternalReference(e: EntityConfig): boolean {
   return /(^|_)(ext|external|outside|outdoor)(_|$)/.test(oid) || /\b(ext|external|outside|outdoor)\b/.test(name);
 }
 
-/** Room/air temperature — not the water probe, a substrate probe, a board temp, an aggregate,
- *  or an outside-the-tent reference. */
-export function isAmbientTemperature(e: EntityConfig): boolean {
+/**
+ * An air-temperature reading, wherever it is sited: not the water probe, a substrate probe, a
+ * board temp, a derived aggregate, or a dewpoint.
+ *
+ * The inside/outside split is applied by the two callers below rather than restated in each,
+ * so the exclusion list cannot drift between them — a weaker outside-the-tent matcher is how
+ * a dewpoint ends up feeding the climate loop's room reference.
+ */
+function isAirTemperature(e: EntityConfig): boolean {
   if (!isNumericSensor(e)) return false;
   if (e.deviceClass !== 'temperature' && e.unit !== '°C') return false;
-  if (isExternalReference(e)) return false;
   const oid = (e.objectId ?? '').toLowerCase();
   const name = e.name.toLowerCase();
   if (/water/.test(oid) || /water/.test(name)) return false;
@@ -55,9 +71,28 @@ export function isAmbientTemperature(e: EntityConfig): boolean {
   // legitimate air sensor, "Substrate Temperature" never is.
   if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name)) return false;
   if (/(bps|mlx|board|cpu|die|chip|internal)/.test(oid)) return false;
+  if (/(dew ?point|heat ?index|wet ?bulb)/.test(oid) || /\b(dew ?point|heat ?index|wet ?bulb)\b/.test(name)) {
+    return false;
+  }
   // Segment-anchored so an id merely containing "max"/"min"/"avg" is not rejected.
   if (/(^|_)(daily|moving|average|avg|min|max|mean)(_|$)/.test(oid)) return false;
   return true;
+}
+
+/** The outside-the-tent air temperature — the room the exhaust fan draws from. Matched on the
+ *  same guard that keeps it OUT of the CLIMATE card, so the two can never disagree. */
+export function isExternalTemperature(e: EntityConfig): boolean {
+  return isAirTemperature(e) && isExternalReference(e);
+}
+
+/** The outside-the-tent relative humidity. */
+export function isExternalHumidity(e: EntityConfig): boolean {
+  return isAirHumidity(e) && isExternalReference(e);
+}
+
+/** Room/air temperature inside the grow. */
+export function isAmbientTemperature(e: EntityConfig): boolean {
+  return isAirTemperature(e) && !isExternalReference(e);
 }
 
 /** An MLX90640 thermal-array aggregate temperature (min/mean/max) — the THERMAL trend metrics. */
@@ -114,6 +149,16 @@ export function findQuantumPpfdEntity(entities: Iterable<EntityConfig>): EntityC
 /** Whether a PPFD sensor is registered at all, so the UI can tell "offline" from "no sensor". */
 export function hasQuantumPpfd(snapshot: Snapshot): boolean {
   return findQuantumPpfdEntity(snapshot.entities) !== undefined;
+}
+
+/** An entity's state as a finite number, or null when absent, blank or unreadable. Blank is
+ *  explicitly not zero — `Number('')` is 0, which reads as a live measurement. */
+export function entityNumericState(snapshot: Snapshot, entity: EntityConfig | undefined): number | null {
+  if (!entity) return null;
+  const raw = snapshot.states[entity.id]?.value;
+  if (raw == null || raw.trim() === '' || isNoReadingValue(raw)) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** Whether an entity published a value it cannot report (`nan`); an entity yet to report is not this. */

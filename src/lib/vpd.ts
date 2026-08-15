@@ -8,8 +8,12 @@
  * Derived here rather than in firmware for the same reason substrate VWC is: the
  * inputs are published raw and the derivation stays changeable without a reflash.
  */
-import { isAmbientTemperature, isHumidity, isThermalRoiMeanTemp } from '$lib/entity-match';
-import { isNoReadingValue } from '$lib/state-format';
+import {
+  entityNumericState,
+  isAmbientTemperature,
+  isHumidity,
+  isThermalRoiMeanTemp
+} from '$lib/entity-match';
 import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
 /**
@@ -32,14 +36,6 @@ export function saturationVapourPressureKpa(tempC: number): number {
 export function leafVpdKpa(leafTempC: number, airTempC: number, relativeHumidityPct: number): number {
   const airActual = saturationVapourPressureKpa(airTempC) * (relativeHumidityPct / 100);
   return saturationVapourPressureKpa(leafTempC) - airActual;
-}
-
-function readNumeric(snapshot: Snapshot, entity: EntityConfig | undefined): number | null {
-  if (!entity) return null;
-  const raw = snapshot.states[entity.id]?.value;
-  if (raw == null || raw.trim() === '' || isNoReadingValue(raw)) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -84,9 +80,9 @@ export function liveLeafVpd(snapshot: Snapshot): number | null {
   const onRig = (pred: (e: EntityConfig) => boolean) =>
     snapshot.entities.find((e) => pred(e) && (e.nodeId ?? e.device.identifiers[0]) === nodeKey);
 
-  const leafTemp = readNumeric(snapshot, roi);
-  const airTemp = readNumeric(snapshot, onRig(isAmbientTemperature));
-  const humidity = readNumeric(snapshot, onRig(isHumidity));
+  const leafTemp = entityNumericState(snapshot, roi);
+  const airTemp = entityNumericState(snapshot, onRig(isAmbientTemperature));
+  const humidity = entityNumericState(snapshot, onRig(isHumidity));
   if (leafTemp === null || airTemp === null || humidity === null) return null;
 
   return leafVpdKpa(leafTemp, airTemp, humidity);

@@ -6,7 +6,7 @@
  * their relay, arms and metering out of a snapshot. Server types are imported type-only
  * to keep it client-safe.
  */
-import { isEntityOffline, resolveEntityRef } from '$lib/entity-match';
+import { entityNumericState, isEntityOffline, resolveEntityRef } from '$lib/entity-match';
 import { IRRIGATION_NODE, PUMP_DRAW_MIN_W, RUNOFF_DRAW_MIN_W, RUNOFF_NODE } from '$lib/irrigation/model';
 import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
@@ -121,14 +121,6 @@ export interface PlugView {
   dailyEnergy: EntityConfig | undefined;
 }
 
-function numericState(snapshot: Snapshot, entity: EntityConfig | undefined): number | null {
-  if (!entity) return null;
-  const raw = snapshot.states[entity.id]?.value;
-  if (raw == null || raw.trim() === '') return null;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 /** Whether a switch entity currently reads on. */
 export function switchIsOn(snapshot: Snapshot, entity: EntityConfig | undefined): boolean {
   if (!entity) return false;
@@ -152,7 +144,7 @@ export function resolvePlug(snapshot: Snapshot, spec: PlugSpec): PlugView {
     .filter((a): a is PlugArmView => a !== null);
 
   const relayOn = switchIsOn(snapshot, relay);
-  const watts = numericState(snapshot, power);
+  const watts = entityNumericState(snapshot, power);
 
   let activity: PlugActivity;
   if (offline) {

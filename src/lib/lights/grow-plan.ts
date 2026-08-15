@@ -28,6 +28,14 @@ export interface RampStep {
   ppfd: number;
 }
 
+/** The book's temperature/RH pair for one half of the photoperiod — reference context only.
+ *  Neither is a control target: there is no heater and no chiller, so most of the range is
+ *  unreachable here. Only `airVpdTarget` is regulated. */
+export interface ClimateReference {
+  tempC: number;
+  rhPct: number;
+}
+
 export interface GrowWeek {
   /** 1-based overall grow week. */
   week: number;
@@ -37,22 +45,50 @@ export interface GrowWeek {
   ppfdTarget: number;
   /** Optional within-week day-stepped ramp (e.g. the seedling week climbs off the dome). */
   ramp?: RampStep[];
+  /** ROOM (air) VPD target in kPa — the one climate value the control loop regulates. One figure
+   *  covers the whole 24 h: the book holds VPD constant and lets RH fall with the night
+   *  temperature, rather than depressing VPD after dark. */
+  airVpdTarget: number;
+  /** The temp/RH the book pairs with that VPD, lights-on and lights-off. Displayed, never enforced. */
+  climateRef: { day: ClimateReference; night: ClimateReference };
 }
 
-/** Schedule for the current grow (Gelato 41 BX F2 · Double Down Mule #1, clones, CO₂). The first
- *  week after transplant was rooting-in time; named veg starts after that week is complete. */
+/**
+ * Schedule for the current grow (Gelato 41 BX F2 · Double Down Mule #1, clones, CO₂). The first
+ * week after transplant was rooting-in time; named veg starts after that week is complete.
+ *
+ * Climate columns are the CCI Black Book p.57 "LED 8 Week Crop Steering Guidelines" tracker —
+ * 2 veg weeks + 8 flower weeks, which is a 1:1 match for this plan's ten. °F converted to °C.
+ * PPFD stays as measured for this fixture rather than the book's range.
+ */
+/** The book's four climate blocks, named once so correcting a figure is one edit rather than
+ *  five sibling literals with nothing to catch a missed one. */
+const EARLY = { day: { tempC: 28.9, rhPct: 75 }, night: { tempC: 28.9, rhPct: 75 } } as const;
+const BULKING = { day: { tempC: 27.8, rhPct: 70 }, night: { tempC: 21.1, rhPct: 55 } } as const;
+const FADE_EARLY = { day: { tempC: 24.4, rhPct: 62 }, night: { tempC: 18.3, rhPct: 55 } } as const;
+const FADE_LATE = { day: { tempC: 21.1, rhPct: 55 }, night: { tempC: 15.6, rhPct: 40 } } as const;
+
 export const WEEKLY_PLAN: GrowWeek[] = [
-  { week: 1, stage: 'veg', ppfdTarget: 400 },
-  { week: 2, stage: 'veg', ppfdTarget: 555 },
-  { week: 3, stage: 'flower', ppfdTarget: 925 },
-  { week: 4, stage: 'flower', ppfdTarget: 1020 },
-  { week: 5, stage: 'flower', ppfdTarget: 1080 },
-  { week: 6, stage: 'flower', ppfdTarget: 1120 },
-  { week: 7, stage: 'flower', ppfdTarget: 1155 },
-  { week: 8, stage: 'flower', ppfdTarget: 1100 },
-  { week: 9, stage: 'ripen', ppfdTarget: 1000 },
-  { week: 10, stage: 'ripen', ppfdTarget: 925 }
+  // Veg wk 1-2 and flower wk 1-3: one climate for the whole block, no night differential.
+  { week: 1, stage: 'veg', ppfdTarget: 400, airVpdTarget: 1.0, climateRef: EARLY },
+  { week: 2, stage: 'veg', ppfdTarget: 555, airVpdTarget: 1.0, climateRef: EARLY },
+  { week: 3, stage: 'flower', ppfdTarget: 925, airVpdTarget: 1.0, climateRef: EARLY },
+  { week: 4, stage: 'flower', ppfdTarget: 1020, airVpdTarget: 1.0, climateRef: EARLY },
+  { week: 5, stage: 'flower', ppfdTarget: 1080, airVpdTarget: 1.0, climateRef: EARLY },
+  // Bulking: the book opens a 10 °F day/night split here and drops night RH to hold VPD.
+  { week: 6, stage: 'flower', ppfdTarget: 1120, airVpdTarget: 1.1, climateRef: BULKING },
+  { week: 7, stage: 'flower', ppfdTarget: 1155, airVpdTarget: 1.1, climateRef: BULKING },
+  { week: 8, stage: 'flower', ppfdTarget: 1100, airVpdTarget: 1.1, climateRef: BULKING },
+  // Fade. The book gives 1.1-1.2 for these; 1.15 is its midpoint, and the band clamps at 1.2.
+  { week: 9, stage: 'ripen', ppfdTarget: 1000, airVpdTarget: 1.15, climateRef: FADE_EARLY },
+  { week: 10, stage: 'ripen', ppfdTarget: 925, airVpdTarget: 1.15, climateRef: FADE_LATE }
 ];
+
+/** Hard rails for the whole grow, CCI Black Book p.61: "never let the VPD dip below .8 during the
+ *  entire veg and flower process and never rise above 1.2 VPD." The Homegrower Handbook p.26-27
+ *  independently gives the same envelope (veg 0.8-1.0, flower 1.0-1.2). Every band clamps to these. */
+export const AIR_VPD_HARD_MIN = 0.8;
+export const AIR_VPD_HARD_MAX = 1.2;
 
 /** Week-1 day 1 = the first day of named veg, after the transplanted clones' rooting-in week (local
  *  midnight). Before this the plan clamps to veg wk 1; weeksSince(now) drives stage/week thereafter. */
@@ -94,6 +130,10 @@ export interface GrowState {
   /** The next ramp step within the current week, if any — for previewing "→ X on day Y". */
   nextRamp: { onDay: number; ppfd: number } | null;
   weekly: WeeklyPoint[];
+  /** The week's ROOM (air) VPD target in kPa — what the climate loop regulates. */
+  airVpdTarget: number;
+  /** The book's temp/RH pairing for that VPD, for display beside it. */
+  climateRef: { day: ClimateReference; night: ClimateReference };
 }
 
 /** Resolve the current stage/week/targets from the wall clock, clamped to the plan's bounds. */
@@ -125,7 +165,9 @@ export function resolveGrowState(now: Date, startIso: string = GROW_START): Grow
     offHours: stage.offHours,
     dayOfGrow,
     nextRamp,
-    weekly: WEEKLY_PLAN.map((w, i) => ({ week: w.week, stage: w.stage, ppfdTarget: w.ppfdTarget, current: i === idx }))
+    weekly: WEEKLY_PLAN.map((w, i) => ({ week: w.week, stage: w.stage, ppfdTarget: w.ppfdTarget, current: i === idx })),
+    airVpdTarget: wk.airVpdTarget,
+    climateRef: wk.climateRef
   };
 }
 

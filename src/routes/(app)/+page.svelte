@@ -2,6 +2,7 @@
 <!-- Copyright (C) 2026 Daniel Snider -->
 
 <script lang="ts">
+  import { onMount, untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import {
     findQuantumPpfdEntity,
@@ -12,6 +13,7 @@
     resolveWaterDevice
   } from '$lib/entity-match';
   import { liveLeafVpd } from '$lib/vpd';
+  import type { ClimateBriefState } from '../api/climate/+server';
   import { formatEntityState } from '$lib/state-format';
   import { presentedNumericMetrics } from '$lib/device-presentation';
   import type { DeviceSnapshot, EntityConfig } from '$lib/server/mqtt/types';
@@ -76,6 +78,36 @@
     return { label: 'Leaf VPD', value, status: 'ok' };
   });
 
+  // From the server, since an override on /climate moves it off the plan.
+  let climateTarget = $state<{ airVpdTarget: number; week: number } | null>(untrack(() => data.climate));
+
+  // Re-fetched because the dashboard is long-lived and a week rollover would strand it.
+  onMount(() => {
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch('/api/climate?brief=1');
+        if (!res.ok) return;
+        const body = (await res.json()) as Partial<ClimateBriefState>;
+        if (typeof body.band?.target === 'number' && typeof body.week === 'number') {
+          climateTarget = { airVpdTarget: body.band.target, week: body.week };
+        }
+      } catch {
+        // Keeps the last good value; the next tick recovers.
+      }
+    }, 300_000);
+    return () => clearInterval(timer);
+  });
+
+  let vpdTargetRow = $derived.by<Row | null>(() => {
+    if (!climateTarget) return null;
+    if (!live.snapshot.entities.some(isAirVpd)) return null;
+    return {
+      label: 'VPD target',
+      value: `${climateTarget.airVpdTarget.toFixed(2)} kPa · wk ${climateTarget.week}`,
+      status: 'none'
+    };
+  });
+
   let climateRows = $derived.by<Row[]>(() => {
     const metrics = metricRows(climateDevice);
     const rows: Row[] = [...metrics];
@@ -84,6 +116,7 @@
       const i = metrics.findIndex((r) => isAirVpd(r.entity));
       rows.splice(i >= 0 ? i + 1 : rows.length, 0, leafVpdRow);
     }
+    if (vpdTargetRow) rows.push(vpdTargetRow);
     if (parRow) rows.push(parRow);
     return rows;
   });
