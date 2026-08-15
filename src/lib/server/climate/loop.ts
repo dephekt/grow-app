@@ -58,17 +58,16 @@ export class ClimateLoopState {
     }
   }
 
-  /** Whether this action is worth a row: any change of verdict, else the heartbeat. `extra`
-   *  carries side effects that are not part of the verdict. */
-  shouldLog(action: ClimateAction, nowMs: number, extra = '', heartbeat = true): boolean {
-    const key = `${logKey(action)}|${extra}`;
+  /** Whether this action is worth a row: any change of verdict, else the heartbeat. */
+  shouldLog(action: ClimateAction, nowMs: number, heartbeat = true): boolean {
+    const key = logKey(action);
     if (key !== this.lastLogKey) return true;
     if (!heartbeat) return false;
     return this.lastLogMs === null || nowMs - this.lastLogMs >= HEARTBEAT_MS;
   }
 
-  markLogged(action: ClimateAction, nowMs: number, extra = ''): void {
-    this.lastLogKey = `${logKey(action)}|${extra}`;
+  markLogged(action: ClimateAction, nowMs: number): void {
+    this.lastLogKey = logKey(action);
     this.lastLogMs = nowMs;
   }
 }
@@ -218,7 +217,8 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
     }
   }
 
-  // Both join the dedup key, so an arm the loop fights every 30 s is not a silent loop.
+  // Appended to the reason, which logKey digit-blanks into the dedup key — so an arm the loop
+  // fights every 30 s is not a silent loop, without a second copy of the notes.
   const notes = [
     reconciled.length > 0 ? `disarmed ${reconciled.join(', ')}` : null,
     publishError ? `publish failed: ${publishError}` : null
@@ -226,7 +226,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
   const logged: ClimateAction = notes.length > 0 ? { ...action, reason: `${action.reason} · ${notes.join(' · ')}` } : action;
 
   // A switched-off loop records the switch and goes quiet rather than heartbeating forever.
-  if (state.shouldLog(logged, nowMs, notes.join('|'), config.mode !== 'off')) {
+  if (state.shouldLog(logged, nowMs, config.mode !== 'off')) {
     recordClimateEvent(db, {
       ts: new Date(nowMs).toISOString(),
       action: logged,
@@ -245,7 +245,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
       roomRhPct: decisionInput.reading.room?.rhPct ?? null,
       lightsOn: inputs.lightsOn
     });
-    state.markLogged(logged, nowMs, notes.join('|'));
+    state.markLogged(logged, nowMs);
     // On write, since writes are the only thing that grows the table.
     pruneClimateEvents(db, nowMs, getClimateLogRetentionDays());
   }

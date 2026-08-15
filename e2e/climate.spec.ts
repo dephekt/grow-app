@@ -5,6 +5,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { dashboardSnapshot } from './fixtures/dashboard-snapshot';
 
 /**
+ * Mocked reason strings must track decide.ts verbatim; nothing fails when they drift, so treat
+ * a change to a verdict's wording as a change here too.
+ *
  * Reads hit the real API — the shipped config, the real decideClimate, the real store — so a
  * regression in any of them fails here. Writes are always mocked: three device projects run in
  * parallel against one server, and a real PATCH from one would change what the others see.
@@ -44,7 +47,7 @@ const LIVE_STATE = {
     { objectId: 'fan_cycle', on: false },
     { objectId: 'fan_schedule', on: false }
   ],
-  action: { kind: 'exhaust', on: false, reason: 'air VPD 1.32 cleared the 1.10 top of band' }
+  action: { kind: 'exhaust', on: false, reason: 'air VPD 1.32 reached the 1.10 top of band' }
 };
 
 const EVENTS = {
@@ -56,7 +59,7 @@ const EVENTS = {
       kind: 'exhaust',
       actuator: 'exhaust',
       on: false,
-      reason: 'air VPD 1.32 cleared the 1.10 top of band',
+      reason: 'air VPD 1.32 reached the 1.10 top of band',
       mode: 'active',
       published: true,
       airVpd: 1.32,
@@ -187,7 +190,7 @@ test.describe('climate page — populated state', () => {
     await expect(page.getByText('above the hard ceiling')).toBeVisible();
     // exact, because the log row below carries the same words in lower case.
     await expect(page.getByText('Exhaust OFF', { exact: true })).toBeVisible();
-    await expect(page.getByText('air VPD 1.32 cleared the 1.10 top of band').first()).toBeVisible();
+    await expect(page.getByText('air VPD 1.32 reached the 1.10 top of band').first()).toBeVisible();
   });
 
   test('shows tent and room absolute humidity, which is what venting moves', async ({ page }) => {

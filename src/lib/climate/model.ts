@@ -24,8 +24,9 @@ export const EXHAUST_ARMS: readonly string[] = (EXHAUST_SPEC.arms ?? []).map((ar
 
 export { EXHAUST_NODE };
 
-/** Not yet built — all four Athom plugs are in use and the humidifier needs a fifth. Resolving
- *  it optionally means arming RH control later is config, not code. */
+/** Placeholders until the fifth Athom plug exists: unlike EXHAUST_* these are NOT read off the
+ *  PLUGS registry, so registering the plug there means deleting these two and reading them the
+ *  same way. Guessing its objectIds now would just be wrong when the hardware arrives. */
 export const HUMIDIFIER_NODE = 'humidifier';
 export const HUMIDIFIER_RELAY = 'humidifier';
 

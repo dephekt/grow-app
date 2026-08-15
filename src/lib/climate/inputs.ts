@@ -51,8 +51,8 @@ export interface ClimateInputs {
   arms: ResolvedArm[];
 }
 
-/** Staleness bound for air readings, so a node dying without an LWT stops driving a relay off
- *  a frozen number. */
+/** Staleness bound for air readings, measured from RECEIPT — so it catches a node that died
+ *  without an LWT, but not a retained value replayed after a broker restart. */
 const MAX_READING_AGE_MS = 10 * 60 * 1000;
 
 function isFresh(snapshot: Snapshot, entity: EntityConfig, nowMs: number): boolean {
