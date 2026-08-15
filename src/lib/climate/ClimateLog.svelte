@@ -15,7 +15,8 @@
     total: number;
     anchorId: number;
     pageSize: number;
-    onpage: (offset: number) => Promise<void>;
+    /** Resolves false when the page could not be fetched, so the pager does not advance. */
+    onpage: (offset: number) => Promise<boolean>;
   } = $props();
 
   let offset = $state(0);
@@ -28,8 +29,8 @@
     if (busy) return;
     busy = true;
     try {
-      await onpage(next);
-      offset = next;
+      // Only on success: advancing regardless would show "Page 2" above page 1's rows.
+      if (await onpage(next)) offset = next;
     } finally {
       busy = false;
     }

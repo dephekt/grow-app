@@ -26,7 +26,7 @@ function liveState() {
   const target = config.airVpdOverride ?? grow.airVpdTarget;
   const band = controlBand(target, config.deadbandKpa);
 
-  const inputs = resolveClimateInputs(getSiteMqttService().snapshot());
+  const inputs = resolveClimateInputs(getSiteMqttService().snapshot(), now.getTime());
   const state = getClimateLoopState();
   const smoothedAirVpd = state.airVpd.value() ?? inputs.airVpd;
 

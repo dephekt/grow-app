@@ -39,12 +39,6 @@ export function absoluteHumidityGPerM3(tempC: number, rhPct: number): number {
   return (actualVapourPressureKpa(tempC, rhPct) * 1e6) / (R_VAPOUR * (tempC + 273.15));
 }
 
-/** Relative humidity that `ah` g·m⁻³ represents at `tempC`. */
-export function relativeHumidityPct(tempC: number, ah: number): number {
-  const e = (ah * R_VAPOUR * (tempC + 273.15)) / 1e6;
-  return (e / saturationVapourPressureKpa(tempC)) * 100;
-}
-
 /**
  * How much warmer the tent settles than the room once it is fully ventilated.
  *
@@ -62,14 +56,16 @@ export function ventedOffsetC(lightsOn: boolean): number {
 /**
  * Air VPD the tent would settle at if it were fully ventilated with room air right now.
  *
- * The tent converges on the room's absolute humidity (that is what the fan exchanges) at a
- * temperature the light's heat load holds above it. Used to gate starting the fan: if this
- * is not meaningfully better than the current reading, venting cannot fix anything and the
- * loop should leave the relay alone.
+ * Used to gate STARTING the fan: if this is not meaningfully better than the current reading,
+ * venting cannot fix anything and the loop should leave the relay alone.
+ *
+ * Vapour pressure carries over from the room unchanged, because heating air at constant total
+ * pressure conserves its mole fraction of water. Only the saturation term moves with the
+ * light's heat load. (Absolute humidity in g·m⁻³ is NOT the conserved quantity here — the air
+ * expands as it warms, so holding that constant inflates `e` by T_vented/T_room and biases the
+ * prediction low by ~0.01 kPa, a fifth of the default minimum gain.)
  */
 export function ventedAirVpdKpa(room: AirState, lightsOn: boolean): number {
   const ventedTempC = room.tempC + ventedOffsetC(lightsOn);
-  const ah = absoluteHumidityGPerM3(room.tempC, room.rhPct);
-  const e = (ah * R_VAPOUR * (ventedTempC + 273.15)) / 1e6;
-  return saturationVapourPressureKpa(ventedTempC) - e;
+  return saturationVapourPressureKpa(ventedTempC) - actualVapourPressureKpa(room.tempC, room.rhPct);
 }

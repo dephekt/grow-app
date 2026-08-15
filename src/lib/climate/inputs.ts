@@ -15,7 +15,6 @@ import {
   isExternalHumidity,
   isExternalTemperature,
   isHumidity,
-  isThermalRoiMeanTemp,
   liveQuantumPpfd,
   resolveClimateDevice,
   resolveEntityRef
@@ -56,15 +55,37 @@ export interface ClimateInputs {
   arms: ResolvedArm[];
 }
 
-/** Temperature + RH from one device, or null unless BOTH read — a half-resolved pair would
+/**
+ * How stale an air reading may be before the loop stops trusting it.
+ *
+ * Far beyond any publisher's cadence (the SHT45s report every 10 s) but short enough that a
+ * node which dies WITHOUT publishing its LWT — yanked power, crashed Wi-Fi stack — stops
+ * driving a relay off a frozen number. `isEntityOffline` cannot catch that case by design: a
+ * device that never published an offline payload reads `unknown`, which is not offline.
+ *
+ * Note this is receipt time, not publish time, so retained values redelivered on a broker
+ * reconnect look fresh. It bounds the steady-state failure, not that one.
+ */
+const MAX_READING_AGE_MS = 10 * 60 * 1000;
+
+function isFresh(snapshot: Snapshot, entity: EntityConfig, nowMs: number): boolean {
+  const updatedAt = snapshot.states[entity.id]?.updatedAt;
+  if (!updatedAt) return false;
+  const at = Date.parse(updatedAt);
+  return Number.isFinite(at) && nowMs - at <= MAX_READING_AGE_MS;
+}
+
+/** Temperature + RH from one device, or null unless BOTH read live — a half-resolved pair would
  *  otherwise compute a VPD against a stale or missing partner. */
 function airStateFrom(
   snapshot: Snapshot,
   temp: EntityConfig | undefined,
-  humidity: EntityConfig | undefined
+  humidity: EntityConfig | undefined,
+  nowMs: number
 ): AirState | null {
   if (!temp || !humidity) return null;
   if (isEntityOffline(snapshot, temp) || isEntityOffline(snapshot, humidity)) return null;
+  if (!isFresh(snapshot, temp, nowMs) || !isFresh(snapshot, humidity, nowMs)) return null;
   const tempC = entityNumericState(snapshot, temp);
   const rhPct = entityNumericState(snapshot, humidity);
   if (tempC === null || rhPct === null) return null;
@@ -90,18 +111,21 @@ function resolveActuator(snapshot: Snapshot, node: string, objectId: string): Re
  */
 function resolveLightsOn(snapshot: Snapshot): boolean {
   const relay = resolveEntityRef(snapshot, { node: GROW_LIGHT_NODE, objectId: 'grow_light' });
-  if (relay) return switchIsOn(snapshot, relay);
+  // Offline falls through to PPFD rather than reading the retained relay state, matching how
+  // resolveActuator treats an offline plug. Discovery is retained, so the entity outlives the
+  // device — believing its last known position flips the vented-temperature offset by 2.8 °C.
+  if (relay && !isEntityOffline(snapshot, relay)) return switchIsOn(snapshot, relay);
   const ppfd = liveQuantumPpfd(snapshot);
   return ppfd !== null && ppfd > 20;
 }
 
-export function resolveClimateInputs(snapshot: Snapshot): ClimateInputs {
+export function resolveClimateInputs(snapshot: Snapshot, nowMs: number): ClimateInputs {
   const climateDevice = resolveClimateDevice(snapshot);
   const tentNode = climateDevice?.nodeId ?? climateDevice?.id ?? null;
   const onTent = (pred: (e: EntityConfig) => boolean) =>
     tentNode === null ? undefined : snapshot.entities.find((e) => pred(e) && entityNodeKey(e) === tentNode);
 
-  const tent = airStateFrom(snapshot, onTent(isAmbientTemperature), onTent(isHumidity));
+  const tent = airStateFrom(snapshot, onTent(isAmbientTemperature), onTent(isHumidity), nowMs);
 
   // The room pair is matched by the external-reference guard rather than a hardcoded node, so
   // renaming or replacing the feather does not silently drop the loop's room input.
@@ -110,7 +134,7 @@ export function resolveClimateInputs(snapshot: Snapshot): ClimateInputs {
   const roomHumidity = roomNode
     ? snapshot.entities.find((e) => isExternalHumidity(e) && entityNodeKey(e) === roomNode)
     : undefined;
-  const room = airStateFrom(snapshot, roomTemp, roomHumidity);
+  const room = airStateFrom(snapshot, roomTemp, roomHumidity, nowMs);
 
   const arms = EXHAUST_ARMS.map((objectId): ResolvedArm | null => {
     const entity = resolveEntityRef(snapshot, { node: EXHAUST_NODE, objectId });
@@ -122,7 +146,7 @@ export function resolveClimateInputs(snapshot: Snapshot): ClimateInputs {
     room,
     airVpd: tent ? airVpdKpa(tent.tempC, tent.rhPct) : null,
     // Null whenever the ROI is switched off or its rig is offline — recorded, never regulated.
-    leafVpd: snapshot.entities.some(isThermalRoiMeanTemp) ? liveLeafVpd(snapshot) : null,
+    leafVpd: liveLeafVpd(snapshot),
     lightsOn: resolveLightsOn(snapshot),
     tentNode,
     roomNode,

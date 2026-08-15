@@ -48,15 +48,16 @@ export class ClimateLoopState {
     }
   }
 
-  /** Whether this action is worth a row: any change of verdict, else the heartbeat. */
-  shouldLog(action: ClimateAction, nowMs: number): boolean {
-    const key = logKey(action);
+  /** Whether this action is worth a row: any change of verdict, else the heartbeat. `extra`
+   *  carries side effects that are not part of the verdict — reconciled arms, publish errors. */
+  shouldLog(action: ClimateAction, nowMs: number, extra = ''): boolean {
+    const key = `${logKey(action)}|${extra}`;
     if (key !== this.lastLogKey) return true;
     return this.lastLogMs === null || nowMs - this.lastLogMs >= HEARTBEAT_MS;
   }
 
-  markLogged(action: ClimateAction, nowMs: number): void {
-    this.lastLogKey = logKey(action);
+  markLogged(action: ClimateAction, nowMs: number, extra = ''): void {
+    this.lastLogKey = `${logKey(action)}|${extra}`;
     this.lastLogMs = nowMs;
   }
 }
@@ -104,7 +105,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
   const target = config.airVpdOverride ?? grow.airVpdTarget;
   const band = controlBand(target, config.deadbandKpa);
 
-  const inputs = resolveClimateInputs(snapshot);
+  const inputs = resolveClimateInputs(snapshot, nowMs);
   if (inputs.airVpd === null) state.airVpd.reset();
   else state.airVpd.push(inputs.airVpd, nowMs);
   const smoothedAirVpd = state.airVpd.value();
@@ -133,28 +134,48 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
 
   const { action } = decision;
   let published = false;
+  const reconciled: string[] = [];
+  let publishError: string | null = null;
 
   // `observe` is the whole point of the dry run: it decides and logs but never publishes.
   if (config.mode === 'active' && canPublish()) {
-    for (const objectId of decision.reconcileArms) {
-      const arm = inputs.arms.find((a) => a.objectId === objectId);
-      if (arm) await publish(arm.entity.id, false);
-    }
-    if (action.kind === 'exhaust' && inputs.exhaust.entity) {
-      await publish(inputs.exhaust.entity.id, action.on);
-      published = true;
-    } else if (action.kind === 'humidify' && inputs.humidifier.entity) {
-      await publish(inputs.humidifier.entity.id, action.on);
-      published = true;
+    // Caught rather than thrown: the broker can drop between `canPublish` and the write, and
+    // unwinding here would skip the log entirely — leaving a clean gap in the audit trail at
+    // exactly the tick that failed to move the relay.
+    try {
+      for (const objectId of decision.reconcileArms) {
+        const arm = inputs.arms.find((a) => a.objectId === objectId);
+        if (arm) {
+          await publish(arm.entity.id, false);
+          reconciled.push(objectId);
+        }
+      }
+      if (action.kind === 'exhaust' && inputs.exhaust.entity) {
+        await publish(inputs.exhaust.entity.id, action.on);
+        published = true;
+      } else if (action.kind === 'humidify' && inputs.humidifier.entity) {
+        await publish(inputs.humidifier.entity.id, action.on);
+        published = true;
+      }
+    } catch (error) {
+      publishError = error instanceof Error ? error.message : String(error);
     }
   }
 
-  if (state.shouldLog(action, nowMs)) {
+  // Reconciliation and publish failures both join the logged reason AND the dedup key, so a
+  // firmware arm the loop is quietly fighting every 30 s cannot read as a silent loop.
+  const notes = [
+    reconciled.length > 0 ? `disarmed ${reconciled.join(', ')}` : null,
+    publishError ? `publish failed: ${publishError}` : null
+  ].filter((n): n is string => n !== null);
+  const logged: ClimateAction = notes.length > 0 ? { ...action, reason: `${action.reason} · ${notes.join(' · ')}` } : action;
+
+  if (state.shouldLog(logged, nowMs, notes.join('|'))) {
     recordClimateEvent(db, {
       ts: new Date(nowMs).toISOString(),
-      action,
+      action: logged,
       mode: config.mode,
-      published,
+      published: published || reconciled.length > 0,
       airVpd: smoothedAirVpd,
       leafVpd: inputs.leafVpd,
       target,
@@ -166,7 +187,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
       roomRhPct: inputs.room?.rhPct ?? null,
       lightsOn: inputs.lightsOn
     });
-    state.markLogged(action, nowMs);
+    state.markLogged(logged, nowMs, notes.join('|'));
   }
 
   return { config, band, inputs, smoothedAirVpd, decision, published };

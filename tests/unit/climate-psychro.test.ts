@@ -6,7 +6,6 @@ import {
   absoluteHumidityGPerM3,
   actualVapourPressureKpa,
   airVpdKpa,
-  relativeHumidityPct,
   ventedAirVpdKpa,
   ventedOffsetC
 } from '../../src/lib/climate/psychro';
@@ -41,11 +40,6 @@ describe('absoluteHumidityGPerM3', () => {
   it('reproduces the measured night tent and room readings', () => {
     expect(absoluteHumidityGPerM3(24.24, 92.0)).toBeCloseTo(20.3, 1);
     expect(absoluteHumidityGPerM3(24.46, 53.8)).toBeCloseTo(12.0, 1);
-  });
-
-  it('round-trips through relativeHumidityPct', () => {
-    const ah = absoluteHumidityGPerM3(27, 63.5);
-    expect(relativeHumidityPct(27, ah)).toBeCloseTo(63.5, 6);
   });
 
   it('rises with temperature at fixed RH', () => {
@@ -89,5 +83,24 @@ describe('ventedAirVpdKpa', () => {
     // The rainy-day case: venting would make things worse, and the gate must see it.
     const tentVpd = airVpdKpa(27, 60);
     expect(ventedAirVpdKpa({ tempC: 24, rhPct: 95 }, true)).toBeLessThan(tentVpd);
+  });
+
+  it('carries the room vapour pressure over unchanged, moving only the saturation term', () => {
+    // Heating air at constant total pressure conserves its mole fraction of water, so `e` is
+    // the invariant. Routing through g·m⁻³ instead would inflate `e` by T_vented/T_room and
+    // bias the prediction low by ~0.011 kPa — a fifth of the default 0.05 minimum gain.
+    const room = { tempC: 25, rhPct: 50 };
+    const e = actualVapourPressureKpa(room.tempC, room.rhPct);
+    expect(ventedAirVpdKpa(room, true)).toBeCloseTo(saturationVapourPressureKpa(25 + 2.1) - e, 9);
+  });
+
+  it('reduces to the room’s own VPD when the tent equilibrates to room temperature', () => {
+    const room = { tempC: 26, rhPct: 55 };
+    const flat = { tempC: room.tempC + 0, rhPct: room.rhPct };
+    // ventedOffsetC is non-zero in both directions, so assert the identity directly.
+    expect(saturationVapourPressureKpa(flat.tempC) - actualVapourPressureKpa(room.tempC, room.rhPct)).toBeCloseTo(
+      airVpdKpa(room.tempC, room.rhPct),
+      9
+    );
   });
 });

@@ -80,6 +80,13 @@ describe('decideClimate — fail-safe', () => {
     expect(d.action.reason).toContain('failing safe');
   });
 
+  it('hands the fan back to its firmware when blind, rather than disarming it', () => {
+    // Otherwise a dead air sensor disarms the plug's own cycle while the loop refuses to
+    // command anything, and the tent gets no ventilation at all.
+    const d = decideClimate(input({ airVpd: null, armsOn: ['fan_cycle', 'fan_schedule'] }));
+    expect(d.reconcileArms).toEqual([]);
+  });
+
   it('holds when the exhaust plug is not discovered', () => {
     const d = decideClimate(input({ airVpd: 0.5, exhaust: { present: false } }));
     expect(d.action.kind).toBe('hold');
@@ -192,6 +199,34 @@ describe('decideClimate — temperature limits', () => {
     expect(d.action.reason).toContain('°C floor');
   });
 
+  it('STOPS a running fan once the tent falls below the cold floor', () => {
+    // Cold protection needs a stop leg: on a cold wet night humid room air never carries tent
+    // VPD past the top of band, so the ordinary release condition never fires.
+    const d = decideClimate(input({ airVpd: 0.5, tentTempC: 19, exhaust: { on: true } }));
+    expect(d.action).toMatchObject({ kind: 'exhaust', on: false });
+    expect(d.action.reason).toContain('regardless of VPD');
+  });
+
+  it('does not reach for the relay to cold-stop a fan it does not own', () => {
+    const d = decideClimate(
+      input({ airVpd: 0.5, tentTempC: 19, exhaust: { on: true }, config: { exhaustSource: 'firmware' } })
+    );
+    expect(d.action.kind).toBe('hold');
+  });
+
+  it('lets a heat override bypass the minimum off', () => {
+    // The symmetric case to the hard ceiling overriding the minimum on: an over-temperature
+    // tent must not sit out an anti-chatter timer.
+    const d = decideClimate(input({ airVpd: 1.0, tentTempC: 33, exhaust: { lastChangeMs: NOW - 30_000 } }));
+    expect(d.action).toMatchObject({ kind: 'exhaust', on: true });
+  });
+
+  it('still serves the minimum off for an ordinary VPD-driven start', () => {
+    const d = decideClimate(input({ airVpd: 0.5, exhaust: { lastChangeMs: NOW - 30_000 } }));
+    expect(d.action.kind).toBe('hold');
+    expect(d.action.reason).toContain('minimum off');
+  });
+
   it('tolerates a missing tent temperature without tripping either limit', () => {
     // airVpd can still be present from a prior smoothed sample; neither limit may fire blind.
     const d = decideClimate(input({ airVpd: 0.5, tentTempC: null }));
@@ -242,13 +277,46 @@ describe('decideClimate — humidifier', () => {
     expect(d.action).toMatchObject({ kind: 'humidify', on: true });
   });
 
-  it('releases back at the top of band, not at the floor — no shared edge with the exhaust', () => {
+  it('releases back at the target, not at the floor — no shared edge with the exhaust', () => {
     const on = { present: true, on: true };
-    expect(decideClimate(input({ airVpd: 1.15, config: loopRh, humidifier: on })).action.kind).toBe('hold');
-    expect(decideClimate(input({ airVpd: 1.1, config: loopRh, humidifier: on })).action).toMatchObject({
+    expect(decideClimate(input({ airVpd: 1.05, config: loopRh, humidifier: on })).action.kind).toBe('hold');
+    expect(decideClimate(input({ airVpd: 1.0, config: loopRh, humidifier: on })).action).toMatchObject({
       kind: 'humidify',
       on: false
     });
+  });
+
+  it('keeps engage and release apart even when the band clamps to the hard ceiling', () => {
+    // Grow weeks 6-10: target 1.10/1.15 with a 0.10 deadband puts band.high at exactly 1.20.
+    // Releasing there would put both thresholds on one reading and cycle a mains humidifier
+    // every tick, so the release point is the target.
+    const week6 = controlBand(1.1, 0.1);
+    expect(week6.high).toBe(AIR_VPD_HARD_MAX);
+
+    const at = (airVpd: number, on: boolean) =>
+      decideClimate({
+        ...input({ airVpd, config: loopRh, humidifier: { present: true, on } }),
+        band: week6
+      }).action;
+
+    expect(at(1.2, false)).toMatchObject({ kind: 'humidify', on: true });
+    expect(at(1.2, true).kind).toBe('hold');
+    expect(at(1.15, true).kind).toBe('hold');
+    expect(at(1.1, true)).toMatchObject({ kind: 'humidify', on: false });
+  });
+
+  it('serves min-off before re-engaging and min-on before releasing', () => {
+    const engage = decideClimate(
+      input({ airVpd: 1.3, config: loopRh, humidifier: { present: true, lastChangeMs: NOW - 60_000 } })
+    );
+    expect(engage.action.kind).toBe('hold');
+    expect(engage.action.reason).toContain('minimum off');
+
+    const release = decideClimate(
+      input({ airVpd: 0.95, config: loopRh, humidifier: { present: true, on: true, lastChangeMs: NOW - 30_000 } })
+    );
+    expect(release.action.kind).toBe('hold');
+    expect(release.action.reason).toContain('minimum on');
   });
 
   it('releases a running humidifier before venting, so the two never fight', () => {
@@ -292,5 +360,26 @@ describe('controlBand', () => {
 
   it('leaves an interior target alone', () => {
     expect(controlBand(1.0, 0.1)).toEqual({ target: 1.0, low: 0.9, high: 1.1 });
+  });
+
+  it('clamps the TARGET, so an out-of-rail override cannot invert the band', () => {
+    // Clamping only the edges gives low 1.4 / high 1.2 for a 1.5 target, and `vpd < low` is
+    // then true at every reachable reading — the fan would be demanded on and never released.
+    const band = controlBand(1.5, 0.1);
+    expect(band.low).toBeLessThanOrEqual(band.high);
+    expect(band).toEqual({ target: AIR_VPD_HARD_MAX, low: 1.1, high: AIR_VPD_HARD_MAX });
+
+    const low = controlBand(0.2, 0.1);
+    expect(low.low).toBeLessThanOrEqual(low.high);
+    expect(low).toEqual({ target: AIR_VPD_HARD_MIN, low: AIR_VPD_HARD_MIN, high: 0.9 });
+  });
+
+  it('never inverts across the whole permitted override range', () => {
+    for (let target = 0.4; target <= 2.0001; target += 0.05) {
+      for (const deadband of [0.01, 0.1, 0.4]) {
+        const band = controlBand(target, deadband);
+        expect(band.low).toBeLessThanOrEqual(band.high);
+      }
+    }
   });
 });

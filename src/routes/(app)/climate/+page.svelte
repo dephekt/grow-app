@@ -79,13 +79,18 @@
     void patch({ [key]: n });
   }
 
-  async function loadEvents(offset: number): Promise<void> {
-    const res = await fetch(`/api/climate/events?limit=${LOG_PAGE_SIZE}&offset=${offset}&anchorId=${eventAnchorId}`);
-    if (!res.ok) return;
-    const body = (await res.json()) as { events?: ClimateEventJson[]; total?: number; anchorId?: number };
-    events = body.events ?? [];
-    if (Number.isInteger(body.total)) eventTotal = body.total as number;
-    if (Number.isSafeInteger(body.anchorId)) eventAnchorId = body.anchorId as number;
+  async function loadEvents(offset: number): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/climate/events?limit=${LOG_PAGE_SIZE}&offset=${offset}&anchorId=${eventAnchorId}`);
+      if (!res.ok) return false;
+      const body = (await res.json()) as { events?: ClimateEventJson[]; total?: number; anchorId?: number };
+      events = body.events ?? [];
+      if (Number.isInteger(body.total)) eventTotal = body.total as number;
+      if (Number.isSafeInteger(body.anchorId)) eventAnchorId = body.anchorId as number;
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   const num = (v: number | null | undefined, digits = 1) => (v === null || v === undefined ? '—' : v.toFixed(digits));

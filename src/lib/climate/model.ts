@@ -7,6 +7,7 @@
  * Client-safe, so /climate renders the same band and the same decision the server acted on.
  */
 import { AIR_VPD_HARD_MAX, AIR_VPD_HARD_MIN } from '$lib/lights/grow-plan';
+import { EXHAUST_NODE, PLUGS } from '$lib/plugs/model';
 
 /** `observe` decides and logs but never publishes — the dry-run gear. */
 export type ClimateMode = 'off' | 'observe' | 'active';
@@ -16,10 +17,16 @@ export type ActuatorSource = 'loop' | 'firmware' | 'external' | 'none';
 
 export const CLIMATE_MODES: ClimateMode[] = ['off', 'observe', 'active'];
 
-/** The exhaust plug, and the arms baked into its firmware that would otherwise fight the loop. */
-export const EXHAUST_NODE = 'exhaust-fan';
-export const EXHAUST_RELAY = 'exhaust_fan';
-export const EXHAUST_ARMS = ['fan_cycle', 'fan_schedule'] as const;
+/** The exhaust plug, and the arms baked into its firmware that would otherwise fight the loop.
+ *  Read off the plug registry rather than restated: a second copy of these objectIds would let
+ *  a firmware rename land in one place and leave the loop reconciling an arm that no longer
+ *  resolves — silently, since an unresolved arm is simply filtered out. */
+const EXHAUST_SPEC = PLUGS.find((plug) => plug.node === EXHAUST_NODE);
+
+export const EXHAUST_RELAY = EXHAUST_SPEC?.relay ?? 'exhaust_fan';
+export const EXHAUST_ARMS: readonly string[] = (EXHAUST_SPEC?.arms ?? []).map((arm) => arm.objectId);
+
+export { EXHAUST_NODE };
 
 /** Not yet built — all four Athom plugs are in use and the humidifier needs a fifth. Resolving
  *  it optionally means arming RH control later is config, not code. */
@@ -80,10 +87,14 @@ export function controlBand(target: number, deadbandKpa: number): ControlBand {
   // Rounded because binary subtraction leaves 1.15 − 0.10 at 1.0499999999999998, which would
   // be written to the log and drawn on the page in that form.
   const round = (n: number) => Math.round(n * 1000) / 1000;
+  // The TARGET is clamped first, not just its edges. Clamping only the edges inverts the band
+  // for any target outside the rails — a 1.5 override yields low 1.4 / high 1.2, and `vpd <
+  // low` is then true at every reachable reading, so the fan is demanded on and never released.
+  const clamped = Math.min(AIR_VPD_HARD_MAX, Math.max(AIR_VPD_HARD_MIN, target));
   return {
-    target,
-    low: round(Math.max(AIR_VPD_HARD_MIN, target - deadbandKpa)),
-    high: round(Math.min(AIR_VPD_HARD_MAX, target + deadbandKpa))
+    target: round(clamped),
+    low: round(Math.max(AIR_VPD_HARD_MIN, clamped - deadbandKpa)),
+    high: round(Math.min(AIR_VPD_HARD_MAX, clamped + deadbandKpa))
   };
 }
 

@@ -79,12 +79,26 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
   const hold = (reason: string) => decide({ kind: 'hold', reason });
 
   if (config.mode === 'off') return { action: { kind: 'hold', reason: 'loop is off' }, reconcileArms: [] };
-  if (reading.airVpd === null) return hold('no tent air reading — failing safe');
+  // Blind, so hand the fan BACK to its firmware rather than holding a relay we cannot judge.
+  // Reconciling the arms here would disarm the plug's own cycle while the loop itself refuses
+  // to command anything, leaving a tent with a dead air sensor unventilated all night.
+  if (reading.airVpd === null) {
+    return { action: { kind: 'hold', reason: 'no tent air reading — failing safe' }, reconcileArms: [] };
+  }
 
   const vpd = reading.airVpd;
   const tentC = reading.tent?.tempC ?? null;
   const tooHot = tentC !== null && tentC >= config.ventAlwaysAboveC;
   const tooCold = tentC !== null && tentC <= config.ventNeverBelowC;
+
+  // Cold protection needs a stop leg, not just a start block: humid room air never carries tent
+  // VPD past the top of band, so on a cold wet night the ordinary release condition never fires
+  // and a running fan would track the tent down past the floor unopposed.
+  if (tooCold && exhaust.on) {
+    const reason = `tent ${degC(tentC!)} °C at or below the ${degC(config.ventNeverBelowC)} °C floor — stopping regardless of VPD`;
+    if (!ownedByLoop(config.exhaustSource)) return hold(`${reason}; exhaust is owned by ${config.exhaustSource}`);
+    return decide({ kind: 'exhaust', on: false, reason });
+  }
 
   // Hysteresis: on below the floor, off above the ceiling, hold everywhere in between. The
   // asymmetry is what makes the band self-debouncing.
@@ -124,8 +138,10 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
       });
     }
 
+    // Heat outranks the minimum off for the same reason the hard VPD ceiling outranks the
+    // minimum on: an over-temperature tent must not sit and wait out an anti-chatter timer.
     const idleMs = elapsedSince(exhaust.lastChangeMs, nowMs);
-    if (idleMs !== null && idleMs < config.minOffSeconds * 1000) {
+    if (!tooHot && idleMs !== null && idleMs < config.minOffSeconds * 1000) {
       return hold(`${why}, waiting out the ${config.minOffSeconds}s minimum off`);
     }
 
@@ -165,10 +181,12 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
     return decide({ kind: 'exhaust', on: false, reason: `${why}${suffix}` });
   }
 
-  // Humidifier. Its band sits entirely outside the exhaust's — on at the hard ceiling, off
-  // back at the top of band — so the two can never be commanded together or trade an edge.
+  // Humidifier: on at the hard ceiling, off back at the week's TARGET. Releasing at the target
+  // rather than the top of band is load-bearing — from grow week 6 on, `band.high` clamps to
+  // exactly AIR_VPD_HARD_MAX, so releasing there would put both thresholds on the same reading
+  // and cycle a mains humidifier every tick. The target is always at least a deadband below it.
   if (!wantExhaust) {
-    const wantHumidify = humidifier.on ? vpd > band.high : vpd >= AIR_VPD_HARD_MAX;
+    const wantHumidify = humidifier.on ? vpd > band.target : vpd >= AIR_VPD_HARD_MAX;
 
     if (wantHumidify && !humidifier.on) {
       const reason = `air VPD ${kpa(vpd)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling`;
@@ -178,15 +196,20 @@ export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
       if (!humidifier.present) {
         return decide({ kind: 'blocked', want: 'humidify', reason: `${reason}, but no humidifier plug is discovered` });
       }
+      const idleMs = elapsedSince(humidifier.lastChangeMs, nowMs);
+      if (idleMs !== null && idleMs < config.minOffSeconds * 1000) {
+        return hold(`${reason}, waiting out the ${config.minOffSeconds}s minimum off`);
+      }
       return decide({ kind: 'humidify', on: true, reason });
     }
 
     if (!wantHumidify && humidifier.on && ownedByLoop(config.rhSource)) {
-      return decide({
-        kind: 'humidify',
-        on: false,
-        reason: `air VPD ${kpa(vpd)} back below the ${kpa(band.high)} top of band`
-      });
+      const reason = `air VPD ${kpa(vpd)} back below the ${kpa(band.target)} target`;
+      const runMs = elapsedSince(humidifier.lastChangeMs, nowMs);
+      if (runMs !== null && runMs < config.minOnSeconds * 1000) {
+        return hold(`${reason}, holding out the ${config.minOnSeconds}s minimum on`);
+      }
+      return decide({ kind: 'humidify', on: false, reason });
     }
   }
 

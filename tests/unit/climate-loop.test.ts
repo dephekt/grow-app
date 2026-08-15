@@ -219,6 +219,52 @@ describe('runClimateTick', () => {
     expect(state.airVpd.value()).toBeNull();
   });
 
+  it('still records the decision when the publish fails', async () => {
+    // The broker can drop between canPublish() and the write. Unwinding here would leave a
+    // clean gap in the audit log at exactly the tick that failed to move the relay.
+    updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+    const result = await runClimateTick({
+      ...deps(WANTS_VENT, new ClimateLoopState()),
+      publish: async () => {
+        throw new Error('Broker is not connected');
+      }
+    });
+
+    expect(result.published).toBe(false);
+    const [row] = listClimateEvents(db);
+    expect(row.kind).toBe('exhaust');
+    expect(row.published).toBe(false);
+    expect(row.reason).toContain('publish failed: Broker is not connected');
+  });
+
+  it('records the arms it disarmed, so a firmware arm it is fighting is visible', async () => {
+    updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+    const state = new ClimateLoopState();
+    // Inside the band, so the verdict is a plain hold and only the arms distinguish the tick.
+    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '66.5', fan_cyc: 'ON' };
+    await runClimateTick(deps(inBand, state));
+
+    const [row] = listClimateEvents(db);
+    expect(row.kind).toBe('hold');
+    expect(row.reason).toContain('disarmed fan_cycle');
+    expect(row.published).toBe(true);
+  });
+
+  it('logs the moment a firmware arm starts fighting a previously quiet loop', async () => {
+    updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+    const state = new ClimateLoopState();
+    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '66.5' };
+
+    await runClimateTick(deps(inBand, state, NOW));
+    await runClimateTick(deps(inBand, state, NOW + 30_000));
+    expect(listClimateEvents(db)).toHaveLength(1);
+
+    // Same verdict, but now something is re-arming the plug underneath the loop.
+    await runClimateTick(deps({ ...inBand, fan_cyc: 'ON' }, state, NOW + 60_000));
+    expect(listClimateEvents(db)).toHaveLength(2);
+    expect(listClimateEvents(db)[0].reason).toContain('disarmed fan_cycle');
+  });
+
   it('stamps a relay change it did not cause, so a hand-flip serves the same minimum', async () => {
     const state = new ClimateLoopState();
     await runClimateTick(deps(WANTS_VENT, state, NOW));
