@@ -31,6 +31,35 @@ the right-hand column:
   training memory.
 - Pin `svelte` to a `^5` major; never float it backward.
 
+## Derived measurements — don't recompute them
+
+Substrate VWC and pwEC are _derived_ from raw sensor counts, never stored.
+InfluxDB holds only `substrate_raw_counts`, `substrate_bulk_ec` and
+`substrate_temperature`.
+
+- Canonical implementation: `src/lib/substrate.ts` (`deriveReadings`,
+  `substrateCalibrationFor`). Calibration is per-zone, resolved from the zone's
+  medium — see [docs/substrate-calibration.md](docs/substrate-calibration.md).
+- History: `GET /api/history?domain=substrate&range=<1h..30d>` already applies
+  the zone calibration per probe, returning `<node>:vwc` (%) and `<node>:pwec`
+  (mS/cm) alongside the raw series.
+- Never reimplement the TEROS curves or the Hilhorst intercept in a script or a
+  Flux query. A second implementation drifts from the UI without anyone noticing.
+
+Reading a dryback out of that history:
+
+- Dryback is **relative to field capacity**, not percentage points. A 30–40%
+  dryback (Homegrower Handbook p.57, veg week 1) from FC 54% is 32–38% VWC; read
+  as points it would be 14–24%, which is bone dry and would read as a plausible
+  answer.
+- Field capacity is the peak _after the most recent `irrigation_events` row_ —
+  join to that event rather than taking the maximum of the window.
+- **A probe whose series begins after that irrigation has no baseline.** Report
+  no dryback for it. A percentage computed off a false peak looks authoritative
+  and means nothing.
+- Bulk EC falls as the substrate dries even while pwEC concentrates. pwEC is the
+  steering signal; reading bulk EC alone inverts the conclusion.
+
 ## Scope boundaries
 
 - Site mode only: Daniel's local `grow/daniel-home/#` broker namespace. One
