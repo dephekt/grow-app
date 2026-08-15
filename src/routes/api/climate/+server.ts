@@ -6,12 +6,11 @@ import type { RequestHandler } from './$types';
 import { requireAdmin } from '$lib/server/auth/authz';
 import { getClimateDb } from '$lib/server/climate/db';
 import { ClimateConfigError, getClimateConfig, updateClimateConfig } from '$lib/server/climate/store';
-import { getClimateLoopState } from '$lib/server/climate/loop';
+import { buildDecisionInput, getClimateLoopState } from '$lib/server/climate/loop';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { controlBand, type ClimateConfig } from '$lib/climate/model';
 import { decideClimate } from '$lib/climate/decide';
 import { resolveClimateInputs } from '$lib/climate/inputs';
-import { ventedAirVpdKpa } from '$lib/climate/psychro';
 import { resolveGrowState } from '$lib/lights/grow-plan';
 
 /**
@@ -50,34 +49,11 @@ function liveState() {
 
   const inputs = resolveClimateInputs(getSiteMqttService().snapshot(), now.getTime());
   const state = getClimateLoopState();
-  // Null when there is no live reading, even if the loop's window still holds one: falling back
-  // to a pre-failure median would hand decideClimate a VPD with no tent behind it, skipping the
-  // fail-safe and quietly evaluating both temperature limits as false.
-  const smoothedAirVpd = inputs.airVpd === null ? null : (state.airVpd.value() ?? inputs.airVpd);
-  // Same smoothing the loop applies, so the previewed verdict matches the acted-on one.
-  const smoothedTempC = state.tentTempC.value();
-  const tent =
-    inputs.tent === null || smoothedTempC === null ? inputs.tent : { ...inputs.tent, tempC: smoothedTempC };
-
-  const decision = decideClimate({
-    nowMs: now.getTime(),
-    config,
-    band,
-    reading: {
-      tent,
-      room: inputs.room,
-      airVpd: smoothedAirVpd,
-      leafVpd: inputs.leafVpd,
-      lightsOn: inputs.lightsOn
-    },
-    exhaust: { present: inputs.exhaust.present, on: inputs.exhaust.on, lastChangeMs: state.exhaustChangedMs },
-    humidifier: {
-      present: inputs.humidifier.present,
-      on: inputs.humidifier.on,
-      lastChangeMs: state.humidifierChangedMs
-    },
-    armsOn: inputs.arms.filter((a) => a.on).map((a) => a.objectId)
-  });
+  // Built by the loop's own assembler, never a second copy of it: the page's whole claim is
+  // that it shows the verdict the loop reaches. Deliberately does NOT push into the smoothing
+  // windows — a page refresh must not advance the state the loop decides on.
+  const decisionInput = buildDecisionInput(inputs, state, config, band, now.getTime());
+  const decision = decideClimate(decisionInput);
 
   return {
     config,
@@ -86,17 +62,16 @@ function liveState() {
     stage,
     planTarget,
     climateRef,
-    tent,
+    tent: decisionInput.reading.tent,
     room: inputs.room,
-    airVpd: smoothedAirVpd,
+    airVpd: decisionInput.reading.airVpd,
     instantAirVpd: inputs.airVpd,
     leafVpd: inputs.leafVpd,
     lightsOn: inputs.lightsOn,
     tentNode: inputs.tentNode,
     roomNode: inputs.roomNode,
-    // What the tent would settle at if fully ventilated — the gate's own number, shown so a
-    // 'blocked' verdict is legible rather than mysterious.
-    ventedAirVpd: inputs.room ? ventedAirVpdKpa(inputs.room, inputs.lightsOn) : null,
+    // The gate's own number, shown so a 'blocked' verdict is legible rather than mysterious.
+    ventedAirVpd: decisionInput.reading.ventedAirVpd,
     exhaust: { present: inputs.exhaust.present, on: inputs.exhaust.on },
     humidifier: { present: inputs.humidifier.present, on: inputs.humidifier.on },
     arms: inputs.arms.map((a) => ({ objectId: a.objectId, on: a.on })),
@@ -135,7 +110,10 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 
   let body: Record<string, unknown>;
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    const parsed: unknown = await request.json();
+    // A bare `null` or an array parses without throwing, then indexing it does.
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not an object');
+    body = parsed as Record<string, unknown>;
   } catch {
     return json({ ok: false, error: 'Invalid request' }, { status: 400 });
   }

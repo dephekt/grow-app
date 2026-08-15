@@ -31,16 +31,27 @@
     return () => clearInterval(timer);
   });
 
+  // Monotonic, so a poll issued before a save cannot land after it and revert the controls.
+  let latestRequest = 0;
+
+  function accept(seq: number, next: ClimateLiveState): void {
+    if (seq < latestRequest) return;
+    latestRequest = seq;
+    climate = next;
+  }
+
   async function refresh(): Promise<void> {
+    const seq = ++latestRequest;
     try {
       const res = await fetch('/api/climate');
-      if (res.ok) climate = (await res.json()) as ClimateLiveState;
+      if (res.ok) accept(seq, (await res.json()) as ClimateLiveState);
     } catch {
       // A dropped poll is not worth surfacing; the next one recovers.
     }
   }
 
   async function patch(body: Record<string, unknown>): Promise<void> {
+    const seq = ++latestRequest;
     saving = true;
     error = '';
     try {
@@ -54,7 +65,7 @@
         error = json.error ?? 'Could not save';
         return;
       }
-      climate = json;
+      accept(seq, json);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Could not save';
     } finally {
@@ -120,9 +131,9 @@
       case 'humidify':
         return `${config.mode === 'active' && rhArmed ? 'Humidifier' : 'Would set humidifier'} ${action.on ? 'ON' : 'OFF'}`;
       case 'delegated':
-        return `Delegated — wants ${action.want}`;
+        return `Delegated — wants ${action.want} ${action.on ? 'ON' : 'OFF'}`;
       case 'blocked':
-        return `Blocked — wants ${action.want}`;
+        return `Blocked — wants ${action.want} ${action.on ? 'ON' : 'OFF'}`;
       default:
         return 'Holding';
     }
@@ -326,8 +337,8 @@
           class="mono"
           type="number"
           step="0.05"
-          min="0.4"
-          max="2"
+          min="0.8"
+          max="1.2"
           value={config.airVpdOverride ?? ''}
           placeholder={climate.planTarget.toFixed(2)}
           disabled={saving}

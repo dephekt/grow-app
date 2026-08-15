@@ -5,13 +5,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-/**
- * The house SQLite migration convention, shared by every database in the app.
- *
- * Migration lists are ordered and append-only: an entry's index +1 is the schema version
- * stored in `PRAGMA user_version`, so editing an existing entry silently skips it on any
- * database that already ran it.
- */
+/** The house SQLite migration convention: lists are ordered and append-only, since an entry's
+ *  index +1 is its `PRAGMA user_version` and editing one silently skips it. */
 
 /** Apply every migration past the database's current `user_version`, one transaction each. */
 export function migrate(db: DatabaseSync, migrations: readonly string[]): void {

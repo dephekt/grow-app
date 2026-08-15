@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-/**
- * Pull everything the control law needs out of one MQTT snapshot.
- *
- * Kept separate from `decide.ts` so the law stays free of entity resolution, and client-safe
- * so /climate can show exactly which sensors the last decision was made on.
- */
+/** Pull the control law's inputs out of one MQTT snapshot, so the law itself stays free of
+ *  entity resolution. */
 import {
   entityNodeKey,
   entityNumericState,
@@ -55,17 +51,9 @@ export interface ClimateInputs {
   arms: ResolvedArm[];
 }
 
-/**
- * How stale an air reading may be before the loop stops trusting it.
- *
- * Far beyond any publisher's cadence (the SHT45s report every 10 s) but short enough that a
- * node which dies WITHOUT publishing its LWT — yanked power, crashed Wi-Fi stack — stops
- * driving a relay off a frozen number. `isEntityOffline` cannot catch that case by design: a
- * device that never published an offline payload reads `unknown`, which is not offline.
- *
- * Note this is receipt time, not publish time, so retained values redelivered on a broker
- * reconnect look fresh. It bounds the steady-state failure, not that one.
- */
+/** Staleness bound for air readings: far beyond the SHT45s' 10 s cadence, but short enough
+ *  that a node dying without an LWT stops driving a relay off a frozen number. Receipt time,
+ *  so retained values redelivered on reconnect look fresh — this bounds the steady state. */
 const MAX_READING_AGE_MS = 10 * 60 * 1000;
 
 function isFresh(snapshot: Snapshot, entity: EntityConfig, nowMs: number): boolean {
@@ -102,13 +90,8 @@ function resolveActuator(snapshot: Snapshot, node: string, objectId: string): Re
   };
 }
 
-/**
- * Whether the lamp is on.
- *
- * The relay is authoritative; PPFD is the fallback for a tent whose light plug has not been
- * discovered. Only the predictive gate consumes this (the tent settles warmer than the room
- * under load), so being wrong shifts a prediction rather than moving a relay.
- */
+/** The lamp's state: relay first, PPFD as the fallback. Only the futility gate consumes it,
+ *  so being wrong shifts a prediction rather than moving a relay. */
 function resolveLightsOn(snapshot: Snapshot): boolean {
   const relay = resolveEntityRef(snapshot, { node: GROW_LIGHT_NODE, objectId: 'grow_light' });
   // Offline falls through to PPFD rather than reading the retained relay state, matching how

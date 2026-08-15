@@ -33,8 +33,8 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         GROW_AUTH_DB: '.playwright/auth.db',
-        // Ephemeral and reset each run, so /climate always renders the shipped defaults.
-        // The specs mock every PATCH rather than writing, so parallel projects cannot race.
+        // Reset whenever this command actually runs — note reuseExistingServer skips it
+        // locally, so determinism rests on the specs mocking every PATCH, not on the rm.
         GROW_CLIMATE_DB: '.playwright/climate.db',
         GROW_AUTH_ADMIN_USERNAME: 'e2e-admin',
         GROW_AUTH_ADMIN_PASSWORD: 'e2e-password',

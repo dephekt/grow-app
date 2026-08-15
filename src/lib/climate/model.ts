@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-/**
- * Shared climate-loop vocabulary: config shape, the control band, and the actuator registry.
- *
- * Client-safe, so /climate renders the same band and the same decision the server acted on.
- */
+/** Shared climate-loop vocabulary; client-safe so /climate renders the same band the server
+ *  acted on. */
 import { AIR_VPD_HARD_MAX, AIR_VPD_HARD_MIN } from '$lib/lights/grow-plan';
 import { EXHAUST_NODE, PLUGS } from '$lib/plugs/model';
 
@@ -51,10 +48,8 @@ export interface ClimateConfig {
   airVpdOverride: number | null;
 }
 
-/**
- * Defaults describe the system as it is today — firmware owns the fan, a humidistat owns RH,
- * and the loop only watches. Arming is a deliberate act, never a side effect of deploying.
- */
+/** Defaults describe the system as it is today, so arming stays a deliberate act rather than
+ *  a side effect of deploying. */
 export const DEFAULT_CLIMATE_CONFIG: ClimateConfig = {
   mode: 'observe',
   exhaustSource: 'firmware',
@@ -76,13 +71,8 @@ export interface ControlBand {
   high: number;
 }
 
-/**
- * The week's band, clamped into the book's hard rails.
- *
- * The band is the whole debounce: once the fan starts it must carry VPD all the way to `high`
- * before it can stop, and VPD must fall all the way back to `low` before it can restart — so
- * short-cycling is structurally impossible and no backoff timer is needed.
- */
+/** The week's band, clamped into the book's hard rails. The band is the whole debounce: VPD
+ *  must traverse it in full to reverse the fan, so short-cycling is structurally impossible. */
 export function controlBand(target: number, deadbandKpa: number): ControlBand {
   // Rounded because binary subtraction leaves 1.15 − 0.10 at 1.0499999999999998, which would
   // be written to the log and drawn on the page in that form.

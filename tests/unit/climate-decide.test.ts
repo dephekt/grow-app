@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { decideClimate, type ActuatorState, type ClimateDecisionInput } from '../../src/lib/climate/decide';
+import { ventedAirVpdKpa } from '../../src/lib/climate/psychro';
 import {
   AIR_VPD_HARD_MAX,
   AIR_VPD_HARD_MIN,
@@ -37,6 +38,8 @@ function input(over: {
   lightsOn?: boolean;
 }): ClimateDecisionInput {
   const tentTempC = over.tentTempC === undefined ? 27 : over.tentTempC;
+  const room = over.room === undefined ? DRY_ROOM : over.room;
+  const lightsOn = over.lightsOn ?? true;
   return {
     nowMs: over.nowMs ?? NOW,
     // Armed by default: the guards under test are the interesting part, not the arming gate.
@@ -44,10 +47,12 @@ function input(over: {
     band: BAND,
     reading: {
       tent: tentTempC === null ? null : { tempC: tentTempC, rhPct: 65 },
-      room: over.room === undefined ? DRY_ROOM : over.room,
+      room,
       airVpd: over.airVpd === undefined ? 1.0 : over.airVpd,
+      // Derived from `room` exactly as the loop derives it, so the gate cases stay meaningful.
+      ventedAirVpd: room === null ? null : ventedAirVpdKpa(room, lightsOn),
       leafVpd: null,
-      lightsOn: over.lightsOn ?? true
+      lightsOn
     },
     exhaust: actuator(over.exhaust),
     humidifier: actuator({ present: false, ...over.humidifier }),
@@ -133,11 +138,20 @@ describe('decideClimate — hysteresis', () => {
   });
 
   it('cannot short-cycle: crossing the floor upward while running does not stop it', () => {
-    // 0.89 -> 0.95 -> 1.05 all hold ON; only 1.11 releases. That traversal requirement is
-    // what makes a backoff timer unnecessary.
-    for (const vpd of [0.89, 0.95, 1.05, 1.1]) {
+    // The whole band must be traversed before the fan can reverse, which is what makes a
+    // backoff timer unnecessary.
+    for (const vpd of [0.89, 0.95, 1.05, 1.09]) {
       expect(decideClimate(input({ airVpd: vpd, exhaust: { on: true } })).action.kind).toBe('hold');
     }
+  });
+
+  it('releases AT the top of band, not above it', () => {
+    // From grow week 6 band.high clamps to exactly AIR_VPD_HARD_MAX; holding at that reading
+    // would park the fan on the rail ceilingBreach treats as a breach.
+    expect(decideClimate(input({ airVpd: 1.1, exhaust: { on: true } })).action).toMatchObject({
+      kind: 'exhaust',
+      on: false
+    });
   });
 
   it('cannot short-cycle: falling back through the top of band does not restart it', () => {
@@ -175,6 +189,48 @@ describe('decideClimate — minimum on/off', () => {
     // Cold start: lastChangeMs null must not stall the first decision.
     const d = decideClimate(input({ airVpd: 0.5, exhaust: { lastChangeMs: null } }));
     expect(d.action).toMatchObject({ kind: 'exhaust', on: true });
+  });
+});
+
+describe('decideClimate — guards that must work in both directions', () => {
+  const loopRh = { rhSource: 'loop' as const };
+
+  it('an offline humidifier stuck retained-ON cannot block venting forever', () => {
+    // The mutual-exclusion branch fires before the exhaust is even considered, so without a
+    // presence check it returns "release the humidifier" every tick, publishes into the void,
+    // and the tent is never vented at all.
+    const d = decideClimate(
+      input({ airVpd: 0.5, config: loopRh, humidifier: { present: false, on: true } })
+    );
+    expect(d.action).toMatchObject({ kind: 'exhaust', on: true });
+  });
+
+  it('stops a running fan once the room turns humid and venting stops helping', () => {
+    // Tent VPD never climbs to the top of band in this state, so the ordinary release never
+    // fires; without a stop leg on the gate the fan runs indefinitely at zero benefit.
+    const d = decideClimate(input({ airVpd: 0.95, exhaust: { on: true }, room: { tempC: 24, rhPct: 95 } }));
+    expect(d.action).toMatchObject({ kind: 'exhaust', on: false });
+    expect(d.action.reason).toContain('no longer helping');
+  });
+
+  it('keeps venting while the room is still drier, with a dead zone against chatter', () => {
+    // Start needs +minGain, stop needs −minGain, so the two cannot trade an edge.
+    const d = decideClimate(input({ airVpd: 0.95, exhaust: { on: true } }));
+    expect(d.action.kind).toBe('hold');
+  });
+
+  it('does not futility-stop merely because the tent has converged on the prediction', () => {
+    // A room whose vented equilibrium lands inside the band, so nothing else forces a stop and
+    // only the gate is under test. Converging is the goal, not futility.
+    const room = { tempC: 24, rhPct: 79.8 };
+    const vented = ventedAirVpdKpa(room, true);
+    expect(vented).toBeGreaterThan(BAND.low);
+    expect(vented).toBeLessThan(BAND.high);
+    expect(decideClimate(input({ airVpd: vented, exhaust: { on: true }, room })).action.kind).toBe('hold');
+  });
+
+  it('skips both halves of the gate with no room reference', () => {
+    expect(decideClimate(input({ airVpd: 0.95, exhaust: { on: true }, room: null })).action.kind).toBe('hold');
   });
 });
 
@@ -225,11 +281,11 @@ describe('decideClimate — temperature limits', () => {
     expect(d.action.reason).toContain('regardless of VPD');
   });
 
-  it('does not reach for the relay to cold-stop a fan it does not own', () => {
+  it('reports a cold-stop it cannot perform as delegated rather than acting', () => {
     const d = decideClimate(
       input({ airVpd: 0.5, tentTempC: 19, exhaust: { on: true }, config: { exhaustSource: 'firmware' } })
     );
-    expect(d.action.kind).toBe('hold');
+    expect(d.action).toMatchObject({ kind: 'delegated', want: 'exhaust', on: false });
   });
 
   it('lets a heat override bypass the minimum off', () => {
@@ -259,11 +315,13 @@ describe('decideClimate — ownership', () => {
     expect(d.action.reason).toContain('owned by firmware');
   });
 
-  it('holds rather than delegating a wanted stop — turning off what it does not own is a no-op', () => {
+  it('delegates a wanted STOP with its direction — the over-venting case a dry run exists for', () => {
+    // Reporting this as a plain hold rendered the one failure the loop was built to observe in
+    // the muted style, indistinguishable from an ordinary in-band tick.
     const d = decideClimate(
       input({ airVpd: 1.15, exhaust: { on: true }, config: { exhaustSource: 'firmware' } })
     );
-    expect(d.action.kind).toBe('hold');
+    expect(d.action).toMatchObject({ kind: 'delegated', want: 'exhaust', on: false });
     expect(d.action.reason).toContain('owned by firmware');
   });
 

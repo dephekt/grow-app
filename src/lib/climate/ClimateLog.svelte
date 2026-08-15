@@ -48,10 +48,12 @@
         return `${e.published ? 'exhaust' : 'would set exhaust'} ${e.on ? 'ON' : 'OFF'}`;
       case 'humidify':
         return `${e.published ? 'humidifier' : 'would set humidifier'} ${e.on ? 'ON' : 'OFF'}`;
+      // Direction matters most here: wanting to STOP venting is the over-venting case the dry
+      // run exists to surface, and it would otherwise read the same as wanting to start.
       case 'delegated':
-        return `delegated · ${e.actuator}`;
+        return `delegated · ${e.actuator} ${e.on ? 'ON' : 'OFF'}`;
       case 'blocked':
-        return `blocked · ${e.actuator}`;
+        return `blocked · ${e.actuator} ${e.on ? 'ON' : 'OFF'}`;
       default:
         return 'hold';
     }

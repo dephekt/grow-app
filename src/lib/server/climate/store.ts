@@ -3,6 +3,8 @@
 
 import type { DatabaseSync } from 'node:sqlite';
 import {
+  AIR_VPD_HARD_MAX,
+  AIR_VPD_HARD_MIN,
   CLIMATE_MODES,
   DEFAULT_CLIMATE_CONFIG,
   type ActuatorSource,
@@ -61,7 +63,9 @@ const NUMERIC_BOUNDS: Record<string, { min: number; max: number }> = {
   minGainKpa: { min: 0, max: 1 },
   ventAlwaysAboveC: { min: 20, max: 45 },
   ventNeverBelowC: { min: 5, max: 30 },
-  airVpdOverride: { min: 0.4, max: 2 }
+  // The book's hard rails, because controlBand clamps the target into them anyway: a wider
+  // range here would accept 1.50, regulate 1.20, and print "overridden 1.50" on /climate.
+  airVpdOverride: { min: AIR_VPD_HARD_MIN, max: AIR_VPD_HARD_MAX }
 };
 
 function checkNumber(key: string, value: number): number {
@@ -200,7 +204,7 @@ function actionTarget(action: ClimateAction): { actuator: string | null; on: boo
       return { actuator: 'humidify', on: action.on };
     case 'delegated':
     case 'blocked':
-      return { actuator: action.want, on: true };
+      return { actuator: action.want, on: action.on };
     default:
       return { actuator: null, on: null };
   }

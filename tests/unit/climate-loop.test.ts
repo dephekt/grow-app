@@ -214,9 +214,9 @@ describe('runClimateTick', () => {
   it('clears the smoothing window when the input goes away, so it cannot outlive the sensor', async () => {
     const state = new ClimateLoopState();
     await runClimateTick(deps(WANTS_VENT, state));
-    expect(state.airVpd.value()).not.toBeNull();
+    expect(state.airVpd.value(NOW)).not.toBeNull();
     await runClimateTick(deps({ ...WANTS_VENT, rig_t: '' }, state, NOW + 30_000));
-    expect(state.airVpd.value()).toBeNull();
+    expect(state.airVpd.value(NOW + 30_000)).toBeNull();
   });
 
   it('still records the decision when the publish fails', async () => {
@@ -247,7 +247,8 @@ describe('runClimateTick', () => {
     const [row] = listClimateEvents(db);
     expect(row.kind).toBe('hold');
     expect(row.reason).toContain('disarmed fan_cycle');
-    expect(row.published).toBe(true);
+    // `published` tracks the ACTION, and a hold has none — the reason carries the disarm.
+    expect(row.published).toBe(false);
   });
 
   it('logs the moment a firmware arm starts fighting a previously quiet loop', async () => {

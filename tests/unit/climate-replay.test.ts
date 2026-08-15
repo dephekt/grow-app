@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { decideClimate, type ClimateAction } from '../../src/lib/climate/decide';
-import { airVpdKpa } from '../../src/lib/climate/psychro';
+import { airVpdKpa, ventedAirVpdKpa } from '../../src/lib/climate/psychro';
 import { DEFAULT_CLIMATE_CONFIG, controlBand } from '../../src/lib/climate/model';
 
 interface Sample {
@@ -43,7 +43,14 @@ function replay(
       nowMs,
       config: CONFIG,
       band: BAND,
-      reading: { tent: { tempC: s.tempC, rhPct: s.rhPct }, room: opts.room, airVpd, leafVpd: null, lightsOn: opts.lightsOn },
+      reading: {
+        tent: { tempC: s.tempC, rhPct: s.rhPct },
+        room: opts.room,
+        airVpd,
+        ventedAirVpd: opts.room === null ? null : ventedAirVpdKpa(opts.room, opts.lightsOn),
+        leafVpd: null,
+        lightsOn: opts.lightsOn
+      },
       exhaust: { present: true, on, lastChangeMs },
       humidifier: { present: false, on: false, lastChangeMs: null },
       armsOn: []

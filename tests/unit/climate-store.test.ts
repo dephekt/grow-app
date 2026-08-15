@@ -114,8 +114,8 @@ describe('climate events', () => {
   });
 
   it('keeps the wanted actuator on delegated and blocked rows', () => {
-    recordClimateEvent(db, { ...base, action: { kind: 'delegated', want: 'humidify', reason: 'humidistat owns RH' } });
-    recordClimateEvent(db, { ...base, action: { kind: 'blocked', want: 'exhaust', reason: 'too cold' } });
+    recordClimateEvent(db, { ...base, action: { kind: 'delegated', want: 'humidify', on: true, reason: 'humidistat owns RH' } });
+    recordClimateEvent(db, { ...base, action: { kind: 'blocked', want: 'exhaust', on: true, reason: 'too cold' } });
     const rows = listClimateEvents(db);
     expect(rows.map((r) => [r.kind, r.actuator])).toEqual(
       expect.arrayContaining([
@@ -166,28 +166,28 @@ describe('climate events', () => {
 
 describe('RollingMedian', () => {
   it('is null until a sample lands', () => {
-    expect(new RollingMedian(1000).value()).toBeNull();
+    expect(new RollingMedian(1000).value(0)).toBeNull();
   });
 
   it('rejects a single outlier that a mean would follow', () => {
     const m = new RollingMedian(60_000);
     for (const v of [1.0, 1.01, 0.99, 1.0]) m.push(v, 0);
     m.push(9.9, 0);
-    expect(m.value()).toBeCloseTo(1.0, 2);
+    expect(m.value(0)).toBeCloseTo(1.0, 2);
   });
 
   it('averages the middle pair on an even count', () => {
     const m = new RollingMedian(60_000);
     m.push(1, 0);
     m.push(2, 0);
-    expect(m.value()).toBe(1.5);
+    expect(m.value(0)).toBe(1.5);
   });
 
   it('ages samples out of the window', () => {
     const m = new RollingMedian(10_000);
     m.push(5, 0);
     m.push(1, 20_000);
-    expect(m.value()).toBe(1);
+    expect(m.value(20_000)).toBe(1);
     expect(m.size).toBe(1);
   });
 
@@ -195,13 +195,22 @@ describe('RollingMedian', () => {
     const m = new RollingMedian(10_000);
     m.push(9, 100_000);
     m.push(1, 1_000);
-    expect(m.value()).toBe(1);
+    expect(m.value(1_000)).toBe(1);
   });
 
   it('resets to empty', () => {
     const m = new RollingMedian(10_000);
     m.push(1, 0);
     m.reset();
-    expect(m.value()).toBeNull();
+    expect(m.value(0)).toBeNull();
+  });
+
+  it('prunes on READ, so a reader that never pushes cannot be served a stale median', () => {
+    // /api/climate reads without pushing; if the loop stops ticking the page must not go on
+    // showing an hours-old value as the live smoothed reading.
+    const m = new RollingMedian(10_000);
+    m.push(1, 0);
+    expect(m.value(5_000)).toBe(1);
+    expect(m.value(60_000)).toBeNull();
   });
 });

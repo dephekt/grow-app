@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-/**
- * Query-parameter handling for the anchored, offset-paged event feeds (irrigation history and
- * the climate decision log).
- *
- * Shared because the anchor semantics are the subtle part: holding the highest inserted id
- * across page requests is what keeps a reader's pages stable while ticks are still being
- * written underneath them. Two copies of that would drift.
- */
+/** Query params for the anchored, offset-paged event feeds. Shared because the anchor is the
+ *  subtle part: it holds a reader's pages stable while rows are written underneath them. */
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 500;
