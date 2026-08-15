@@ -14,7 +14,8 @@
 import { describe, expect, it } from 'vitest';
 import { decideClimate, type ClimateAction } from '../../src/lib/climate/decide';
 import { airVpdKpa, ventedAirVpdKpa } from '../../src/lib/climate/psychro';
-import { DEFAULT_CLIMATE_CONFIG, controlBand } from '../../src/lib/climate/model';
+import { AIR_VPD_HARD_MAX, DEFAULT_CLIMATE_CONFIG, controlBand } from '../../src/lib/climate/model';
+import { RollingMedian } from '../../src/lib/climate/smoothing';
 
 interface Sample {
   at: string;
@@ -67,6 +68,94 @@ function replay(
     return { at: s.at, airVpd, on, action };
   });
 }
+
+/**
+ * The 13:05 vent run of 2026-08-15, at the loop's own 30 s cadence, fed through real smoothing
+ * windows rather than ideal readings. This is the run that put the tent at 1.42 while the 5 min
+ * median still read 1.14, so it is the trace that has to stay covered: the samples below start
+ * at air VPD 0.899 (the reading that triggered the start) and peak at 1.42.
+ */
+const VENT_RUN_08_15: Array<[number, number]> = [
+  [29.18, 77.77], [29.21, 77.76], [29.17, 77.82], [29.18, 77.81], [29.19, 77.88], [29.19, 77.82],
+  [29.2, 77.81], [29.2, 77.88], [29.19, 77.85], [29.2, 77.89], [29.21, 77.84], [29.2, 77.81],
+  [29.2, 77.87], [29.19, 77.66], [29.21, 76.57], [29.17, 75.36], [29.2, 73.51], [29.18, 72.72],
+  [29.19, 72.17], [29.17, 70.36], [29.14, 69.52], [29.17, 69.1], [29.13, 67.64], [29.11, 66.99],
+  [29.11, 66.62], [29.08, 65.75], [29.05, 65.46], [29.04, 64.74], [29.04, 65.32], [29.01, 65.29],
+  [28.98, 63.71], [28.91, 64.33], [28.94, 64.04], [28.88, 64.04], [28.87, 65.51], [28.83, 66.68],
+  [28.78, 66.92], [28.77, 67.24], [28.71, 67.46], [28.67, 67.61]
+];
+
+/**
+ * Sub-samples the 10 s series at `tickSeconds`, then drives the law through real windows with
+ * the relay timers carried forward — i.e. the loop, not an idealisation of it.
+ */
+function replaySmoothed(tickSeconds: number): { peakWhileOn: number; starts: number } {
+  const tickMs = tickSeconds * 1000;
+  const fastMs = Math.min(300_000, Math.round(2.5 * tickMs));
+  const slowT = new RollingMedian(300_000), slowH = new RollingMedian(300_000);
+  const fastT = new RollingMedian(fastMs), fastH = new RollingMedian(fastMs);
+  let on = true;
+  let lastChangeMs: number | null = null;
+  let peakWhileOn = 0;
+  let starts = 0;
+
+  for (let raw = 0, k = 0; raw < VENT_RUN_08_15.length; raw += tickSeconds / 10, k++) {
+    const [tempC, rhPct] = VENT_RUN_08_15[raw];
+    const nowMs = k * tickMs;
+    for (const m of [slowT, fastT]) m.push(tempC, nowMs);
+    for (const m of [slowH, fastH]) m.push(rhPct, nowMs);
+    if (on) peakWhileOn = Math.max(peakWhileOn, airVpdKpa(tempC, rhPct));
+
+    const action = decideClimate({
+      nowMs,
+      config: CONFIG,
+      band: BAND,
+      reading: {
+        tent: { tempC: slowT.value(nowMs)!, rhPct: slowH.value(nowMs)! },
+        room: null,
+        airVpd: airVpdKpa(slowT.value(nowMs)!, slowH.value(nowMs)!),
+        airVpdFast:
+          fastT.count(nowMs) < 3 ? null : airVpdKpa(fastT.value(nowMs)!, fastH.value(nowMs)!),
+        ventedAirVpd: null,
+        leafVpd: null,
+        lightsOn: true,
+        warmingUp: false
+      },
+      exhaust: { present: true, on, lastChangeMs },
+      humidifier: { present: false, on: false, lastChangeMs: null },
+      armsOn: []
+    });
+    if (action.kind === 'exhaust' && action.on !== on) {
+      if (action.on) starts++;
+      on = action.on;
+      lastChangeMs = nowMs;
+    }
+  }
+  return { peakWhileOn, starts };
+}
+
+describe('replay — 08-15 vent run, at the loop tick', () => {
+  it('is the trace that breached: left alone it reaches 1.45', () => {
+    const peak = Math.max(...VENT_RUN_08_15.map(([t, h]) => airVpdKpa(t, h)));
+    expect(peak).toBeGreaterThan(1.4);
+  });
+
+  it('holds under the 1.20 rail at the 10 s tick', () => {
+    expect(replaySmoothed(10).peakWhileOn).toBeLessThan(AIR_VPD_HARD_MAX);
+  });
+
+  // The tick, not the window, is what bounds this: at 0.25 kPa/min the tent crosses from the
+  // 1.10 band top to the 1.20 rail in under 25 s, so a 30 s tick cannot see it in time however
+  // the smoothing is arranged. Kept as a test so a tick raised for cost reasons fails here
+  // rather than silently in the tent.
+  it('cannot hold the rail at the old 30 s tick, whatever the window', () => {
+    expect(replaySmoothed(30).peakWhileOn).toBeGreaterThan(AIR_VPD_HARD_MAX);
+  });
+
+  it('never re-starts the fan inside a single run', () => {
+    expect(replaySmoothed(10).starts).toBe(0);
+  });
+});
 
 describe('replay — 08-14 daytime, fan running continuously', () => {
   const room = { tempC: 25.02, rhPct: 61.4 };

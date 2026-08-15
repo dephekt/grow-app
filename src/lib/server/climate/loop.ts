@@ -18,11 +18,22 @@ import { getClimateConfig, pruneClimateEvents, recordClimateEvent } from './stor
  *  than the tent's ~20 min exchange time constant. */
 const SMOOTHING_WINDOW_MS = 5 * 60 * 1000;
 
-/** The window for the edges that cannot afford to lag. At the default 30 s tick this holds
- *  three samples — enough for a median to reject one spike — while trailing the tent by ~30 s
- *  rather than ~2.5 min. Measured 2026-08-15: a daylight vent run crosses the whole band in
- *  3.5 min, so the 5 min median released the fan at 1.14 while the tent was already at 1.42. */
-const FAST_SMOOTHING_WINDOW_MS = 60 * 1000;
+/** The window for the edges that cannot afford to lag. Measured 2026-08-15: a daylight vent run
+ *  crosses the whole band in 3.5 min, so the 5 min median released the fan at 1.14 while the
+ *  tent was already at 1.42.
+ *
+ *  Sized off the tick rather than fixed, because it must hold THREE samples to be a median at
+ *  all — at two it is their mean and half of any spike reaches the hard-ceiling override, which
+ *  is urgent and voids the minimum on. Two ticks of span is not enough: `setInterval` only ever
+ *  runs late, so a fixed 60 s window at a 30 s tick measured 2 samples on every tick but the
+ *  first. 2.5x leaves half a tick of drift margin.
+ *
+ *  Clamped to the slow window so a pathological GROW_CLIMATE_TICK_SECONDS collapses the two
+ *  windows into one — the behaviour before this split existed — rather than degrading to a
+ *  single unsmoothed sample. */
+function fastSmoothingWindowMs(): number {
+  return Math.min(SMOOTHING_WINDOW_MS, Math.round(2.5 * getClimateTickMs()));
+}
 
 /** A quiet loop still says so on this cadence, so a gap in the log means an outage. */
 const HEARTBEAT_MS = 15 * 60 * 1000;
@@ -38,8 +49,8 @@ export class ClimateLoopState {
   readonly tentRhPct = new RollingMedian(SMOOTHING_WINDOW_MS);
   /** Only the tent gets a fast pair: it is the sole input to a band edge. The room feeds the
    *  vented prediction, which moves on the room's timescale and has no edge to overshoot. */
-  readonly tentTempFastC = new RollingMedian(FAST_SMOOTHING_WINDOW_MS);
-  readonly tentRhFastPct = new RollingMedian(FAST_SMOOTHING_WINDOW_MS);
+  readonly tentTempFastC = new RollingMedian(fastSmoothingWindowMs());
+  readonly tentRhFastPct = new RollingMedian(fastSmoothingWindowMs());
   readonly roomTempC = new RollingMedian(SMOOTHING_WINDOW_MS);
   readonly roomRhPct = new RollingMedian(SMOOTHING_WINDOW_MS);
   exhaustOn: boolean | null = null;
@@ -136,7 +147,14 @@ export function buildDecisionInput(
   const room = smoothedAir(state.roomTempC, state.roomRhPct, inputs.room, nowMs);
   // Derived, so airVpdKpa(logged tent pair) === logged air_vpd exactly.
   const airVpd = tent === null ? null : airVpdKpa(tent.tempC, tent.rhPct);
-  const airVpdFast = tentFast === null ? null : airVpdKpa(tentFast.tempC, tentFast.rhPct);
+  // Gated on its own sample count, not the slow window's. `smoothedAir` substitutes the raw
+  // live pair for an empty window, so without this the "fast" reading would silently become
+  // the single unsmoothed sample — the most eager input there is — and decide.ts's fallback to
+  // the median would never fire. A reader calling in between ticks lands here.
+  const airVpdFast =
+    tentFast === null || state.tentTempFastC.count(nowMs) < MIN_SMOOTHING_SAMPLES
+      ? null
+      : airVpdKpa(tentFast.tempC, tentFast.rhPct);
   const ventedAirVpd = room === null ? null : ventedAirVpdKpa(room, inputs.lightsOn);
 
   return {
@@ -262,9 +280,17 @@ export function getClimateLogRetentionDays(): number {
   return intEnv('GROW_CLIMATE_LOG_RETENTION_DAYS', 90);
 }
 
-/** Tick interval in ms (`GROW_CLIMATE_TICK_SECONDS`, default 30s, floored at 5s). */
+/** Tick interval in ms (`GROW_CLIMATE_TICK_SECONDS`, default 10s, floored at 5s).
+ *
+ *  10s matches the rig's publish cadence, so the loop sees every reading the tent produces.
+ *  It was 30s, chosen against the tent's ~20 min exchange constant — right for the slow legs
+ *  and wrong for a vent run: replaying the measured 08-15 ramp, a 30s tick peaks at 1.25 and a
+ *  20s tick at 1.23, both past the 1.20 rail, while 10s peaks at 1.13. No window length fixes
+ *  a 30s tick, because at 0.25 kPa/min the tent crosses from band top to rail in under 25s.
+ *  Ticks are cheap — a snapshot read and arithmetic — and log rows are written on transitions
+ *  and the 15 min heartbeat, not per tick, so this does not triple the log. */
 export function getClimateTickMs(): number {
-  return Math.max(5, intEnv('GROW_CLIMATE_TICK_SECONDS', 30)) * 1000;
+  return Math.max(5, intEnv('GROW_CLIMATE_TICK_SECONDS', 10)) * 1000;
 }
 
 let timer: ReturnType<typeof setInterval> | null = null;

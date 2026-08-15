@@ -181,7 +181,14 @@ function desireExhaust(
     return { on: true, why: `air VPD ${kpa(fast)} still below the ${kpa(band.high)} top of band` };
   }
 
-  if (vpd < band.low) {
+  // BOTH windows must agree before starting. The median alone is the noise-immune signal, but
+  // on its own it re-starts the fan seconds after a fast-triggered stop: the stop fires while
+  // the median still reads the bottom of the band, so the next tick sees `vpd < low` and vents
+  // again. Requiring the fast reading too restores "the band is the debounce" as a structural
+  // property rather than one the minimum-off timer has to rescue. It costs no latency, because
+  // on the falling leg the fast reading crosses the floor FIRST, so the median is still the
+  // one that gates.
+  if (vpd < band.low && fast < band.low) {
     const why = `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band`;
     // Futility's start half; a missing room reference skips it rather than blocking.
     if (vented !== null && vented < vpd + config.minGainKpa) {
@@ -199,15 +206,18 @@ function desireExhaust(
 /** Engages at the hard ceiling, releases at the target, with a separation floor for the case
  *  an override sits ON the ceiling.
  *
- *  Same split as the exhaust and for the same reason: the approach to the ceiling is the fast
- *  leg, so engaging reads `fast`, while a running humidifier walks VPD back down slowly and
- *  releases on the median. */
-function desireHumidifier(band: ControlBand, vpd: number, fast: number, on: boolean): Desire {
+ *  Reads the fast window on BOTH edges, because the rule is that whichever leg an actuator is
+ *  driving must not lag — and both of this one's legs are driven. It approaches the ceiling
+ *  under the exhaust and retreats from it under itself, so a lagging release would overshoot
+ *  downward exactly as the lagging exhaust stop overshot upward. Only the exhaust has a truly
+ *  passive leg (the tent re-humidifying at ~0.02 kPa/min), and that is the one place the
+ *  median's noise rejection is worth its latency. */
+function desireHumidifier(band: ControlBand, fast: number, on: boolean): Desire {
   const release = Math.min(band.target, AIR_VPD_HARD_MAX - HUMIDIFIER_MIN_SEPARATION_KPA);
   if (on) {
-    return vpd > release
-      ? { on: true, why: `air VPD ${kpa(vpd)} still above the ${kpa(release)} release point` }
-      : { on: false, why: `air VPD ${kpa(vpd)} back below the ${kpa(release)} release point` };
+    return fast > release
+      ? { on: true, why: `air VPD ${kpa(fast)} still above the ${kpa(release)} release point` }
+      : { on: false, why: `air VPD ${kpa(fast)} back below the ${kpa(release)} release point` };
   }
   return fast >= AIR_VPD_HARD_MAX
     ? { on: true, why: `air VPD ${kpa(fast)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` }
@@ -244,7 +254,7 @@ export function decideClimate(input: ClimateDecisionInput): ClimateAction {
 
   // Only while the fan is idle, so the two can never be commanded together.
   if (!fan.on) {
-    const rh = desireHumidifier(band, vpd, fast, humidifier.on);
+    const rh = desireHumidifier(band, fast, humidifier.on);
     const rhAction = applyTransition('humidify', humidifier, rh, config.rhSource, config, nowMs);
     if (rhAction) return rhAction;
   }

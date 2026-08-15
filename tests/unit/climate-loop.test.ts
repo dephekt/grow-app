@@ -148,12 +148,13 @@ function warmed(values: Record<string, string>, nowMs = NOW, entities?: EntityCo
 const BAND = controlBand(1.0, DEFAULT_CLIMATE_CONFIG.deadbandKpa);
 
 describe('buildDecisionInput — the two windows', () => {
-  /** RH falling 79 → 67 over five minutes: a vent run, which is when the windows diverge. */
+  /** A vent run at the loop's own 10 s tick: RH falling 79 → 67, which is when the two windows
+   *  diverge. Spaced at the tick because the fast window is sized off it. */
   function ramped(): ClimateLoopState {
     const state = new ClimateLoopState();
-    const rh = [79.1, 76.7, 74.3, 71.9, 69.5, 67.1];
+    const rh = [79.1, 78.3, 77.5, 76.7, 75.9, 75.1, 74.3, 73.5, 72.7, 71.9, 71.1, 70.3, 69.5, 68.7, 67.9, 67.1];
     rh.forEach((h, i) => {
-      const at = NOW - (rh.length - 1 - i) * 60_000;
+      const at = NOW - (rh.length - 1 - i) * 10_000;
       updateClimateSmoothing(state, resolveClimateInputs(snapshotWith({ ...WANTS_VENT, rig_h: String(h) }), at), at);
     });
     return state;
@@ -172,8 +173,8 @@ describe('buildDecisionInput — the two windows', () => {
 
   it('agrees with the median once the tent settles', () => {
     const state = new ClimateLoopState();
-    for (let i = 5; i >= 0; i--) {
-      const at = NOW - i * 60_000;
+    for (let i = 15; i >= 0; i--) {
+      const at = NOW - i * 10_000;
       updateClimateSmoothing(state, resolveClimateInputs(snapshotWith(WANTS_VENT), at), at);
     }
     const built = buildDecisionInput(
