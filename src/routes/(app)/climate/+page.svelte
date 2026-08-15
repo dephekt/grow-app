@@ -229,13 +229,22 @@
       </button>
       <p class="hint">
         {#if exhaustArmed}
-          The loop owns the relay and forces <code>fan_cycle</code> / <code>fan_schedule</code> off each tick.
+          The loop owns the relay, provided no firmware arm is driving it.
         {:else}
           The plug's own cycle and schedule own the relay. The loop only reports what it would do.
         {/if}
       </p>
-      {#if !exhaustArmed && armedArms.length > 0}
-        <p class="warn">Firmware arms on: {armedArms.join(', ')} — these move the relay on their own.</p>
+      <!-- Shown whether or not the loop is armed: an arm is what stops it taking the relay. -->
+      {#if armedArms.length > 0}
+        <p class="warn">
+          {armedArms.join(' and ')} {armedArms.length > 1 ? 'are' : 'is'} driving the relay every ~10 s.
+          {#if exhaustArmed}
+            Disarm {armedArms.length > 1 ? 'them' : 'it'} in device settings before the loop can take it — it will
+            not disarm {armedArms.length > 1 ? 'them' : 'it'} for you, because it cannot put {armedArms.length > 1
+              ? 'them'
+              : 'it'} back if the app stops.
+          {/if}
+        </p>
       {/if}
     </div>
 
@@ -604,11 +613,6 @@
     font-size: 0.72rem;
     color: var(--faint);
     line-height: 1.45;
-  }
-  .hint code {
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    color: var(--muted);
   }
   .warn {
     margin: 7px 0 0;

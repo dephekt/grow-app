@@ -39,7 +39,7 @@ function replay(
 
   return samples.map((s) => {
     const airVpd = airVpdKpa(s.tempC, s.rhPct);
-    const { action } = decideClimate({
+    const action = decideClimate({
       nowMs,
       config: CONFIG,
       band: BAND,

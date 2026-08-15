@@ -7,7 +7,7 @@ import { getSiteMqttService } from '$lib/server/mqtt/service';
 import type { Snapshot } from '$lib/server/mqtt/types';
 import { resolveGrowState } from '$lib/lights/grow-plan';
 import { controlBand, type ClimateConfig, type ControlBand } from '$lib/climate/model';
-import { decideClimate, type ClimateAction, type ClimateDecision, type ClimateDecisionInput } from '$lib/climate/decide';
+import { decideClimate, type ClimateAction, type ClimateDecisionInput } from '$lib/climate/decide';
 import { resolveClimateInputs, type ClimateInputs } from '$lib/climate/inputs';
 import { airVpdKpa, ventedAirVpdKpa, type AirState } from '$lib/climate/psychro';
 import { RollingMedian } from '$lib/climate/smoothing';
@@ -164,7 +164,7 @@ export interface ClimateTickResult {
   band: ControlBand;
   inputs: ClimateInputs;
   decisionInput: ClimateDecisionInput;
-  decision: ClimateDecision;
+  decision: ClimateAction;
   published: boolean;
 }
 
@@ -182,15 +182,13 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
   state.noteRelays(inputs.exhaust, inputs.humidifier, nowMs);
 
   const decisionInput = buildDecisionInput(inputs, state, config, band, nowMs);
-  const decision = decideClimate(decisionInput);
-  const { action } = decision;
+  const action = decideClimate(decisionInput);
 
   let published = false;
-  const reconciled: string[] = [];
   let publishError: string | null = null;
 
   // Recorded explicitly, or an outage reads as a deliberate dry run.
-  const wouldPublish = action.kind === 'exhaust' || action.kind === 'humidify' || decision.reconcileArms.length > 0;
+  const wouldPublish = action.kind === 'exhaust' || action.kind === 'humidify';
   if (config.mode === 'active' && !canPublish() && wouldPublish) {
     publishError = 'broker not connected';
   }
@@ -198,13 +196,6 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
   if (config.mode === 'active' && canPublish()) {
     // Caught, or the log skips exactly the tick that failed to move the relay.
     try {
-      for (const objectId of decision.reconcileArms) {
-        const arm = inputs.arms.find((a) => a.objectId === objectId);
-        if (arm) {
-          await publish(arm.entity.id, false);
-          reconciled.push(objectId);
-        }
-      }
       if (action.kind === 'exhaust' && inputs.exhaust.entity) {
         await publish(inputs.exhaust.entity.id, action.on);
         published = true;
@@ -217,13 +208,11 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
     }
   }
 
-  // Appended to the reason, which logKey digit-blanks into the dedup key — so an arm the loop
-  // fights every 30 s is not a silent loop, without a second copy of the notes.
-  const notes = [
-    reconciled.length > 0 ? `disarmed ${reconciled.join(', ')}` : null,
-    publishError ? `publish failed: ${publishError}` : null
-  ].filter((n): n is string => n !== null);
-  const logged: ClimateAction = notes.length > 0 ? { ...action, reason: `${action.reason} · ${notes.join(' · ')}` } : action;
+  // Appended to the reason, which logKey digit-blanks into the dedup key, so a failing publish
+  // is a distinct verdict rather than a silent repeat.
+  const logged: ClimateAction = publishError
+    ? { ...action, reason: `${action.reason} · publish failed: ${publishError}` }
+    : action;
 
   // A switched-off loop records the switch and goes quiet rather than heartbeating forever.
   if (state.shouldLog(logged, nowMs, config.mode !== 'off')) {
@@ -250,7 +239,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
     pruneClimateEvents(db, nowMs, getClimateLogRetentionDays());
   }
 
-  return { config, band, inputs, decisionInput, decision, published };
+  return { config, band, inputs, decisionInput, decision: action, published };
 }
 
 /** Decision-log retention in days (`GROW_CLIMATE_LOG_RETENTION_DAYS`, 0 disables). */

@@ -50,12 +50,6 @@ export type ClimateAction =
   | { kind: 'delegated'; want: ClimateActuator; on: boolean; reason: string }
   | { kind: 'blocked'; want: ClimateActuator; on: boolean; reason: string };
 
-export interface ClimateDecision {
-  action: ClimateAction;
-  /** Firmware arm objectIds to publish OFF this tick. */
-  reconcileArms: string[];
-}
-
 /** Minimum gap between the humidifier's engage and release points, whatever band and override
  *  produce; below it the hysteresis stops existing. */
 export const HUMIDIFIER_MIN_SEPARATION_KPA = 0.05;
@@ -84,31 +78,45 @@ function ownedByLoop(source: ActuatorSource): boolean {
   return source === 'loop';
 }
 
-/** A desire becomes an action here or nowhere; the order — presence, block, ownership, timers —
- *  puts ownership ahead of a minimum the loop could never have served. */
+/**
+ * A desire becomes an action here or nowhere.
+ *
+ * Order: world, then actuator. `desire.blocked` is a fact about the tent and holds whoever owns
+ * the relay, so it comes first; ownership, contention and presence are facts about the actuator
+ * and are only worth reporting once the loop would otherwise have acted.
+ */
 function applyTransition(
   actuator: ClimateActuator,
   state: ActuatorState,
   desire: Desire,
   source: ActuatorSource,
-  minOnSeconds: number,
-  minOffSeconds: number,
-  nowMs: number
+  config: ClimateConfig,
+  nowMs: number,
+  contendedBy: readonly string[] = []
 ): ClimateAction | null {
   if (desire.on === state.on) return null;
 
-  // Ownership first: whether a relay we do not own is present changes nothing about the
-  // verdict, and reporting its absence as `blocked` paints the shipped default red.
+  if (desire.blocked) return { kind: 'blocked', want: actuator, on: desire.on, reason: desire.blocked };
   if (!ownedByLoop(source)) {
     return { kind: 'delegated', want: actuator, on: desire.on, reason: `${desire.why}; ${ACTUATOR_LABEL[actuator]} is owned by ${source}` };
   }
-  if (desire.blocked) return { kind: 'blocked', want: actuator, on: desire.on, reason: desire.blocked };
+  // The plug's own arms re-assert this relay every ~10 s, so the loop cannot hold it while one
+  // is on — and it will not disarm them, because it cannot restore persistent device state it
+  // did not set and would strand the tent unsupervised on any path that stops it running.
+  if (contendedBy.length > 0) {
+    return {
+      kind: 'blocked',
+      want: actuator,
+      on: desire.on,
+      reason: `${desire.why}, but ${contendedBy.join(' and ')} still drives the relay — disarm it in device settings`
+    };
+  }
   if (!state.present) {
     return { kind: 'blocked', want: actuator, on: desire.on, reason: `${desire.why}, but the ${ACTUATOR_LABEL[actuator]} plug is not discovered` };
   }
 
   const elapsed = elapsedSince(state.lastChangeMs, nowMs);
-  const minimumSeconds = desire.on ? minOffSeconds : minOnSeconds;
+  const minimumSeconds = desire.on ? config.minOffSeconds : config.minOnSeconds;
   const withinMinimum = elapsed !== null && elapsed < minimumSeconds * 1000;
   if (withinMinimum && !desire.urgent) {
     const label = desire.on ? 'minimum off' : 'minimum on';
@@ -187,54 +195,37 @@ function desireHumidifier(band: ControlBand, vpd: number, on: boolean): Desire {
     : { on: false, why: `air VPD ${kpa(vpd)} below the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
 }
 
-export function decideClimate(input: ClimateDecisionInput): ClimateDecision {
+export function decideClimate(input: ClimateDecisionInput): ClimateAction {
   const { nowMs, config, band, reading, exhaust, humidifier, armsOn } = input;
 
-  const reconcileArms = ownedByLoop(config.exhaustSource) && config.mode === 'active' ? [...armsOn] : [];
-  const decide = (action: ClimateAction): ClimateDecision => ({ action, reconcileArms });
-
-  if (config.mode === 'off') return { action: { kind: 'hold', reason: 'loop is off' }, reconcileArms: [] };
-  // Blind: hand the fan back to its firmware rather than disarming it and commanding nothing.
-  if (reading.airVpd === null) {
-    return { action: { kind: 'hold', reason: 'no tent air reading — failing safe' }, reconcileArms: [] };
-  }
+  if (config.mode === 'off') return { kind: 'hold', reason: 'loop is off' };
+  if (reading.airVpd === null) return { kind: 'hold', reason: 'no tent air reading — failing safe' };
   // After a restart the median is one sample and every relay timer is null, so a single glitch
   // would reach an urgent override with nothing damping it.
-  if (reading.warmingUp) return decide({ kind: 'hold', reason: 'smoothing window still filling' });
+  if (reading.warmingUp) return { kind: 'hold', reason: 'smoothing window still filling' };
 
   const vpd = reading.airVpd;
   const fan = desireExhaust(input, vpd, reading.tent?.tempC ?? null);
 
   // Never both: neither hysteresis band escapes two opposed actuators fighting each other.
+  // Urgent, because that state is worse than an early humidifier stop — and it is unreachable
+  // in sequence anyway, since VPD cannot fall from the ceiling to the band floor without
+  // passing the release point. Stated as urgency rather than as a bypass so the guard holds.
   if (fan.on && humidifier.present && humidifier.on && ownedByLoop(config.rhSource)) {
-    return decide({ kind: 'humidify', on: false, reason: `${fan.why}; releasing the humidifier first` });
+    const release: Desire = { on: false, urgent: true, why: `${fan.why}; releasing the humidifier first` };
+    const action = applyTransition('humidify', humidifier, release, config.rhSource, config, nowMs);
+    if (action) return action;
   }
 
-  const fanAction = applyTransition(
-    'exhaust',
-    exhaust,
-    fan,
-    config.exhaustSource,
-    config.minOnSeconds,
-    config.minOffSeconds,
-    nowMs
-  );
-  if (fanAction) return decide(fanAction);
+  const fanAction = applyTransition('exhaust', exhaust, fan, config.exhaustSource, config, nowMs, armsOn);
+  if (fanAction) return fanAction;
 
   // Only while the fan is idle, so the two can never be commanded together.
   if (!fan.on) {
     const rh = desireHumidifier(band, vpd, humidifier.on);
-    const rhAction = applyTransition(
-      'humidify',
-      humidifier,
-      rh,
-      config.rhSource,
-      config.minOnSeconds,
-      config.minOffSeconds,
-      nowMs
-    );
-    if (rhAction) return decide(rhAction);
+    const rhAction = applyTransition('humidify', humidifier, rh, config.rhSource, config, nowMs);
+    if (rhAction) return rhAction;
   }
 
-  return decide({ kind: 'hold', reason: fan.why });
+  return { kind: 'hold', reason: fan.why };
 }

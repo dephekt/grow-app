@@ -154,6 +154,32 @@ test.describe('climate page — real API reads', () => {
     await expect(page.getByRole('button', { name: /Arm Exhaust/ })).toContainText('LOOP');
   });
 
+  test('warns about a firmware arm instead of claiming to disarm it', async ({ page }) => {
+    // The panel used to assert the loop forces the arms off each tick, in a mode where it never
+    // did — on the one screen whose job is to say who owns the relay.
+    await page.route('**/api/climate', async (route) => {
+      if (route.request().method() === 'PATCH') return route.fallback();
+      await route.fulfill({
+        json: {
+          ...LIVE_STATE,
+          arms: [
+            { objectId: 'fan_cycle', on: true },
+            { objectId: 'fan_schedule', on: false }
+          ]
+        }
+      });
+    });
+    await page.route('**/api/climate/events**', (route) => route.fulfill({ json: EVENTS }));
+    await page.route('**/api/snapshot', (route) => route.fulfill({ json: dashboardSnapshot }));
+    await page.route('**/api/events', (route) => route.abort('failed'));
+
+    await page.goto('/');
+    await page.getByRole('link', { name: 'CLIMATE' }).click();
+    const warning = page.locator('p.warn');
+    await expect(warning).toContainText('fan_cycle is driving the relay');
+    await expect(warning).toContainText('will not disarm');
+  });
+
   test('is reachable from the command bar', async ({ page }) => {
     await page.route('**/api/snapshot', (route) => route.fulfill({ json: dashboardSnapshot }));
     await page.route('**/api/events', (route) => route.abort('failed'));

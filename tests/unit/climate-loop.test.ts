@@ -152,7 +152,7 @@ describe('runClimateTick', () => {
 
   it('decides and logs in observe mode but publishes nothing', async () => {
     const result = await runClimateTick(deps(WANTS_VENT, warmed(WANTS_VENT)));
-    expect(result.decision.action).toMatchObject({ kind: 'delegated', want: 'exhaust' });
+    expect(result.decision).toMatchObject({ kind: 'delegated', want: 'exhaust' });
     expect(published).toEqual([]);
 
     const [row] = listClimateEvents(db);
@@ -164,7 +164,7 @@ describe('runClimateTick', () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
     const result = await runClimateTick(deps(WANTS_VENT, warmed(WANTS_VENT)));
 
-    expect(result.decision.action).toMatchObject({ kind: 'exhaust', on: true });
+    expect(result.decision).toMatchObject({ kind: 'exhaust', on: true });
     expect(published).toEqual([{ entityId: 'fan_relay', on: true }]);
 
     const [row] = listClimateEvents(db);
@@ -181,21 +181,29 @@ describe('runClimateTick', () => {
     expect(published).toEqual([]);
   });
 
-  it('reconciles an armed firmware cycle off before acting', async () => {
-    updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+  it('never publishes to a firmware arm, whatever the config', async () => {
+    // It cannot restore persistent device state it did not set, so it does not touch it: an
+    // app crash or a blind sensor would otherwise strand the plug with no supervisor.
     const armed = { ...WANTS_VENT, fan_cyc: 'ON', fan_sch: 'ON' };
-    await runClimateTick(deps(armed, warmed(armed)));
-    expect(published).toEqual([
-      { entityId: 'fan_cyc', on: false },
-      { entityId: 'fan_sch', on: false },
-      { entityId: 'fan_relay', on: true }
-    ]);
+    for (const config of [
+      { mode: 'active' as const, exhaustSource: 'loop' as const },
+      { mode: 'active' as const, exhaustSource: 'firmware' as const },
+      { mode: 'observe' as const, exhaustSource: 'loop' as const }
+    ]) {
+      updateClimateConfig(db, config, NOW_ISO);
+      published = [];
+      await runClimateTick(deps(armed, warmed(armed)));
+      expect(published.map((p) => p.entityId)).not.toContain('fan_cyc');
+      expect(published.map((p) => p.entityId)).not.toContain('fan_sch');
+    }
   });
 
-  it('leaves the firmware arms alone while firmware still owns the fan', async () => {
-    updateClimateConfig(db, { mode: 'active' }, NOW_ISO);
+  it('refuses the relay while an arm drives it, rather than taking it', async () => {
+    updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
     const armed = { ...WANTS_VENT, fan_cyc: 'ON' };
-    await runClimateTick(deps(armed, warmed(armed)));
+    const result = await runClimateTick(deps(armed, warmed(armed)));
+
+    expect(result.decision).toMatchObject({ kind: 'blocked', want: 'exhaust', on: true });
     expect(published).toEqual([]);
   });
 
@@ -277,33 +285,18 @@ describe('runClimateTick', () => {
     expect(row.reason).toContain('publish failed: Broker is not connected');
   });
 
-  it('records the arms it disarmed, so a firmware arm it is fighting is visible', async () => {
+  it('records the contention once, not on every tick', async () => {
     updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    // Inside the band, so the verdict is a plain hold and only the arms distinguish the tick.
-    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0', fan_cyc: 'ON' };
-    const state = warmed(inBand);
-    await runClimateTick(deps(inBand, state));
+    const armed = { ...WANTS_VENT, fan_cyc: 'ON' };
+    const state = warmed(armed);
 
-    const [row] = listClimateEvents(db);
-    expect(row.kind).toBe('hold');
-    expect(row.reason).toContain('disarmed fan_cycle');
-    // `published` tracks the ACTION, and a hold has none — the reason carries the disarm.
-    expect(row.published).toBe(false);
-  });
+    await runClimateTick(deps(armed, state, NOW));
+    await runClimateTick(deps(armed, state, NOW + 30_000));
 
-  it('logs the moment a firmware arm starts fighting a previously quiet loop', async () => {
-    updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
-    const inBand = { ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' };
-    const state = warmed(inBand);
-
-    await runClimateTick(deps(inBand, state, NOW));
-    await runClimateTick(deps(inBand, state, NOW + 30_000));
-    expect(listClimateEvents(db)).toHaveLength(1);
-
-    // Same verdict, but now something is re-arming the plug underneath the loop.
-    await runClimateTick(deps({ ...inBand, fan_cyc: 'ON' }, state, NOW + 60_000));
-    expect(listClimateEvents(db)).toHaveLength(2);
-    expect(listClimateEvents(db)[0].reason).toContain('disarmed fan_cycle');
+    const rows = listClimateEvents(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe('blocked');
+    expect(rows[0].reason).toContain('fan_cycle still drives the relay');
   });
 
   it('logs the loop going blind, even straight after an in-band hold', async () => {
@@ -357,7 +350,7 @@ describe('runClimateTick', () => {
       const cold = new ClimateLoopState();
       const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '33.0' }, cold, NOW));
 
-      expect(result.decision.action).toEqual({ kind: 'hold', reason: 'smoothing window still filling' });
+      expect(result.decision).toEqual({ kind: 'hold', reason: 'smoothing window still filling' });
       expect(published).toEqual([]);
     });
 
@@ -366,7 +359,7 @@ describe('runClimateTick', () => {
       const cold = new ClimateLoopState();
       const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '12.0', fan_relay: 'ON' }, cold, NOW));
 
-      expect(result.decision.action.kind).toBe('hold');
+      expect(result.decision.kind).toBe('hold');
       expect(published).toEqual([]);
     });
 
@@ -379,7 +372,7 @@ describe('runClimateTick', () => {
       expect(published).toEqual([]);
 
       const result = await runClimateTick(deps(WANTS_VENT, state, NOW + (MIN_SMOOTHING_SAMPLES - 1) * 30_000));
-      expect(result.decision.action).toMatchObject({ kind: 'exhaust', on: true });
+      expect(result.decision).toMatchObject({ kind: 'exhaust', on: true });
     });
 
     it('re-warms after the sensor drops out and returns', async () => {
@@ -387,7 +380,7 @@ describe('runClimateTick', () => {
       const state = warmed(WANTS_VENT);
       await runClimateTick(deps({ ...WANTS_VENT, rig_t: '' }, state, NOW));
       const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '33.0' }, state, NOW + 30_000));
-      expect(result.decision.action.reason).toContain('smoothing window still filling');
+      expect(result.decision.reason).toContain('smoothing window still filling');
     });
   });
 
@@ -406,7 +399,7 @@ describe('runClimateTick', () => {
       published = [];
 
       const result = await runClimateTick(deps({ ...calm, rig_t: '33.0' }, state, NOW + 150_000));
-      expect(result.decision.action.kind).toBe('hold');
+      expect(result.decision.kind).toBe('hold');
       expect(published).toEqual([]);
     });
 
@@ -419,7 +412,7 @@ describe('runClimateTick', () => {
 
       // 12 °C is far under the 20 °C floor, which force-stops the fan ahead of every timer.
       const result = await runClimateTick(deps({ ...running, rig_t: '12.0' }, state, NOW + 150_000));
-      expect(result.decision.action.kind).toBe('hold');
+      expect(result.decision.kind).toBe('hold');
       expect(published).toEqual([]);
     });
 
@@ -430,8 +423,8 @@ describe('runClimateTick', () => {
       await settle(state, cold);
 
       const result = await runClimateTick(deps(cold, state, NOW + 150_000));
-      expect(result.decision.action).toMatchObject({ kind: 'exhaust', on: false });
-      expect(result.decision.action.reason).toContain('regardless of VPD');
+      expect(result.decision).toMatchObject({ kind: 'exhaust', on: false });
+      expect(result.decision.reason).toContain('regardless of VPD');
     });
 
     it('still acts on a sustained excursion', async () => {
@@ -439,8 +432,8 @@ describe('runClimateTick', () => {
       const state = new ClimateLoopState();
       await settle(state, { ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' });
       const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' }, state, NOW + 150_000));
-      expect(result.decision.action).toMatchObject({ kind: 'exhaust', on: true });
-      expect(result.decision.action.reason).toContain('vent limit');
+      expect(result.decision).toMatchObject({ kind: 'exhaust', on: true });
+      expect(result.decision.reason).toContain('vent limit');
     });
   });
 

@@ -43,7 +43,7 @@ function liveState() {
   const state = getClimateLoopState();
   // The loop's own assembler, and read-only: a page refresh must not advance its state.
   const decisionInput = buildDecisionInput(inputs, state, config, band, now.getTime());
-  const decision = decideClimate(decisionInput);
+  const action = decideClimate(decisionInput);
 
   return {
     config,
@@ -65,7 +65,7 @@ function liveState() {
     exhaust: { present: inputs.exhaust.present, on: inputs.exhaust.on },
     humidifier: { present: inputs.humidifier.present, on: inputs.humidifier.on },
     arms: inputs.arms.map((a) => ({ objectId: a.objectId, on: a.on })),
-    action: decision.action
+    action
   };
 }
 
