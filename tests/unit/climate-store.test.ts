@@ -74,6 +74,16 @@ describe('climate config', () => {
     expect(getClimateConfig(db)).toEqual(next);
   });
 
+  it('clamps a stored numeric that predates the bounds', () => {
+    // The write path validates; before this the read path trusted, so a hand-edited or restored
+    // row could hand the loop a 24 h minimum-on with no error.
+    updateClimateConfig(db, {}, NOW_ISO); // the migration seeds no row; upsert one to edit
+    db.prepare('UPDATE climate_config SET min_on_seconds = 86400, deadband_kpa = -5 WHERE id = 1').run();
+    const config = getClimateConfig(db);
+    expect(config.minOnSeconds).toBe(3600);
+    expect(config.deadbandKpa).toBe(0.01);
+  });
+
   it('round-trips a null override back to the plan', () => {
     updateClimateConfig(db, { airVpdOverride: 1.05 }, NOW_ISO);
     expect(getClimateConfig(db).airVpdOverride).toBe(1.05);

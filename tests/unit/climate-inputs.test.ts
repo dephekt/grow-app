@@ -282,6 +282,55 @@ describe('resolveClimateInputs', () => {
     expect(forward.room).toEqual(reversed.room);
   });
 
+  it('skips a temperature-only node for one carrying both halves', () => {
+    // The sort used to pick the winner and then null the pair when it had no humidity, while a
+    // complete pair sat in the same snapshot.
+    const tempOnly = makeEntity('aaa-outdoor-probe', {
+      id: 'probe_t',
+      name: 'Outdoor Temperature',
+      objectId: 'outdoor_temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    });
+    const inputs = resolveClimateInputs(
+      makeSnapshot([tempOnly, ...fullFleet()], { ...LIVE_VALUES, probe_t: '12.0' }),
+      NOW
+    );
+    expect(inputs.roomNode).toBe(ROOM);
+    expect(inputs.room).toEqual({ tempC: 25.02, rhPct: 61.4 });
+  });
+
+  it('never takes an averaged humidity as the room reference', () => {
+    const avg = makeEntity(ROOM, {
+      id: 'room_avg_h',
+      name: 'Ext Avg Humidity',
+      objectId: 'ext_avg_humidity',
+      deviceClass: 'humidity',
+      unit: '%'
+    });
+    const inputs = resolveClimateInputs(
+      makeSnapshot([avg, ...fullFleet()], { ...LIVE_VALUES, room_avg_h: '20.0' }),
+      NOW
+    );
+    expect(inputs.room).toEqual({ tempC: 25.02, rhPct: 61.4 });
+  });
+
+  it('never takes an averaged humidity as the TENT reference either', () => {
+    // isHumidity had the same hole isExternalHumidity did; both derive from one matcher now.
+    const avg = makeEntity(RIG, {
+      id: 'rig_avg_h',
+      name: 'Daily Avg Humidity',
+      objectId: 'daily_avg_humidity',
+      deviceClass: 'humidity',
+      unit: '%'
+    });
+    const inputs = resolveClimateInputs(
+      makeSnapshot([avg, ...fullFleet()], { ...LIVE_VALUES, rig_avg_h: '20.0' }),
+      NOW
+    );
+    expect(inputs.tent).toEqual({ tempC: 27.18, rhPct: 63.5 });
+  });
+
   it('never takes a daily-max aggregate as the room reference', () => {
     const withDailyMax = [
       makeEntity(ROOM, {

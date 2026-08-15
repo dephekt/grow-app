@@ -44,13 +44,13 @@ export function getClimateConfig(db: DatabaseSync): ClimateConfig {
     mode: asMode(row.mode),
     exhaustSource: asSource(row.exhaust_source, DEFAULT_CLIMATE_CONFIG.exhaustSource),
     rhSource: asSource(row.rh_source, DEFAULT_CLIMATE_CONFIG.rhSource),
-    deadbandKpa: row.deadband_kpa,
-    minOnSeconds: row.min_on_seconds,
-    minOffSeconds: row.min_off_seconds,
-    minGainKpa: row.min_gain_kpa,
-    ventAlwaysAboveC: row.vent_always_above_c,
-    ventNeverBelowC: row.vent_never_below_c,
-    airVpdOverride: row.air_vpd_override
+    deadbandKpa: clamped('deadbandKpa', row.deadband_kpa),
+    minOnSeconds: clamped('minOnSeconds', row.min_on_seconds),
+    minOffSeconds: clamped('minOffSeconds', row.min_off_seconds),
+    minGainKpa: clamped('minGainKpa', row.min_gain_kpa),
+    ventAlwaysAboveC: clamped('ventAlwaysAboveC', row.vent_always_above_c),
+    ventNeverBelowC: clamped('ventNeverBelowC', row.vent_never_below_c),
+    airVpdOverride: row.air_vpd_override === null ? null : clamped('airVpdOverride', row.air_vpd_override)
   };
 }
 
@@ -78,6 +78,14 @@ const NUMERIC_BOUNDS: Record<NumericKey, { min: number; max: number }> = {
   // range here would accept 1.50, regulate 1.20, and print "overridden 1.50" on /climate.
   airVpdOverride: { min: AIR_VPD_HARD_MIN, max: AIR_VPD_HARD_MAX }
 };
+
+/** The read path distrusts the enum columns already; a row predating NUMERIC_BOUNDS, restored
+ *  from an older backup or hand-edited would otherwise hand the loop a 24 h minimum-on. */
+function clamped(key: NumericKey, value: number): number {
+  const bounds = NUMERIC_BOUNDS[key];
+  if (!Number.isFinite(value)) return DEFAULT_CLIMATE_CONFIG[key] ?? bounds.min;
+  return Math.min(bounds.max, Math.max(bounds.min, value));
+}
 
 function checkNumber(key: NumericKey, value: number): number {
   const bounds = NUMERIC_BOUNDS[key];

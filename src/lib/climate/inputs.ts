@@ -108,16 +108,25 @@ export function resolveClimateInputs(snapshot: Snapshot, nowMs: number): Climate
 
   const tent = airStateFrom(snapshot, onTent(isAmbientTemperature), onTent(isHumidity), nowMs);
 
-  // Matched by the external-reference guard rather than a hardcoded node, but sorted before
-  // picking so a second outside sensor cannot switch the gate's input between restarts.
-  const roomTemp = snapshot.entities
+  // Matched by the external-reference guard rather than a hardcoded node, sorted so a second
+  // outside sensor cannot switch the gate's input between restarts, and taking the first node
+  // carrying BOTH halves — a temperature-only node would otherwise strand the pair.
+  const byNode = (a: EntityConfig, b: EntityConfig) =>
+    `${entityNodeKey(a)}/${a.objectId}`.localeCompare(`${entityNodeKey(b)}/${b.objectId}`);
+  const roomPair = snapshot.entities
     .filter(isExternalTemperature)
-    .sort((a, b) => `${entityNodeKey(a)}/${a.objectId}`.localeCompare(`${entityNodeKey(b)}/${b.objectId}`))[0];
-  const roomNode = roomTemp ? entityNodeKey(roomTemp) : null;
-  const roomHumidity = roomNode
-    ? snapshot.entities.find((e) => isExternalHumidity(e) && entityNodeKey(e) === roomNode)
-    : undefined;
-  const room = airStateFrom(snapshot, roomTemp, roomHumidity, nowMs);
+    .sort(byNode)
+    .map((temp) => {
+      const node = entityNodeKey(temp);
+      const humidity = snapshot.entities
+        .filter((e) => isExternalHumidity(e) && entityNodeKey(e) === node)
+        .sort(byNode)[0];
+      return humidity ? { node, temp, humidity } : null;
+    })
+    .find((pair): pair is { node: string; temp: EntityConfig; humidity: EntityConfig } => pair !== null);
+
+  const roomNode = roomPair?.node ?? null;
+  const room = airStateFrom(snapshot, roomPair?.temp, roomPair?.humidity, nowMs);
 
   const arms = EXHAUST_ARMS.map((objectId): ResolvedArm | null => {
     const entity = resolveEntityRef(snapshot, { node: EXHAUST_NODE, objectId });

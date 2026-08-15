@@ -23,8 +23,19 @@ export function isWaterTemperature(e: EntityConfig): boolean {
   return /water/.test(oid) && (e.deviceClass === 'temperature' || e.unit === '°C');
 }
 
+/** An air humidity reading, wherever it is sited; the inside/outside split is applied by the
+ *  two callers so the exclusions cannot drift between them, as they did until round 6. */
+function isAirHumidity(e: EntityConfig): boolean {
+  if (!isNumericSensor(e) || e.deviceClass !== 'humidity') return false;
+  const oid = (e.objectId ?? '').toLowerCase();
+  const name = e.name.toLowerCase();
+  if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name)) return false;
+  if (/(^|_)(daily|moving|average|avg|min|max|mean)(_|$)/.test(oid)) return false;
+  return true;
+}
+
 export function isHumidity(e: EntityConfig): boolean {
-  return isNumericSensor(e) && e.deviceClass === 'humidity' && !isExternalReference(e);
+  return isAirHumidity(e) && !isExternalReference(e);
 }
 
 /**
@@ -76,7 +87,7 @@ export function isExternalTemperature(e: EntityConfig): boolean {
 
 /** The outside-the-tent relative humidity. */
 export function isExternalHumidity(e: EntityConfig): boolean {
-  return isNumericSensor(e) && e.deviceClass === 'humidity' && isExternalReference(e);
+  return isAirHumidity(e) && isExternalReference(e);
 }
 
 /** Room/air temperature inside the grow. */

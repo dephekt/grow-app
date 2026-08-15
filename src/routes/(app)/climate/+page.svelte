@@ -18,6 +18,9 @@
   let error = $state('');
   let saving = $state(false);
 
+  // Same source the irrigation page uses. The API gate is unchanged — this is about not
+  // offering a control that hands a mains relay to an automation and will then be refused.
+  const isAdmin = $derived(Boolean(data.user?.isAdmin));
   const config = $derived(climate.config);
   const action = $derived(climate.action);
   const exhaustArmed = $derived(config.exhaustSource === 'loop');
@@ -206,7 +209,7 @@
         <button
           class="ctl mode"
           class:on={config.mode === mode}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           aria-pressed={config.mode === mode}
           onclick={() => patch({ mode })}
         >
@@ -215,12 +218,15 @@
       {/each}
     </div>
     <p class="hint">{MODE_HELP[config.mode]}</p>
+    {#if !isAdmin}
+      <p class="hint">Read-only: arming the loop is an admin action.</p>
+    {/if}
 
     <div class="arm">
       <button
         class="ctl ctl-toggle"
         class:on={exhaustArmed}
-        disabled={saving}
+        disabled={saving || !isAdmin}
         aria-pressed={exhaustArmed}
         onclick={() => setSource('exhaustSource', !exhaustArmed)}
       >
@@ -252,7 +258,7 @@
       <button
         class="ctl ctl-toggle"
         class:on={rhArmed}
-        disabled={saving || !climate.humidifier.present}
+        disabled={saving || !isAdmin || !climate.humidifier.present}
         aria-pressed={rhArmed}
         onclick={() => setSource('rhSource', !rhArmed)}
       >
@@ -358,7 +364,7 @@
           min="0.01"
           max="0.4"
           value={config.deadbandKpa}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           onchange={(e) => commitField(e, 'deadbandKpa', config.deadbandKpa)}
         />
         <span class="field-hint">Half-width of the band. The band is the debounce.</span>
@@ -374,7 +380,7 @@
           max="1.2"
           value={config.airVpdOverride ?? ''}
           placeholder={climate.planTarget.toFixed(2)}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           onchange={(e) => commitField(e, 'airVpdOverride', config.airVpdOverride)}
         />
         <span class="field-hint">Blank follows the week's cited target.</span>
@@ -389,7 +395,7 @@
           min="0"
           max="3600"
           value={config.minOnSeconds}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           onchange={(e) => commitField(e, 'minOnSeconds', config.minOnSeconds)}
         />
         <span class="field-hint">Anti-chatter only. The hard ceiling overrides it.</span>
@@ -404,7 +410,7 @@
           min="0"
           max="3600"
           value={config.minOffSeconds}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           onchange={(e) => commitField(e, 'minOffSeconds', config.minOffSeconds)}
         />
         <span class="field-hint">Rarely binding — the off leg runs close to an hour.</span>
@@ -419,7 +425,7 @@
           min="0"
           max="1"
           value={config.minGainKpa}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           onchange={(e) => commitField(e, 'minGainKpa', config.minGainKpa)}
         />
         <span class="field-hint">A start is refused below this predicted improvement.</span>
@@ -434,7 +440,7 @@
           min="20"
           max="45"
           value={config.ventAlwaysAboveC}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           onchange={(e) => commitField(e, 'ventAlwaysAboveC', config.ventAlwaysAboveC)}
         />
         <span class="field-hint">Heat safety — vents regardless of VPD.</span>
@@ -449,7 +455,7 @@
           min="5"
           max="30"
           value={config.ventNeverBelowC}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           onchange={(e) => commitField(e, 'ventNeverBelowC', config.ventNeverBelowC)}
         />
         <span class="field-hint">Cold protection — blocks venting.</span>
