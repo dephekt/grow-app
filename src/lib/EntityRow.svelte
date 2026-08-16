@@ -62,7 +62,7 @@
         onchange={(event) => onCommand(entity, event.currentTarget.value)}
       >
         <option value="" disabled>Select</option>
-        {#each entity.options ?? [] as option (option)}
+        {#each entity.options ?? [] as option, i (i)}
           <option value={option}>{option}</option>
         {/each}
       </select>

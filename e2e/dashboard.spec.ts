@@ -181,6 +181,61 @@ test('renders a scan-focused local HMI dashboard', async ({ page }) => {
   await expect(page.locator('article.device')).toHaveCount(0);
 });
 
+test('renders readout rows when two sensors on a device share a name', async ({ page }) => {
+  // Nothing stops firmware publishing the same friendly name twice -- the committed live snapshot
+  // already carries "EC Temperature Compensation" as both a sensor and a switch, and only the
+  // numeric filter keeps them out of the same panel. Keying the rows on their label would turn
+  // that collision into each_key_duplicate, which throws in production as well as dev.
+  const twin = {
+    ...snapshot.entities.find((e) => e.id === 'atlas_water_temperature')!,
+    id: 'atlas_water_temperature_b',
+    uniqueId: 'atlas_water_temperature_b',
+    objectId: 'water_temperature_b',
+    stateTopic: 'grow/daniel-home/atlas-hydro-monitor/sensor/water_temperature_b/state'
+  };
+  const ui = snapshot.uiConfigs['atlas-hydro-monitor'];
+  const collided = {
+    ...snapshot,
+    entities: [...snapshot.entities, twin],
+    uiConfigs: {
+      ...snapshot.uiConfigs,
+      'atlas-hydro-monitor': {
+        ...ui,
+        // Same label as water_temperature, which is all it takes: the panel strips the shared
+        // "Water " prefix and both rows end up reading "Temp".
+        entities: [
+          ...ui.entities,
+          {
+            component: 'sensor',
+            objectId: 'water_temperature_b',
+            group: 'overview',
+            role: 'metric',
+            order: 15,
+            label: 'Water Temp'
+          }
+        ]
+      }
+    },
+    devices: snapshot.devices.map((d) =>
+      d.nodeId === 'atlas-hydro-monitor' ? { ...d, entityIds: [...d.entityIds, twin.id] } : d
+    ),
+    states: {
+      ...snapshot.states,
+      [twin.id]: { value: '23.7', updatedAt: '2026-06-13T12:00:00.000Z' }
+    }
+  };
+
+  await page.unroute('**/api/snapshot');
+  await page.route('**/api/snapshot', (route) => route.fulfill({ json: collided }));
+  const crashes: string[] = [];
+  page.on('pageerror', (e) => crashes.push(e.message));
+  await page.goto('/');
+
+  await expect(page.locator('.water-area')).toContainText('22.1');
+  await expect(page.locator('.water-area')).toContainText('23.7');
+  expect(crashes).toEqual([]);
+});
+
 test('keeps dashboard metrics live without showing device settings sections', async ({ page }) => {
   await page.unroute('**/api/snapshot');
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: liveSnapshot }));
