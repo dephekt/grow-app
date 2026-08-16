@@ -74,7 +74,7 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
       heartbeat = setInterval(() => {
         // Backstop for the registry: close the stream if the session is gone
         // (disabled, revoked, or expired).
-        let sessionGone = false;
+        let sessionGone: boolean;
         try {
           sessionGone = token ? !lookupSession(getAuthDb(), token) : false;
         } catch (error) {

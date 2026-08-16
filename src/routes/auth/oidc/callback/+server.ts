@@ -11,8 +11,7 @@ import {
   SESSION_COOKIE,
   OIDC_TX_COOKIE,
   isSecureRequest,
-  sessionCookieOptions,
-  oidcTxCookieOptions
+  sessionCookieOptions
 } from '$lib/server/auth/config';
 import {
   completeLogin,

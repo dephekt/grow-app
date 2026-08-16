@@ -15,9 +15,9 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm format` rewrites the tree with Prettier. CI gates `pnpm format:check`,
-`pnpm check` and `pnpm test`; `main` will not accept a merge until all three are
-green.
+`pnpm format` rewrites the tree with Prettier and `pnpm lint` runs ESLint. CI
+gates `pnpm format:check`, `pnpm lint`, `pnpm check` and `pnpm test`; `main`
+will not accept a merge until all four are green.
 
 For UI work without local broker credentials, run against a static snapshot from
 the deployed LAN site:

@@ -100,7 +100,7 @@
       x2={px(WL_MAX)}
       y2="0"
     >
-      {#each stops as nm}
+      {#each stops as nm (nm)}
         <stop
           offset="{(((nm - WL_MIN) / (WL_MAX - WL_MIN)) * 100).toFixed(1)}%"
           stop-color={wl2rgb(nm)}
@@ -109,11 +109,11 @@
     </linearGradient>
   </defs>
 
-  {#each yTicks as v}
+  {#each yTicks as v (v)}
     <line class="grid" x1={L} y1={py(v)} x2={L + pw} y2={py(v)} />
     <text class="axis" x={L - 8} y={py(v) + 4} text-anchor="end">{v}</text>
   {/each}
-  {#each xTicks as nm}
+  {#each xTicks as nm (nm)}
     <text class="axis" x={px(nm)} y={T + ph + 20} text-anchor="middle">{nm}</text>
   {/each}
 
@@ -124,7 +124,7 @@
     <text class="empty" x={W / 2} y={H / 2} text-anchor="middle">waiting for spectrum…</text>
   {/if}
 
-  {#each peaks as nm}
+  {#each peaks as nm, i (i)}
     {#if nm >= WL_MIN && nm <= WL_MAX}
       <line class="peak" x1={px(nm)} y1={T} x2={px(nm)} y2={T + ph} />
       <text class="peak-label" x={px(nm)} y={T - 4} text-anchor="middle">{nm.toFixed(0)}</text>

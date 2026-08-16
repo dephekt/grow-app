@@ -18,12 +18,8 @@
     collapsible?: boolean;
   } = $props();
 
-  // Seeded from the prop's INITIAL value on purpose so the first paint is already correct.
-  // svelte-ignore state_referenced_locally
-  let open = $state(!collapsible);
-  $effect(() => {
-    open = !collapsible;
-  });
+  // Writable, so the toggle can override it, and re-derived whenever `collapsible` changes.
+  let open = $derived(!collapsible);
 
   const fmtTime = (iso: string) =>
     new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });

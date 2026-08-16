@@ -491,13 +491,7 @@
       <span class="panel-title">// ACTIONS</span>
       <span class="head-note mono">{eventTotal} recorded</span>
     </div>
-    <ClimateLog
-      {events}
-      total={eventTotal}
-      anchorId={eventAnchorId}
-      pageSize={LOG_PAGE_SIZE}
-      onpage={loadEvents}
-    />
+    <ClimateLog {events} total={eventTotal} pageSize={LOG_PAGE_SIZE} onpage={loadEvents} />
   </div>
 </section>
 

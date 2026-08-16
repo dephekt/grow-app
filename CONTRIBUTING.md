@@ -75,6 +75,7 @@ opening a pull request:
 
 ```sh
 pnpm format       # rewrites; CI runs pnpm format:check
+pnpm lint
 pnpm check
 pnpm test
 ```

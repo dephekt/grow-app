@@ -21,12 +21,13 @@
     "build:recorder": "esbuild src/lib/server/history/recorder.ts --bundle --platform=node --format=esm --target=node24 --packages=external '--alias:$lib=./src/lib' --outfile=build-recorder/recorder.js",
     "start": "node build",
     "preview": "vite preview --host 127.0.0.1",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "design:screenshots": "playwright test e2e/design-screenshots.spec.ts"
+    "design:screenshots": "playwright test e2e/design-screenshots.spec.ts",
+    "lint": "svelte-kit sync && eslint . --max-warnings 0"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.7",
@@ -41,14 +42,20 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.53.1",
     "@sveltejs/vite-plugin-svelte": "^5.1.0",
     "@types/node": "^24.0.4",
     "esbuild": "^0.28.1",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-svelte": "^3.23.0",
+    "globals": "^17.11.0",
     "prettier": "^3.9.6",
     "prettier-plugin-svelte": "^4.1.1",
     "svelte-check": "^4.2.2",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.67.0",
     "vitest": "^3.2.4"
   }
 }

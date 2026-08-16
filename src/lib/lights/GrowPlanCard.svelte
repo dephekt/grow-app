@@ -140,10 +140,10 @@
   </div>
 
   <div class="phase-strip" style="grid-template-columns: {phaseCols};">
-    {#each phases as p}<span class="phase {p.stage}"></span>{/each}
+    {#each phases as p, i (i)}<span class="phase {p.stage}"></span>{/each}
   </div>
   <div class="phase-lab" style="grid-template-columns: {phaseCols};">
-    {#each phases as p}<span>{STAGES[p.stage].label}</span>{/each}
+    {#each phases as p, i (i)}<span>{STAGES[p.stage].label}</span>{/each}
   </div>
 </div>
 

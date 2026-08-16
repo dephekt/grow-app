@@ -2,20 +2,13 @@
 <!-- Copyright (C) 2026 Daniel Snider -->
 
 <script lang="ts">
-  import { untrack } from 'svelte';
   import type { AuthenticatedUser } from '$lib/server/auth/users';
 
   let { user }: { user: AuthenticatedUser } = $props();
 
-  // `user` comes from load data (a plain, non-reactive object), so mutating
-  // user.hasLocalPassword would not re-render the dialog's mode.
-  let hasLocalPassword = $state(untrack(() => user.hasLocalPassword));
-
-  // Re-sync when load data legitimately refreshes the prop — e.g. an admin clears
-  // their own local password on the users page and navigates back.
-  $effect(() => {
-    hasLocalPassword = user.hasLocalPassword;
-  });
+  // Writable, so the dialog can flip it locally after a password change, and re-synced by the
+  // derivation when load data legitimately refreshes the prop.
+  let hasLocalPassword = $derived(user.hasLocalPassword);
 
   let menuOpen = $state(false);
   let dialog = $state<HTMLDialogElement | null>(null);
