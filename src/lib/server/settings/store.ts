@@ -8,8 +8,7 @@ import type { DatabaseSync } from 'node:sqlite';
  *  so the caller controls which DB instance is used (real singleton vs. `:memory:`). */
 export function getSetting(db: DatabaseSync, key: string): string | undefined {
   const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as
-    | { value: string }
-    | undefined;
+    { value: string } | undefined;
   return row?.value;
 }
 

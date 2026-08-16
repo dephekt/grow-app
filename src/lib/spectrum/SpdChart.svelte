@@ -40,12 +40,24 @@
     let g = 0;
     let b = 0;
     if (w < 380) w = 380;
-    if (w < 440) { r = -(w - 440) / 60; b = 1; }
-    else if (w < 490) { g = (w - 440) / 50; b = 1; }
-    else if (w < 510) { g = 1; b = -(w - 510) / 20; }
-    else if (w < 580) { r = (w - 510) / 70; g = 1; }
-    else if (w < 645) { r = 1; g = -(w - 645) / 65; }
-    else { r = 1; }
+    if (w < 440) {
+      r = -(w - 440) / 60;
+      b = 1;
+    } else if (w < 490) {
+      g = (w - 440) / 50;
+      b = 1;
+    } else if (w < 510) {
+      g = 1;
+      b = -(w - 510) / 20;
+    } else if (w < 580) {
+      r = (w - 510) / 70;
+      g = 1;
+    } else if (w < 645) {
+      r = 1;
+      g = -(w - 645) / 65;
+    } else {
+      r = 1;
+    }
     let f = 1;
     if (w > 700) f = 0.3 + (0.7 * (780 - w)) / 80;
     else if (w < 420) f = 0.3 + (0.7 * (w - 380)) / 40;
@@ -71,16 +83,28 @@
           ` L ${pts[pts.length - 1][0].toFixed(1)},${py(0).toFixed(1)} Z`
       : ''
   );
-  const line = $derived(pts.length ? 'M ' + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L ') : '');
+  const line = $derived(
+    pts.length ? 'M ' + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L ') : ''
+  );
   const xTicks = [400, 450, 500, 550, 600, 650, 700, 750, 800, 850];
   const yTicks = [0, 25, 50, 75, 100];
 </script>
 
 <svg class="spd" viewBox="0 0 {W} {H}" role="img" aria-label="Spectral power distribution">
   <defs>
-    <linearGradient id="spd-grad" gradientUnits="userSpaceOnUse" x1={px(WL_MIN)} y1="0" x2={px(WL_MAX)} y2="0">
+    <linearGradient
+      id="spd-grad"
+      gradientUnits="userSpaceOnUse"
+      x1={px(WL_MIN)}
+      y1="0"
+      x2={px(WL_MAX)}
+      y2="0"
+    >
       {#each stops as nm}
-        <stop offset="{(((nm - WL_MIN) / (WL_MAX - WL_MIN)) * 100).toFixed(1)}%" stop-color={wl2rgb(nm)} />
+        <stop
+          offset="{(((nm - WL_MIN) / (WL_MAX - WL_MIN)) * 100).toFixed(1)}%"
+          stop-color={wl2rgb(nm)}
+        />
       {/each}
     </linearGradient>
   </defs>

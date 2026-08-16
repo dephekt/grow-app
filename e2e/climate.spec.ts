@@ -117,8 +117,14 @@ test.describe('climate page — real API reads', () => {
   test('ships inert: observe mode, fan left to its firmware', async ({ page }) => {
     await page.goto('/climate');
 
-    await expect(page.getByRole('button', { name: 'OBSERVE' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('button', { name: /Arm Exhaust/ })).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('button', { name: 'OBSERVE' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(page.getByRole('button', { name: /Arm Exhaust/ })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
     await expect(page.getByRole('button', { name: /Arm Exhaust/ })).toContainText('FIRMWARE');
     await expect(page.getByText('Decides and logs every tick, publishes nothing.')).toBeVisible();
   });
@@ -197,7 +203,9 @@ test.describe('climate page — populated state', () => {
     await page.route('**/api/climate', async (route) => {
       if (route.request().method() === 'PATCH') {
         const body = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
-        return route.fulfill({ json: { ...LIVE_STATE, config: { ...LIVE_STATE.config, ...body } } });
+        return route.fulfill({
+          json: { ...LIVE_STATE, config: { ...LIVE_STATE.config, ...body } }
+        });
       }
       await route.fulfill({ json: LIVE_STATE });
     });
@@ -239,7 +247,10 @@ test.describe('climate page — populated state', () => {
     await open(page);
     const [request] = await Promise.all([
       page.waitForRequest((r) => r.url().includes('/api/climate') && r.method() === 'PATCH'),
-      page.getByLabel('Deadband ± kPa').fill('0.15').then(() => page.getByLabel('Deadband ± kPa').blur())
+      page
+        .getByLabel('Deadband ± kPa')
+        .fill('0.15')
+        .then(() => page.getByLabel('Deadband ± kPa').blur())
     ]);
     expect(request.postDataJSON()).toEqual({ deadbandKpa: 0.15 });
   });

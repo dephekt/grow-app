@@ -4,7 +4,12 @@
 <script lang="ts">
   import { parseFirmwareUpdateState, resolveInstalledVersion } from '$lib/firmware';
   import type { FirmwarePackageManifest } from '$lib/server/firmware/packages';
-  import type { DeviceSnapshot, EntityConfig, FirmwareChannel, Snapshot } from '$lib/server/mqtt/types';
+  import type {
+    DeviceSnapshot,
+    EntityConfig,
+    FirmwareChannel,
+    Snapshot
+  } from '$lib/server/mqtt/types';
 
   let { snapshot, device } = $props<{
     snapshot: Snapshot;
@@ -34,37 +39,59 @@
   let channelConfig = $derived(firmwareChannels[nodeId] ?? null);
   let selectedChannel = $derived(channelOverride ?? channelConfig?.channel ?? 'stable');
   let deviceEntities = $derived(
-    entities.filter((entity: EntityConfig) => entity.nodeId === nodeId || entity.device?.identifiers?.includes(nodeId))
+    entities.filter(
+      (entity: EntityConfig) =>
+        entity.nodeId === nodeId || entity.device?.identifiers?.includes(nodeId)
+    )
   );
-  let updateEntity = $derived(deviceEntities.find((entity: EntityConfig) => entity.component === 'update' && entity.commandTopic));
+  let updateEntity = $derived(
+    deviceEntities.find(
+      (entity: EntityConfig) => entity.component === 'update' && entity.commandTopic
+    )
+  );
   let checkButton = $derived(
     deviceEntities.find((entity: EntityConfig) => {
       const value = `${entity.name} ${entity.objectId ?? ''}`.toLowerCase();
       return entity.component === 'button' && value.includes('firmware') && value.includes('check');
     })
   );
-  let updateState = $derived(parseFirmwareUpdateState(updateEntity ? states[updateEntity.id]?.value : null));
+  let updateState = $derived(
+    parseFirmwareUpdateState(updateEntity ? states[updateEntity.id]?.value : null)
+  );
   let installedVersion = $derived(
     resolveInstalledVersion(updateState, firmwareConfig, device.swVersion) ?? 'Unknown'
   );
   let latestVersion = $derived(
-    packageInfo?.version ?? (packageLookupComplete ? 'No package' : updateState.latestVersion ?? 'Unknown')
+    packageInfo?.version ??
+      (packageLookupComplete ? 'No package' : (updateState.latestVersion ?? 'Unknown'))
   );
-  let updateStatus = $derived(deviceUpdateStatus(updateEntity, updateState, packageInfo, installedVersion));
+  let updateStatus = $derived(
+    deviceUpdateStatus(updateEntity, updateState, packageInfo, installedVersion)
+  );
   let changelogCommits = $derived(firmwareChangelogCommits(packageInfo?.changelog));
   let hasPackageUpdate = $derived(Boolean(packageInfo && packageInfo.version !== installedVersion));
-  let releaseSummary = $derived(hasPackageUpdate ? packageInfo?.release_summary ?? updateState.releaseSummary ?? '' : '');
+  let releaseSummary = $derived(
+    hasPackageUpdate ? (packageInfo?.release_summary ?? updateState.releaseSummary ?? '') : ''
+  );
   let visibleChangelogCommits = $derived(hasPackageUpdate ? changelogCommits : []);
   let canApply = $derived(
     Boolean(
       updateEntity &&
-        packageInfo &&
-        packageInfo.version !== installedVersion &&
-        updateState.latestVersion === packageInfo.version &&
-        !commandPending
+      packageInfo &&
+      packageInfo.version !== installedVersion &&
+      updateState.latestVersion === packageInfo.version &&
+      !commandPending
     )
   );
-  let applyBlockedReason = $derived(applyReason(updateEntity, packageInfo, updateState.latestVersion, installedVersion, lookupPending));
+  let applyBlockedReason = $derived(
+    applyReason(
+      updateEntity,
+      packageInfo,
+      updateState.latestVersion,
+      installedVersion,
+      lookupPending
+    )
+  );
   let actionStatus = $derived(actionMessage || applyBlockedReason);
 
   $effect(() => {
@@ -109,8 +136,13 @@
     commandPending = false;
 
     try {
-      const response = await fetch(`/api/firmware/devices/${encodeURIComponent(currentNodeId)}/package?channel=${channel}`);
-      const body = (await response.json().catch(() => ({}))) as { package?: FirmwarePackageManifest | null; error?: string };
+      const response = await fetch(
+        `/api/firmware/devices/${encodeURIComponent(currentNodeId)}/package?channel=${channel}`
+      );
+      const body = (await response.json().catch(() => ({}))) as {
+        package?: FirmwarePackageManifest | null;
+        error?: string;
+      };
 
       if (requestId !== id) return;
 
@@ -199,7 +231,8 @@
       }
       actionMessage = body.checkTriggered ? 'Device check requested' : 'Package lookup refreshed';
     } catch (error) {
-      if (requestId === id) commandMessage = error instanceof Error ? error.message : 'Update check failed';
+      if (requestId === id)
+        commandMessage = error instanceof Error ? error.message : 'Update check failed';
     } finally {
       if (requestId === id) commandPending = false;
     }
@@ -223,9 +256,10 @@
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (requestId !== id) return;
-      commandMessage = response.ok ? 'Install requested' : body.error ?? 'Install request failed';
+      commandMessage = response.ok ? 'Install requested' : (body.error ?? 'Install request failed');
     } catch (error) {
-      if (requestId === id) commandMessage = error instanceof Error ? error.message : 'Install request failed';
+      if (requestId === id)
+        commandMessage = error instanceof Error ? error.message : 'Install request failed';
     } finally {
       if (requestId === id) commandPending = false;
     }
@@ -258,7 +292,8 @@
     // …but version-based status still works for devices that report a version via
     // _firmware/config and publish no `update` component.
     if (selectedPackage?.version === currentVersion) return 'Current';
-    if (state.latestVersion && selectedPackage && state.latestVersion === selectedPackage.version) return 'Update ready';
+    if (state.latestVersion && selectedPackage && state.latestVersion === selectedPackage.version)
+      return 'Update ready';
     if (state.latestVersion) return 'Checked';
     if (!entity) return selectedPackage ? 'Update available' : 'Unavailable';
     return 'Idle';
@@ -366,7 +401,13 @@
       <button type="button" disabled={commandPending || !firmwareConfig} onclick={checkForUpdate}>
         {commandPending ? 'Working' : checkButton ? 'Check' : 'Refresh'}
       </button>
-      <button type="button" class="apply" disabled={!canApply} title={canApply ? 'Apply firmware update' : applyBlockedReason} onclick={applyUpdate}>
+      <button
+        type="button"
+        class="apply"
+        disabled={!canApply}
+        title={canApply ? 'Apply firmware update' : applyBlockedReason}
+        onclick={applyUpdate}
+      >
         Apply
       </button>
       <small>{actionStatus}</small>

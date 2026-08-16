@@ -29,12 +29,18 @@ export function isOff(entity: EntityConfig | null, value: string | null | undefi
   return value === off || (off === 'OFF' && value === 'false');
 }
 
-function alertValue(entity: EntityConfig | null, states: Record<string, EntityState>): string | null | undefined {
+function alertValue(
+  entity: EntityConfig | null,
+  states: Record<string, EntityState>
+): string | null | undefined {
   if (!entity) return undefined;
   return states[entity.id]?.value;
 }
 
-export function numericStateValue(entity: EntityConfig | null, states: Record<string, EntityState>): number | null {
+export function numericStateValue(
+  entity: EntityConfig | null,
+  states: Record<string, EntityState>
+): number | null {
   if (!entity) return null;
   const value = states[entity.id]?.value;
   // trim() also rejects whitespace-only payloads, which Number() coerces to 0.
@@ -57,7 +63,10 @@ export function statusFromLive(
   return high != null || low != null ? 'OK' : 'UNKNOWN';
 }
 
-export function alertStatus(rule: AlertRuleEntities, states: Record<string, EntityState>): AlertStatus {
+export function alertStatus(
+  rule: AlertRuleEntities,
+  states: Record<string, EntityState>
+): AlertStatus {
   const highValue = alertValue(rule.highAlertEntity, states);
   const lowValue = alertValue(rule.lowAlertEntity, states);
   const genericValue = alertValue(rule.genericAlertEntity, states);
@@ -65,7 +74,9 @@ export function alertStatus(rule: AlertRuleEntities, states: Record<string, Enti
   const highKnown = highValue != null && highValue !== '';
   const lowKnown = lowValue != null && lowValue !== '';
   const genericKnown = genericValue != null && genericValue !== '';
-  const hasAlertEntity = Boolean(rule.highAlertEntity || rule.lowAlertEntity || rule.genericAlertEntity);
+  const hasAlertEntity = Boolean(
+    rule.highAlertEntity || rule.lowAlertEntity || rule.genericAlertEntity
+  );
 
   if (isOn(rule.highAlertEntity, highValue) && isOn(rule.lowAlertEntity, lowValue)) return 'ALERT';
   if (isOn(rule.highAlertEntity, highValue)) return 'HIGH';
@@ -86,7 +97,8 @@ export function alertStatus(rule: AlertRuleEntities, states: Record<string, Enti
   const lowOff = isOff(rule.lowAlertEntity, lowValue);
   const genericOff = isOff(rule.genericAlertEntity, genericValue);
   const anyPresent = highKnown || lowKnown || genericKnown;
-  const allPresentOff = (!highKnown || highOff) && (!lowKnown || lowOff) && (!genericKnown || genericOff);
+  const allPresentOff =
+    (!highKnown || highOff) && (!lowKnown || lowOff) && (!genericKnown || genericOff);
 
   const liveStatus = statusFromLive(rule, states);
   if (liveStatus === 'HIGH' && !highOff && !genericOff) return 'HIGH';

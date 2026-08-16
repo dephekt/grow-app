@@ -69,7 +69,9 @@
   <div class="panel-head">
     <div class="domain-tabs">
       {#each TREND_DOMAINS as d (d.key)}
-        <button type="button" class:active={d.key === domain} onclick={() => (domain = d.key)}>{d.label}</button>
+        <button type="button" class:active={d.key === domain} onclick={() => (domain = d.key)}
+          >{d.label}</button
+        >
       {/each}
     </div>
     <div class="range-pills">

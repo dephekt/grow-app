@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import { BrokerNotConnectedError, getSiteMqttService, type SiteMqttService } from '$lib/server/mqtt/service';
+import {
+  BrokerNotConnectedError,
+  getSiteMqttService,
+  type SiteMqttService
+} from '$lib/server/mqtt/service';
 import type { SnapshotEvent } from '$lib/server/mqtt/types';
 import { getOpenSprinklerConfig, type OpenSprinklerConfig } from './config';
 import { buildRunCommand, buildStopCommand } from './commands';
-import { buildStationDiscovery, stationDiscoveryTopic, stationEntityId, stationSidFromEntityId } from './discovery';
+import {
+  buildStationDiscovery,
+  stationDiscoveryTopic,
+  stationEntityId,
+  stationSidFromEntityId
+} from './discovery';
 import { stationStateTopic } from './normalize';
 import { getIrrigationDb } from './db';
 import { listZones, type Zone } from './zones';
@@ -68,36 +77,35 @@ export class IrrigationController {
       sid: zone.stationSid,
       name: zone.name
     });
-    void this.service
-      .publishOsDiscovery(topic, JSON.stringify(payload))
-      .catch((error) =>
-        // Station-qualified: a reconnect window mid-publishAllDiscovery emits one of these per
-        // zone, and undifferentiated lines just read as a repeated line.
-        notePublishFailure(
-          `discovery publish for station ${zone.stationSid}`,
-          error,
-          'every zone is republished on the next connect'
-        )
-      );
+    void this.service.publishOsDiscovery(topic, JSON.stringify(payload)).catch((error) =>
+      // Station-qualified: a reconnect window mid-publishAllDiscovery emits one of these per
+      // zone, and undifferentiated lines just read as a repeated line.
+      notePublishFailure(
+        `discovery publish for station ${zone.stationSid}`,
+        error,
+        'every zone is republished on the next connect'
+      )
+    );
   }
 
   /** Clear a station's retained discovery config AND its normalized state so a later
    *  re-create doesn't seed from stale data. */
   retractStation(sid: number): void {
     this.clearWatchdog(sid);
-    const topics = [stationDiscoveryTopic(this.config.discoveryPrefix, sid), stationStateTopic(this.config.baseTopic, sid)];
+    const topics = [
+      stationDiscoveryTopic(this.config.discoveryPrefix, sid),
+      stationStateTopic(this.config.baseTopic, sid)
+    ];
     for (const topic of topics) {
-      void this.service
-        .publishOsDiscovery(topic, '')
-        .catch((error) =>
-          // Topic-qualified: a station retracts two topics, so an unqualified message would
-          // print the identical line twice and read as one duplicated warning.
-          notePublishFailure(
-            `retract of ${topic}`,
-            error,
-            `station ${sid}'s retained value on it stays until it is retracted again`
-          )
-        );
+      void this.service.publishOsDiscovery(topic, '').catch((error) =>
+        // Topic-qualified: a station retracts two topics, so an unqualified message would
+        // print the identical line twice and read as one duplicated warning.
+        notePublishFailure(
+          `retract of ${topic}`,
+          error,
+          `station ${sid}'s retained value on it stays until it is retracted again`
+        )
+      );
     }
   }
 
@@ -116,17 +124,20 @@ export class IrrigationController {
 
   private armWatchdog(sid: number, seconds: number): void {
     this.clearWatchdog(sid);
-    const timer = setTimeout(() => {
-      this.watchdogs.delete(sid);
-      // Deliberately NOT notePublishFailure: this is the safety path. A stop that never
-      // reached the controller is worth the loud line whatever the cause, and unlike a
-      // discovery publish nothing reissues it. (The run still ends on OpenSprinkler's own
-      // duration — buildRunCommand sends one — so this is the backstop failing, not the
-      // only thing standing between a station and running forever.)
-      void this.service
-        .publishOsCommand(buildStopCommand(sid))
-        .catch((error) => console.error('[opensprinkler] watchdog stop failed', error));
-    }, (seconds + WATCHDOG_GRACE_SECONDS) * 1000);
+    const timer = setTimeout(
+      () => {
+        this.watchdogs.delete(sid);
+        // Deliberately NOT notePublishFailure: this is the safety path. A stop that never
+        // reached the controller is worth the loud line whatever the cause, and unlike a
+        // discovery publish nothing reissues it. (The run still ends on OpenSprinkler's own
+        // duration — buildRunCommand sends one — so this is the backstop failing, not the
+        // only thing standing between a station and running forever.)
+        void this.service
+          .publishOsCommand(buildStopCommand(sid))
+          .catch((error) => console.error('[opensprinkler] watchdog stop failed', error));
+      },
+      (seconds + WATCHDOG_GRACE_SECONDS) * 1000
+    );
     timer.unref?.();
     this.watchdogs.set(sid, timer);
   }
@@ -143,7 +154,8 @@ export class IrrigationController {
 let singleton: IrrigationController | null = null;
 
 export function getIrrigationController(): IrrigationController {
-  if (!singleton) singleton = new IrrigationController(getSiteMqttService(), getOpenSprinklerConfig());
+  if (!singleton)
+    singleton = new IrrigationController(getSiteMqttService(), getOpenSprinklerConfig());
   return singleton;
 }
 

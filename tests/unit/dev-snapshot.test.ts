@@ -2,7 +2,11 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { describe, expect, it } from 'vitest';
-import { devSnapshotCommandResult, loadDevSnapshot, type DevSnapshotConfig } from '../../src/lib/server/dev-snapshot';
+import {
+  devSnapshotCommandResult,
+  loadDevSnapshot,
+  type DevSnapshotConfig
+} from '../../src/lib/server/dev-snapshot';
 import type { Snapshot } from '../../src/lib/server/mqtt/types';
 
 const snapshot = {
@@ -129,7 +133,12 @@ describe('dev snapshot simulation', () => {
   });
 
   it('mocks valid entity commands against the snapshot metadata', async () => {
-    const result = await devSnapshotCommandResult('co2_high_threshold', { value: 1650 }, config, fetchSnapshot(snapshot));
+    const result = await devSnapshotCommandResult(
+      'co2_high_threshold',
+      { value: 1650 },
+      config,
+      fetchSnapshot(snapshot)
+    );
 
     expect(result).toEqual({
       status: 200,
@@ -138,7 +147,12 @@ describe('dev snapshot simulation', () => {
   });
 
   it('returns command validation errors without publishing', async () => {
-    const result = await devSnapshotCommandResult('co2_high_threshold', { value: 2500 }, config, fetchSnapshot(snapshot));
+    const result = await devSnapshotCommandResult(
+      'co2_high_threshold',
+      { value: 2500 },
+      config,
+      fetchSnapshot(snapshot)
+    );
 
     expect(result).toEqual({
       status: 400,
@@ -152,7 +166,9 @@ describe('dev snapshot simulation', () => {
   });
 
   it('loadDevSnapshot returns null when fetch throws', async () => {
-    const throwingFetch = (async () => { throw new Error('network'); }) as typeof fetch;
+    const throwingFetch = (async () => {
+      throw new Error('network');
+    }) as typeof fetch;
     const loaded = await loadDevSnapshot(config, throwingFetch);
     expect(loaded).toBeNull();
   });
@@ -168,7 +184,12 @@ describe('dev snapshot simulation', () => {
   });
 
   it('devSnapshotCommandResult returns 404 for an unknown entity', async () => {
-    const result = await devSnapshotCommandResult('does_not_exist', { value: 1000 }, config, fetchSnapshot(snapshot));
+    const result = await devSnapshotCommandResult(
+      'does_not_exist',
+      { value: 1000 },
+      config,
+      fetchSnapshot(snapshot)
+    );
     expect(result).toEqual({
       status: 404,
       body: { ok: false, error: 'Unknown entity' }
@@ -176,7 +197,12 @@ describe('dev snapshot simulation', () => {
   });
 
   it('devSnapshotCommandResult returns 503 when snapshot cannot be loaded', async () => {
-    const result = await devSnapshotCommandResult('co2_high_threshold', { value: 1000 }, config, fetchSnapshot(snapshot, 500));
+    const result = await devSnapshotCommandResult(
+      'co2_high_threshold',
+      { value: 1000 },
+      config,
+      fetchSnapshot(snapshot, 500)
+    );
     expect(result).toEqual({
       status: 503,
       body: { ok: false, error: 'Dev snapshot is unavailable' }
@@ -184,7 +210,12 @@ describe('dev snapshot simulation', () => {
   });
 
   it('devSnapshotCommandResult returns null when config.commands is publish', async () => {
-    const result = await devSnapshotCommandResult('co2_high_threshold', { value: 1000 }, { ...config, commands: 'publish' }, fetchSnapshot(snapshot));
+    const result = await devSnapshotCommandResult(
+      'co2_high_threshold',
+      { value: 1000 },
+      { ...config, commands: 'publish' },
+      fetchSnapshot(snapshot)
+    );
     expect(result).toBeNull();
   });
 });

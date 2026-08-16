@@ -92,7 +92,9 @@ export function pixelToWavelength(p: number, c: WavelengthCoeffs = WAVELENGTH_CO
 
 // The per-unit Hamamatsu coefficients are authoritative, so the wavelength axis is a direct
 // application of pixelToWavelength — no empirical post-fit.
-export const WAVELENGTHS: number[] = Array.from({ length: PIXEL_COUNT }, (_, i) => pixelToWavelength(i + 1));
+export const WAVELENGTHS: number[] = Array.from({ length: PIXEL_COUNT }, (_, i) =>
+  pixelToWavelength(i + 1)
+);
 
 // Per-pixel bin edges (midpoints between neighbouring wavelengths; extrapolated at
 // the two ends) and widths — the correct use of Δλ: boundary apportionment.
@@ -111,11 +113,33 @@ for (let i = 0; i < PIXEL_COUNT; i++) {
 // C12880MA relative spectral sensitivity S(λ), digitized from Hamamatsu KACC1226E p.3 and
 // validated on this unit to ~4% against an incandescent blackbody fit.
 const C12880MA_SENSITIVITY: ReadonlyArray<readonly [number, number]> = [
-  [340, 0.53], [360, 0.68], [380, 0.85], [400, 0.95], [420, 0.92], [440, 0.96],
-  [460, 0.99], [480, 1.0], [500, 0.99], [520, 0.96], [540, 0.93], [560, 0.88],
-  [580, 0.83], [600, 0.76], [620, 0.7], [640, 0.64], [660, 0.58], [680, 0.53],
-  [700, 0.48], [720, 0.42], [740, 0.37], [760, 0.31], [780, 0.26], [800, 0.2],
-  [820, 0.15], [840, 0.11], [850, 0.1]
+  [340, 0.53],
+  [360, 0.68],
+  [380, 0.85],
+  [400, 0.95],
+  [420, 0.92],
+  [440, 0.96],
+  [460, 0.99],
+  [480, 1.0],
+  [500, 0.99],
+  [520, 0.96],
+  [540, 0.93],
+  [560, 0.88],
+  [580, 0.83],
+  [600, 0.76],
+  [620, 0.7],
+  [640, 0.64],
+  [660, 0.58],
+  [680, 0.53],
+  [700, 0.48],
+  [720, 0.42],
+  [740, 0.37],
+  [760, 0.31],
+  [780, 0.26],
+  [800, 0.2],
+  [820, 0.15],
+  [840, 0.11],
+  [850, 0.1]
 ];
 
 function sensitivityAt(nm: number): number {
@@ -171,11 +195,28 @@ function effectiveIntegrationUs(us: number | undefined): number {
 // CIE 1931 2° photopic V(λ), which is what a lux meter integrates — so lux converts to µmol
 // using this spectrum's own shape.
 const PHOTOPIC_V: ReadonlyArray<readonly [number, number]> = [
-  [380, 0.00004], [400, 0.0004], [420, 0.004], [440, 0.023], [460, 0.06],
-  [480, 0.139], [500, 0.323], [520, 0.71], [540, 0.954], [555, 1.0],
-  [560, 0.995], [580, 0.87], [600, 0.631], [620, 0.381], [640, 0.175],
-  [660, 0.061], [680, 0.017], [700, 0.0041], [720, 0.00105], [740, 0.00025],
-  [760, 0.00006], [780, 0.000015]
+  [380, 0.00004],
+  [400, 0.0004],
+  [420, 0.004],
+  [440, 0.023],
+  [460, 0.06],
+  [480, 0.139],
+  [500, 0.323],
+  [520, 0.71],
+  [540, 0.954],
+  [555, 1.0],
+  [560, 0.995],
+  [580, 0.87],
+  [600, 0.631],
+  [620, 0.381],
+  [640, 0.175],
+  [660, 0.061],
+  [680, 0.017],
+  [700, 0.0041],
+  [720, 0.00105],
+  [740, 0.00025],
+  [760, 0.00006],
+  [780, 0.000015]
 ];
 
 function photopicAt(nm: number): number {
@@ -203,7 +244,8 @@ const LUX_PER_UMOL_K = LUMENS_PER_WATT * NA_HC * 1e3; // ≈ 81705; the 1e3 fold
  *  sum fixes lux↔µmol for this spectrum. */
 function photopicSum(photon: number[]): number {
   let s = 0;
-  for (let i = DUMMY_PIXELS; i < PIXEL_COUNT; i++) s += (photon[i] * photopicAt(WAVELENGTHS[i])) / WAVELENGTHS[i];
+  for (let i = DUMMY_PIXELS; i < PIXEL_COUNT; i++)
+    s += (photon[i] * photopicAt(WAVELENGTHS[i])) / WAVELENGTHS[i];
   return s;
 }
 
@@ -284,7 +326,8 @@ function toCorrected(rawCounts: number[], cfg: SpectroConfig, dark?: number[]): 
 
   const corrected = new Array<number>(PIXEL_COUNT);
   for (let i = 0; i < PIXEL_COUNT; i++) {
-    corrected[i] = i < DUMMY_PIXELS ? 0 : Math.max(0, counts[i] - (darkFrame ? darkFrame[i] : baseline));
+    corrected[i] =
+      i < DUMMY_PIXELS ? 0 : Math.max(0, counts[i] - (darkFrame ? darkFrame[i] : baseline));
   }
   return corrected;
 }
@@ -321,8 +364,12 @@ function findPeaks(relative: number[]): number[] {
 
 /** PAR PPFD (µmol·m⁻²·s⁻¹) implied by a live lux reading via a lux anchor's banked µmol/lux factor,
  *  or null when the anchor/lux can't supply it. */
-export function luxToPpfd(lux: number | null | undefined, anchor: AnchorCalibration | undefined): number | null {
-  if (!anchor || !(anchor.luxValue != null && anchor.luxValue > 0) || !(anchor.referenceUmol > 0)) return null;
+export function luxToPpfd(
+  lux: number | null | undefined,
+  anchor: AnchorCalibration | undefined
+): number | null {
+  if (!anchor || !(anchor.luxValue != null && anchor.luxValue > 0) || !(anchor.referenceUmol > 0))
+    return null;
   if (lux == null || lux <= 0) return null;
   return lux * (anchor.referenceUmol / anchor.luxValue);
 }
@@ -333,7 +380,8 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
   const adcFullScale = opts.adcFullScale ?? 16383;
   const view = opts.view ?? 'photon';
   // Skip the optically-black dummy pixels — a dark-offset spike there is not real saturation.
-  const saturated = opts.saturated || rawCounts.some((v, i) => i >= DUMMY_PIXELS && v >= adcFullScale);
+  const saturated =
+    opts.saturated || rawCounts.some((v, i) => i >= DUMMY_PIXELS && v >= adcFullScale);
 
   const corrected = toCorrected(rawCounts, cfg, opts.dark);
   const display = applyView(corrected, view);
@@ -377,7 +425,13 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
       const scale = a.referenceUmol / a.rawIntegral;
       const par = (scale * bandIntegral(photon, PAR[0], PAR[1])) / integ;
       const epar = (scale * bandIntegral(photon, EPAR[0], EPAR[1])) / integ;
-      return { source: a.source, ppfd: par, par, epar, tolerancePct: a.tolerancePct ?? (a.source === 'lux' ? 15 : 5) };
+      return {
+        source: a.source,
+        ppfd: par,
+        par,
+        epar,
+        tolerancePct: a.tolerancePct ?? (a.source === 'lux' ? 15 : 5)
+      };
     };
     if (cfg.anchors.lux) {
       const a = cfg.anchors.lux;
@@ -387,7 +441,13 @@ export function processSpectrum(rawCounts: number[], opts: ProcessOptions = {}):
         // frame cannot drag the reading toward zero.
         const pPar = bandIntegral(photon, PAR[0], PAR[1]);
         const eparRatio = pPar > 0 ? bandIntegral(photon, EPAR[0], EPAR[1]) / pPar : 1;
-        lux = { source: 'lux', ppfd: liveLuxPpfd, par: liveLuxPpfd, epar: liveLuxPpfd * eparRatio, tolerancePct: a.tolerancePct ?? 15 };
+        lux = {
+          source: 'lux',
+          ppfd: liveLuxPpfd,
+          par: liveLuxPpfd,
+          epar: liveLuxPpfd * eparRatio,
+          tolerancePct: a.tolerancePct ?? 15
+        };
       } else {
         lux = flux(a);
       }
@@ -441,7 +501,12 @@ export interface AnchorMeta {
 }
 
 /** A lux-anchored calibration; the lux and the frame MUST be measured at the same point and time. */
-export function luxToAnchor(rawCounts: number[], integrationUs: number, lux: number, meta: AnchorMeta): AnchorCalibration {
+export function luxToAnchor(
+  rawCounts: number[],
+  integrationUs: number,
+  lux: number,
+  meta: AnchorMeta
+): AnchorCalibration {
   const cfg: SpectroConfig = { ...SPECTRO_CONFIG, ...meta.config };
   const photon = applyView(toCorrected(rawCounts, cfg), 'photon');
   const pPar = bandIntegral(photon, PAR[0], PAR[1]);

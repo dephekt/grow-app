@@ -14,7 +14,9 @@ export interface ParsedLightsConfig {
 function roleValue(value: unknown): string | string[] | undefined {
   if (typeof value === 'string' && value.length > 0) return value;
   if (Array.isArray(value)) {
-    const ids = value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+    const ids = value.filter(
+      (entry): entry is string => typeof entry === 'string' && entry.length > 0
+    );
     return ids.length > 0 ? ids : undefined;
   }
   return undefined;
@@ -73,7 +75,9 @@ export function parseLightsConfigPayload(
   if (payloadNodeId !== nodeId) return null;
 
   const lights = Array.isArray(raw.lights)
-    ? raw.lights.map(parseLight).filter((light): light is DeviceLightsFragment['lights'][number] => Boolean(light))
+    ? raw.lights
+        .map(parseLight)
+        .filter((light): light is DeviceLightsFragment['lights'][number] => Boolean(light))
     : [];
 
   return {

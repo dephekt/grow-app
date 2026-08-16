@@ -98,9 +98,8 @@ describe('ventedAirVpdKpa', () => {
     const room = { tempC: 26, rhPct: 55 };
     const flat = { tempC: room.tempC + 0, rhPct: room.rhPct };
     // ventedOffsetC is non-zero in both directions, so assert the identity directly.
-    expect(saturationVapourPressureKpa(flat.tempC) - actualVapourPressureKpa(room.tempC, room.rhPct)).toBeCloseTo(
-      airVpdKpa(room.tempC, room.rhPct),
-      9
-    );
+    expect(
+      saturationVapourPressureKpa(flat.tempC) - actualVapourPressureKpa(room.tempC, room.rhPct)
+    ).toBeCloseTo(airVpdKpa(room.tempC, room.rhPct), 9);
   });
 });

@@ -105,7 +105,9 @@ export function toZoneJson(zone: Zone): Zone & { stationEntityId: string } {
 }
 
 export function listZones(db: DatabaseSync): Zone[] {
-  const rows = db.prepare('SELECT * FROM zones ORDER BY station_sid, name').all() as unknown as ZoneRow[];
+  const rows = db
+    .prepare('SELECT * FROM zones ORDER BY station_sid, name')
+    .all() as unknown as ZoneRow[];
   return rows.map(toZone);
 }
 
@@ -171,7 +173,9 @@ export function updateZone(db: DatabaseSync, id: string, patch: ZonePatch): Zone
     ...Object.fromEntries(
       NULLABLE_KEYS.filter((k) => k in patch).map((k) => [k, patch[k] ?? null])
     ),
-    ...('maxRunSeconds' in patch ? { maxRunSeconds: patch.maxRunSeconds ?? existing.maxRunSeconds } : {}),
+    ...('maxRunSeconds' in patch
+      ? { maxRunSeconds: patch.maxRunSeconds ?? existing.maxRunSeconds }
+      : {}),
     ...('enabled' in patch ? { enabled: patch.enabled === true } : {}),
     ...('schedulesPaused' in patch ? { schedulesPaused: patch.schedulesPaused === true } : {}),
     updatedAt: new Date().toISOString()

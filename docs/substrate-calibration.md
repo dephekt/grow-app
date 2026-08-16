@@ -4,12 +4,12 @@ The app derives TEROS 11/12 volumetric water content (VWC) and pore-water electr
 conductivity (pwEC) from the substrate type assigned to a probe's zone. These are the
 default profiles:
 
-| Zone medium | VWC calibration | Hilhorst εσb=0 | Basis |
-|---|---|---:|---|
-| Coco or coir | TEROS soilless, equation 7 | 1.64 | Lee & Kim measured the coir intercept |
-| Rockwool or stonewool | TEROS soilless, equation 7 | 4.1 | Hilhorst measured 4.1 for rockwool |
-| Other recognised soilless media | TEROS soilless, equation 7 | 4.1 | TEROS generic default |
-| Mineral media | TEROS mineral, equation 6 | 4.1 | TEROS generic default |
+| Zone medium                     | VWC calibration            | Hilhorst εσb=0 | Basis                                 |
+| ------------------------------- | -------------------------- | -------------: | ------------------------------------- |
+| Coco or coir                    | TEROS soilless, equation 7 |           1.64 | Lee & Kim measured the coir intercept |
+| Rockwool or stonewool           | TEROS soilless, equation 7 |            4.1 | Hilhorst measured 4.1 for rockwool    |
+| Other recognised soilless media | TEROS soilless, equation 7 |            4.1 | TEROS generic default                 |
+| Mineral media                   | TEROS mineral, equation 6  |            4.1 | TEROS generic default                 |
 
 An empty or unrecognised medium keeps the prior soilless/4.1 fallback and is marked as
 assumed in the UI.

@@ -2,9 +2,17 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { isNumericSensor } from '$lib/entity-match';
-import type { DeviceSnapshot, DeviceUiConfig, DeviceUiEntity, DeviceUiGroup, EntityConfig, Snapshot } from '$lib/server/mqtt/types';
+import type {
+  DeviceSnapshot,
+  DeviceUiConfig,
+  DeviceUiEntity,
+  DeviceUiGroup,
+  EntityConfig,
+  Snapshot
+} from '$lib/server/mqtt/types';
 
-export type DeviceSettingsSectionId = 'controls' | 'updates' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other';
+export type DeviceSettingsSectionId =
+  'controls' | 'updates' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other';
 
 export const DEVICE_SETTINGS_SECTIONS: Array<{ id: DeviceSettingsSectionId; title: string }> = [
   { id: 'controls', title: 'Controls' },
@@ -57,7 +65,8 @@ function entityMatchKey(entity: EntityConfig): string {
 
 function metadataByEntity(config: DeviceUiConfig | undefined): Map<string, DeviceUiEntity> {
   const metadata = new Map<string, DeviceUiEntity>();
-  for (const entry of config?.entities ?? []) metadata.set(`${entry.component}:${entry.objectId}`, entry);
+  for (const entry of config?.entities ?? [])
+    metadata.set(`${entry.component}:${entry.objectId}`, entry);
   return metadata;
 }
 
@@ -86,7 +95,11 @@ function sortSections(a: PresentedSection, b: PresentedSection): number {
 }
 
 function isDiagnostic(entity: EntityConfig): boolean {
-  return entity.entityCategory === 'diagnostic' || entity.objectId === 'uptime' || entity.objectId === 'wifi_signal';
+  return (
+    entity.entityCategory === 'diagnostic' ||
+    entity.objectId === 'uptime' ||
+    entity.objectId === 'wifi_signal'
+  );
 }
 
 function normalize(value: string | undefined): string {
@@ -94,7 +107,9 @@ function normalize(value: string | undefined): string {
 }
 
 function knownSettingsSection(value: string | undefined): DeviceSettingsSectionId | null {
-  return DEVICE_SETTINGS_SECTIONS.some((section) => section.id === value) ? (value as DeviceSettingsSectionId) : null;
+  return DEVICE_SETTINGS_SECTIONS.some((section) => section.id === value)
+    ? (value as DeviceSettingsSectionId)
+    : null;
 }
 
 function inferDeviceSettingsSection(group: DeviceUiGroup): DeviceSettingsSectionId {
@@ -104,9 +119,15 @@ function inferDeviceSettingsSection(group: DeviceUiGroup): DeviceSettingsSection
   const value = `${normalize(group.id)}_${normalize(group.title)}`;
   if (value.includes('threshold') || value.includes('alert')) return 'alerts';
   if (value.includes('calibration') || /(^|_)cal($|_)/.test(value)) return 'calibration';
-  if (value.includes('maintenance') || value.includes('factory_reset') || value.includes('restart')) return 'maintenance';
+  if (value.includes('maintenance') || value.includes('factory_reset') || value.includes('restart'))
+    return 'maintenance';
   if (value.includes('diagnostic')) return 'diagnostics';
-  if (value.includes('control') || value.includes('temp_comp') || value.includes('thermal') || value.includes('compensation')) {
+  if (
+    value.includes('control') ||
+    value.includes('temp_comp') ||
+    value.includes('thermal') ||
+    value.includes('compensation')
+  ) {
     return 'controls';
   }
   return 'other';
@@ -124,7 +145,10 @@ function hasCameraFrameSource(entity: EntityConfig): boolean {
   return Boolean(entity.imageUrl || entity.imagePath);
 }
 
-function selectCameras(entities: EntityConfig[], entityMetadata?: Map<string, DeviceUiEntity>): PresentedEntity[] {
+function selectCameras(
+  entities: EntityConfig[],
+  entityMetadata?: Map<string, DeviceUiEntity>
+): PresentedEntity[] {
   return entities
     .filter((entity) => entity.component === 'camera' && hasCameraFrameSource(entity))
     .map((entity) => toPresentedEntity(entity, entityMetadata?.get(entityMatchKey(entity))))
@@ -133,12 +157,21 @@ function selectCameras(entities: EntityConfig[], entityMetadata?: Map<string, De
 
 function fallbackMetrics(entities: EntityConfig[]): PresentedEntity[] {
   return entities
-    .filter((entity) => !entity.writable && !entity.dangerous && !isDiagnostic(entity) && entity.component !== 'camera')
+    .filter(
+      (entity) =>
+        !entity.writable &&
+        !entity.dangerous &&
+        !isDiagnostic(entity) &&
+        entity.component !== 'camera'
+    )
     .map((entity) => toPresentedEntity(entity))
     .sort(sortPresented);
 }
 
-export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot): DashboardPresentation {
+export function dashboardPresentation(
+  snapshot: Snapshot,
+  device: DeviceSnapshot
+): DashboardPresentation {
   const entities = deviceEntities(snapshot, device);
   const config = snapshot.uiConfigs[device.nodeId];
   if (!config) {
@@ -152,7 +185,9 @@ export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot
   const entityMetadata = metadataByEntity(config);
   const groups = groupById(config);
   const cameraEntries = selectCameras(entities, entityMetadata);
-  const cameraGroupIds = new Set(cameraEntries.map((entry) => entry.groupId).filter((id): id is string => Boolean(id)));
+  const cameraGroupIds = new Set(
+    cameraEntries.map((entry) => entry.groupId).filter((id): id is string => Boolean(id))
+  );
 
   const metrics = entities
     .map((entity) => {
@@ -168,7 +203,9 @@ export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot
     .map((entity) => {
       const metadata = entityMetadata.get(entityMatchKey(entity));
       const attachedToCamera = Boolean(metadata?.group && cameraGroupIds.has(metadata.group));
-      return entity.writable && metadata?.role === 'quick-control' && !attachedToCamera ? toPresentedEntity(entity, metadata) : null;
+      return entity.writable && metadata?.role === 'quick-control' && !attachedToCamera
+        ? toPresentedEntity(entity, metadata)
+        : null;
     })
     .filter((entry): entry is PresentedEntity => Boolean(entry))
     .sort(sortPresented);
@@ -176,7 +213,10 @@ export function dashboardPresentation(snapshot: Snapshot, device: DeviceSnapshot
   const cameraControls = entities
     .map((entity) => {
       const metadata = entityMetadata.get(entityMatchKey(entity));
-      return entity.writable && metadata?.role === 'quick-control' && metadata.group && cameraGroupIds.has(metadata.group)
+      return entity.writable &&
+        metadata?.role === 'quick-control' &&
+        metadata.group &&
+        cameraGroupIds.has(metadata.group)
         ? toPresentedEntity(entity, metadata)
         : null;
     })
@@ -208,13 +248,17 @@ export function presentedNumericMetrics(
   return dashboardPresentation(snapshot, device)
     .metrics.filter((m) => isNumericSensor(m.entity))
     .map((m) =>
-      stripPrefix && m.label.startsWith(stripPrefix) ? { ...m, label: m.label.slice(stripPrefix.length) } : m
+      stripPrefix && m.label.startsWith(stripPrefix)
+        ? { ...m, label: m.label.slice(stripPrefix.length) }
+        : m
     );
 }
 
 function groupSectionsByPanel(sections: PresentedSection[]): DeviceSettingsPanel[] {
   return DEVICE_SETTINGS_SECTIONS.map((panel) => {
-    const groups = sections.filter((section) => section.deviceSettingsSection === panel.id).sort(sortSections);
+    const groups = sections
+      .filter((section) => section.deviceSettingsSection === panel.id)
+      .sort(sortSections);
     return {
       ...panel,
       groups,
@@ -224,46 +268,51 @@ function groupSectionsByPanel(sections: PresentedSection[]): DeviceSettingsPanel
 }
 
 function fallbackSettingsPresentation(entities: EntityConfig[]): DeviceSettingsPanel[] {
-  const groups = ([
-    {
-      id: 'controls',
-      title: 'Controls',
-      order: 10,
-      defaultOpen: true,
-      deviceSettingsSection: 'controls',
-      entries: entities
-        .filter((entity) => entity.writable && !entity.dangerous)
-        .map((entity) => toPresentedEntity(entity))
-        .sort(sortPresented)
-    },
-    {
-      id: 'maintenance',
-      title: 'Maintenance',
-      order: 80,
-      defaultOpen: false,
-      deviceSettingsSection: 'maintenance',
-      entries: entities
-        .filter((entity) => entity.dangerous)
-        .map((entity) => toPresentedEntity(entity))
-        .sort(sortPresented)
-    },
-    {
-      id: 'diagnostics',
-      title: 'Diagnostics',
-      order: 90,
-      defaultOpen: false,
-      deviceSettingsSection: 'diagnostics',
-      entries: entities
-        .filter((entity) => isDiagnostic(entity))
-        .map((entity) => toPresentedEntity(entity))
-        .sort(sortPresented)
-    }
-  ] satisfies PresentedSection[]).filter((section) => section.entries.length > 0);
+  const groups = (
+    [
+      {
+        id: 'controls',
+        title: 'Controls',
+        order: 10,
+        defaultOpen: true,
+        deviceSettingsSection: 'controls',
+        entries: entities
+          .filter((entity) => entity.writable && !entity.dangerous)
+          .map((entity) => toPresentedEntity(entity))
+          .sort(sortPresented)
+      },
+      {
+        id: 'maintenance',
+        title: 'Maintenance',
+        order: 80,
+        defaultOpen: false,
+        deviceSettingsSection: 'maintenance',
+        entries: entities
+          .filter((entity) => entity.dangerous)
+          .map((entity) => toPresentedEntity(entity))
+          .sort(sortPresented)
+      },
+      {
+        id: 'diagnostics',
+        title: 'Diagnostics',
+        order: 90,
+        defaultOpen: false,
+        deviceSettingsSection: 'diagnostics',
+        entries: entities
+          .filter((entity) => isDiagnostic(entity))
+          .map((entity) => toPresentedEntity(entity))
+          .sort(sortPresented)
+      }
+    ] satisfies PresentedSection[]
+  ).filter((section) => section.entries.length > 0);
 
   return groupSectionsByPanel(groups);
 }
 
-export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSnapshot): DeviceSettingsPanel[] {
+export function deviceSettingsPresentation(
+  snapshot: Snapshot,
+  device: DeviceSnapshot
+): DeviceSettingsPanel[] {
   const entities = deviceEntities(snapshot, device);
   const settingsEntities = entities.filter((entity) => entity.component !== 'camera');
   const config = snapshot.uiConfigs[device.nodeId];
@@ -285,7 +334,10 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
       .map((entity) => {
         const metadata = entityMetadata.get(entityMatchKey(entity));
         const group = metadata ? groups.get(metadata.group) : undefined;
-        const rendered = metadata?.role === 'metric' || group?.variant === 'metrics' || group?.variant === 'camera';
+        const rendered =
+          metadata?.role === 'metric' ||
+          group?.variant === 'metrics' ||
+          group?.variant === 'camera';
         return group?.surface === 'dashboard' && rendered ? entity.id : null;
       })
       .filter((id): id is string => Boolean(id))
@@ -328,15 +380,26 @@ export function deviceSettingsPresentation(snapshot: Snapshot, device: DeviceSna
   );
 
   const remaining = settingsEntities.filter(
-    (entity) => !consumed.has(entity.id) && !metricEntityIds.has(entity.id) && !dashboardEntityIds.has(entity.id)
+    (entity) =>
+      !consumed.has(entity.id) &&
+      !metricEntityIds.has(entity.id) &&
+      !dashboardEntityIds.has(entity.id)
   );
-  const diagnostics = remaining.filter(isDiagnostic).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
-  const other = remaining.filter((entity) => !isDiagnostic(entity)).map((entity) => toPresentedEntity(entity)).sort(sortPresented);
+  const diagnostics = remaining
+    .filter(isDiagnostic)
+    .map((entity) => toPresentedEntity(entity))
+    .sort(sortPresented);
+  const other = remaining
+    .filter((entity) => !isDiagnostic(entity))
+    .map((entity) => toPresentedEntity(entity))
+    .sort(sortPresented);
 
   // Fold leftover (uncurated) entities into an existing curated section in the same
   // settings tab, rather than emitting a second collapsible with the same title.
   const foldIn = (fallback: PresentedSection): void => {
-    const existing = sections.find((section) => section.deviceSettingsSection === fallback.deviceSettingsSection);
+    const existing = sections.find(
+      (section) => section.deviceSettingsSection === fallback.deviceSettingsSection
+    );
     if (existing) {
       existing.entries = [...existing.entries, ...fallback.entries];
     } else {

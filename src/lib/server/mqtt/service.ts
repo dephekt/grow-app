@@ -6,7 +6,11 @@ import { EventEmitter } from 'node:events';
 import { randomBytes } from 'node:crypto';
 import { buildCommandPublish, normalizeDiscoveryId, parseDiscoveryPayload } from './discovery';
 import { getSiteMqttConfig, type SiteMqttConfig } from './config';
-import { matchStationTopic, normalizeStationState, stationStateTopic } from '$lib/server/opensprinkler/normalize';
+import {
+  matchStationTopic,
+  normalizeStationState,
+  stationStateTopic
+} from '$lib/server/opensprinkler/normalize';
 import { parseUiConfigPayload } from './ui-metadata';
 import { parseSpectrumPayload, type RawSpectrumFrame } from './spectrum-metadata';
 import { processSpectrum } from '$lib/spectrum/calibration';
@@ -73,8 +77,14 @@ export class SiteMqttService {
   private readonly firmwareChannelByNodeId = new Map<string, FirmwareChannelConfig>();
   private readonly retainedByTopic = new Map<string, string>();
   private readonly emitter = new EventEmitter();
-  private readonly cameraFrames = new Map<string, { bytes: Uint8Array; contentType: string; fetchedAt: number }>();
-  private readonly cameraFetches = new Map<string, Promise<{ bytes: Uint8Array; contentType: string } | null>>();
+  private readonly cameraFrames = new Map<
+    string,
+    { bytes: Uint8Array; contentType: string; fetchedAt: number }
+  >();
+  private readonly cameraFetches = new Map<
+    string,
+    Promise<{ bytes: Uint8Array; contentType: string } | null>
+  >();
   private readonly latestSpectrumByNode = new Map<string, LiveSpectrum>();
   /** Last time the dial spectrum was republished, for throttling (see `publishDialSpectrum`). */
   private lastDialSpectrumAt = 0;
@@ -98,7 +108,9 @@ export class SiteMqttService {
     this.client = mqtt.connect(this.config.mqttUrl, {
       username: this.config.username,
       password: this.config.password,
-      clientId: this.config.clientId ?? `grow-app-site-${this.config.site}-${process.pid}-${randomBytes(3).toString('hex')}`,
+      clientId:
+        this.config.clientId ??
+        `grow-app-site-${this.config.site}-${process.pid}-${randomBytes(3).toString('hex')}`,
       clean: true,
       reconnectPeriod: 5000,
       keepalive: 30
@@ -210,7 +222,10 @@ export class SiteMqttService {
   }
 
   firmwareUpdateEntity(nodeId: string): EntityConfig | undefined {
-    return this.deviceEntity(nodeId, (entity) => entity.component === 'update' && Boolean(entity.commandTopic));
+    return this.deviceEntity(
+      nodeId,
+      (entity) => entity.component === 'update' && Boolean(entity.commandTopic)
+    );
   }
 
   firmwareCheckButton(nodeId: string): EntityConfig | undefined {
@@ -228,7 +243,10 @@ export class SiteMqttService {
   /** Every discovered, writable ESPHome `time.timezone` text entity. */
   timeZoneEntities(): EntityConfig[] {
     return [...this.entities.values()].filter(
-      (entity) => entity.component === 'text' && entity.objectId === 'time_zone' && Boolean(entity.commandTopic)
+      (entity) =>
+        entity.component === 'text' &&
+        entity.objectId === 'time_zone' &&
+        Boolean(entity.commandTopic)
     );
   }
 
@@ -237,7 +255,10 @@ export class SiteMqttService {
     this.emit({ type: 'snapshot', snapshot: this.snapshot() });
   }
 
-  async setFirmwareChannel(nodeId: string, channel: FirmwareChannel): Promise<FirmwareChannelConfig> {
+  async setFirmwareChannel(
+    nodeId: string,
+    channel: FirmwareChannel
+  ): Promise<FirmwareChannelConfig> {
     const config = buildFirmwareChannelConfig(nodeId, channel);
     const topic = `${this.config.topicPrefix}/_app/firmware/${nodeId}/channel`;
     const payload = JSON.stringify(config);
@@ -274,7 +295,10 @@ export class SiteMqttService {
     return undefined;
   }
 
-  async getCameraFrame(entityId: string, maxAgeMs = 1500): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+  async getCameraFrame(
+    entityId: string,
+    maxAgeMs = 1500
+  ): Promise<{ bytes: Uint8Array; contentType: string } | null> {
     const entity = this.entities.get(entityId);
     if (!entity || entity.component !== 'camera') return null;
 
@@ -443,7 +467,8 @@ export class SiteMqttService {
     const lightsConfig = parseLightsConfigPayload(topic, payload, this.config.topicPrefix);
     if (lightsConfig) {
       if (isRetiredDeviceNode(lightsConfig.nodeId)) return;
-      if (lightsConfig.fragment) this.lightsByNodeId.set(lightsConfig.nodeId, lightsConfig.fragment);
+      if (lightsConfig.fragment)
+        this.lightsByNodeId.set(lightsConfig.nodeId, lightsConfig.fragment);
       else this.lightsByNodeId.delete(lightsConfig.nodeId);
       // No dedicated event — logical lights are derived state re-computed in snapshot().
       this.emit({ type: 'snapshot', snapshot: this.snapshot() });
@@ -453,7 +478,8 @@ export class SiteMqttService {
     const firmwareDevice = parseFirmwareDevicePayload(topic, payload, this.config.topicPrefix);
     if (firmwareDevice) {
       if (isRetiredDeviceNode(firmwareDevice.nodeId)) return;
-      if (firmwareDevice.config) this.firmwareByNodeId.set(firmwareDevice.nodeId, firmwareDevice.config);
+      if (firmwareDevice.config)
+        this.firmwareByNodeId.set(firmwareDevice.nodeId, firmwareDevice.config);
       else this.firmwareByNodeId.delete(firmwareDevice.nodeId);
       this.emitFirmware();
       return;
@@ -462,7 +488,8 @@ export class SiteMqttService {
     const firmwareChannel = parseFirmwareChannelPayload(topic, payload, this.config.topicPrefix);
     if (firmwareChannel) {
       if (isRetiredDeviceNode(firmwareChannel.nodeId)) return;
-      if (firmwareChannel.config) this.firmwareChannelByNodeId.set(firmwareChannel.nodeId, firmwareChannel.config);
+      if (firmwareChannel.config)
+        this.firmwareChannelByNodeId.set(firmwareChannel.nodeId, firmwareChannel.config);
       else this.firmwareChannelByNodeId.delete(firmwareChannel.nodeId);
       this.emitFirmware();
       return;
@@ -483,7 +510,9 @@ export class SiteMqttService {
       if (sid !== null) {
         const scalar = normalizeStationState(payload);
         if (scalar) {
-          void this.publishRaw(stationStateTopic(this.config.osBaseTopic, sid), scalar, true).catch(() => {});
+          void this.publishRaw(stationStateTopic(this.config.osBaseTopic, sid), scalar, true).catch(
+            () => {}
+          );
         }
         return;
       }
@@ -503,7 +532,12 @@ export class SiteMqttService {
       for (const entityId of availabilityEntityIds) {
         const entity = this.entities.get(entityId);
         if (!entity) continue;
-        const availability = payload === entity.payloadAvailable ? 'online' : payload === entity.payloadNotAvailable ? 'offline' : 'unknown';
+        const availability =
+          payload === entity.payloadAvailable
+            ? 'online'
+            : payload === entity.payloadNotAvailable
+              ? 'offline'
+              : 'unknown';
         const deviceId = entity.device.identifiers[0];
         this.availabilityByDevice.set(deviceId, availability);
         this.emit({ type: 'availability', deviceId, availability });
@@ -515,7 +549,8 @@ export class SiteMqttService {
     const entity = this.scopedEntity(discoveredEntity);
     const previous = this.entities.get(entity.id);
     if (previous?.stateTopic) this.topicToEntity.get(previous.stateTopic)?.delete(entity.id);
-    if (previous?.availabilityTopic) this.availabilityTopicToEntity.get(previous.availabilityTopic)?.delete(entity.id);
+    if (previous?.availabilityTopic)
+      this.availabilityTopicToEntity.get(previous.availabilityTopic)?.delete(entity.id);
 
     this.entities.set(entity.id, entity);
 
@@ -526,7 +561,8 @@ export class SiteMqttService {
     }
 
     if (entity.availabilityTopic) {
-      const current = this.availabilityTopicToEntity.get(entity.availabilityTopic) ?? new Set<string>();
+      const current =
+        this.availabilityTopicToEntity.get(entity.availabilityTopic) ?? new Set<string>();
       current.add(entity.id);
       this.availabilityTopicToEntity.set(entity.availabilityTopic, current);
     }
@@ -545,7 +581,11 @@ export class SiteMqttService {
     if (entity.availabilityTopic && this.retainedByTopic.has(entity.availabilityTopic)) {
       const payload = this.retainedByTopic.get(entity.availabilityTopic);
       const availability =
-        payload === entity.payloadAvailable ? 'online' : payload === entity.payloadNotAvailable ? 'offline' : 'unknown';
+        payload === entity.payloadAvailable
+          ? 'online'
+          : payload === entity.payloadNotAvailable
+            ? 'offline'
+            : 'unknown';
       this.availabilityByDevice.set(entity.device.identifiers[0], availability);
     }
 
@@ -566,7 +606,9 @@ export class SiteMqttService {
 
     return {
       ...entity,
-      id: normalizeDiscoveryId([scope, entity.component, entity.objectId ?? entity.uniqueId].filter(Boolean).join('_'))
+      id: normalizeDiscoveryId(
+        [scope, entity.component, entity.objectId ?? entity.uniqueId].filter(Boolean).join('_')
+      )
     };
   }
 
@@ -575,8 +617,11 @@ export class SiteMqttService {
     const rightNodeId = right.nodeId ?? right.device.identifiers[0];
     if (leftNodeId && rightNodeId && leftNodeId === rightNodeId) return true;
     if (left.stateTopic && right.stateTopic && left.stateTopic === right.stateTopic) return true;
-    if (left.commandTopic && right.commandTopic && left.commandTopic === right.commandTopic) return true;
-    return left.device.identifiers.some((identifier) => right.device.identifiers.includes(identifier));
+    if (left.commandTopic && right.commandTopic && left.commandTopic === right.commandTopic)
+      return true;
+    return left.device.identifiers.some((identifier) =>
+      right.device.identifiers.includes(identifier)
+    );
   }
 
   private devices(entities: EntityConfig[]): DeviceSnapshot[] {
@@ -625,7 +670,9 @@ export class SiteMqttService {
 
     // Merge in a deterministic order so the result doesn't depend on the arrival
     // order of retained fragment messages.
-    const fragments = [...this.lightsByNodeId.values()].sort((a, b) => a.nodeId.localeCompare(b.nodeId));
+    const fragments = [...this.lightsByNodeId.values()].sort((a, b) =>
+      a.nodeId.localeCompare(b.nodeId)
+    );
 
     for (const fragment of fragments) {
       for (const entry of fragment.lights) {
@@ -659,7 +706,10 @@ export class SiteMqttService {
     return [...byId.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   }
 
-  private deviceEntity(nodeId: string, predicate: (entity: EntityConfig) => boolean): EntityConfig | undefined {
+  private deviceEntity(
+    nodeId: string,
+    predicate: (entity: EntityConfig) => boolean
+  ): EntityConfig | undefined {
     for (const entity of this.entities.values()) {
       const entityNodeId = entity.nodeId ?? entity.device.identifiers[0];
       if (entityNodeId !== nodeId && !entity.device.identifiers.includes(nodeId)) continue;

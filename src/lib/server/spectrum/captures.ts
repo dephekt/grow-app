@@ -51,7 +51,8 @@ interface Row {
 function downsample(values: number[], points: number): number[] {
   const per = values.length / points;
   const out: number[] = [];
-  for (let i = 0; i < points; i++) out.push(values[Math.min(values.length - 1, Math.floor(i * per))] ?? 0);
+  for (let i = 0; i < points; i++)
+    out.push(values[Math.min(values.length - 1, Math.floor(i * per))] ?? 0);
   return out;
 }
 

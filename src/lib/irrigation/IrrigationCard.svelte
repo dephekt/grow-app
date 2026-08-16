@@ -20,12 +20,20 @@
   // Only render once at least one pump plug is discovered. Match on nodeId, not d.id: the ESPHome
   // plugs ship HA-discovery configs with no device `ids`, so devices() can't set d.id to the node
   // name (it lands on a uniq_id/slug), while d.nodeId reliably equals the constant.
-  const hasPumps = $derived(snap.devices.some((d) => d.nodeId === IRRIGATION_NODE || d.nodeId === RUNOFF_NODE));
+  const hasPumps = $derived(
+    snap.devices.some((d) => d.nodeId === IRRIGATION_NODE || d.nodeId === RUNOFF_NODE)
+  );
 
   const osAvail = $derived(openSprinklerAvailability(snap));
   const zoneOpen = $derived(anyStationRunning(snap));
   const osText = $derived(
-    osAvail === 'online' ? (zoneOpen ? 'watering' : 'online') : osAvail === 'offline' ? 'offline' : 'not seen'
+    osAvail === 'online'
+      ? zoneOpen
+        ? 'watering'
+        : 'online'
+      : osAvail === 'offline'
+        ? 'offline'
+        : 'not seen'
   );
 
   interface PumpView {
@@ -68,15 +76,35 @@
     <div class="pump-head">
       <span class="dot {pump.offline ? 'faint' : pump.running ? 'ok pulse' : ''}"></span>
       <span class="pump-name">{name}</span>
-      <span class="pump-state mono" class:run={pump.running && !pump.offline} class:bad={pump.offline}>
+      <span
+        class="pump-state mono"
+        class:run={pump.running && !pump.offline}
+        class:bad={pump.offline}
+      >
         {pump.offline ? 'offline' : pump.running ? 'running' : 'idle'}
       </span>
     </div>
     <div class="metrics">
-      <div class="metric"><span class="metric-label">Power</span><span class="metric-value mono">{fmt(pump.power)}</span></div>
-      <div class="metric"><span class="metric-label">Voltage</span><span class="metric-value mono">{fmt(pump.voltage)}</span></div>
-      <div class="metric"><span class="metric-label">Current</span><span class="metric-value mono">{fmt(pump.current)}</span></div>
-      <div class="metric"><span class="metric-label">Today</span><span class="metric-value mono">{fmt(pump.daily)}</span></div>
+      <div class="metric">
+        <span class="metric-label">Power</span><span class="metric-value mono"
+          >{fmt(pump.power)}</span
+        >
+      </div>
+      <div class="metric">
+        <span class="metric-label">Voltage</span><span class="metric-value mono"
+          >{fmt(pump.voltage)}</span
+        >
+      </div>
+      <div class="metric">
+        <span class="metric-label">Current</span><span class="metric-value mono"
+          >{fmt(pump.current)}</span
+        >
+      </div>
+      <div class="metric">
+        <span class="metric-label">Today</span><span class="metric-value mono"
+          >{fmt(pump.daily)}</span
+        >
+      </div>
     </div>
   </div>
 {/snippet}
@@ -86,7 +114,8 @@
     <div class="panel-head">
       <span class="panel-title">Irrigation</span>
       <span class="os mono" class:on={osAvail === 'online'} class:bad={osAvail === 'offline'}>
-        <span class="dot {osAvail === 'online' ? 'ok' : osAvail === 'offline' ? 'alert' : 'faint'}"></span>
+        <span class="dot {osAvail === 'online' ? 'ok' : osAvail === 'offline' ? 'alert' : 'faint'}"
+        ></span>
         OpenSprinkler {osText}
       </span>
     </div>

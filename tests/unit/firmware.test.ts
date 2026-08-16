@@ -21,7 +21,10 @@ import {
   type CodebergPackage,
   type FirmwarePackageManifest
 } from '../../src/lib/server/firmware/packages';
-import { parseFirmwareUpdateState, resolveInstalledVersion } from '../../src/lib/server/firmware/update-state';
+import {
+  parseFirmwareUpdateState,
+  resolveInstalledVersion
+} from '../../src/lib/server/firmware/update-state';
 
 const topicPrefix = 'grow/daniel-home';
 
@@ -44,8 +47,10 @@ const manifest = {
     'atoms3u-sensor-rig.factory.bin': 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
   },
   sha256: {
-    'atoms3u-sensor-rig.ota.bin': '7711f755d25874261ba889d6c343474b3952fd5f90d8918833d2e375bf8468c2',
-    'atoms3u-sensor-rig.factory.bin': 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+    'atoms3u-sensor-rig.ota.bin':
+      '7711f755d25874261ba889d6c343474b3952fd5f90d8918833d2e375bf8468c2',
+    'atoms3u-sensor-rig.factory.bin':
+      'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
   },
   release_summary: 'Two commits since firmware/atoms3u-sensor-rig/v1.2.2',
   release_url: 'https://github.com/dephekt/grow-fleet/commit/0123456789abcdef'
@@ -77,8 +82,18 @@ describe('firmware metadata parsing', () => {
   });
 
   it('parses app-owned retained channel config', () => {
-    const config = buildFirmwareChannelConfig('atoms3u-sensor-rig', 'edge', '2026-06-20T18:00:00.000Z');
-    expect(parseFirmwareChannelPayload(`${topicPrefix}/_app/firmware/atoms3u-sensor-rig/channel`, JSON.stringify(config), topicPrefix)).toEqual({
+    const config = buildFirmwareChannelConfig(
+      'atoms3u-sensor-rig',
+      'edge',
+      '2026-06-20T18:00:00.000Z'
+    );
+    expect(
+      parseFirmwareChannelPayload(
+        `${topicPrefix}/_app/firmware/atoms3u-sensor-rig/channel`,
+        JSON.stringify(config),
+        topicPrefix
+      )
+    ).toEqual({
       nodeId: 'atoms3u-sensor-rig',
       config
     });
@@ -86,23 +101,52 @@ describe('firmware metadata parsing', () => {
 
   it('extracts ESPHome project versions from swVersion text', () => {
     expect(parseProjectVersion('v1.2.3 (ESPHome 2026.6.2)')).toBe('v1.2.3');
-    expect(parseProjectVersion('edge-20260620T180102Z-012345abcdef')).toBe('edge-20260620T180102Z-012345abcdef');
+    expect(parseProjectVersion('edge-20260620T180102Z-012345abcdef')).toBe(
+      'edge-20260620T180102Z-012345abcdef'
+    );
     expect(parseProjectVersion('Version: 2026.5.3')).toBeNull();
   });
 });
 
 describe('firmware package selection and manifests', () => {
   const packages = [
-    { name: 'atoms3u-sensor-rig', version: 'v1.2.0', type: 'generic', createdAt: '2026-06-10T00:00:00Z' },
-    { name: 'atoms3u-sensor-rig', version: 'v1.10.0', type: 'generic', createdAt: '2026-06-12T00:00:00Z' },
-    { name: 'atoms3u-sensor-rig', version: 'v1.2-cache-test', type: 'generic', createdAt: '2026-06-13T00:00:00Z' },
-    { name: 'atoms3u-sensor-rig', version: 'edge-20260620T180102Z-aaaaaaaaaaaa', type: 'generic', createdAt: '2026-06-20T18:01:02Z' },
-    { name: 'atoms3u-sensor-rig', version: 'edge-20260620T190102Z-bbbbbbbbbbbb', type: 'generic', createdAt: '2026-06-20T19:01:02Z' }
+    {
+      name: 'atoms3u-sensor-rig',
+      version: 'v1.2.0',
+      type: 'generic',
+      createdAt: '2026-06-10T00:00:00Z'
+    },
+    {
+      name: 'atoms3u-sensor-rig',
+      version: 'v1.10.0',
+      type: 'generic',
+      createdAt: '2026-06-12T00:00:00Z'
+    },
+    {
+      name: 'atoms3u-sensor-rig',
+      version: 'v1.2-cache-test',
+      type: 'generic',
+      createdAt: '2026-06-13T00:00:00Z'
+    },
+    {
+      name: 'atoms3u-sensor-rig',
+      version: 'edge-20260620T180102Z-aaaaaaaaaaaa',
+      type: 'generic',
+      createdAt: '2026-06-20T18:01:02Z'
+    },
+    {
+      name: 'atoms3u-sensor-rig',
+      version: 'edge-20260620T190102Z-bbbbbbbbbbbb',
+      type: 'generic',
+      createdAt: '2026-06-20T19:01:02Z'
+    }
   ] satisfies CodebergPackage[];
 
   it('selects latest stable semver and newest edge packages', () => {
     expect(selectPackageVersion(packages, 'stable')?.version).toBe('v1.10.0');
-    expect(selectPackageVersion(packages, 'edge')?.version).toBe('edge-20260620T190102Z-bbbbbbbbbbbb');
+    expect(selectPackageVersion(packages, 'edge')?.version).toBe(
+      'edge-20260620T190102Z-bbbbbbbbbbbb'
+    );
   });
 
   it('lists package versions across Codeberg pagination', async () => {
@@ -116,8 +160,18 @@ describe('firmware package selection and manifests', () => {
       if (page === '1') {
         return Response.json(
           [
-            { name: 'atoms3u-sensor-rig', version: 'v1.0.0', type: 'generic', created_at: '2026-06-10T00:00:00Z' },
-            { name: 'other-device', version: 'v9.9.9', type: 'generic', created_at: '2026-06-10T00:00:00Z' }
+            {
+              name: 'atoms3u-sensor-rig',
+              version: 'v1.0.0',
+              type: 'generic',
+              created_at: '2026-06-10T00:00:00Z'
+            },
+            {
+              name: 'other-device',
+              version: 'v9.9.9',
+              type: 'generic',
+              created_at: '2026-06-10T00:00:00Z'
+            }
           ],
           {
             headers: {
@@ -126,7 +180,14 @@ describe('firmware package selection and manifests', () => {
           }
         );
       }
-      return Response.json([{ name: 'atoms3u-sensor-rig', version: 'v1.1.0', type: 'generic', created_at: '2026-06-11T00:00:00Z' }]);
+      return Response.json([
+        {
+          name: 'atoms3u-sensor-rig',
+          version: 'v1.1.0',
+          type: 'generic',
+          created_at: '2026-06-11T00:00:00Z'
+        }
+      ]);
     };
 
     await expect(
@@ -134,12 +195,25 @@ describe('firmware package selection and manifests', () => {
         auth: { authUser: 'stackdrift', token: 'secret', scheme: 'basic' }
       })
     ).resolves.toEqual([
-      { name: 'atoms3u-sensor-rig', version: 'v1.0.0', type: 'generic', createdAt: '2026-06-10T00:00:00Z' },
-      { name: 'atoms3u-sensor-rig', version: 'v1.1.0', type: 'generic', createdAt: '2026-06-11T00:00:00Z' }
+      {
+        name: 'atoms3u-sensor-rig',
+        version: 'v1.0.0',
+        type: 'generic',
+        createdAt: '2026-06-10T00:00:00Z'
+      },
+      {
+        name: 'atoms3u-sensor-rig',
+        version: 'v1.1.0',
+        type: 'generic',
+        createdAt: '2026-06-11T00:00:00Z'
+      }
     ]);
     expect(requests.map((url) => new URL(url).searchParams.get('page'))).toEqual(['1', '2']);
     expect(requests.map((url) => new URL(url).searchParams.get('limit'))).toEqual(['50', '50']);
-    expect(authHeaders).toEqual(['Basic c3RhY2tkcmlmdDpzZWNyZXQ=', 'Basic c3RhY2tkcmlmdDpzZWNyZXQ=']);
+    expect(authHeaders).toEqual([
+      'Basic c3RhY2tkcmlmdDpzZWNyZXQ=',
+      'Basic c3RhY2tkcmlmdDpzZWNyZXQ='
+    ]);
   });
 
   it('lists OCI firmware tags through a registry auth challenge', async () => {
@@ -176,9 +250,16 @@ describe('firmware package selection and manifests', () => {
       })
     ).resolves.toEqual([
       { name: 'atoms3u-sensor-rig', version: 'v1.2.3', type: 'oci', createdAt: null },
-      { name: 'atoms3u-sensor-rig', version: 'edge-20260620T190102Z-bbbbbbbbbbbb', type: 'oci', createdAt: null }
+      {
+        name: 'atoms3u-sensor-rig',
+        version: 'edge-20260620T190102Z-bbbbbbbbbbbb',
+        type: 'oci',
+        createdAt: null
+      }
     ]);
-    expect(requests[0]).toBe('https://ghcr.io/v2/dephekt/grow-fleet-atoms3u-sensor-rig/tags/list?n=1000');
+    expect(requests[0]).toBe(
+      'https://ghcr.io/v2/dephekt/grow-fleet-atoms3u-sensor-rig/tags/list?n=1000'
+    );
     expect(authHeaders).toEqual([null, 'Basic ZGVwaGVrdDpnZ2dn', 'Bearer registry-token']);
   });
 
@@ -216,7 +297,9 @@ describe('firmware package selection and manifests', () => {
     ).resolves.toEqual(bytes);
 
     const bad = new TextEncoder().encode('bad');
-    expect(() => validateBinaryChecksums(manifest, 'atoms3u-sensor-rig.ota.bin', bad)).toThrow('SHA256 mismatch');
+    expect(() => validateBinaryChecksums(manifest, 'atoms3u-sensor-rig.ota.bin', bad)).toThrow(
+      'SHA256 mismatch'
+    );
   });
 
   it('downloads OCI artifact layers by filename before proxying', async () => {
@@ -255,11 +338,15 @@ describe('firmware package selection and manifests', () => {
   });
 
   it('rejects package manifests without the firmware schema', () => {
-    expect(() => parsePackageManifest({ ...manifest, schema: undefined })).toThrow('Unsupported package manifest schema');
+    expect(() => parsePackageManifest({ ...manifest, schema: undefined })).toThrow(
+      'Unsupported package manifest schema'
+    );
   });
 
   it('rejects package manifests that are not marked flashable', () => {
-    expect(() => parsePackageManifest({ ...manifest, flashable: false })).toThrow('Package manifest is not flashable');
+    expect(() => parsePackageManifest({ ...manifest, flashable: false })).toThrow(
+      'Package manifest is not flashable'
+    );
   });
 
   it('uses configured package owner even when retained metadata is stale', async () => {
@@ -267,7 +354,14 @@ describe('firmware package selection and manifests', () => {
       const url = String(input);
       if (url.includes('/api/v1/packages/')) {
         expect(url).toContain('/api/v1/packages/stackdrift-firmware?');
-        return Response.json([{ name: 'atoms3u-sensor-rig', version: 'v1.2.3', type: 'generic', created_at: '2026-06-10T00:00:00Z' }]);
+        return Response.json([
+          {
+            name: 'atoms3u-sensor-rig',
+            version: 'v1.2.3',
+            type: 'generic',
+            created_at: '2026-06-10T00:00:00Z'
+          }
+        ]);
       }
       expect(url).toContain('/api/packages/stackdrift-firmware/generic/atoms3u-sensor-rig/v1.2.3/');
       return Response.json(manifest);
@@ -308,7 +402,9 @@ describe('firmware update proxy access', () => {
   it('accepts the shared firmware update token', () => {
     process.env.FIRMWARE_UPDATE_TOKEN = 'download-token';
 
-    expect(requireFirmwareUpdateToken(new URL('http://localhost/manifest?token=download-token'))).toEqual({ token: 'download-token' });
+    expect(
+      requireFirmwareUpdateToken(new URL('http://localhost/manifest?token=download-token'))
+    ).toEqual({ token: 'download-token' });
   });
 
   it('rejects missing or invalid firmware update tokens', async () => {
@@ -355,13 +451,19 @@ describe('resolving which version a node is actually running', () => {
     // advertised the pre-OTA build because its publish was lost to a reconnect.
     // Trusting it made the app offer an update the device rightly refused.
     expect(
-      resolveInstalledVersion({ installedVersion: EDGE }, { installedVersion: 'dev' }, `stackdrift.exhaust-fan ${EDGE}`)
+      resolveInstalledVersion(
+        { installedVersion: EDGE },
+        { installedVersion: 'dev' },
+        `stackdrift.exhaust-fan ${EDGE}`
+      )
     ).toBe(EDGE);
   });
 
   it('falls back to _firmware/config before the device has published update state', () => {
     expect(resolveInstalledVersion(null, { installedVersion: 'v1.2.3' })).toBe('v1.2.3');
-    expect(resolveInstalledVersion({ installedVersion: null }, { installedVersion: 'v1.2.3' })).toBe('v1.2.3');
+    expect(
+      resolveInstalledVersion({ installedVersion: null }, { installedVersion: 'v1.2.3' })
+    ).toBe('v1.2.3');
   });
 
   it('falls back to the discovery swVersion only when both are absent', () => {
@@ -370,7 +472,9 @@ describe('resolving which version a node is actually running', () => {
   });
 
   it('treats an empty string as absent rather than as a version', () => {
-    expect(resolveInstalledVersion({ installedVersion: '' }, { installedVersion: 'v1.2.3' })).toBe('v1.2.3');
+    expect(resolveInstalledVersion({ installedVersion: '' }, { installedVersion: 'v1.2.3' })).toBe(
+      'v1.2.3'
+    );
     expect(resolveInstalledVersion({ installedVersion: '' }, { installedVersion: '' })).toBeNull();
   });
 });

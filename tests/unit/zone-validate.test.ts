@@ -13,7 +13,10 @@ describe('substrate threshold validation', () => {
       vwcMinPct: 30,
       vwcMaxPct: 60
     });
-    expect(parseZoneCreate({ ...base, vwcMinPct: 30 })).toMatchObject({ vwcMinPct: 30, vwcMaxPct: null });
+    expect(parseZoneCreate({ ...base, vwcMinPct: 30 })).toMatchObject({
+      vwcMinPct: 30,
+      vwcMaxPct: null
+    });
     expect(parseZoneCreate(base)).toMatchObject({ vwcMinPct: null, vwcMaxPct: null });
   });
 
@@ -24,14 +27,17 @@ describe('substrate threshold validation', () => {
    */
   it('rejects a band whose ends cross', () => {
     expect(() => parseZoneCreate({ ...base, vwcMinPct: 60, vwcMaxPct: 30 })).toThrow(/VWC/);
-    expect(() => parseZoneCreate({ ...base, substrateTempMinC: 30, substrateTempMaxC: 18 })).toThrow(
-      /temperature/i
-    );
+    expect(() =>
+      parseZoneCreate({ ...base, substrateTempMinC: 30, substrateTempMaxC: 18 })
+    ).toThrow(/temperature/i);
     expect(() => parseZoneCreate({ ...base, pwecMin: 6, pwecMax: 2 })).toThrow(/Pore EC/i);
   });
 
   it('allows a degenerate band whose ends are equal', () => {
-    expect(parseZoneCreate({ ...base, pwecMin: 3, pwecMax: 3 })).toMatchObject({ pwecMin: 3, pwecMax: 3 });
+    expect(parseZoneCreate({ ...base, pwecMin: 3, pwecMax: 3 })).toMatchObject({
+      pwecMin: 3,
+      pwecMax: 3
+    });
   });
 
   it('holds bounds to physically meaningful ranges', () => {
@@ -52,7 +58,10 @@ describe('substrate threshold validation', () => {
   });
 
   it('carries the bands through a patch', () => {
-    expect(parseZonePatch({ vwcMinPct: 30, vwcMaxPct: 60 })).toMatchObject({ vwcMinPct: 30, vwcMaxPct: 60 });
+    expect(parseZonePatch({ vwcMinPct: 30, vwcMaxPct: 60 })).toMatchObject({
+      vwcMinPct: 30,
+      vwcMaxPct: 60
+    });
     expect(parseZonePatch({ vwcMinPct: null })).toMatchObject({ vwcMinPct: null });
   });
 

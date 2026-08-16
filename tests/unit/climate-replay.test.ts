@@ -28,7 +28,11 @@ interface Sample {
 /** Veg week 1: CCI Black Book p.57 gives air VPD 1.0, so the band is 0.90–1.10. */
 const BAND = controlBand(1.0, 0.1);
 
-const CONFIG = { ...DEFAULT_CLIMATE_CONFIG, mode: 'active' as const, exhaustSource: 'loop' as const };
+const CONFIG = {
+  ...DEFAULT_CLIMATE_CONFIG,
+  mode: 'active' as const,
+  exhaustSource: 'loop' as const
+};
 
 /** Step a trace through the law, carrying the relay state forward exactly as the loop would. */
 function replay(
@@ -90,8 +94,10 @@ function replaySmoothed(tickSeconds: number): { peakWhileOn: number; starts: num
   const fastMs = fastSmoothingWindowMs();
   if (prevTick === undefined) delete process.env.GROW_CLIMATE_TICK_SECONDS;
   else process.env.GROW_CLIMATE_TICK_SECONDS = prevTick;
-  const slowT = new RollingMedian(300_000), slowH = new RollingMedian(300_000);
-  const fastT = new RollingMedian(fastMs), fastH = new RollingMedian(fastMs);
+  const slowT = new RollingMedian(300_000),
+    slowH = new RollingMedian(300_000);
+  const fastT = new RollingMedian(fastMs),
+    fastH = new RollingMedian(fastMs);
   let on = true;
   // The fan is treated as having just started, so the minimum-on timer is LIVE. Left null, the
   // timer never engages and the rail assertions below certify a property they do not exercise —
@@ -226,7 +232,11 @@ describe('replay — 08-14 daytime, fan running continuously', () => {
 
   it('stops the fan: the tent is over-vented for veg week 1', () => {
     // Air VPD 1.32 is past the book's 1.2 hard ceiling, never mind the 1.10 top of band.
-    const [step] = replay([{ at: '12:07', tempC: 27.18, rhPct: 63.5 }], { startOn: true, room, lightsOn: true });
+    const [step] = replay([{ at: '12:07', tempC: 27.18, rhPct: 63.5 }], {
+      startOn: true,
+      room,
+      lightsOn: true
+    });
     expect(step.airVpd).toBeCloseTo(1.32, 2);
     expect(step.action).toMatchObject({ kind: 'exhaust', on: false });
   });
@@ -249,7 +259,11 @@ describe('replay — 08-14 night', () => {
 
   it('vents the parked, unvented tent', () => {
     // 03:10, never vented since lights-off: 92 % RH and air VPD 0.24.
-    const [step] = replay([{ at: '03:10', tempC: 24.23, rhPct: 92.0 }], { startOn: false, room, lightsOn: false });
+    const [step] = replay([{ at: '03:10', tempC: 24.23, rhPct: 92.0 }], {
+      startOn: false,
+      room,
+      lightsOn: false
+    });
     expect(step.airVpd).toBeCloseTo(0.24, 2);
     expect(step.action).toMatchObject({ kind: 'exhaust', on: true });
   });
@@ -301,7 +315,11 @@ describe('replay — 08-12 sealed decay, the off half of the duty cycle', () => 
 
   it('restarts the fan once the decay carries VPD under the floor of band', () => {
     // 12:10 the same day, deeper into a sealed stretch: 79.1 % RH, air VPD 0.86.
-    const [step] = replay([{ at: '12:10', tempC: 29.48, rhPct: 79.1 }], { startOn: false, room, lightsOn: true });
+    const [step] = replay([{ at: '12:10', tempC: 29.48, rhPct: 79.1 }], {
+      startOn: false,
+      room,
+      lightsOn: true
+    });
     expect(step.airVpd).toBeLessThan(BAND.low);
     expect(step.action).toMatchObject({ kind: 'exhaust', on: true });
   });

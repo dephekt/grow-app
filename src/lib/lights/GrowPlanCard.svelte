@@ -2,7 +2,13 @@
 <!-- Copyright (C) 2026 Daniel Snider -->
 
 <script lang="ts">
-  import { dliFor, buildGuidance, STAGES, type GrowState, type StageKey } from '$lib/lights/grow-plan';
+  import {
+    dliFor,
+    buildGuidance,
+    STAGES,
+    type GrowState,
+    type StageKey
+  } from '$lib/lights/grow-plan';
 
   let {
     growState,
@@ -21,7 +27,8 @@
 
   const photoperiodMismatch = $derived(
     actualPhotoperiod != null &&
-      (actualPhotoperiod.onHours !== growState.onHours || actualPhotoperiod.offHours !== growState.offHours)
+      (actualPhotoperiod.onHours !== growState.onHours ||
+        actualPhotoperiod.offHours !== growState.offHours)
   );
   // A PROJECTION, not a measurement: this instant's PPFD held across the PLANNED photoperiod
   // (the measured integral is DLI (current) on the Canopy PAR card).
@@ -44,7 +51,9 @@
   });
   const phaseCols = $derived(phases.map((p) => `${p.count}fr`).join(' '));
 
-  const actualPct = $derived(livePpfd == null ? null : `${(Math.min(livePpfd, maxTarget) / maxTarget) * 100}%`);
+  const actualPct = $derived(
+    livePpfd == null ? null : `${(Math.min(livePpfd, maxTarget) / maxTarget) * 100}%`
+  );
 </script>
 
 <div class="panel">
@@ -61,21 +70,33 @@
       <span class="k">PPFD now / tgt</span>
       <span class="v">
         {livePpfd == null ? '—' : round(livePpfd)} <span class="t">/ {growState.ppfdTarget}</span>
-        {#if guidance.deltaPct != null}<span class="d" class:neg={guidance.deltaPct < 0} class:pos={guidance.deltaPct >= 0}>{signed(guidance.deltaPct)}</span>{/if}
+        {#if guidance.deltaPct != null}<span
+            class="d"
+            class:neg={guidance.deltaPct < 0}
+            class:pos={guidance.deltaPct >= 0}>{signed(guidance.deltaPct)}</span
+          >{/if}
       </span>
       {#if growState.nextRamp}
-        <span class="pstat-note">day {growState.dayOfGrow + 1} · → {growState.nextRamp.ppfd} on day {growState.nextRamp.onDay + 1}</span>
+        <span class="pstat-note"
+          >day {growState.dayOfGrow + 1} · → {growState.nextRamp.ppfd} on day {growState.nextRamp
+            .onDay + 1}</span
+        >
       {/if}
     </div>
     <div class="pstat">
       <span class="k">DLI (proj.) / tgt</span>
-      <span class="v">{dliProjected == null ? '—' : dliProjected.toFixed(1)} <span class="t">/ {growState.dliTarget.toFixed(1)}</span></span>
+      <span class="v"
+        >{dliProjected == null ? '—' : dliProjected.toFixed(1)}
+        <span class="t">/ {growState.dliTarget.toFixed(1)}</span></span
+      >
     </div>
     <div class="pstat">
       <span class="k">Photoperiod</span>
       <span class="v">{growState.onHours} / {growState.offHours} <span class="t">plan</span></span>
       {#if photoperiodMismatch}
-        <span class="pstat-note warn">⚠ light set to {actualPhotoperiod?.onHours} / {actualPhotoperiod?.offHours}</span>
+        <span class="pstat-note warn"
+          >⚠ light set to {actualPhotoperiod?.onHours} / {actualPhotoperiod?.offHours}</span
+        >
       {/if}
     </div>
   </div>
@@ -83,7 +104,10 @@
   <p class="guide" class:ok={guidance.status === 'on-target'}>{guidance.message}</p>
 
   <div class="plan-scroll">
-    <div class="plan" style="grid-template-columns: repeat({growState.weekly.length}, minmax(52px, 1fr));">
+    <div
+      class="plan"
+      style="grid-template-columns: repeat({growState.weekly.length}, minmax(52px, 1fr));"
+    >
       {#each growState.weekly as w (w.week)}
         {@const barTarget = w.current ? growState.ppfdTarget : w.ppfdTarget}
         <div class="wk" class:cur={w.current}>
@@ -98,12 +122,20 @@
   </div>
 
   {#if livePpfd != null && guidance.deltaPct != null}
-    <p class="plan-note mono">● wk {growState.week} actual ≈{round(livePpfd)} µmol · {signed(guidance.deltaPct)} vs {growState.ppfdTarget} target</p>
+    <p class="plan-note mono">
+      ● wk {growState.week} actual ≈{round(livePpfd)} µmol · {signed(guidance.deltaPct)} vs {growState.ppfdTarget}
+      target
+    </p>
   {/if}
 
-  <div class="plan-x" style="grid-template-columns: repeat({growState.weekly.length}, minmax(52px, 1fr));">
+  <div
+    class="plan-x"
+    style="grid-template-columns: repeat({growState.weekly.length}, minmax(52px, 1fr));"
+  >
     {#each growState.weekly as w (w.week)}
-      <div class="xl"><b>W{w.week}</b>{#if w.ppfdTarget === maxTarget}peak{/if}</div>
+      <div class="xl">
+        <b>W{w.week}</b>{#if w.ppfdTarget === maxTarget}peak{/if}
+      </div>
     {/each}
   </div>
 

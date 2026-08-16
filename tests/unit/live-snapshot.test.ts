@@ -63,12 +63,17 @@ const fallbackSnapshot = {
 
 describe('live snapshot normalization', () => {
   it('keeps array and map fields defined for incomplete full snapshot events', () => {
-    const snapshot = normalizeSnapshot({ broker: { lastMessageAt: '2026-06-21T18:01:00.000Z' } }, fallbackSnapshot);
+    const snapshot = normalizeSnapshot(
+      { broker: { lastMessageAt: '2026-06-21T18:01:00.000Z' } },
+      fallbackSnapshot
+    );
 
     expect(snapshot.devices).toHaveLength(1);
     expect(snapshot.entities).toHaveLength(1);
     expect(snapshot.states.firmware_update).toEqual({ value: null, updatedAt: null });
-    expect(snapshot.firmware.devices['atoms3u-sensor-rig']?.projectName).toBe('stackdrift.atoms3u-sensor-rig');
+    expect(snapshot.firmware.devices['atoms3u-sensor-rig']?.projectName).toBe(
+      'stackdrift.atoms3u-sensor-rig'
+    );
     expect(snapshot.broker).toMatchObject({
       connected: true,
       lastMessageAt: '2026-06-21T18:01:00.000Z'

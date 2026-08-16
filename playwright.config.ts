@@ -27,7 +27,8 @@ export default defineConfig({
     {
       // Seed a local admin via the product's own bootstrap env (no test-only auth
       // bypass). The auth DB is ephemeral and reset each run.
-      command: 'rm -f .playwright/auth.db* .playwright/climate.db* && pnpm build && pnpm preview --port 4173',
+      command:
+        'rm -f .playwright/auth.db* .playwright/climate.db* && pnpm build && pnpm preview --port 4173',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
@@ -71,7 +72,12 @@ export default defineConfig({
     },
     {
       name: 'tab5',
-      use: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1, isMobile: false, storageState: authFile },
+      use: {
+        viewport: { width: 1280, height: 720 },
+        deviceScaleFactor: 1,
+        isMobile: false,
+        storageState: authFile
+      },
       dependencies: ['setup']
     },
     {

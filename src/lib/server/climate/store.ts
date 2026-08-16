@@ -30,7 +30,9 @@ interface ConfigRow {
 const SOURCES: ActuatorSource[] = ['loop', 'firmware', 'external', 'none'];
 
 function asMode(raw: string): ClimateMode {
-  return (CLIMATE_MODES as string[]).includes(raw) ? (raw as ClimateMode) : DEFAULT_CLIMATE_CONFIG.mode;
+  return (CLIMATE_MODES as string[]).includes(raw)
+    ? (raw as ClimateMode)
+    : DEFAULT_CLIMATE_CONFIG.mode;
 }
 
 function asSource(raw: string, fallback: ActuatorSource): ActuatorSource {
@@ -38,7 +40,8 @@ function asSource(raw: string, fallback: ActuatorSource): ActuatorSource {
 }
 
 export function getClimateConfig(db: DatabaseSync): ClimateConfig {
-  const row = db.prepare('SELECT * FROM climate_config WHERE id = 1').get() as ConfigRow | undefined;
+  const row = db.prepare('SELECT * FROM climate_config WHERE id = 1').get() as
+    ConfigRow | undefined;
   if (!row) return { ...DEFAULT_CLIMATE_CONFIG };
   return {
     mode: asMode(row.mode),
@@ -50,7 +53,8 @@ export function getClimateConfig(db: DatabaseSync): ClimateConfig {
     minGainKpa: clamped('minGainKpa', row.min_gain_kpa),
     ventAlwaysAboveC: clamped('ventAlwaysAboveC', row.vent_always_above_c),
     ventNeverBelowC: clamped('ventNeverBelowC', row.vent_never_below_c),
-    airVpdOverride: row.air_vpd_override === null ? null : clamped('airVpdOverride', row.air_vpd_override)
+    airVpdOverride:
+      row.air_vpd_override === null ? null : clamped('airVpdOverride', row.air_vpd_override)
   };
 }
 
@@ -106,7 +110,8 @@ export function updateClimateConfig(
   const next: ClimateConfig = { ...current };
 
   if (patch.mode !== undefined) {
-    if (!(CLIMATE_MODES as string[]).includes(patch.mode)) throw new ClimateConfigError('unknown mode');
+    if (!(CLIMATE_MODES as string[]).includes(patch.mode))
+      throw new ClimateConfigError('unknown mode');
     next.mode = patch.mode;
   }
   for (const key of ['exhaustSource', 'rhSource'] as const) {
@@ -127,7 +132,8 @@ export function updateClimateConfig(
     if (patch[key] !== undefined) next[key] = checkNumber(key, patch[key] as number);
   }
   if (patch.airVpdOverride !== undefined) {
-    next.airVpdOverride = patch.airVpdOverride === null ? null : checkNumber('airVpdOverride', patch.airVpdOverride);
+    next.airVpdOverride =
+      patch.airVpdOverride === null ? null : checkNumber('airVpdOverride', patch.airVpdOverride);
   }
 
   // A vent floor at or above the vent ceiling would both force and block the fan every tick.

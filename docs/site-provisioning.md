@@ -11,15 +11,15 @@ agent-planning repo; this file is the operational runbook.
 
 ## What a site needs
 
-| Input | Example (`daniel-home`) | Used for |
-|---|---|---|
-| Site slug | `daniel-home` | `GROW_SITE`; the group name `/grow-site-<slug>` |
-| Public URL | `https://daniel.grow.dephekt.net` | redirect URI + `GROW_AUTH_ORIGINS` |
-| LAN origin(s) | `http://192.168.8.3:3080` | redirect URI + `GROW_AUTH_ORIGINS` |
-| OIDC issuer | `https://auth.dephekt.net/realms/home` | `GROW_OIDC_ISSUER` |
-| OIDC client id | `grow-site-daniel-home` | `GROW_OIDC_CLIENT_ID` |
-| OIDC client secret | *(generated)* | `GROW_OIDC_CLIENT_SECRET` |
-| Bootstrap admin secret | *(chosen)* | `GROW_AUTH_ADMIN_PASSWORD[_HASH]` |
+| Input                  | Example (`daniel-home`)                | Used for                                        |
+| ---------------------- | -------------------------------------- | ----------------------------------------------- |
+| Site slug              | `daniel-home`                          | `GROW_SITE`; the group name `/grow-site-<slug>` |
+| Public URL             | `https://daniel.grow.dephekt.net`      | redirect URI + `GROW_AUTH_ORIGINS`              |
+| LAN origin(s)          | `http://192.168.8.3:3080`              | redirect URI + `GROW_AUTH_ORIGINS`              |
+| OIDC issuer            | `https://auth.dephekt.net/realms/home` | `GROW_OIDC_ISSUER`                              |
+| OIDC client id         | `grow-site-daniel-home`                | `GROW_OIDC_CLIENT_ID`                           |
+| OIDC client secret     | _(generated)_                          | `GROW_OIDC_CLIENT_SECRET`                       |
+| Bootstrap admin secret | _(chosen)_                             | `GROW_AUTH_ADMIN_PASSWORD[_HASH]`               |
 
 Access is granted by **OIDC group claim** (decision 28), matched as a full path by
 `authorizeFromGroups` in `src/lib/server/auth/oidc.ts`:
@@ -46,13 +46,13 @@ In the site's realm, create an OpenID Connect client:
 ### 2. Keycloak — put the group claim in the ID token
 
 grow-app reads groups from the **ID token** (`tokens.claims()`), so add a
-**Group Membership** protocol mapper on the client's *dedicated* scope:
+**Group Membership** protocol mapper on the client's _dedicated_ scope:
 
 - Token Claim Name `groups`, **Full group path ON**, **Add to ID token ON**.
 
 > If the realm has a shared `groups` client scope assigned to the client that emits
-> **leaf** names (Full group path OFF — common default), remove it *from this
-> client only* so the token doesn't carry two conflicting `groups` claims. Do not
+> **leaf** names (Full group path OFF — common default), remove it _from this
+> client only_ so the token doesn't carry two conflicting `groups` claims. Do not
 > flip the shared scope's mapper — other clients depend on its format.
 
 ### 3. Directory — create the groups and add members
@@ -110,7 +110,7 @@ proxy only terminates TLS and routes.
 2. A user in `/grow-site-<slug>` (or `/grow-admin`) → signs in → dashboard.
 3. A user in neither group → bounced to `/login?error=forbidden`.
 4. Stop the IdP: an existing session keeps working (per-request validation never
-   calls the IdP); a *new* SSO login fails cleanly to `/login?error=sso`; the
+   calls the IdP); a _new_ SSO login fails cleanly to `/login?error=sso`; the
    bootstrap admin can still log in locally.
 
 ## Automating this
@@ -118,7 +118,7 @@ proxy only terminates TLS and routes.
 Everything above is API-driven and safe to script per slug:
 
 - **Client + mapper (step 1–2)** — Keycloak Admin REST API: `POST
-  /admin/realms/<realm>/clients`, then `POST .../clients/<id>/protocol-mappers/models`
+/admin/realms/<realm>/clients`, then `POST .../clients/<id>/protocol-mappers/models`
   for the Group Membership mapper; read the secret from `GET .../clients/<id>/client-secret`.
 - **Groups + membership (step 3)** — emit the LDIF above per site, or use your
   directory tooling. (If a site ever moves off `LDAP_ONLY`, these can be plain

@@ -38,11 +38,26 @@ beforeEach(() => {
 });
 
 function claims(overrides: Partial<OidcClaims> = {}): OidcClaims {
-  return { iss: ISS, sub: 'sub', groups: [], preferredUsername: 'user', name: null, email: null, ...overrides };
+  return {
+    iss: ISS,
+    sub: 'sub',
+    groups: [],
+    preferredUsername: 'user',
+    name: null,
+    email: null,
+    ...overrides
+  };
 }
 
 function txCookie(overrides: Record<string, unknown> = {}): string {
-  return JSON.stringify({ verifier: 'v', state: 'st', nonce: 'n', redirectUri: REDIRECT_URI, next: '/', ...overrides });
+  return JSON.stringify({
+    verifier: 'v',
+    state: 'st',
+    nonce: 'n',
+    redirectUri: REDIRECT_URI,
+    next: '/',
+    ...overrides
+  });
 }
 
 interface SetCookie {
@@ -50,7 +65,15 @@ interface SetCookie {
   value: string;
 }
 
-function makeEvent({ tx, ip, search = '?code=abc&state=st' }: { tx?: string; ip: string; search?: string }) {
+function makeEvent({
+  tx,
+  ip,
+  search = '?code=abc&state=st'
+}: {
+  tx?: string;
+  ip: string;
+  search?: string;
+}) {
   const url = new URL(`http://localhost/auth/oidc/callback${search}`);
   const request = new Request(url, { method: 'GET', headers: { 'user-agent': 'vitest' } });
   const setCookies: SetCookie[] = [];
@@ -59,12 +82,16 @@ function makeEvent({ tx, ip, search = '?code=abc&state=st' }: { tx?: string; ip:
     set: (name: string, value: string) => setCookies.push({ name, value }),
     delete: () => {}
   };
-  const event = { request, url, cookies, getClientAddress: () => ip } as unknown as Parameters<typeof GET>[0];
+  const event = { request, url, cookies, getClientAddress: () => ip } as unknown as Parameters<
+    typeof GET
+  >[0];
   return { event, setCookies };
 }
 
 /** Invoke the handler and capture the thrown SvelteKit redirect. */
-async function invoke(event: Parameters<typeof GET>[0]): Promise<{ status: number; location: string }> {
+async function invoke(
+  event: Parameters<typeof GET>[0]
+): Promise<{ status: number; location: string }> {
   try {
     await GET(event);
   } catch (e) {
@@ -91,7 +118,10 @@ describe('GET /auth/oidc/callback', () => {
   });
 
   it('redirects to error=sso when tx.redirectUri is not a valid URL (no uncaught 500)', async () => {
-    const { event } = makeEvent({ tx: txCookie({ redirectUri: 'not-a-valid-url' }), ip: '203.0.113.26' });
+    const { event } = makeEvent({
+      tx: txCookie({ redirectUri: 'not-a-valid-url' }),
+      ip: '203.0.113.26'
+    });
     expect((await invoke(event)).location).toBe('/login?error=sso');
     expect(vi.mocked(completeLogin)).not.toHaveBeenCalled();
   });
@@ -118,18 +148,35 @@ describe('GET /auth/oidc/callback', () => {
 
   it('denies a locally-disabled OIDC user even with a valid group', async () => {
     const db = getAuthDb();
-    const user = await upsertOidcUser(db, { issuer: ISS, sub: 'dis', username: 'dis', displayName: null, isAdmin: false });
+    const user = await upsertOidcUser(db, {
+      issuer: ISS,
+      sub: 'dis',
+      username: 'dis',
+      displayName: null,
+      isAdmin: false
+    });
     setDisabled(db, user.id, true);
-    vi.mocked(completeLogin).mockResolvedValue(claims({ sub: 'dis', groups: ['/grow-site-daniel-home'] }));
+    vi.mocked(completeLogin).mockResolvedValue(
+      claims({ sub: 'dis', groups: ['/grow-site-daniel-home'] })
+    );
     const { event } = makeEvent({ tx: txCookie(), ip: '203.0.113.24' });
     expect((await invoke(event)).location).toBe('/login?error=forbidden');
   });
 
   it('mints a session and redirects to the sanitized next on an authorized login', async () => {
     vi.mocked(completeLogin).mockResolvedValue(
-      claims({ sub: 'ok', groups: ['/grow-admin'], preferredUsername: 'ok', name: 'OK', email: 'ok@example.com' })
+      claims({
+        sub: 'ok',
+        groups: ['/grow-admin'],
+        preferredUsername: 'ok',
+        name: 'OK',
+        email: 'ok@example.com'
+      })
     );
-    const { event, setCookies } = makeEvent({ tx: txCookie({ next: '/device-settings' }), ip: '203.0.113.25' });
+    const { event, setCookies } = makeEvent({
+      tx: txCookie({ next: '/device-settings' }),
+      ip: '203.0.113.25'
+    });
     expect((await invoke(event)).location).toBe('/device-settings');
     expect(setCookies.some((c) => c.name === 'grow_session')).toBe(true);
     expect(getUserByOidc(getAuthDb(), ISS, 'ok')?.is_admin).toBe(1);

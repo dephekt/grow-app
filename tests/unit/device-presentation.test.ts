@@ -2,7 +2,10 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { describe, expect, it } from 'vitest';
-import { dashboardPresentation, deviceSettingsPresentation } from '../../src/lib/device-presentation';
+import {
+  dashboardPresentation,
+  deviceSettingsPresentation
+} from '../../src/lib/device-presentation';
 import type { EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';
 
 const cameraEntity = {
@@ -12,7 +15,12 @@ const cameraEntity = {
   uniqueId: 'atoms3u-sensor-rig_thermal_camera',
   objectId: 'thermal_camera',
   nodeId: 'atoms3u-sensor-rig',
-  device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+  device: {
+    identifiers: ['30eda0c8f338'],
+    name: 'AtomS3U Sensor Rig',
+    manufacturer: 'stackdrift',
+    model: 'atoms3u-sensor-rig'
+  },
   imagePath: '/thermal.jpg',
   payloadAvailable: 'online',
   payloadNotAvailable: 'offline',
@@ -28,7 +36,12 @@ const cameraWithoutFrameSource = {
   uniqueId: 'atoms3u-sensor-rig_generic_camera',
   objectId: 'generic_camera',
   nodeId: 'atoms3u-sensor-rig',
-  device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+  device: {
+    identifiers: ['30eda0c8f338'],
+    name: 'AtomS3U Sensor Rig',
+    manufacturer: 'stackdrift',
+    model: 'atoms3u-sensor-rig'
+  },
   payloadAvailable: 'online',
   payloadNotAvailable: 'offline',
   dangerous: false,
@@ -43,7 +56,12 @@ const temperatureEntity = {
   uniqueId: 'atoms3u_temperature',
   objectId: 'temperature',
   nodeId: 'atoms3u-sensor-rig',
-  device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+  device: {
+    identifiers: ['30eda0c8f338'],
+    name: 'AtomS3U Sensor Rig',
+    manufacturer: 'stackdrift',
+    model: 'atoms3u-sensor-rig'
+  },
   stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/sensor/temperature/state',
   unit: '°C',
   payloadAvailable: 'online',
@@ -54,12 +72,22 @@ const temperatureEntity = {
 } satisfies EntityConfig;
 
 function makeAtomEntity(
-  overrides: Partial<EntityConfig> & { id: string; component: string; name: string; objectId: string }
+  overrides: Partial<EntityConfig> & {
+    id: string;
+    component: string;
+    name: string;
+    objectId: string;
+  }
 ): EntityConfig {
   return {
     uniqueId: overrides.id,
     nodeId: 'atoms3u-sensor-rig',
-    device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+    device: {
+      identifiers: ['30eda0c8f338'],
+      name: 'AtomS3U Sensor Rig',
+      manufacturer: 'stackdrift',
+      model: 'atoms3u-sensor-rig'
+    },
     payloadAvailable: 'online',
     payloadNotAvailable: 'offline',
     dangerous: false,
@@ -184,14 +212,23 @@ const device = {
   entityIds: [cameraEntity.id, temperatureEntity.id]
 };
 
-function makeSnapshot(uiConfigs: Snapshot['uiConfigs'] = {}, overrides: Partial<Snapshot> = {}): Snapshot {
+function makeSnapshot(
+  uiConfigs: Snapshot['uiConfigs'] = {},
+  overrides: Partial<Snapshot> = {}
+): Snapshot {
   const snapshot = {
     site: 'daniel-home',
     timezone: 'UTC',
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: new Date().toISOString(),
-    broker: { connected: true, connecting: false, error: null, lastConnectedAt: null, lastMessageAt: null },
+    broker: {
+      connected: true,
+      connecting: false,
+      error: null,
+      lastConnectedAt: null,
+      lastMessageAt: null
+    },
     devices: [device],
     entities: [cameraEntity, temperatureEntity],
     states: {},
@@ -209,12 +246,39 @@ describe('dashboardPresentation with camera entity', () => {
         schema: 'grow-ui.v1',
         nodeId: 'atoms3u-sensor-rig',
         groups: [
-          { id: 'overview', title: 'Environment', order: 0, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
-          { id: 'thermal_view', title: 'Thermal Camera', order: 15, variant: 'camera', surface: 'dashboard', defaultOpen: true }
+          {
+            id: 'overview',
+            title: 'Environment',
+            order: 0,
+            variant: 'metrics',
+            surface: 'dashboard',
+            defaultOpen: true
+          },
+          {
+            id: 'thermal_view',
+            title: 'Thermal Camera',
+            order: 15,
+            variant: 'camera',
+            surface: 'dashboard',
+            defaultOpen: true
+          }
         ],
         entities: [
-          { component: 'sensor', objectId: 'temperature', group: 'overview', role: 'metric', order: 10 },
-          { component: 'camera', objectId: 'thermal_camera', group: 'thermal_view', role: 'camera', order: 10, label: 'Thermal Camera' }
+          {
+            component: 'sensor',
+            objectId: 'temperature',
+            group: 'overview',
+            role: 'metric',
+            order: 10
+          },
+          {
+            component: 'camera',
+            objectId: 'thermal_camera',
+            group: 'thermal_view',
+            role: 'camera',
+            order: 10,
+            label: 'Thermal Camera'
+          }
         ]
       }
     });
@@ -267,8 +331,22 @@ describe('dashboardPresentation with camera entity', () => {
           schema: 'grow-ui.v1',
           nodeId: 'atoms3u-sensor-rig',
           groups: [
-            { id: 'overview', title: 'Environment', order: 0, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
-            { id: 'thermal_view', title: 'Thermal Camera', order: 15, variant: 'camera', surface: 'dashboard', defaultOpen: true },
+            {
+              id: 'overview',
+              title: 'Environment',
+              order: 0,
+              variant: 'metrics',
+              surface: 'dashboard',
+              defaultOpen: true
+            },
+            {
+              id: 'thermal_view',
+              title: 'Thermal Camera',
+              order: 15,
+              variant: 'camera',
+              surface: 'dashboard',
+              defaultOpen: true
+            },
             {
               id: 'thresholds',
               title: 'Thresholds & Alerts',
@@ -279,31 +357,99 @@ describe('dashboardPresentation with camera entity', () => {
             }
           ],
           entities: [
-            { component: 'sensor', objectId: 'temperature', group: 'overview', role: 'metric', order: 10 },
-            { component: 'camera', objectId: 'thermal_camera', group: 'thermal_view', role: 'camera', order: 10, label: 'Thermal Camera' },
-            { component: 'select', objectId: 'thermal_color_palette', group: 'thermal_view', role: 'quick-control', order: 20 },
-            { component: 'switch', objectId: 'thermal_overlay_enable', group: 'thermal_view', role: 'quick-control', order: 30 },
-            { component: 'switch', objectId: 'roi_enabled', group: 'thermal_view', role: 'quick-control', order: 40 },
-            { component: 'number', objectId: 'roi_center_row', group: 'thermal_view', role: 'quick-control', order: 50 },
-            { component: 'number', objectId: 'roi_center_column', group: 'thermal_view', role: 'quick-control', order: 60 },
-            { component: 'number', objectId: 'roi_size', group: 'thermal_view', role: 'quick-control', order: 70 },
-            { component: 'number', objectId: 'co2_high_threshold', group: 'thresholds', role: 'quick-control', order: 10 }
+            {
+              component: 'sensor',
+              objectId: 'temperature',
+              group: 'overview',
+              role: 'metric',
+              order: 10
+            },
+            {
+              component: 'camera',
+              objectId: 'thermal_camera',
+              group: 'thermal_view',
+              role: 'camera',
+              order: 10,
+              label: 'Thermal Camera'
+            },
+            {
+              component: 'select',
+              objectId: 'thermal_color_palette',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 20
+            },
+            {
+              component: 'switch',
+              objectId: 'thermal_overlay_enable',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 30
+            },
+            {
+              component: 'switch',
+              objectId: 'roi_enabled',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 40
+            },
+            {
+              component: 'number',
+              objectId: 'roi_center_row',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 50
+            },
+            {
+              component: 'number',
+              objectId: 'roi_center_column',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 60
+            },
+            {
+              component: 'number',
+              objectId: 'roi_size',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 70
+            },
+            {
+              component: 'number',
+              objectId: 'co2_high_threshold',
+              group: 'thresholds',
+              role: 'quick-control',
+              order: 10
+            }
           ]
         }
       },
       {
         devices: [deviceWithControls],
-        entities: [cameraEntity, temperatureEntity, unrelatedQuickControlEntity, ...thermalQuickControlEntities]
+        entities: [
+          cameraEntity,
+          temperatureEntity,
+          unrelatedQuickControlEntity,
+          ...thermalQuickControlEntities
+        ]
       }
     );
 
     const presentation = dashboardPresentation(snapshot, deviceWithControls);
 
     expect(presentation.cameras).toHaveLength(1);
-    expect(presentation.cameras[0].quickControls.map((entry) => entry.entity.objectId)).toEqual(thermalQuickControlObjectIds);
-    expect(presentation.quickControls.map((entry) => entry.entity.objectId)).toEqual(['co2_high_threshold']);
-    expect(presentation.quickControls.map((entry) => entry.entity.objectId)).not.toContain('roi_center_row');
-    expect(presentation.quickControls.map((entry) => entry.entity.objectId)).not.toContain('roi_center_column');
+    expect(presentation.cameras[0].quickControls.map((entry) => entry.entity.objectId)).toEqual(
+      thermalQuickControlObjectIds
+    );
+    expect(presentation.quickControls.map((entry) => entry.entity.objectId)).toEqual([
+      'co2_high_threshold'
+    ]);
+    expect(presentation.quickControls.map((entry) => entry.entity.objectId)).not.toContain(
+      'roi_center_row'
+    );
+    expect(presentation.quickControls.map((entry) => entry.entity.objectId)).not.toContain(
+      'roi_center_column'
+    );
   });
 });
 
@@ -314,18 +460,46 @@ describe('deviceSettingsPresentation with camera entity', () => {
         schema: 'grow-ui.v1',
         nodeId: 'atoms3u-sensor-rig',
         groups: [
-          { id: 'overview', title: 'Environment', order: 0, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
-          { id: 'thermal_view', title: 'Thermal Camera', order: 15, variant: 'camera', surface: 'dashboard', defaultOpen: true }
+          {
+            id: 'overview',
+            title: 'Environment',
+            order: 0,
+            variant: 'metrics',
+            surface: 'dashboard',
+            defaultOpen: true
+          },
+          {
+            id: 'thermal_view',
+            title: 'Thermal Camera',
+            order: 15,
+            variant: 'camera',
+            surface: 'dashboard',
+            defaultOpen: true
+          }
         ],
         entities: [
-          { component: 'sensor', objectId: 'temperature', group: 'overview', role: 'metric', order: 10 },
-          { component: 'camera', objectId: 'thermal_camera', group: 'thermal_view', role: 'camera', order: 10 }
+          {
+            component: 'sensor',
+            objectId: 'temperature',
+            group: 'overview',
+            role: 'metric',
+            order: 10
+          },
+          {
+            component: 'camera',
+            objectId: 'thermal_camera',
+            group: 'thermal_view',
+            role: 'camera',
+            order: 10
+          }
         ]
       }
     });
 
     const panels = deviceSettingsPresentation(snapshot, device);
-    const allEntryIds = panels.flatMap((panel) => panel.groups.flatMap((group) => group.entries.map((e) => e.entity.id)));
+    const allEntryIds = panels.flatMap((panel) =>
+      panel.groups.flatMap((group) => group.entries.map((e) => e.entity.id))
+    );
 
     expect(allEntryIds).not.toContain(cameraEntity.id);
   });
@@ -335,13 +509,32 @@ describe('deviceSettingsPresentation with camera entity', () => {
       'atoms3u-sensor-rig': {
         schema: 'grow-ui.v1',
         nodeId: 'atoms3u-sensor-rig',
-        groups: [{ id: 'thermal_view', title: 'Thermal Camera', order: 15, variant: 'camera', surface: 'device-settings', defaultOpen: true }],
-        entities: [{ component: 'camera', objectId: 'thermal_camera', group: 'thermal_view', role: 'camera', order: 10 }]
+        groups: [
+          {
+            id: 'thermal_view',
+            title: 'Thermal Camera',
+            order: 15,
+            variant: 'camera',
+            surface: 'device-settings',
+            defaultOpen: true
+          }
+        ],
+        entities: [
+          {
+            component: 'camera',
+            objectId: 'thermal_camera',
+            group: 'thermal_view',
+            role: 'camera',
+            order: 10
+          }
+        ]
       }
     });
 
     const panels = deviceSettingsPresentation(snapshot, device);
-    const allEntryIds = panels.flatMap((panel) => panel.groups.flatMap((group) => group.entries.map((e) => e.entity.id)));
+    const allEntryIds = panels.flatMap((panel) =>
+      panel.groups.flatMap((group) => group.entries.map((e) => e.entity.id))
+    );
 
     expect(allEntryIds).not.toContain(cameraEntity.id);
   });
@@ -350,7 +543,9 @@ describe('deviceSettingsPresentation with camera entity', () => {
     const snapshot = makeSnapshot();
 
     const panels = deviceSettingsPresentation(snapshot, device);
-    const allEntryIds = panels.flatMap((panel) => panel.groups.flatMap((group) => group.entries.map((e) => e.entity.id)));
+    const allEntryIds = panels.flatMap((panel) =>
+      panel.groups.flatMap((group) => group.entries.map((e) => e.entity.id))
+    );
 
     expect(allEntryIds).not.toContain(cameraEntity.id);
   });
@@ -372,7 +567,14 @@ describe('deviceSettingsPresentation with camera entity', () => {
           schema: 'grow-ui.v1',
           nodeId: 'atoms3u-sensor-rig',
           groups: [
-            { id: 'thermal_view', title: 'Thermal Camera', order: 15, variant: 'camera', surface: 'dashboard', defaultOpen: true },
+            {
+              id: 'thermal_view',
+              title: 'Thermal Camera',
+              order: 15,
+              variant: 'camera',
+              surface: 'dashboard',
+              defaultOpen: true
+            },
             {
               id: 'thermal',
               title: 'Thermal Camera',
@@ -383,31 +585,89 @@ describe('deviceSettingsPresentation with camera entity', () => {
             }
           ],
           entities: [
-            { component: 'camera', objectId: 'thermal_camera', group: 'thermal_view', role: 'camera', order: 10 },
+            {
+              component: 'camera',
+              objectId: 'thermal_camera',
+              group: 'thermal_view',
+              role: 'camera',
+              order: 10
+            },
             { component: 'sensor', objectId: 'mlx90640_mean_temp', group: 'thermal', order: 20 },
-            { component: 'select', objectId: 'thermal_color_palette', group: 'thermal_view', role: 'quick-control', order: 20 },
-            { component: 'switch', objectId: 'thermal_overlay_enable', group: 'thermal_view', role: 'quick-control', order: 30 },
-            { component: 'switch', objectId: 'roi_enabled', group: 'thermal_view', role: 'quick-control', order: 40 },
-            { component: 'number', objectId: 'roi_center_row', group: 'thermal_view', role: 'quick-control', order: 50 },
-            { component: 'number', objectId: 'roi_center_column', group: 'thermal_view', role: 'quick-control', order: 60 },
-            { component: 'number', objectId: 'roi_size', group: 'thermal_view', role: 'quick-control', order: 70 },
-            { component: 'number', objectId: 'thermal_update_interval', group: 'thermal', order: 70 }
+            {
+              component: 'select',
+              objectId: 'thermal_color_palette',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 20
+            },
+            {
+              component: 'switch',
+              objectId: 'thermal_overlay_enable',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 30
+            },
+            {
+              component: 'switch',
+              objectId: 'roi_enabled',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 40
+            },
+            {
+              component: 'number',
+              objectId: 'roi_center_row',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 50
+            },
+            {
+              component: 'number',
+              objectId: 'roi_center_column',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 60
+            },
+            {
+              component: 'number',
+              objectId: 'roi_size',
+              group: 'thermal_view',
+              role: 'quick-control',
+              order: 70
+            },
+            {
+              component: 'number',
+              objectId: 'thermal_update_interval',
+              group: 'thermal',
+              order: 70
+            }
           ]
         }
       },
       {
         devices: [deviceWithThermalSettings],
-        entities: [cameraEntity, temperatureEntity, thermalMeanEntity, thermalUpdateIntervalEntity, ...thermalQuickControlEntities]
+        entities: [
+          cameraEntity,
+          temperatureEntity,
+          thermalMeanEntity,
+          thermalUpdateIntervalEntity,
+          ...thermalQuickControlEntities
+        ]
       }
     );
 
     const panels = deviceSettingsPresentation(snapshot, deviceWithThermalSettings);
     const groups = panels.flatMap((panel) => panel.groups);
-    const allObjectIds = groups.flatMap((group) => group.entries.map((entry) => entry.entity.objectId));
+    const allObjectIds = groups.flatMap((group) =>
+      group.entries.map((entry) => entry.entity.objectId)
+    );
     const thermalGroup = groups.find((group) => group.id === 'thermal');
 
     expect(allObjectIds).not.toEqual(expect.arrayContaining(thermalQuickControlObjectIds));
-    expect(thermalGroup?.entries.map((entry) => entry.entity.objectId)).toEqual(['mlx90640_mean_temp', 'thermal_update_interval']);
+    expect(thermalGroup?.entries.map((entry) => entry.entity.objectId)).toEqual([
+      'mlx90640_mean_temp',
+      'thermal_update_interval'
+    ]);
   });
 });
 
@@ -455,7 +715,10 @@ describe('deviceSettingsPresentation diagnostics folding', () => {
     // Exactly one collapsible titled "Diagnostics", not two.
     expect(diagnostics!.groups).toHaveLength(1);
     expect(diagnostics!.groups[0].title).toBe('Diagnostics');
-    expect(diagnostics!.groups[0].entries.map((entry) => entry.entity.objectId)).toEqual(['wifi_signal', 'mac_address']);
+    expect(diagnostics!.groups[0].entries.map((entry) => entry.entity.objectId)).toEqual([
+      'wifi_signal',
+      'mac_address'
+    ]);
   });
 });
 
@@ -484,12 +747,38 @@ describe('deviceSettingsPresentation keeps controls reachable', () => {
       schema: 'grow-ui.v1',
       nodeId: 'atoms3u-sensor-rig',
       groups: [
-        { id: 'overview', title: 'Overview', order: 10, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
-        { id: 'controls', title: 'Controls', order: 20, variant: 'quick-controls', surface: 'dashboard', defaultOpen: true }
+        {
+          id: 'overview',
+          title: 'Overview',
+          order: 10,
+          variant: 'metrics',
+          surface: 'dashboard',
+          defaultOpen: true
+        },
+        {
+          id: 'controls',
+          title: 'Controls',
+          order: 20,
+          variant: 'quick-controls',
+          surface: 'dashboard',
+          defaultOpen: true
+        }
       ],
       entities: [
-        { component: 'sensor', objectId: 'fan_power', group: 'overview', role: 'metric', order: 10 },
-        { component: 'switch', objectId: 'exhaust_fan', group: 'controls', role: 'quick-control', order: 10 }
+        {
+          component: 'sensor',
+          objectId: 'fan_power',
+          group: 'overview',
+          role: 'metric',
+          order: 10
+        },
+        {
+          component: 'switch',
+          objectId: 'exhaust_fan',
+          group: 'controls',
+          role: 'quick-control',
+          order: 10
+        }
       ]
     }
   } as unknown as Snapshot['uiConfigs'];
@@ -500,14 +789,20 @@ describe('deviceSettingsPresentation keeps controls reachable', () => {
   });
 
   it('surfaces a dashboard quick-control rather than hiding it everywhere', () => {
-    const objectIds = deviceSettingsPresentation(snapshot, { ...device, entityIds: [relay.id, power.id] })
+    const objectIds = deviceSettingsPresentation(snapshot, {
+      ...device,
+      entityIds: [relay.id, power.id]
+    })
       .flatMap((panel) => panel.groups)
       .flatMap((group) => group.entries.map((entry) => entry.entity.objectId));
     expect(objectIds).toContain('exhaust_fan');
   });
 
   it('still suppresses dashboard metrics, which the readout panels do render', () => {
-    const objectIds = deviceSettingsPresentation(snapshot, { ...device, entityIds: [relay.id, power.id] })
+    const objectIds = deviceSettingsPresentation(snapshot, {
+      ...device,
+      entityIds: [relay.id, power.id]
+    })
       .flatMap((panel) => panel.groups)
       .flatMap((group) => group.entries.map((entry) => entry.entity.objectId));
     expect(objectIds).not.toContain('fan_power');

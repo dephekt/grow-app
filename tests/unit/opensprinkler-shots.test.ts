@@ -79,7 +79,9 @@ describe('shot math', () => {
   });
 
   it('rejects volumetric shots when the zone lacks the spec', () => {
-    expect(() => resolveShotSeconds({ percent: 3 }, zone({ substrateVolumeMl: null }))).toThrow(/substrate volume/);
+    expect(() => resolveShotSeconds({ percent: 3 }, zone({ substrateVolumeMl: null }))).toThrow(
+      /substrate volume/
+    );
     expect(() => resolveShotSeconds({ ml: 100 }, zone({ drippers: null }))).toThrow(/emitter flow/);
   });
 

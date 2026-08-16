@@ -53,7 +53,12 @@ describe('time entity formatting', () => {
   } satisfies EntityConfig;
 
   it('renders HH:MM from the ESPHome JSON blob (seconds dropped)', () => {
-    expect(formatEntityState(timeEntity, { value: '{"hour": 18, "minute": 0, "second": 30}', updatedAt: null })).toBe('18:00');
+    expect(
+      formatEntityState(timeEntity, {
+        value: '{"hour": 18, "minute": 0, "second": 30}',
+        updatedAt: null
+      })
+    ).toBe('18:00');
   });
 
   it('renders HH:MM from a clock string', () => {
@@ -79,8 +84,8 @@ describe('sensors with no reading', () => {
   });
 
   it('leaves text states that merely contain a marker alone', () => {
-    expect(formatEntityState({ ...entity, unit: undefined }, { value: 'nanometers', updatedAt: null })).toBe(
-      'nanometers'
-    );
+    expect(
+      formatEntityState({ ...entity, unit: undefined }, { value: 'nanometers', updatedAt: null })
+    ).toBe('nanometers');
   });
 });

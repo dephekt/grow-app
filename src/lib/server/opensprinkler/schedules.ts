@@ -120,8 +120,12 @@ export function toScheduleJson(schedule: Schedule, nowMs: number, tz: string): S
 
 export function listSchedules(db: DatabaseSync, zoneId?: string): Schedule[] {
   const rows = zoneId
-    ? (db.prepare('SELECT * FROM schedules WHERE zone_id = ? ORDER BY created_at').all(zoneId) as unknown as ScheduleRow[])
-    : (db.prepare('SELECT * FROM schedules ORDER BY zone_id, created_at').all() as unknown as ScheduleRow[]);
+    ? (db
+        .prepare('SELECT * FROM schedules WHERE zone_id = ? ORDER BY created_at')
+        .all(zoneId) as unknown as ScheduleRow[])
+    : (db
+        .prepare('SELECT * FROM schedules ORDER BY zone_id, created_at')
+        .all() as unknown as ScheduleRow[]);
   return rows.map(toSchedule);
 }
 
@@ -163,7 +167,11 @@ export function createSchedule(db: DatabaseSync, input: ScheduleCreate): Schedul
   return getSchedule(db, id)!;
 }
 
-export function updateSchedule(db: DatabaseSync, id: string, patch: SchedulePatch): Schedule | undefined {
+export function updateSchedule(
+  db: DatabaseSync,
+  id: string,
+  patch: SchedulePatch
+): Schedule | undefined {
   const existing = getSchedule(db, id);
   if (!existing) return undefined;
 
@@ -179,7 +187,11 @@ export function updateSchedule(db: DatabaseSync, id: string, patch: SchedulePatc
     ...('times' in patch ? { times: patch.times! } : {}),
     ...('enabled' in patch ? { enabled: patch.enabled === true } : {}),
     ...(shotChanged
-      ? { shotPercent: patch.shotPercent ?? null, shotMl: patch.shotMl ?? null, shotSeconds: patch.shotSeconds ?? null }
+      ? {
+          shotPercent: patch.shotPercent ?? null,
+          shotMl: patch.shotMl ?? null,
+          shotSeconds: patch.shotSeconds ?? null
+        }
       : {}),
     updatedAt: new Date().toISOString()
   };
@@ -219,7 +231,10 @@ export function shotResolutionError(
 ): string | null {
   if (shot.shotSeconds != null) return null;
   try {
-    resolveShotSeconds({ percent: shot.shotPercent ?? undefined, ml: shot.shotMl ?? undefined }, zone);
+    resolveShotSeconds(
+      { percent: shot.shotPercent ?? undefined, ml: shot.shotMl ?? undefined },
+      zone
+    );
     return null;
   } catch (error) {
     return error instanceof Error ? error.message : 'shot cannot be resolved for this zone';

@@ -37,7 +37,10 @@ export function tzOffsetMs(instantMs: number, tz: string): number {
 }
 
 /** Local calendar date (1-based month) that a UTC instant falls on in `tz`. */
-export function localDateParts(nowMs: number, tz: string): { year: number; month: number; day: number } {
+export function localDateParts(
+  nowMs: number,
+  tz: string
+): { year: number; month: number; day: number } {
   const p = wallParts(nowMs, tz);
   return { year: p.year, month: p.month, day: p.day };
 }

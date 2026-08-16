@@ -9,6 +9,7 @@ import { json } from '@sveltejs/kit';
  */
 export function requireAdmin(locals: App.Locals): Response | null {
   if (!locals.user) return json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  if (!locals.user.isAdmin) return json({ ok: false, error: 'Admin access required' }, { status: 403 });
+  if (!locals.user.isAdmin)
+    return json({ ok: false, error: 'Admin access required' }, { status: 403 });
   return null;
 }

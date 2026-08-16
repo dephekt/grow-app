@@ -47,7 +47,13 @@
     <form onsubmit={submit}>
       <label>
         Username
-        <input type="text" bind:value={username} autocomplete="username" autocapitalize="none" required />
+        <input
+          type="text"
+          bind:value={username}
+          autocomplete="username"
+          autocapitalize="none"
+          required
+        />
       </label>
       <label>
         Password

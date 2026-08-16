@@ -26,7 +26,11 @@ export function parseSpectrumTopic(topic: string, topicPrefix: string): string |
   return nodeId.length > 0 && !nodeId.includes('/') ? nodeId : null;
 }
 
-export function parseSpectrumPayload(topic: string, payloadText: string, topicPrefix: string): ParsedSpectrum | null {
+export function parseSpectrumPayload(
+  topic: string,
+  payloadText: string,
+  topicPrefix: string
+): ParsedSpectrum | null {
   const nodeId = parseSpectrumTopic(topic, topicPrefix);
   if (!nodeId) return null;
   if (payloadText.trim().length === 0) return { nodeId, frame: null };

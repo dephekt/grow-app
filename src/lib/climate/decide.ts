@@ -3,7 +3,12 @@
 
 /** The control law: `desire*` says what each actuator should be doing, `applyTransition` is the
  *  only place permission is checked — so a guard cannot be added to one leg and not the other. */
-import { AIR_VPD_HARD_MAX, type ActuatorSource, type ClimateConfig, type ControlBand } from './model';
+import {
+  AIR_VPD_HARD_MAX,
+  type ActuatorSource,
+  type ClimateConfig,
+  type ControlBand
+} from './model';
 import type { AirState } from './psychro';
 
 export interface ClimateReading {
@@ -59,7 +64,10 @@ export type ClimateAction =
 export const HUMIDIFIER_MIN_SEPARATION_KPA = 0.05;
 
 /** Display names, since 'humidify' is the action but 'humidifier' is the thing. */
-const ACTUATOR_LABEL: Record<ClimateActuator, string> = { exhaust: 'exhaust', humidify: 'humidifier' };
+const ACTUATOR_LABEL: Record<ClimateActuator, string> = {
+  exhaust: 'exhaust',
+  humidify: 'humidifier'
+};
 
 const kpa = (n: number) => n.toFixed(2);
 const degC = (n: number) => n.toFixed(1);
@@ -100,9 +108,15 @@ function applyTransition(
 ): ClimateAction | null {
   if (desire.on === state.on) return null;
 
-  if (desire.blocked) return { kind: 'blocked', want: actuator, on: desire.on, reason: desire.blocked };
+  if (desire.blocked)
+    return { kind: 'blocked', want: actuator, on: desire.on, reason: desire.blocked };
   if (!ownedByLoop(source)) {
-    return { kind: 'delegated', want: actuator, on: desire.on, reason: `${desire.why}; ${ACTUATOR_LABEL[actuator]} is owned by ${source}` };
+    return {
+      kind: 'delegated',
+      want: actuator,
+      on: desire.on,
+      reason: `${desire.why}; ${ACTUATOR_LABEL[actuator]} is owned by ${source}`
+    };
   }
   // The plug's own arms re-assert this relay every ~10 s, so the loop cannot hold it while one
   // is on — and it will not disarm them, because it cannot restore persistent device state it
@@ -116,7 +130,12 @@ function applyTransition(
     };
   }
   if (!state.present) {
-    return { kind: 'blocked', want: actuator, on: desire.on, reason: `${desire.why}, but the ${ACTUATOR_LABEL[actuator]} plug is not discovered` };
+    return {
+      kind: 'blocked',
+      want: actuator,
+      on: desire.on,
+      reason: `${desire.why}, but the ${ACTUATOR_LABEL[actuator]} plug is not discovered`
+    };
   }
 
   const elapsed = elapsedSince(state.lastChangeMs, nowMs);
@@ -157,7 +176,11 @@ function desireExhaust(
   const vented = reading.ventedAirVpd;
 
   if (tooHot) {
-    return { on: true, urgent: true, why: `tent ${degC(tentC!)} °C at or above the ${degC(config.ventAlwaysAboveC)} °C vent limit` };
+    return {
+      on: true,
+      urgent: true,
+      why: `tent ${degC(tentC!)} °C at or above the ${degC(config.ventAlwaysAboveC)} °C vent limit`
+    };
   }
   if (tooCold) {
     const why = `tent ${degC(tentC!)} °C at or below the ${degC(config.ventNeverBelowC)} °C floor`;
@@ -167,7 +190,11 @@ function desireExhaust(
     // under the floor while the short window is not, and testing the median alone would raise
     // a red `blocked · exhaust ON` for a start that would not have been attempted.
     return vpd < band.low && fast < band.low
-      ? { on: true, why, blocked: `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band, but ${why}` }
+      ? {
+          on: true,
+          why,
+          blocked: `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band, but ${why}`
+        }
       : { on: false, why };
   }
 
@@ -194,7 +221,10 @@ function desireExhaust(
     }
     // Futility's stop half: a room that turns humid mid-run never lets VPD reach the top.
     if (vented !== null && vented < fast - config.minGainKpa) {
-      return { on: false, why: `venting now predicts ${kpa(vented)} against the current ${kpa(fast)} — no longer helping` };
+      return {
+        on: false,
+        why: `venting now predicts ${kpa(vented)} against the current ${kpa(fast)} — no longer helping`
+      };
     }
     return { on: true, why: `air VPD ${kpa(fast)} still below the ${kpa(band.high)} top of band` };
   }
@@ -203,7 +233,11 @@ function desireExhaust(
     const why = `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band`;
     // Futility's start half; a missing room reference skips it rather than blocking.
     if (vented !== null && vented < vpd + config.minGainKpa) {
-      return { on: true, why, blocked: `${why}, but venting predicts only ${kpa(vented)} against the ${kpa(vpd + config.minGainKpa)} needed` };
+      return {
+        on: true,
+        why,
+        blocked: `${why}, but venting predicts only ${kpa(vented)} against the ${kpa(vpd + config.minGainKpa)} needed`
+      };
     }
     return { on: true, why };
   }
@@ -245,7 +279,10 @@ function desireHumidifier(band: ControlBand, vpd: number, fast: number, on: bool
       : { on: false, why: `air VPD ${kpa(fast)} back below the ${kpa(release)} release point` };
   }
   if (fast >= AIR_VPD_HARD_MAX && vpd >= AIR_VPD_HARD_MAX) {
-    return { on: true, why: `air VPD ${kpa(fast)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
+    return {
+      on: true,
+      why: `air VPD ${kpa(fast)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling`
+    };
   }
   return fast >= AIR_VPD_HARD_MAX
     ? {
@@ -259,7 +296,8 @@ export function decideClimate(input: ClimateDecisionInput): ClimateAction {
   const { nowMs, config, band, reading, exhaust, humidifier, armsOn } = input;
 
   if (config.mode === 'off') return { kind: 'hold', reason: 'loop is off' };
-  if (reading.airVpd === null) return { kind: 'hold', reason: 'no tent air reading — failing safe' };
+  if (reading.airVpd === null)
+    return { kind: 'hold', reason: 'no tent air reading — failing safe' };
   // After a restart the median is one sample and every relay timer is null, so a single glitch
   // would reach an urgent override with nothing damping it.
   if (reading.warmingUp) return { kind: 'hold', reason: 'smoothing window still filling' };
@@ -275,12 +313,24 @@ export function decideClimate(input: ClimateDecisionInput): ClimateAction {
   // in sequence anyway, since VPD cannot fall from the ceiling to the band floor without
   // passing the release point. Stated as urgency rather than as a bypass so the guard holds.
   if (fan.on && humidifier.present && humidifier.on && ownedByLoop(config.rhSource)) {
-    const release: Desire = { on: false, urgent: true, why: `${fan.why}; releasing the humidifier first` };
+    const release: Desire = {
+      on: false,
+      urgent: true,
+      why: `${fan.why}; releasing the humidifier first`
+    };
     const action = applyTransition('humidify', humidifier, release, config.rhSource, config, nowMs);
     if (action) return action;
   }
 
-  const fanAction = applyTransition('exhaust', exhaust, fan, config.exhaustSource, config, nowMs, armsOn);
+  const fanAction = applyTransition(
+    'exhaust',
+    exhaust,
+    fan,
+    config.exhaustSource,
+    config,
+    nowMs,
+    armsOn
+  );
   if (fanAction) return fanAction;
 
   // Only while the fan is idle, so the two can never be commanded together.

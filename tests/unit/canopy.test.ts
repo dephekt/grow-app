@@ -36,7 +36,12 @@ const base: CanopyInput = {
 
 describe('resolveCanopy', () => {
   it('prefers the live Apogee — unbadged, ±5%, far-red-extended ePAR', () => {
-    const r = resolveCanopy({ ...base, apogeePpfd: 146, active: spectrum({ farRedRatio: 1.05 }), hasQuantumSensor: true });
+    const r = resolveCanopy({
+      ...base,
+      apogeePpfd: 146,
+      active: spectrum({ farRedRatio: 1.05 }),
+      hasQuantumSensor: true
+    });
     expect(r.par).toBe(146);
     expect(r.prefix).toBe('');
     expect(r.dot).toBe('ok');
@@ -48,7 +53,12 @@ describe('resolveCanopy', () => {
 
   it('falls back to a badged DLight lux estimate when the Apogee is absent', () => {
     const anchor = { tolerancePct: 15 } as AnchorCalibration;
-    const r = resolveCanopy({ ...base, luxPar: 128, active: spectrum({ farRedRatio: 1.04 }), luxAnchor: anchor });
+    const r = resolveCanopy({
+      ...base,
+      luxPar: 128,
+      active: spectrum({ farRedRatio: 1.04 }),
+      luxAnchor: anchor
+    });
     expect(r.par).toBe(128);
     expect(r.prefix).toBe('≈');
     expect(r.dot).toBe('warn');
@@ -80,7 +90,12 @@ describe('resolveCanopy', () => {
       reference: { source: 'reference', ppfd: 300, par: 300, epar: 315, tolerancePct: 5 },
       farRedRatio: 1.2
     });
-    const r = resolveCanopy({ ...base, selected: true, active, apogeePpfd: 999 /* ignored while a reading is selected */ });
+    const r = resolveCanopy({
+      ...base,
+      selected: true,
+      active,
+      apogeePpfd: 999 /* ignored while a reading is selected */
+    });
     expect(r.par).toBe(300);
     expect(r.prefix).toBe('');
     expect(r.dot).toBe('ok');

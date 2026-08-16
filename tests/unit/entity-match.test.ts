@@ -70,7 +70,13 @@ function makeSnapshot(entities: EntityConfig[]): Snapshot {
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: new Date().toISOString(),
-    broker: { connected: true, connecting: false, error: null, lastConnectedAt: null, lastMessageAt: null },
+    broker: {
+      connected: true,
+      connecting: false,
+      error: null,
+      lastConnectedAt: null,
+      lastMessageAt: null
+    },
     devices: [...byNode.entries()].map(([nodeId, list]) => makeDevice(nodeId, list)),
     entities,
     states: {},
@@ -166,18 +172,38 @@ describe('resolveClimateDevice', () => {
 
 describe('isQuantumPpfd', () => {
   it('matches the Apogee PPFD sensor by objectId (PPFD has no HA device_class)', () => {
-    const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+    const ppfd = makeEntity('quantum-sensor', {
+      id: 'qs_ppfd',
+      name: 'Canopy PPFD',
+      objectId: 'ppfd',
+      unit: 'µmol/s/m²'
+    });
     expect(isQuantumPpfd(ppfd)).toBe(true);
   });
 
   it('falls back to a µmol unit when the objectId differs', () => {
-    const alt = makeEntity('quantum-sensor', { id: 'qs_par', name: 'PAR', objectId: 'canopy_par', unit: 'µmol/m²/s' });
+    const alt = makeEntity('quantum-sensor', {
+      id: 'qs_par',
+      name: 'PAR',
+      objectId: 'canopy_par',
+      unit: 'µmol/m²/s'
+    });
     expect(isQuantumPpfd(alt)).toBe(true);
   });
 
   it('does not match the historised detector-mV / tilt diagnostics that share the device', () => {
-    const mv = makeEntity('quantum-sensor', { id: 'qs_mv', name: 'Detector signal', objectId: 'detector_mv', unit: 'mV' });
-    const tilt = makeEntity('quantum-sensor', { id: 'qs_tilt', name: 'Sensor tilt', objectId: 'tilt', unit: '°' });
+    const mv = makeEntity('quantum-sensor', {
+      id: 'qs_mv',
+      name: 'Detector signal',
+      objectId: 'detector_mv',
+      unit: 'mV'
+    });
+    const tilt = makeEntity('quantum-sensor', {
+      id: 'qs_tilt',
+      name: 'Sensor tilt',
+      objectId: 'tilt',
+      unit: '°'
+    });
     expect(isQuantumPpfd(mv)).toBe(false);
     expect(isQuantumPpfd(tilt)).toBe(false);
   });
@@ -196,7 +222,7 @@ describe('isQuantumPpfd', () => {
   // The regression. The Apogee publisher emits a daily peak alongside the live reading, and it
   // carries the identical unit — so the unit fallback, on its own, cannot tell a measurement from
   // a summary of measurements.
-  it('does not match the daily peak, which shares the live entity\'s exact unit', () => {
+  it("does not match the daily peak, which shares the live entity's exact unit", () => {
     const peak = makeEntity('quantum-sensor', {
       id: 'qs_peak',
       name: 'Peak PPFD today',
@@ -208,7 +234,12 @@ describe('isQuantumPpfd', () => {
 
   it('rejects aggregate ids by whole segment, not by substring', () => {
     const mk = (objectId: string) =>
-      makeEntity('quantum-sensor', { id: `qs_${objectId}`, name: objectId, objectId, unit: 'µmol/s/m²' });
+      makeEntity('quantum-sensor', {
+        id: `qs_${objectId}`,
+        name: objectId,
+        objectId,
+        unit: 'µmol/s/m²'
+      });
     for (const oid of ['peak_ppfd', 'ppfd_max', 'daily_ppfd', 'avg_ppfd', 'ppfd_total']) {
       expect(isQuantumPpfd(mk(oid)), oid).toBe(false);
     }
@@ -220,7 +251,12 @@ describe('isQuantumPpfd', () => {
 });
 
 describe('findQuantumPpfdEntity', () => {
-  const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+  const ppfd = makeEntity('quantum-sensor', {
+    id: 'qs_ppfd',
+    name: 'Canopy PPFD',
+    objectId: 'ppfd',
+    unit: 'µmol/s/m²'
+  });
   const peak = makeEntity('quantum-sensor', {
     id: 'qs_peak',
     name: 'Peak PPFD today',
@@ -244,13 +280,23 @@ describe('findQuantumPpfdEntity', () => {
   });
 
   it('still honours the unit fallback for a differently-named live sensor', () => {
-    const alt = makeEntity('quantum-sensor', { id: 'qs_par', name: 'PAR', objectId: 'canopy_par', unit: 'µmol/m²/s' });
+    const alt = makeEntity('quantum-sensor', {
+      id: 'qs_par',
+      name: 'PAR',
+      objectId: 'canopy_par',
+      unit: 'µmol/m²/s'
+    });
     expect(findQuantumPpfdEntity([alt])?.objectId).toBe('canopy_par');
   });
 });
 
 describe('liveQuantumPpfd', () => {
-  const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+  const ppfd = makeEntity('quantum-sensor', {
+    id: 'qs_ppfd',
+    name: 'Canopy PPFD',
+    objectId: 'ppfd',
+    unit: 'µmol/s/m²'
+  });
 
   it('reads the live value when the owning device is online', () => {
     const snap = makeSnapshot([ppfd]);
@@ -292,7 +338,9 @@ describe('liveQuantumPpfd', () => {
     const snap = makeSnapshot([noNode]);
     snap.states = { [noNode.id]: { value: '146', updatedAt: null } };
     // Owner resolved via the entity's device identifier ('quantum-sensor'), which is offline.
-    snap.devices = [{ ...makeDevice('quantum-sensor', [noNode]), availability: 'offline' as const }];
+    snap.devices = [
+      { ...makeDevice('quantum-sensor', [noNode]), availability: 'offline' as const }
+    ];
     expect(liveQuantumPpfd(snap)).toBeNull();
   });
 });
@@ -300,27 +348,57 @@ describe('liveQuantumPpfd', () => {
 describe('findQuantumPpfdEntity / hasQuantumPpfd', () => {
   it('prefers the exact objectId ppfd over a µmol-unit sensor, regardless of order', () => {
     const par = makeEntity('n', { id: 'par', name: 'PAR', objectId: 'ppfd', unit: 'µmol/s/m²' });
-    const other = makeEntity('n', { id: 'other', name: 'Umol thing', objectId: 'canopy_umol', unit: 'µmol/m²/s' });
+    const other = makeEntity('n', {
+      id: 'other',
+      name: 'Umol thing',
+      objectId: 'canopy_umol',
+      unit: 'µmol/m²/s'
+    });
     expect(findQuantumPpfdEntity([other, par])?.id).toBe('par');
     expect(findQuantumPpfdEntity([par, other])?.id).toBe('par');
   });
 
   it('falls back to the first µmol-unit sensor when no ppfd objectId exists', () => {
-    const other = makeEntity('n', { id: 'other', name: 'Umol thing', objectId: 'canopy_umol', unit: 'µmol/m²/s' });
+    const other = makeEntity('n', {
+      id: 'other',
+      name: 'Umol thing',
+      objectId: 'canopy_umol',
+      unit: 'µmol/m²/s'
+    });
     expect(findQuantumPpfdEntity([other])?.id).toBe('other');
   });
 
   it('distinguishes a registered quantum sensor from none', () => {
-    const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
+    const ppfd = makeEntity('quantum-sensor', {
+      id: 'qs_ppfd',
+      name: 'Canopy PPFD',
+      objectId: 'ppfd',
+      unit: 'µmol/s/m²'
+    });
     expect(hasQuantumPpfd(makeSnapshot([ppfd]))).toBe(true);
     expect(hasQuantumPpfd(makeSnapshot([]))).toBe(false);
   });
 });
 
 describe('liveQuantumMetric', () => {
-  const ppfd = makeEntity('quantum-sensor', { id: 'qs_ppfd', name: 'Canopy PPFD', objectId: 'ppfd', unit: 'µmol/s/m²' });
-  const mv = makeEntity('quantum-sensor', { id: 'qs_mv', name: 'Detector', objectId: 'detector_mv', unit: 'mV' });
-  const tilt = makeEntity('quantum-sensor', { id: 'qs_tilt', name: 'Tilt', objectId: 'tilt', unit: '°' });
+  const ppfd = makeEntity('quantum-sensor', {
+    id: 'qs_ppfd',
+    name: 'Canopy PPFD',
+    objectId: 'ppfd',
+    unit: 'µmol/s/m²'
+  });
+  const mv = makeEntity('quantum-sensor', {
+    id: 'qs_mv',
+    name: 'Detector',
+    objectId: 'detector_mv',
+    unit: 'mV'
+  });
+  const tilt = makeEntity('quantum-sensor', {
+    id: 'qs_tilt',
+    name: 'Tilt',
+    objectId: 'tilt',
+    unit: '°'
+  });
 
   it('reads a sibling metric value on the quantum device', () => {
     const snap = makeSnapshot([ppfd, mv, tilt]);
@@ -354,7 +432,12 @@ describe('liveQuantumMetric', () => {
   });
 
   it('ignores a same-objectId sibling on a DIFFERENT device', () => {
-    const otherTilt = makeEntity('other-rig', { id: 'other_tilt', name: 'Tilt', objectId: 'tilt', unit: '°' });
+    const otherTilt = makeEntity('other-rig', {
+      id: 'other_tilt',
+      name: 'Tilt',
+      objectId: 'tilt',
+      unit: '°'
+    });
     const snap = makeSnapshot([ppfd, otherTilt]);
     snap.states = { [otherTilt.id]: { value: '9.9', updatedAt: null } };
     expect(liveQuantumMetric(snap, 'tilt')).toBeNull();
@@ -372,7 +455,9 @@ describe('hasUnreadableState', () => {
 
   function snapshotWithLux(value: string | undefined): Snapshot {
     const snap = makeSnapshot([climateRigCo2, lux]);
-    return value === undefined ? snap : { ...snap, states: { [lux.id]: { value, updatedAt: null } } };
+    return value === undefined
+      ? snap
+      : { ...snap, states: { [lux.id]: { value, updatedAt: null } } };
   }
 
   it('flags the markers ESPHome publishes when a sensor cannot read', () => {
@@ -418,7 +503,12 @@ describe('external reference sensors', () => {
     expect(isExternalReference(extHumidity)).toBe(true);
     expect(
       isExternalReference(
-        makeEntity('n', { id: 'a', name: 'Ext. Temperature', objectId: 'whatever', deviceClass: 'temperature' })
+        makeEntity('n', {
+          id: 'a',
+          name: 'Ext. Temperature',
+          objectId: 'whatever',
+          deviceClass: 'temperature'
+        })
       )
     ).toBe(true);
   });
@@ -444,17 +534,27 @@ describe('external reference sensors', () => {
   });
 
   it('yields CLIMATE to the in-tent rig even when the external node is discovered first', () => {
-    const rigCo2 = makeEntity('atoms3u-sensor-rig', { id: 'rig_co2', name: 'CO2', objectId: 'co2' });
-    expect(resolveClimateDevice(makeSnapshot([extTemp, extHumidity, rigCo2]))?.nodeId).toBe('atoms3u-sensor-rig');
+    const rigCo2 = makeEntity('atoms3u-sensor-rig', {
+      id: 'rig_co2',
+      name: 'CO2',
+      objectId: 'co2'
+    });
+    expect(resolveClimateDevice(makeSnapshot([extTemp, extHumidity, rigCo2]))?.nodeId).toBe(
+      'atoms3u-sensor-rig'
+    );
   });
 
   // Word/segment anchored so ordinary ids that merely contain the letters are unaffected.
   it('does not catch unrelated names that merely contain the letters', () => {
     expect(
-      isExternalReference(makeEntity('n', { id: 'b', name: 'Next Temperature', objectId: 'next_temperature' }))
+      isExternalReference(
+        makeEntity('n', { id: 'b', name: 'Next Temperature', objectId: 'next_temperature' })
+      )
     ).toBe(false);
-    expect(isExternalReference(makeEntity('n', { id: 'c', name: 'Extractor Power', objectId: 'extractor_power' }))).toBe(
-      false
-    );
+    expect(
+      isExternalReference(
+        makeEntity('n', { id: 'c', name: 'Extractor Power', objectId: 'extractor_power' })
+      )
+    ).toBe(false);
   });
 });

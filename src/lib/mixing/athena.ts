@@ -268,15 +268,32 @@ export const MIX_PROCEDURES: MixProcedure[] = [
     title: 'First batch — find your Balance dose',
     when: "You don't know the Balance dose yet, so dose it to pH last and record it.",
     steps: [
-      { order: 1, name: 'RO water', detail: 'Start from your measured volume of RO / filtered water.' },
-      { order: 2, name: 'Pro Grow (veg) / Pro Bloom (flower)', detail: 'Add the stage concentrate — the mL measured below. Add separately.' },
-      { order: 3, name: 'Pro Core', detail: 'Add separately — never combine concentrates undiluted (they precipitate).' },
+      {
+        order: 1,
+        name: 'RO water',
+        detail: 'Start from your measured volume of RO / filtered water.'
+      },
+      {
+        order: 2,
+        name: 'Pro Grow (veg) / Pro Bloom (flower)',
+        detail: 'Add the stage concentrate — the mL measured below. Add separately.'
+      },
+      {
+        order: 3,
+        name: 'Pro Core',
+        detail: 'Add separately — never combine concentrates undiluted (they precipitate).'
+      },
       {
         order: 4,
         name: 'Balance — dose to pH, then record it',
-        detail: 'The concentrates pull pH down, so balance now: add in ~1 mL steps up to target pH (6.0 coco · 5.5–5.6 seedlings). Write down the total mL — that is your reusable Balance dose for this recipe.'
+        detail:
+          'The concentrates pull pH down, so balance now: add in ~1 mL steps up to target pH (6.0 coco · 5.5–5.6 seedlings). Write down the total mL — that is your reusable Balance dose for this recipe.'
       },
-      { order: 5, name: 'Cleanse', detail: '5–13 mL per 10 L (3 at pre-soak). Mix well, then confirm EC + pH.' }
+      {
+        order: 5,
+        name: 'Cleanse',
+        detail: '5–13 mL per 10 L (3 at pre-soak). Mix well, then confirm EC + pH.'
+      }
     ]
   },
   {
@@ -288,14 +305,24 @@ export const MIX_PROCEDURES: MixProcedure[] = [
       {
         order: 2,
         name: 'Balance — the recorded dose, up front',
-        detail: 'Add the mL you recorded straight into the water (scale it if the volume or EC target changed).'
+        detail:
+          'Add the mL you recorded straight into the water (scale it if the volume or EC target changed).'
       },
-      { order: 3, name: 'Pro Grow (veg) / Pro Bloom (flower)', detail: 'Add the stage concentrate. Add separately.' },
-      { order: 4, name: 'Pro Core', detail: 'Add separately — never combine concentrates undiluted.' },
+      {
+        order: 3,
+        name: 'Pro Grow (veg) / Pro Bloom (flower)',
+        detail: 'Add the stage concentrate. Add separately.'
+      },
+      {
+        order: 4,
+        name: 'Pro Core',
+        detail: 'Add separately — never combine concentrates undiluted.'
+      },
       {
         order: 5,
         name: 'Cleanse',
-        detail: '5–13 mL per 10 L. Mix well, then check EC + pH — it should land on target; nudge with a little Balance if needed.'
+        detail:
+          '5–13 mL per 10 L. Mix well, then check EC + pH — it should land on target; nudge with a little Balance if needed.'
       }
     ]
   }

@@ -18,7 +18,11 @@
 
   // Values are formatted here at the sensor's own resolution; the publisher declares the
   // same precision for the two raw rows.
-  let { snapshot, zones = [], probeBindings = [] } = $props<{
+  let {
+    snapshot,
+    zones = [],
+    probeBindings = []
+  } = $props<{
     snapshot: Snapshot;
     zones?: SubstrateZoneBinding[];
     probeBindings?: SubstrateProbeBinding[];
@@ -68,13 +72,18 @@
   }
 
   let gap = $derived(active ? poreEcGap(active) : null);
-  let vwcBand = $derived(active ? bandText(active.thresholds.vwcPct, '%', DISPLAY_DIGITS.vwc) : null);
-  let poreBand = $derived(active ? bandText(active.thresholds.poreEc, 'mS/cm', DISPLAY_DIGITS.poreEc) : null);
-  let tempBand = $derived(active ? bandText(active.thresholds.temperatureC, '°C', DISPLAY_DIGITS.temperatureC) : null);
+  let vwcBand = $derived(
+    active ? bandText(active.thresholds.vwcPct, '%', DISPLAY_DIGITS.vwc) : null
+  );
+  let poreBand = $derived(
+    active ? bandText(active.thresholds.poreEc, 'mS/cm', DISPLAY_DIGITS.poreEc) : null
+  );
+  let tempBand = $derived(
+    active ? bandText(active.thresholds.temperatureC, '°C', DISPLAY_DIGITS.temperatureC) : null
+  );
   let badge = $derived(
     probes.length === 0 ? 'NOT CONNECTED' : active && !active.available ? 'OFFLINE' : null
   );
-
 </script>
 
 <div class="panel readout-panel" class:planned={probes.length === 0}>
@@ -141,15 +150,18 @@
           {degrees(active.readings.temperatureC)}
           {#if tempBand}<span class="band">{tempBand}</span>{/if}
         </span>
-        <span class="dot {dot(active.status.temperatureC, active.readings.temperatureC !== null)}"></span>
+        <span class="dot {dot(active.status.temperatureC, active.readings.temperatureC !== null)}"
+        ></span>
       </div>
     </div>
 
     <!-- Both parts of the medium profile change the derived readings. -->
     <p class="foot">
       <span class="foot-key">Profile</span>
-      {active.readings.calibrationProfile} · {active.readings.curve} VWC · ε₀ {active.readings.poreEcOffset}{#if active
-          .readings.calibrationAssumed}<span class="assumed"> · assumed</span>{:else}
+      {active.readings.calibrationProfile} · {active.readings.curve} VWC · ε₀ {active.readings
+        .poreEcOffset}{#if active.readings.calibrationAssumed}<span class="assumed">
+          · assumed</span
+        >{:else}
         {' · from '}{active.substrateType}{/if}
     </p>
   {/if}

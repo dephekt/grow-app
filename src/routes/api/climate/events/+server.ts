@@ -4,7 +4,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getClimateDb } from '$lib/server/climate/db';
-import { countClimateEvents, latestClimateEventId, listClimateEvents } from '$lib/server/climate/store';
+import {
+  countClimateEvents,
+  latestClimateEventId,
+  listClimateEvents
+} from '$lib/server/climate/store';
 import { eventPageParams } from '$lib/server/paged-events';
 
 export const GET: RequestHandler = ({ url }) => {

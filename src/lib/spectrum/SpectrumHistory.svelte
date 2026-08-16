@@ -25,7 +25,8 @@
     open = !collapsible;
   });
 
-  const fmtTime = (iso: string) => new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+  const fmtTime = (iso: string) =>
+    new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
 </script>
 
 <div class="panel history">
@@ -51,7 +52,9 @@
       {#each captures as c (c.id)}
         <li>
           <button class="row" class:active={c.id === selectedId} onclick={() => onSelect(c.id)}>
-            <span class="thumb"><Sparkline points={c.thumb} color="var(--amber)" width={120} height={30} /></span>
+            <span class="thumb"
+              ><Sparkline points={c.thumb} color="var(--amber)" width={120} height={30} /></span
+            >
             <span class="ts mono">{fmtTime(c.capturedAt)}</span>
             <span class="ppfd mono">{c.ppfd == null ? '—' : c.ppfd.toFixed(0)}</span>
             {#if c.saturated}<span class="sat mono">SAT</span>{/if}

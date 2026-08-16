@@ -66,7 +66,10 @@ export function createLoginThrottle(options: LoginThrottleOptions): LoginThrottl
       bucket.count += 1;
 
       if (bucket.count > options.max) {
-        return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
+        return {
+          allowed: false,
+          retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
+        };
       }
       return { allowed: true, retryAfterSeconds: 0 };
     },

@@ -3,7 +3,16 @@
 
 <script lang="ts">
   import MixCalculator from '$lib/mixing/MixCalculator.svelte';
-  import { mix, fmtDose, TANK, DOSE_TABLE, FEED_SCHEDULE, MIX_PROCEDURES, MEDIUM, feedTargetForStage } from '$lib/mixing/athena';
+  import {
+    mix,
+    fmtDose,
+    TANK,
+    DOSE_TABLE,
+    FEED_SCHEDULE,
+    MIX_PROCEDURES,
+    MEDIUM,
+    feedTargetForStage
+  } from '$lib/mixing/athena';
   import { resolveGrowState } from '$lib/lights/grow-plan';
   import { selectHydroReadings } from '$lib/mixing/hydro';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
@@ -27,7 +36,11 @@
 
   <!-- Quick reference at the current stage's feed EC -->
   <div class="panel">
-    <div class="panel-head"><span class="panel-title">Quick reference · {feedTarget.stageLabel} · EC {feedTarget.ec.toFixed(1)}</span><span class="mono sub">for the batch you're mixing now</span></div>
+    <div class="panel-head">
+      <span class="panel-title"
+        >Quick reference · {feedTarget.stageLabel} · EC {feedTarget.ec.toFixed(1)}</span
+      ><span class="mono sub">for the batch you're mixing now</span>
+    </div>
     <div class="quick">
       <div class="qcard">
         <span class="q-when">Initial fill · {TANK.full} L</span>
@@ -45,18 +58,27 @@
       </div>
     </div>
     <p class="tank-facts mono">
-      Tank: {TANK.full} L full by float · ~{TANK.refill} L usable to the valve · a normal refill adds {TANK.refill} L back to full.
+      Tank: {TANK.full} L full by float · ~{TANK.refill} L usable to the valve · a normal refill adds
+      {TANK.refill} L back to full.
     </p>
   </div>
 
   <div class="two">
     <!-- Feed schedule -->
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Your schedule · CCI LED coco</span><span class="mono sub">feed EC = what you mix</span></div>
+      <div class="panel-head">
+        <span class="panel-title">Your schedule · CCI LED coco</span><span class="mono sub"
+          >feed EC = what you mix</span
+        >
+      </div>
       <div class="tbl-scroll">
         <table>
           <thead>
-            <tr><th>Stage</th><th>Feed EC</th><th>Grow / Bloom</th><th>Core</th><th>Cleanse</th><th>pH</th><th>Subst. EC</th></tr>
+            <tr
+              ><th>Stage</th><th>Feed EC</th><th>Grow / Bloom</th><th>Core</th><th>Cleanse</th><th
+                >pH</th
+              ><th>Subst. EC</th></tr
+            >
           </thead>
           <tbody>
             {#each FEED_SCHEDULE as s (s.key)}
@@ -74,18 +96,32 @@
         </table>
       </div>
       <ul class="notes">
-        <li><b>Medium:</b> {MEDIUM.label} — {MEDIUM.detail} · coco EC {MEDIUM.bufferedEc} → batch pH {MEDIUM.ph.label} (CCI coco).</li>
-        <li><b>Feed EC vs substrate EC:</b> feed/drip EC is what you mix (this table + calculator). Substrate EC is the in-pot pour-through you steer toward via dryback — higher; never mix to it.</li>
+        <li>
+          <b>Medium:</b>
+          {MEDIUM.label} — {MEDIUM.detail} · coco EC {MEDIUM.bufferedEc} → batch pH {MEDIUM.ph
+            .label} (CCI coco).
+        </li>
+        <li>
+          <b>Feed EC vs substrate EC:</b> feed/drip EC is what you mix (this table + calculator). Substrate
+          EC is the in-pot pour-through you steer toward via dryback — higher; never mix to it.
+        </li>
         {#each FEED_SCHEDULE.filter((s) => s.note) as s (s.key)}
           <li><b>{s.label}:</b> {s.note}</li>
         {/each}
-        <li>Targets: CCI Black Book LED coco setpoints (p.57 / p.64); doses = Athena Pro 226 g/L. Grow in veg, Bloom in flower.</li>
+        <li>
+          Targets: CCI Black Book LED coco setpoints (p.57 / p.64); doses = Athena Pro 226 g/L. Grow
+          in veg, Bloom in flower.
+        </li>
       </ul>
     </div>
 
     <!-- Procedure -->
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Mixing procedure</span><span class="mono sub">Balance is calibrate-once</span></div>
+      <div class="panel-head">
+        <span class="panel-title">Mixing procedure</span><span class="mono sub"
+          >Balance is calibrate-once</span
+        >
+      </div>
       {#each MIX_PROCEDURES as proc (proc.key)}
         <div class="proc">
           <div class="proc-head"><b>{proc.title}</b><span class="proc-when">{proc.when}</span></div>
@@ -99,13 +135,19 @@
           </ol>
         </div>
       {/each}
-      <p class="warn mono">⚠ Combining concentrates undiluted precipitates — add each to the reservoir separately.</p>
+      <p class="warn mono">
+        ⚠ Combining concentrates undiluted precipitates — add each to the reservoir separately.
+      </p>
     </div>
   </div>
 
   <!-- Dosage chart -->
   <div class="panel">
-    <div class="panel-head"><span class="panel-title">Dosage chart · 226 g/L concentrate</span><span class="mono sub">mL per 10 L</span></div>
+    <div class="panel-head">
+      <span class="panel-title">Dosage chart · 226 g/L concentrate</span><span class="mono sub"
+        >mL per 10 L</span
+      >
+    </div>
     <div class="tbl-scroll">
       <table>
         <thead>
@@ -122,7 +164,10 @@
         </tbody>
       </table>
     </div>
-    <p class="chart-note mono">Highlighted rows are your schedule's feed-EC targets (1.5 seedling · 3.5 veg/early-flower · 3.0 bulk · 2.5 finish). The calculator interpolates in between.</p>
+    <p class="chart-note mono">
+      Highlighted rows are your schedule's feed-EC targets (1.5 seedling · 3.5 veg/early-flower ·
+      3.0 bulk · 2.5 finish). The calculator interpolates in between.
+    </p>
   </div>
 </div>
 

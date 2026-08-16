@@ -55,7 +55,9 @@ export function resolveSiteTimeZone(): { zone: string; source: TimeZoneSource } 
   const zone = chosen?.zone ?? 'UTC';
   const source = chosen?.source ?? 'utc';
   if (isValidTimeZone(zone)) return { zone, source };
-  console.error(`[schedule] invalid time zone "${zone}" (GROW_SCHEDULE_TZ/TZ); falling back to UTC`);
+  console.error(
+    `[schedule] invalid time zone "${zone}" (GROW_SCHEDULE_TZ/TZ); falling back to UTC`
+  );
   return { zone: 'UTC', source: 'utc' };
 }
 

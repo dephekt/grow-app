@@ -5,7 +5,13 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getIrrigationDb } from '$lib/server/opensprinkler/db';
 import { getZone } from '$lib/server/opensprinkler/zones';
-import { deleteSchedule, getSchedule, shotResolutionError, toScheduleJson, updateSchedule } from '$lib/server/opensprinkler/schedules';
+import {
+  deleteSchedule,
+  getSchedule,
+  shotResolutionError,
+  toScheduleJson,
+  updateSchedule
+} from '$lib/server/opensprinkler/schedules';
 import { parseSchedulePatch } from '$lib/server/opensprinkler/validate';
 import { getScheduleTimeZone } from '$lib/server/opensprinkler/schedule-time';
 import { requireAdmin } from '$lib/server/auth/authz';
@@ -32,7 +38,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   try {
     patch = parseSchedulePatch(body);
   } catch (error) {
-    return json({ ok: false, error: error instanceof Error ? error.message : 'Invalid schedule' }, { status: 400 });
+    return json(
+      { ok: false, error: error instanceof Error ? error.message : 'Invalid schedule' },
+      { status: 400 }
+    );
   }
 
   // If the patch switches the shot to %/mL, reject at save time when it can't compile

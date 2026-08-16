@@ -5,7 +5,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getIrrigationDb } from '$lib/server/opensprinkler/db';
 import { getZone } from '$lib/server/opensprinkler/zones';
-import { createSchedule, listSchedules, shotResolutionError, toScheduleJson } from '$lib/server/opensprinkler/schedules';
+import {
+  createSchedule,
+  listSchedules,
+  shotResolutionError,
+  toScheduleJson
+} from '$lib/server/opensprinkler/schedules';
 import { parseScheduleCreate } from '$lib/server/opensprinkler/validate';
 import { getScheduleTimeZone } from '$lib/server/opensprinkler/schedule-time';
 import { requireAdmin } from '$lib/server/auth/authz';
@@ -16,7 +21,9 @@ export const GET: RequestHandler = ({ url }) => {
   const zoneId = url.searchParams.get('zoneId') ?? undefined;
   const now = Date.now();
   const tz = getScheduleTimeZone();
-  const schedules = listSchedules(getIrrigationDb(), zoneId).map((schedule) => toScheduleJson(schedule, now, tz));
+  const schedules = listSchedules(getIrrigationDb(), zoneId).map((schedule) =>
+    toScheduleJson(schedule, now, tz)
+  );
   // Return the resolved schedule tz so the UI can render "Next run" in schedule-local
   // time rather than the browser's zone (the instant is already correct either way).
   return json({ ok: true, schedules, tz });
@@ -38,7 +45,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     input = parseScheduleCreate(body);
   } catch (error) {
-    return json({ ok: false, error: error instanceof Error ? error.message : 'Invalid schedule' }, { status: 400 });
+    return json(
+      { ok: false, error: error instanceof Error ? error.message : 'Invalid schedule' },
+      { status: 400 }
+    );
   }
 
   const db = getIrrigationDb();
@@ -51,5 +61,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   if (shotError) return json({ ok: false, error: shotError }, { status: 400 });
 
   const schedule = createSchedule(db, input);
-  return json({ ok: true, schedule: toScheduleJson(schedule, Date.now(), getScheduleTimeZone()) }, { status: 201 });
+  return json(
+    { ok: true, schedule: toScheduleJson(schedule, Date.now(), getScheduleTimeZone()) },
+    { status: 201 }
+  );
 };

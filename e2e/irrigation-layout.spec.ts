@@ -84,7 +84,12 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: snapshot }));
   await page.route('**/api/events', (route) => route.abort('failed'));
   await page.route('**/api/irrigation/zones', (route) =>
-    route.fulfill({ json: { zones: [zone], probes: [{ nodeId: 'substrate-a', zoneId: zone.id, name: 'Gelato A' }] } })
+    route.fulfill({
+      json: {
+        zones: [zone],
+        probes: [{ nodeId: 'substrate-a', zoneId: zone.id, name: 'Gelato A' }]
+      }
+    })
   );
   await page.route('**/api/irrigation/schedules', (route) =>
     route.fulfill({ json: { schedules: [], tz: 'America/Chicago' } })
@@ -94,7 +99,9 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test('places probes with zones and reveals the shared zone editor above history', async ({ page }, testInfo) => {
+test('places probes with zones and reveals the shared zone editor above history', async ({
+  page
+}, testInfo) => {
   await page.goto('/irrigation');
 
   const zoneCard = page.locator('article.zone');
@@ -151,7 +158,10 @@ test('scrolls a newly revealed zone editor into view below a long zone grid', as
   await page.unroute('**/api/irrigation/zones');
   await page.route('**/api/irrigation/zones', (route) =>
     route.fulfill({
-      json: { zones: manyZones, probes: [{ nodeId: 'substrate-a', zoneId: manyZones[0].id, name: 'Gelato A' }] }
+      json: {
+        zones: manyZones,
+        probes: [{ nodeId: 'substrate-a', zoneId: manyZones[0].id, name: 'Gelato A' }]
+      }
     })
   );
   await page.goto('/irrigation');
@@ -198,7 +208,10 @@ test('pages through irrigation history 25 entries at a time', async ({ page }) =
     const limit = Number(url.searchParams.get('limit'));
     const offset = Number(url.searchParams.get('offset'));
     const requestedAnchor = url.searchParams.get('anchorId');
-    const anchorId = requestedAnchor === null ? Math.max(0, ...events.map((event) => event.id)) : Number(requestedAnchor);
+    const anchorId =
+      requestedAnchor === null
+        ? Math.max(0, ...events.map((event) => event.id))
+        : Number(requestedAnchor);
     const anchoredEvents = events.filter((event) => event.id <= anchorId);
     if (offset === 0) pageZeroRequests += 1;
     if (offset === 25) {

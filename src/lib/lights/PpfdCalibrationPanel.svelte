@@ -61,7 +61,8 @@
     return a.luxValue / a.referenceUmol;
   });
 
-  const fmtTime = (iso: string | undefined) => (iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  const fmtTime = (iso: string | undefined) =>
+    iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
   async function post(body: Record<string, unknown>, tag: string) {
     busy = tag;
@@ -133,27 +134,49 @@
   </div>
 
   <p class="lead">
-    Anchor the spectrometer's absolute PPFD scale to a co-incident meter reading. Anchor straight from
-    the live Apogee SQ-521 (±5%) when it's online, or type a reading; a lux anchor (from the DLight,
-    ≈±15%) is the stand-in until then. Place the meter at the canopy sensor aperture, then anchor
-    against the live frame.
+    Anchor the spectrometer's absolute PPFD scale to a co-incident meter reading. Anchor straight
+    from the live Apogee SQ-521 (±5%) when it's online, or type a reading; a lux anchor (from the
+    DLight, ≈±15%) is the stand-in until then. Place the meter at the canopy sensor aperture, then
+    anchor against the live frame.
   </p>
 
   <div class="rows">
-    <div class="kv"><span class="k">Live DLight</span><span class="v">{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span></div>
-    <div class="kv"><span class="k">Live PPFD</span><span class="v">{processed?.ppfd == null ? '—' : `${processed.ppfdSource === 'reference' ? '' : '≈'}${processed.ppfd.toFixed(0)} µmol`}</span></div>
-    <div class="kv"><span class="k">Live Apogee</span><span class="v">{liveApogeePpfd == null ? '—' : `${liveApogeePpfd.toFixed(0)} µmol`}</span></div>
-    <div class="kv"><span class="k">Derived factor</span><span class="v">{luxFactor == null ? '—' : `${luxFactor.toFixed(1)} lux / µmol`}</span></div>
+    <div class="kv">
+      <span class="k">Live DLight</span><span class="v"
+        >{liveLux == null ? '—' : `${liveLux.toFixed(0)} lx`}</span
+      >
+    </div>
+    <div class="kv">
+      <span class="k">Live PPFD</span><span class="v"
+        >{processed?.ppfd == null
+          ? '—'
+          : `${processed.ppfdSource === 'reference' ? '' : '≈'}${processed.ppfd.toFixed(0)} µmol`}</span
+      >
+    </div>
+    <div class="kv">
+      <span class="k">Live Apogee</span><span class="v"
+        >{liveApogeePpfd == null ? '—' : `${liveApogeePpfd.toFixed(0)} µmol`}</span
+      >
+    </div>
+    <div class="kv">
+      <span class="k">Derived factor</span><span class="v"
+        >{luxFactor == null ? '—' : `${luxFactor.toFixed(1)} lux / µmol`}</span
+      >
+    </div>
     <div class="kv">
       <span class="k">Lux anchor</span>
       <span class="v">
-        {#if anchors.lux}{anchors.lux.luxValue?.toFixed(0)} lx · {fmtTime(anchors.lux.capturedAt)}{:else}<span class="none">not set</span>{/if}
+        {#if anchors.lux}{anchors.lux.luxValue?.toFixed(0)} lx · {fmtTime(
+            anchors.lux.capturedAt
+          )}{:else}<span class="none">not set</span>{/if}
       </span>
     </div>
     <div class="kv">
       <span class="k">Apogee reference</span>
       <span class="v">
-        {#if anchors.reference}{anchors.reference.referenceUmol.toFixed(0)} µmol · {fmtTime(anchors.reference.capturedAt)}{:else}<span class="none">not set</span>{/if}
+        {#if anchors.reference}{anchors.reference.referenceUmol.toFixed(0)} µmol · {fmtTime(
+            anchors.reference.capturedAt
+          )}{:else}<span class="none">not set</span>{/if}
       </span>
     </div>
   </div>
@@ -161,12 +184,21 @@
   <div class="control">
     <label class="ctl-label" for="lux-override">Calibrate from lux</label>
     <div class="ctl-row">
-      <input id="lux-override" class="in mono" type="number" inputmode="numeric" placeholder="lux override (blank = live DLight)" bind:value={luxOverride} />
+      <input
+        id="lux-override"
+        class="in mono"
+        type="number"
+        inputmode="numeric"
+        placeholder="lux override (blank = live DLight)"
+        bind:value={luxOverride}
+      />
       <button class="btn primary" onclick={calibrateFromLux} disabled={!canAnchor || busy != null}>
         {busy === 'lux' ? 'Calibrating…' : 'Calibrate from lux'}
       </button>
       {#if anchors.lux}
-        <button class="btn ghost" onclick={() => clearAnchor('lux')} disabled={busy != null}>Clear</button>
+        <button class="btn ghost" onclick={() => clearAnchor('lux')} disabled={busy != null}
+          >Clear</button
+        >
       {/if}
     </div>
   </div>
@@ -174,15 +206,30 @@
   <div class="control">
     <label class="ctl-label" for="ref-umol">Apogee reference</label>
     <div class="ctl-row">
-      <button class="btn primary" onclick={anchorFromApogee} disabled={!canAnchor || liveApogeePpfd == null || liveApogeePpfd <= 0 || busy != null}>
-        {busy === 'apogee' ? 'Anchoring…' : `Anchor from live Apogee${liveApogeePpfd != null ? ` · ${liveApogeePpfd.toFixed(0)} µmol` : ''}`}
+      <button
+        class="btn primary"
+        onclick={anchorFromApogee}
+        disabled={!canAnchor || liveApogeePpfd == null || liveApogeePpfd <= 0 || busy != null}
+      >
+        {busy === 'apogee'
+          ? 'Anchoring…'
+          : `Anchor from live Apogee${liveApogeePpfd != null ? ` · ${liveApogeePpfd.toFixed(0)} µmol` : ''}`}
       </button>
       {#if anchors.reference}
-        <button class="btn ghost" onclick={() => clearAnchor('reference')} disabled={busy != null}>Clear</button>
+        <button class="btn ghost" onclick={() => clearAnchor('reference')} disabled={busy != null}
+          >Clear</button
+        >
       {/if}
     </div>
     <div class="ctl-row">
-      <input id="ref-umol" class="in mono" type="number" inputmode="numeric" placeholder="or type µmol·m⁻²·s⁻¹ manually" bind:value={refUmol} />
+      <input
+        id="ref-umol"
+        class="in mono"
+        type="number"
+        inputmode="numeric"
+        placeholder="or type µmol·m⁻²·s⁻¹ manually"
+        bind:value={refUmol}
+      />
       <button class="btn" onclick={setReference} disabled={!canAnchor || busy != null}>
         {busy === 'reference' ? 'Setting…' : 'Set manually'}
       </button>
@@ -191,7 +238,9 @@
 
   {#if !canAnchor}
     <p class="hint warn">
-      {liveSpectrum?.saturated ? 'Live frame is saturated — dim the light or shorten exposure, then retry.' : 'Waiting for a live spectrometer frame…'}
+      {liveSpectrum?.saturated
+        ? 'Live frame is saturated — dim the light or shorten exposure, then retry.'
+        : 'Waiting for a live spectrometer frame…'}
     </p>
   {/if}
   {#if err}<p class="hint err mono">{err}</p>{/if}

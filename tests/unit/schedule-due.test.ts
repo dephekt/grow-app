@@ -11,7 +11,8 @@ const GRACE = 5 * 60_000;
 // Build a slot instant from a local date + minutes-past-midnight. schedule-time has
 // its own dedicated DST test; here we lean on it to express expectations legibly and
 // exercise computeScheduleDue's *selection* logic.
-const at = (y: number, mo: number, d: number, min: number) => zonedMinutesToInstant(y, mo, d, min, TZ);
+const at = (y: number, mo: number, d: number, min: number) =>
+  zonedMinutesToInstant(y, mo, d, min, TZ);
 
 describe('computeScheduleDue', () => {
   it('fires the most-recent past slot when it is fresh and unfired', () => {
@@ -69,7 +70,11 @@ describe('computeScheduleDue', () => {
 
   it('returns nulls for empty or fully out-of-range times', () => {
     const now = at(2026, 7, 15, 720);
-    expect(computeScheduleDue([], null, now, TZ, GRACE)).toEqual({ shouldFire: false, dueAt: null, nextDueAt: null });
+    expect(computeScheduleDue([], null, now, TZ, GRACE)).toEqual({
+      shouldFire: false,
+      dueAt: null,
+      nextDueAt: null
+    });
     expect(computeScheduleDue([-5, 1500, 3.5], null, now, TZ, GRACE)).toEqual({
       shouldFire: false,
       dueAt: null,

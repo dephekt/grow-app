@@ -12,7 +12,9 @@ export function isNumericSensor(e: EntityConfig): boolean {
 }
 
 export function isWaterPh(e: EntityConfig): boolean {
-  return isNumericSensor(e) && (e.deviceClass === 'ph' || e.objectId === 'water_ph' || e.unit === 'pH');
+  return (
+    isNumericSensor(e) && (e.deviceClass === 'ph' || e.objectId === 'water_ph' || e.unit === 'pH')
+  );
 }
 
 /** The hydro controller's water-temperature probe — the WATER fallback when pH is absent. */
@@ -29,7 +31,8 @@ function isAirHumidity(e: EntityConfig): boolean {
   if (!isNumericSensor(e) || e.deviceClass !== 'humidity') return false;
   const oid = (e.objectId ?? '').toLowerCase();
   const name = e.name.toLowerCase();
-  if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name)) return false;
+  if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name))
+    return false;
   if (/(^|_)(daily|moving|average|avg|min|max|mean)(_|$)/.test(oid)) return false;
   return true;
 }
@@ -50,7 +53,10 @@ export function isExternalReference(e: EntityConfig): boolean {
   const oid = (e.objectId ?? '').toLowerCase();
   const name = e.name.toLowerCase();
   // Segment/word anchored so "next_temperature" and "Extractor" are not caught.
-  return /(^|_)(ext|external|outside|outdoor)(_|$)/.test(oid) || /\b(ext|external|outside|outdoor)\b/.test(name);
+  return (
+    /(^|_)(ext|external|outside|outdoor)(_|$)/.test(oid) ||
+    /\b(ext|external|outside|outdoor)\b/.test(name)
+  );
 }
 
 /**
@@ -69,9 +75,13 @@ function isAirTemperature(e: EntityConfig): boolean {
   if (/water/.test(oid) || /water/.test(name)) return false;
   // Name-matched too, unlike the hardware-internal words below: "Internal Room Temp" is a
   // legitimate air sensor, "Substrate Temperature" never is.
-  if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name)) return false;
+  if (/(substrate|soil|medium|root)/.test(oid) || /\b(substrate|soil|medium|root)\b/.test(name))
+    return false;
   if (/(bps|mlx|board|cpu|die|chip|internal)/.test(oid)) return false;
-  if (/(dew ?point|heat ?index|wet ?bulb)/.test(oid) || /\b(dew ?point|heat ?index|wet ?bulb)\b/.test(name)) {
+  if (
+    /(dew ?point|heat ?index|wet ?bulb)/.test(oid) ||
+    /\b(dew ?point|heat ?index|wet ?bulb)\b/.test(name)
+  ) {
     return false;
   }
   // Segment-anchored so an id merely containing "max"/"min"/"avg" is not rejected.
@@ -153,7 +163,10 @@ export function hasQuantumPpfd(snapshot: Snapshot): boolean {
 
 /** An entity's state as a finite number, or null when absent, blank or unreadable. Blank is
  *  explicitly not zero — `Number('')` is 0, which reads as a live measurement. */
-export function entityNumericState(snapshot: Snapshot, entity: EntityConfig | undefined): number | null {
+export function entityNumericState(
+  snapshot: Snapshot,
+  entity: EntityConfig | undefined
+): number | null {
   if (!entity) return null;
   const raw = snapshot.states[entity.id]?.value;
   if (raw == null || raw.trim() === '' || isNoReadingValue(raw)) return null;
@@ -213,9 +226,14 @@ export function entityNodeKey(entity: EntityConfig): string {
 }
 
 /** Resolve a (node, objectId) ref to its discovered entity. */
-export function resolveEntityRef(snapshot: Snapshot, ref: EntityRef | undefined): EntityConfig | undefined {
+export function resolveEntityRef(
+  snapshot: Snapshot,
+  ref: EntityRef | undefined
+): EntityConfig | undefined {
   if (!ref) return undefined;
-  return snapshot.entities.find((e) => e.objectId === ref.objectId && entityNodeKey(e) === ref.node);
+  return snapshot.entities.find(
+    (e) => e.objectId === ref.objectId && entityNodeKey(e) === ref.node
+  );
 }
 
 /** The device for a node key, matched on nodeId OR device id: the server keys availability on

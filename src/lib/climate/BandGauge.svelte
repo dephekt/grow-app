@@ -40,12 +40,18 @@
   });
 
   /** Shown only once the two have parted, which is during a vent run and nowhere else. */
-  const diverged = $derived(airVpdFast !== null && airVpd !== null && Math.abs(airVpdFast - airVpd) >= 0.01);
+  const diverged = $derived(
+    airVpdFast !== null && airVpd !== null && Math.abs(airVpdFast - airVpd) >= 0.01
+  );
 </script>
 
 <div class="gauge">
   <div class="head">
-    <span class="value mono" class:alert={state.tone === 'alert'} class:warn={state.tone === 'warn'}>
+    <span
+      class="value mono"
+      class:alert={state.tone === 'alert'}
+      class:warn={state.tone === 'warn'}
+    >
       {edge === null ? '—' : edge.toFixed(2)}
     </span>
     <span class="unit mono">kPa air VPD</span>
@@ -53,19 +59,34 @@
     <span class="verdict mono {state.tone}">{state.label}</span>
   </div>
 
-  <div class="track" role="img" aria-label="Air VPD {airVpd?.toFixed(2) ?? 'unknown'} against band {band.low}–{band.high} kPa">
-    <div class="rail" style="left:{pct(AIR_VPD_HARD_MIN)}%; width:{pct(AIR_VPD_HARD_MAX) - pct(AIR_VPD_HARD_MIN)}%"></div>
+  <div
+    class="track"
+    role="img"
+    aria-label="Air VPD {airVpd?.toFixed(2) ?? 'unknown'} against band {band.low}–{band.high} kPa"
+  >
+    <div
+      class="rail"
+      style="left:{pct(AIR_VPD_HARD_MIN)}%; width:{pct(AIR_VPD_HARD_MAX) - pct(AIR_VPD_HARD_MIN)}%"
+    ></div>
     <div class="band" style="left:{pct(band.low)}%; width:{pct(band.high) - pct(band.low)}%"></div>
     <div class="target" style="left:{pct(band.target)}%"></div>
 
     {#if ventedAirVpd !== null}
-      <div class="ghost" style="left:{pct(ventedAirVpd)}%" title="where venting would settle: {ventedAirVpd.toFixed(2)}"></div>
+      <div
+        class="ghost"
+        style="left:{pct(ventedAirVpd)}%"
+        title="where venting would settle: {ventedAirVpd.toFixed(2)}"
+      ></div>
     {/if}
     {#if leafVpd !== null}
       <div class="leaf" style="left:{pct(leafVpd)}%" title="leaf VPD {leafVpd.toFixed(2)}"></div>
     {/if}
     {#if diverged}
-      <div class="ghost" style="left:{pct(airVpd!)}%" title="5 min median {airVpd!.toFixed(2)}"></div>
+      <div
+        class="ghost"
+        style="left:{pct(airVpd!)}%"
+        title="5 min median {airVpd!.toFixed(2)}"
+      ></div>
     {/if}
     {#if edge !== null}
       <div class="needle {state.tone}" style="left:{pct(edge)}%"></div>
@@ -80,7 +101,9 @@
 
   <ul class="legend mono">
     <li><i class="k-band"></i>band {band.low.toFixed(2)}–{band.high.toFixed(2)}</li>
-    <li><i class="k-rail"></i>hard rails {AIR_VPD_HARD_MIN.toFixed(1)}–{AIR_VPD_HARD_MAX.toFixed(1)}</li>
+    <li>
+      <i class="k-rail"></i>hard rails {AIR_VPD_HARD_MIN.toFixed(1)}–{AIR_VPD_HARD_MAX.toFixed(1)}
+    </li>
     {#if leafVpd !== null}<li><i class="k-leaf"></i>leaf {leafVpd.toFixed(2)}</li>{/if}
     {#if ventedAirVpd !== null}<li><i class="k-ghost"></i>vented {ventedAirVpd.toFixed(2)}</li>{/if}
   </ul>

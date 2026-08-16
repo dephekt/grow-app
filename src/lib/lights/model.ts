@@ -8,7 +8,10 @@ import { parseTimeParts } from '$lib/time-entity';
 /** Resolve a role reference (node + objectId) to the discovered entity, if any.
  *  The strict (node, objectId) pairing is intentional — `service.ts:deviceEntity`
  *  keeps a broader match on purpose. */
-export function entityByRef(snapshot: Snapshot, ref: LightRoleRef | undefined): EntityConfig | undefined {
+export function entityByRef(
+  snapshot: Snapshot,
+  ref: LightRoleRef | undefined
+): EntityConfig | undefined {
   return resolveEntityRef(snapshot, ref);
 }
 
@@ -68,7 +71,8 @@ export function computeSchedule(
     minute: '2-digit',
     second: '2-digit'
   }).formatToParts(now);
-  const part = (type: 'hour' | 'minute' | 'second') => Number(wall.find((p) => p.type === type)?.value ?? 0);
+  const part = (type: 'hour' | 'minute' | 'second') =>
+    Number(wall.find((p) => p.type === type)?.value ?? 0);
   const nowSec = part('hour') * 3600 + part('minute') * 60 + part('second');
   const inWindow = on < off ? nowSec >= on && nowSec < off : nowSec >= on || nowSec < off;
   const boundary = inWindow ? off : on;

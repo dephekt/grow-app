@@ -53,26 +53,39 @@ test.beforeEach(async ({ page }) => {
         configured: true,
         domain,
         range: u.searchParams.get('range') ?? '6h',
-        series: specs.map(([key, label, unit, base]) => ({ key, label, unit, points: makePoints(base) }))
+        series: specs.map(([key, label, unit, base]) => ({
+          key,
+          label,
+          unit,
+          points: makePoints(base)
+        }))
       }
     });
   });
   await page.route('**/api/entities/**/image**', (route) =>
     route.fulfill({ status: 200, contentType: 'image/jpeg', body: THERMAL_JPG })
   );
-  await page.route('**/api/firmware/devices/**/package**', (route) => route.fulfill({ json: { package: null } }));
+  await page.route('**/api/firmware/devices/**/package**', (route) =>
+    route.fulfill({ json: { package: null } })
+  );
 });
 
 test('dashboard', async ({ page }, testInfo) => {
   await page.goto('/');
   await page.waitForTimeout(900);
-  await page.screenshot({ path: testInfo.outputPath(`dashboard-${testInfo.project.name}.png`), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath(`dashboard-${testInfo.project.name}.png`),
+    fullPage: true
+  });
 });
 
 test('mixing', async ({ page }, testInfo) => {
   await page.goto('/mixing');
   await page.waitForTimeout(400);
-  await page.screenshot({ path: testInfo.outputPath(`mixing-${testInfo.project.name}.png`), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath(`mixing-${testInfo.project.name}.png`),
+    fullPage: true
+  });
 });
 
 test('device-settings-calibration', async ({ page }, testInfo) => {

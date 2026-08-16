@@ -30,7 +30,10 @@ interface CapturedCookie {
   value: string;
 }
 
-async function invokeLogin(body: unknown, ip: string): Promise<{ res: Response; setCookies: CapturedCookie[] }> {
+async function invokeLogin(
+  body: unknown,
+  ip: string
+): Promise<{ res: Response; setCookies: CapturedCookie[] }> {
   const request = new Request('http://localhost/auth/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -42,7 +45,9 @@ async function invokeLogin(body: unknown, ip: string): Promise<{ res: Response; 
     set: (name: string, value: string) => setCookies.push({ name, value }),
     delete: () => {}
   };
-  const event = { request, cookies, getClientAddress: () => ip } as unknown as Parameters<typeof POST>[0];
+  const event = { request, cookies, getClientAddress: () => ip } as unknown as Parameters<
+    typeof POST
+  >[0];
   const res = (await POST(event)) as Response;
   return { res, setCookies };
 }
@@ -75,7 +80,10 @@ describe('POST /auth/login shed-load contract', () => {
 
   it('authenticates a valid login, sets a session cookie, and releases the slot', async () => {
     await createLocalUser(getAuthDb(), { username: 'alice', password: 'password123' });
-    const { res, setCookies } = await invokeLogin({ username: 'alice', password: 'password123' }, '203.0.113.3');
+    const { res, setCookies } = await invokeLogin(
+      { username: 'alice', password: 'password123' },
+      '203.0.113.3'
+    );
 
     expect(res.status).toBe(200);
     expect((await res.json()).ok).toBe(true);
@@ -89,7 +97,10 @@ describe('POST /auth/login shed-load contract', () => {
     expect(throttle.tryAcquireSlot()).toBe(true);
     expect(throttle.tryAcquireSlot()).toBe(true);
     try {
-      const { res } = await invokeLogin({ username: 'alice', password: 'password123' }, '203.0.113.4');
+      const { res } = await invokeLogin(
+        { username: 'alice', password: 'password123' },
+        '203.0.113.4'
+      );
       expect(res.status).toBe(429);
       expect(res.headers.get('retry-after')).toBe('1');
     } finally {

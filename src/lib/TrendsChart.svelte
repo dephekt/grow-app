@@ -83,7 +83,8 @@
         // Fires per scale; only x is draggable, so only x can be zoomed.
         setScale: [
           (u: uPlot, key: string) => {
-            if (key === 'x') zoom = zoomedWindow(u.data[0] as number[], u.scales.x.min, u.scales.x.max);
+            if (key === 'x')
+              zoom = zoomedWindow(u.data[0] as number[], u.scales.x.min, u.scales.x.max);
           }
         ]
       },
@@ -100,7 +101,12 @@
         }))
       ],
       axes: [
-        { stroke: axisColor, grid: { stroke: grid, width: 1 }, ticks: { stroke: grid, width: 1 }, font: mono },
+        {
+          stroke: axisColor,
+          grid: { stroke: grid, width: 1 },
+          ticks: { stroke: grid, width: 1 },
+          font: mono
+        },
         ...plans.map((p) => ({
           scale: p.scale,
           side: p.side,
@@ -170,7 +176,9 @@
     untrack(() => render(s));
   });
 
-  let isEmpty = $derived(series.length === 0 || series.every((x: TrendSeries) => x.points.length === 0));
+  let isEmpty = $derived(
+    series.length === 0 || series.every((x: TrendSeries) => x.points.length === 0)
+  );
 </script>
 
 <div class="trends-chart" style="min-height:{height}px">

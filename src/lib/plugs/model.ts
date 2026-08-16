@@ -7,7 +7,12 @@
  * to keep it client-safe.
  */
 import { entityNumericState, isEntityOffline, resolveEntityRef } from '$lib/entity-match';
-import { IRRIGATION_NODE, PUMP_DRAW_MIN_W, RUNOFF_DRAW_MIN_W, RUNOFF_NODE } from '$lib/irrigation/model';
+import {
+  IRRIGATION_NODE,
+  PUMP_DRAW_MIN_W,
+  RUNOFF_DRAW_MIN_W,
+  RUNOFF_NODE
+} from '$lib/irrigation/model';
 import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
 export const EXHAUST_NODE = 'exhaust-fan';
@@ -128,7 +133,9 @@ export function switchIsOn(snapshot: Snapshot, entity: EntityConfig | undefined)
 }
 
 export function resolvePlug(snapshot: Snapshot, spec: PlugSpec): PlugView {
-  const relay = spec.relay ? resolveEntityRef(snapshot, { node: spec.node, objectId: spec.relay }) : undefined;
+  const relay = spec.relay
+    ? resolveEntityRef(snapshot, { node: spec.node, objectId: spec.relay })
+    : undefined;
   const power = resolveEntityRef(snapshot, { node: spec.node, objectId: spec.power });
   const dailyEnergy = resolveEntityRef(snapshot, { node: spec.node, objectId: spec.dailyEnergy });
 

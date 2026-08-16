@@ -31,7 +31,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
   try {
     const service = getSiteMqttService();
     if (!service.firmwareDevice(nodeId)) {
-      return json({ ok: false, error: 'Firmware metadata is not discovered for this device' }, { status: 404 });
+      return json(
+        { ok: false, error: 'Firmware metadata is not discovered for this device' },
+        { status: 404 }
+      );
     }
     const config = await service.setFirmwareChannel(nodeId, body.channel);
     return json({ ok: true, config });

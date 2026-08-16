@@ -48,6 +48,7 @@ export function isApiOrAuthPath(pathname: string): boolean {
 export function isCsrfSafe(contentType: string | null, secFetchSite: string | null): boolean {
   const jsonBody = (contentType ?? '').toLowerCase().includes('application/json');
   if (!jsonBody) return false;
-  if (secFetchSite !== null && secFetchSite !== 'same-origin' && secFetchSite !== 'none') return false;
+  if (secFetchSite !== null && secFetchSite !== 'same-origin' && secFetchSite !== 'none')
+    return false;
   return true;
 }

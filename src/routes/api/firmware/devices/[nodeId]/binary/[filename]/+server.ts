@@ -25,11 +25,20 @@ export const GET: RequestHandler = async ({ params, url }) => {
   try {
     const service = getSiteMqttService();
     const device = service.firmwareDevice(nodeId);
-    if (!device) return json({ error: 'Firmware metadata is not discovered for this device' }, { status: 404 });
+    if (!device)
+      return json(
+        { error: 'Firmware metadata is not discovered for this device' },
+        { status: 404 }
+      );
 
     const source = getFirmwarePackageSource();
     const manifest = await downloadPackageManifest(device, version, fetch, source);
-    assertPackageManifestMatchesDevice(manifest, device, undefined, source.provider === 'ghcr-oci' ? device.packageOwner : source.owner);
+    assertPackageManifestMatchesDevice(
+      manifest,
+      device,
+      undefined,
+      source.provider === 'ghcr-oci' ? device.packageOwner : source.owner
+    );
     const bytes = await downloadAndValidateBinary(manifest, filename, fetch, source);
     const body = new ArrayBuffer(bytes.byteLength);
     new Uint8Array(body).set(bytes);

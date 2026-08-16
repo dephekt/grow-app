@@ -43,7 +43,9 @@ describe('spectrum calibration', () => {
   });
 
   it('normalizes to 0..100 with the peak at 100 and finds a blue peak', () => {
-    const counts = WAVELENGTHS.map((nm) => 500 + Math.round(3000 * Math.exp(-((nm - 450) ** 2) / (2 * 30 ** 2))));
+    const counts = WAVELENGTHS.map(
+      (nm) => 500 + Math.round(3000 * Math.exp(-((nm - 450) ** 2) / (2 * 30 ** 2)))
+    );
     const p = processSpectrum(counts, { adcFullScale: 16383, view: 'raw' });
     expect(Math.max(...p.relative)).toBeCloseTo(100, 5);
     expect(Math.min(...p.relative)).toBeGreaterThanOrEqual(0);
@@ -52,7 +54,10 @@ describe('spectrum calibration', () => {
   });
 
   it('leaves absolute PPFD/PAR/ePAR null and calibrated=false without an anchor', () => {
-    const p = processSpectrum(new Array(PIXEL_COUNT).fill(2000), { adcFullScale: 16383, integrationUs: 20000 });
+    const p = processSpectrum(new Array(PIXEL_COUNT).fill(2000), {
+      adcFullScale: 16383,
+      integrationUs: 20000
+    });
     expect(p.ppfd).toBeNull();
     expect(p.par).toBeNull();
     expect(p.epar).toBeNull();
@@ -180,7 +185,10 @@ describe('processSpectrum — absolute flux from an anchor', () => {
   });
 
   it('scales PPFD linearly with brightness (2× counts ⇒ 2× PPFD)', () => {
-    const p1 = processSpectrum(frame, { integrationUs: 8000, config: { anchors: { lux: anchor } } });
+    const p1 = processSpectrum(frame, {
+      integrationUs: 8000,
+      config: { anchors: { lux: anchor } }
+    });
     const p2 = processSpectrum(
       frame.map((c) => c * 2),
       { integrationUs: 8000, config: { anchors: { lux: anchor } } }
@@ -189,9 +197,15 @@ describe('processSpectrum — absolute flux from an anchor', () => {
   });
 
   it('is exposure-independent (half the counts at half the integration ⇒ same PPFD)', () => {
-    const p1 = processSpectrum(frame, { integrationUs: 8000, config: { anchors: { lux: anchor } } });
+    const p1 = processSpectrum(frame, {
+      integrationUs: 8000,
+      config: { anchors: { lux: anchor } }
+    });
     const half = frame.map((c) => (c > BASELINE ? BASELINE + (c - BASELINE) / 2 : c));
-    const pHalf = processSpectrum(half, { integrationUs: 4000, config: { anchors: { lux: anchor } } });
+    const pHalf = processSpectrum(half, {
+      integrationUs: 4000,
+      config: { anchors: { lux: anchor } }
+    });
     expect(pHalf.ppfd! / p1.ppfd!).toBeCloseTo(1, 1);
   });
 
@@ -224,7 +238,10 @@ describe('processSpectrum — estimate vs reference differentiation', () => {
   const refAnchor = referenceAnchor(frame, 8000, 300, 'par', { capturedAt: AT });
 
   it('exposes lux-only as the primary, tagged as an estimate', () => {
-    const p = processSpectrum(frame, { integrationUs: 8000, config: { anchors: { lux: luxAnchor } } });
+    const p = processSpectrum(frame, {
+      integrationUs: 8000,
+      config: { anchors: { lux: luxAnchor } }
+    });
     expect(p.ppfdSource).toBe('lux');
     expect(p.lux?.source).toBe('lux');
     expect(p.lux?.tolerancePct).toBe(15);
@@ -249,20 +266,35 @@ describe('processSpectrum — estimate vs reference differentiation', () => {
     const factor = luxAnchor.referenceUmol / 10_000; // µmol per lux
 
     // Same frame, live lux = anchor lux ⇒ PPFD ≈ the anchor's derived PPFD.
-    const same = processSpectrum(frame, { integrationUs: 8000, liveLux: 10_000, config: { anchors: { lux: luxAnchor } } });
+    const same = processSpectrum(frame, {
+      integrationUs: 8000,
+      liveLux: 10_000,
+      config: { anchors: { lux: luxAnchor } }
+    });
     expect(same.ppfd).toBeCloseTo(luxAnchor.referenceUmol, 6);
     expect(same.ppfdSource).toBe('lux');
 
     // Live lux halved ⇒ PPFD halves — dimming tracked via the lux sensor, not the frame.
-    const dim = processSpectrum(frame, { integrationUs: 8000, liveLux: 5_000, config: { anchors: { lux: luxAnchor } } });
+    const dim = processSpectrum(frame, {
+      integrationUs: 8000,
+      liveLux: 5_000,
+      config: { anchors: { lux: luxAnchor } }
+    });
     expect(dim.ppfd).toBeCloseTo(luxAnchor.referenceUmol / 2, 6);
 
     // A near-dark frame collapses the counts-based PPFD toward 0 (the stuck-reading symptom), but the
     // live-lux path holds. Same integration time; only the counts are bad.
     const badFrame = new Array(PIXEL_COUNT).fill(50);
-    const countsPath = processSpectrum(badFrame, { integrationUs: 8000, config: { anchors: { lux: luxAnchor } } });
+    const countsPath = processSpectrum(badFrame, {
+      integrationUs: 8000,
+      config: { anchors: { lux: luxAnchor } }
+    });
     expect(countsPath.ppfd ?? 0).toBeLessThan(luxAnchor.referenceUmol * 0.1);
-    const luxPath = processSpectrum(badFrame, { integrationUs: 8000, liveLux: 10_000, config: { anchors: { lux: luxAnchor } } });
+    const luxPath = processSpectrum(badFrame, {
+      integrationUs: 8000,
+      liveLux: 10_000,
+      config: { anchors: { lux: luxAnchor } }
+    });
     expect(luxPath.ppfd).toBeCloseTo(10_000 * factor, 6);
   });
 });

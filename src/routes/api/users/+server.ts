@@ -4,7 +4,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAuthDb } from '$lib/server/auth/db';
-import { createLocalUser, getUserByUsername, listUsers, toUserSummary } from '$lib/server/auth/users';
+import {
+  createLocalUser,
+  getUserByUsername,
+  listUsers,
+  toUserSummary
+} from '$lib/server/auth/users';
 import { MIN_PASSWORD_LENGTH } from '$lib/server/auth/config';
 import { requireAdmin } from '$lib/server/auth/authz';
 
@@ -36,14 +41,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   const username = typeof body.username === 'string' ? body.username.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
-  const displayName = typeof body.displayName === 'string' && body.displayName.trim() ? body.displayName.trim() : null;
+  const displayName =
+    typeof body.displayName === 'string' && body.displayName.trim()
+      ? body.displayName.trim()
+      : null;
   const isAdmin = body.isAdmin === true;
 
   if (!username) {
     return json({ ok: false, error: 'Username is required' }, { status: 400 });
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
-    return json({ ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, { status: 400 });
+    return json(
+      { ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` },
+      { status: 400 }
+    );
   }
 
   const db = getAuthDb();
@@ -58,7 +69,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     // A concurrent create can lose the race to the UNIQUE(username) constraint, so map
     // only that violation and let a genuine DB/infra failure still surface as a 500.
     if (err instanceof Error && /UNIQUE constraint failed/i.test(err.message)) {
-      return json({ ok: false, error: 'A user with that username already exists' }, { status: 409 });
+      return json(
+        { ok: false, error: 'A user with that username already exists' },
+        { status: 409 }
+      );
     }
     throw err;
   }

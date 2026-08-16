@@ -4,7 +4,10 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { firmwareError } from '$lib/server/firmware/http';
 import { resolveFirmwarePackage } from '$lib/server/firmware/packages';
-import { parseFirmwareUpdateState, resolveInstalledVersion } from '$lib/server/firmware/update-state';
+import {
+  parseFirmwareUpdateState,
+  resolveInstalledVersion
+} from '$lib/server/firmware/update-state';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 
 export const POST: RequestHandler = async ({ params }) => {
@@ -14,7 +17,11 @@ export const POST: RequestHandler = async ({ params }) => {
   try {
     const service = getSiteMqttService();
     const device = service.firmwareDevice(nodeId);
-    if (!device) return json({ ok: false, error: 'Firmware metadata is not discovered for this device' }, { status: 404 });
+    if (!device)
+      return json(
+        { ok: false, error: 'Firmware metadata is not discovered for this device' },
+        { status: 404 }
+      );
 
     const channel = service.selectedFirmwareChannel(nodeId);
     const resolved = await resolveFirmwarePackage(device, channel);

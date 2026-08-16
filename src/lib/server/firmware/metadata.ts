@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import type { FirmwareChannel, FirmwareChannelConfig, FirmwareDeviceConfig } from '$lib/server/mqtt/types';
+import type {
+  FirmwareChannel,
+  FirmwareChannelConfig,
+  FirmwareDeviceConfig
+} from '$lib/server/mqtt/types';
 export { parseProjectVersion } from '$lib/firmware';
 
 export interface FirmwareDevicePayload {
@@ -113,7 +117,11 @@ export function isFirmwareChannel(value: unknown): value is FirmwareChannel {
   return value === 'stable' || value === 'edge';
 }
 
-export function buildFirmwareChannelConfig(nodeId: string, channel: FirmwareChannel, updatedAt = new Date().toISOString()) {
+export function buildFirmwareChannelConfig(
+  nodeId: string,
+  channel: FirmwareChannel,
+  updatedAt = new Date().toISOString()
+) {
   return {
     schema: 'grow-firmware-channel.v1',
     nodeId,

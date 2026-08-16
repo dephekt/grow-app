@@ -5,7 +5,12 @@
   import { untrack } from 'svelte';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import type { CaptureDetail, CaptureSummary } from '$lib/server/spectrum/captures';
-  import { processSpectrum, luxToPpfd, type SpectrumView, type SpectroConfig } from '$lib/spectrum/calibration';
+  import {
+    processSpectrum,
+    luxToPpfd,
+    type SpectrumView,
+    type SpectroConfig
+  } from '$lib/spectrum/calibration';
   import { entityByRef, photoperiodHours } from '$lib/lights/model';
   import { resolveGrowState } from '$lib/lights/grow-plan';
   import { shareRows, shareTitle } from '$lib/spectrum/readout-rows';
@@ -32,7 +37,9 @@
   const anchors = $state<Anchors>(untrack(() => data.anchors));
 
   // The fixture duty (GP8413 DAC) drives the grow-plan guidance (distance/dimmer suggestion).
-  const dimmerEntity = $derived(primaryLight ? entityByRef(live.snapshot, primaryLight.roles.dimmer) : undefined);
+  const dimmerEntity = $derived(
+    primaryLight ? entityByRef(live.snapshot, primaryLight.roles.dimmer) : undefined
+  );
   const dimmerPct = $derived.by(() => {
     if (!dimmerEntity) return null;
     const raw = live.stateFor(dimmerEntity).value;
@@ -83,7 +90,9 @@
   // matchMedia keeps the stacked saved-readings drawer on exactly the same breakpoint as the
   // stylesheet below.
   // Initialised synchronously (SSR-guarded) so the first client paint is already correct.
-  let stacked = $state(typeof window !== 'undefined' && window.matchMedia('(max-width: 980px)').matches);
+  let stacked = $state(
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 980px)').matches
+  );
   $effect(() => {
     const mq = window.matchMedia('(max-width: 980px)');
     const apply = () => (stacked = mq.matches);
@@ -145,13 +154,19 @@
   const canopyEpar = $derived(canopy.epar);
   // Live Apogee diagnostics shown alongside PAR: the raw detector signal (mV) and the sensor's tilt
   // from vertical.
-  const canopyDetector = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'detector_mv'));
+  const canopyDetector = $derived(
+    selected ? null : liveQuantumMetric(live.snapshot, 'detector_mv')
+  );
   const canopyTilt = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'tilt'));
   // The day's light so far, integrated by the publisher — a running total of *now*, and NOT the
   // Grow Plan card's projected DLI.
   const canopyDli = $derived(selected ? null : liveQuantumMetric(live.snapshot, 'dli'));
-  const deltaPct = $derived(livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null);
-  const fillPct = $derived(livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0);
+  const deltaPct = $derived(
+    livePpfd != null ? ((livePpfd - growState.ppfdTarget) / growState.ppfdTarget) * 100 : null
+  );
+  const fillPct = $derived(
+    livePpfd != null ? Math.max(0, Math.min(100, (livePpfd / growState.ppfdTarget) * 100)) : 0
+  );
 
   async function refetchList() {
     const res = await fetch('/api/spectrum');
@@ -190,7 +205,10 @@
 
 <svelte:head>
   <title>Lights · {live.snapshot.site}</title>
-  <meta name="description" content="Grow light — live canopy PPFD, spectrum, fixture control, photoperiod, and the weekly light plan" />
+  <meta
+    name="description"
+    content="Grow light — live canopy PPFD, spectrum, fixture control, photoperiod, and the weekly light plan"
+  />
 </svelte:head>
 
 <div class="lights-page">
@@ -200,7 +218,9 @@
     <div class="c8">
       <div class="panel">
         <div class="chart-head">
-          <span class="panel-title mono-title">// SPECTRAL POWER DISTRIBUTION{selected ? ' · SAVED READING' : ' · LIVE'}</span>
+          <span class="panel-title mono-title"
+            >// SPECTRAL POWER DISTRIBUTION{selected ? ' · SAVED READING' : ' · LIVE'}</span
+          >
           <div class="actions">
             <div class="views" role="group" aria-label="Spectrum view">
               {#each VIEWS as v}
@@ -227,7 +247,12 @@
     </div>
 
     <div class="c4 hist-fill">
-      <SpectrumHistory {captures} selectedId={selected?.id ?? null} onSelect={openCapture} collapsible={stacked} />
+      <SpectrumHistory
+        {captures}
+        selectedId={selected?.id ?? null}
+        onSelect={openCapture}
+        collapsible={stacked}
+      />
     </div>
   </section>
 
@@ -242,38 +267,58 @@
           {#if canopy.badge}<span class="badge {canopy.badge.tone}">{canopy.badge.text}</span>{/if}
         </div>
         <div class="val">
-          {canopy.par == null ? '—' : `${canopy.prefix}${canopy.par.toFixed(0)}`}<span class="unit">µmol·m⁻²·s⁻¹</span>
+          {canopy.par == null ? '—' : `${canopy.prefix}${canopy.par.toFixed(0)}`}<span class="unit"
+            >µmol·m⁻²·s⁻¹</span
+          >
         </div>
         <div class="sub">
           {canopy.tol != null ? `±${canopy.tol.toFixed(0)}% · ` : ''}{canopy.provenance}
         </div>
         <div class="flux-mini">
           {#if canopyDli != null}
-            <div class="kv"><span class="k">DLI (current)</span><span class="v">{canopyDli.toFixed(2)} mol</span></div>
+            <div class="kv">
+              <span class="k">DLI (current)</span><span class="v">{canopyDli.toFixed(2)} mol</span>
+            </div>
           {/if}
           <div class="kv">
             <span class="k">ePAR (C12880MA)</span>
             <span class="v">
-              {#if canopyEpar == null}<span class="none">unavailable</span>{:else}{canopyEpar.toFixed(0)}{/if}
+              {#if canopyEpar == null}<span class="none">unavailable</span
+                >{:else}{canopyEpar.toFixed(0)}{/if}
             </span>
           </div>
           {#if canopyDetector != null}
-            <div class="kv"><span class="k">Detector (raw)</span><span class="v">{canopyDetector.toFixed(2)} mV</span></div>
+            <div class="kv">
+              <span class="k">Detector (raw)</span><span class="v"
+                >{canopyDetector.toFixed(2)} mV</span
+              >
+            </div>
           {/if}
           {#if canopyTilt != null}
-            <div class="kv"><span class="k">Sensor Tilt</span><span class="v">{canopyTilt.toFixed(1)}°</span></div>
+            <div class="kv">
+              <span class="k">Sensor Tilt</span><span class="v">{canopyTilt.toFixed(1)}°</span>
+            </div>
           {/if}
         </div>
         <div class="tgt-row">
           <span class="tgt-lab">{growState.stage.label} {growState.ppfdTarget}</span>
           <div class="bar"><i style="width: {fillPct}%;"></i></div>
-          {#if deltaPct != null}<span class="delta mono" class:neg={deltaPct < 0} class:pos={deltaPct >= 0}>{deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(0)}%</span>{/if}
+          {#if deltaPct != null}<span
+              class="delta mono"
+              class:neg={deltaPct < 0}
+              class:pos={deltaPct >= 0}>{deltaPct >= 0 ? '+' : ''}{deltaPct.toFixed(0)}%</span
+            >{/if}
         </div>
       </div>
     </div>
 
     <div class="c4">
-      <ReadoutPanel title={active ? shareTitle(active).replace('SPECTRUM · ', 'Spectrum · ') : 'Spectrum · photon share'} rows={active ? shareRows(active) : []} />
+      <ReadoutPanel
+        title={active
+          ? shareTitle(active).replace('SPECTRUM · ', 'Spectrum · ')
+          : 'Spectrum · photon share'}
+        rows={active ? shareRows(active) : []}
+      />
     </div>
 
     <div class="c4">
@@ -283,7 +328,9 @@
         <div class="panel empty-control">
           <span class="panel-title">Grow Light</span>
           <p class="muted">
-            No light configured yet. A device announces one by publishing a <code>grow-lights.v1</code>
+            No light configured yet. A device announces one by publishing a <code
+              >grow-lights.v1</code
+            >
             fragment to <code>&lt;node&gt;/_lights/config</code>.
           </p>
         </div>

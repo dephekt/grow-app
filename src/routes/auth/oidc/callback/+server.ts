@@ -14,7 +14,12 @@ import {
   sessionCookieOptions,
   oidcTxCookieOptions
 } from '$lib/server/auth/config';
-import { completeLogin, authorizeFromGroups, type OidcClaims, type OidcTransaction } from '$lib/server/auth/oidc';
+import {
+  completeLogin,
+  authorizeFromGroups,
+  type OidcClaims,
+  type OidcTransaction
+} from '$lib/server/auth/oidc';
 import { getLoginThrottle } from '$lib/server/auth/login-throttle';
 import { getSiteSlug } from '$lib/server/site';
 import { sanitizeNext } from '$lib/auth-redirect';
@@ -91,7 +96,13 @@ export const GET: RequestHandler = async ({ request, url, cookies, getClientAddr
   // A locally-disabled account is denied even with a valid group — `disabled` is
   // the immediate local kill-switch.
   if (user.disabled === 1) {
-    recordAudit(db, { event: 'login.denied', username: user.username, userId: user.id, ip, detail: 'oidc: user disabled' });
+    recordAudit(db, {
+      event: 'login.denied',
+      username: user.username,
+      userId: user.id,
+      ip,
+      detail: 'oidc: user disabled'
+    });
     redirect(303, '/login?error=forbidden');
   }
 

@@ -42,18 +42,28 @@
     const toX = (i: number) => (n === 1 ? width : (i / (n - 1)) * width);
     const toY = (v: number) => height - ((v - lo) / span) * height;
 
-    const pts = points.map((v: number, i: number) => `${toX(i).toFixed(2)},${toY(v).toFixed(2)}`).join(' ');
+    const pts = points
+      .map((v: number, i: number) => `${toX(i).toFixed(2)},${toY(v).toFixed(2)}`)
+      .join(' ');
     const polyPts = `0,${height} ${pts} ${width},${height}`;
     return { line: pts, poly: polyPts, end: { x: toX(n - 1), y: toY(points[n - 1]) } };
   });
 </script>
 
 {#if points.length === 0}
-  <svg viewBox="0 0 {width} {height}" width="100%" height={height}></svg>
+  <svg viewBox="0 0 {width} {height}" width="100%" {height}></svg>
 {:else if points.length === 1}
-  <svg class="spark" viewBox="0 0 {width} {height}" width="100%" height={height}>
+  <svg class="spark" viewBox="0 0 {width} {height}" width="100%" {height}>
     {#if fill}
-      <rect x="0" y={height / 2} {width} height={height / 2} fill={color} fill-opacity="0.12" stroke="none" />
+      <rect
+        x="0"
+        y={height / 2}
+        {width}
+        height={height / 2}
+        fill={color}
+        fill-opacity="0.12"
+        stroke="none"
+      />
     {/if}
     <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke={color} stroke-width="1.5" />
     {#if pulse}
@@ -61,7 +71,7 @@
     {/if}
   </svg>
 {:else}
-  <svg class="spark" viewBox="0 0 {width} {height}" width="100%" height={height}>
+  <svg class="spark" viewBox="0 0 {width} {height}" width="100%" {height}>
     {#if fill}
       <polygon points={coords.poly} fill={color} fill-opacity="0.12" stroke="none" />
     {/if}
@@ -83,7 +93,15 @@
   <!-- Must stay a CSS animation: a SMIL <animate> inserted into an already-running
        <svg> resolves begin="0s" into the past and freezes at its end state. -->
   {#key points}
-    <circle class="ping" cx={end.x} cy={end.y} r="3.5" fill="none" stroke={color} stroke-width="1.5" />
+    <circle
+      class="ping"
+      cx={end.x}
+      cy={end.y}
+      r="3.5"
+      fill="none"
+      stroke={color}
+      stroke-width="1.5"
+    />
   {/key}
   <circle cx={end.x} cy={end.y} r="3.5" fill={color} stroke={surface} stroke-width="2" />
 {/snippet}

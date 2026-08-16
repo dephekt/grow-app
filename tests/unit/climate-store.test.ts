@@ -45,21 +45,27 @@ describe('climate config', () => {
   });
 
   it('rejects an unknown mode or source', () => {
-    expect(() => updateClimateConfig(db, { mode: 'auto' as never }, NOW_ISO)).toThrow(ClimateConfigError);
-    expect(() => updateClimateConfig(db, { rhSource: 'magic' as never }, NOW_ISO)).toThrow(ClimateConfigError);
+    expect(() => updateClimateConfig(db, { mode: 'auto' as never }, NOW_ISO)).toThrow(
+      ClimateConfigError
+    );
+    expect(() => updateClimateConfig(db, { rhSource: 'magic' as never }, NOW_ISO)).toThrow(
+      ClimateConfigError
+    );
   });
 
   it('rejects out-of-range numbers', () => {
     expect(() => updateClimateConfig(db, { deadbandKpa: 0 }, NOW_ISO)).toThrow(ClimateConfigError);
     expect(() => updateClimateConfig(db, { deadbandKpa: 5 }, NOW_ISO)).toThrow(ClimateConfigError);
-    expect(() => updateClimateConfig(db, { minOnSeconds: -1 }, NOW_ISO)).toThrow(ClimateConfigError);
+    expect(() => updateClimateConfig(db, { minOnSeconds: -1 }, NOW_ISO)).toThrow(
+      ClimateConfigError
+    );
   });
 
   it('rejects a vent floor at or above the vent ceiling', () => {
     // Otherwise every tick would both force and block the fan.
-    expect(() => updateClimateConfig(db, { ventNeverBelowC: 29, ventAlwaysAboveC: 28 }, NOW_ISO)).toThrow(
-      ClimateConfigError
-    );
+    expect(() =>
+      updateClimateConfig(db, { ventNeverBelowC: 29, ventAlwaysAboveC: 28 }, NOW_ISO)
+    ).toThrow(ClimateConfigError);
   });
 
   it('writes nothing when validation fails', () => {
@@ -81,7 +87,9 @@ describe('climate config', () => {
     // The write path validates; before this the read path trusted, so a hand-edited or restored
     // row could hand the loop a 24 h minimum-on with no error.
     updateClimateConfig(db, {}, NOW_ISO); // the migration seeds no row; upsert one to edit
-    db.prepare('UPDATE climate_config SET min_on_seconds = 86400, deadband_kpa = -5 WHERE id = 1').run();
+    db.prepare(
+      'UPDATE climate_config SET min_on_seconds = 86400, deadband_kpa = -5 WHERE id = 1'
+    ).run();
     const config = getClimateConfig(db);
     expect(config.minOnSeconds).toBe(3600);
     expect(config.deadbandKpa).toBe(0.01);
@@ -114,9 +122,17 @@ describe('climate events', () => {
   };
 
   it('records the actuator and direction for a command', () => {
-    recordClimateEvent(db, { ...base, action: { kind: 'exhaust', on: true, reason: 'below band' } });
+    recordClimateEvent(db, {
+      ...base,
+      action: { kind: 'exhaust', on: true, reason: 'below band' }
+    });
     const [row] = listClimateEvents(db);
-    expect(row).toMatchObject({ kind: 'exhaust', actuator: 'exhaust', on: true, reason: 'below band' });
+    expect(row).toMatchObject({
+      kind: 'exhaust',
+      actuator: 'exhaust',
+      on: true,
+      reason: 'below band'
+    });
     expect(row.airVpd).toBe(0.85);
     expect(row.leafVpd).toBe(0.57);
   });
@@ -129,8 +145,14 @@ describe('climate events', () => {
   });
 
   it('keeps the wanted actuator on delegated and blocked rows', () => {
-    recordClimateEvent(db, { ...base, action: { kind: 'delegated', want: 'humidify', on: true, reason: 'humidistat owns RH' } });
-    recordClimateEvent(db, { ...base, action: { kind: 'blocked', want: 'exhaust', on: true, reason: 'too cold' } });
+    recordClimateEvent(db, {
+      ...base,
+      action: { kind: 'delegated', want: 'humidify', on: true, reason: 'humidistat owns RH' }
+    });
+    recordClimateEvent(db, {
+      ...base,
+      action: { kind: 'blocked', want: 'exhaust', on: true, reason: 'too cold' }
+    });
     const rows = listClimateEvents(db);
     expect(rows.map((r) => [r.kind, r.actuator])).toEqual(
       expect.arrayContaining([
@@ -167,14 +189,22 @@ describe('climate events', () => {
     expect(page1.map((r) => r.reason)).toEqual(['tick 4', 'tick 3']);
 
     // A row inserted mid-read must not shift the second page.
-    recordClimateEvent(db, { ...base, ts: '2026-08-14T12:09:00.000Z', action: { kind: 'hold', reason: 'later' } });
+    recordClimateEvent(db, {
+      ...base,
+      ts: '2026-08-14T12:09:00.000Z',
+      action: { kind: 'hold', reason: 'later' }
+    });
     const page2 = listClimateEvents(db, 2, 2, anchor);
     expect(page2.map((r) => r.reason)).toEqual(['tick 2', 'tick 1']);
     expect(countClimateEvents(db, anchor)).toBe(5);
   });
 
   it('prunes rows past the retention window and keeps the rest', () => {
-    const at = (iso: string) => ({ ...base, ts: iso, action: { kind: 'hold' as const, reason: iso } });
+    const at = (iso: string) => ({
+      ...base,
+      ts: iso,
+      action: { kind: 'hold' as const, reason: iso }
+    });
     recordClimateEvent(db, at('2026-05-01T00:00:00.000Z'));
     recordClimateEvent(db, at('2026-08-01T00:00:00.000Z'));
     recordClimateEvent(db, at('2026-08-14T00:00:00.000Z'));
@@ -188,7 +218,11 @@ describe('climate events', () => {
   });
 
   it('treats a retention of zero as disabled', () => {
-    recordClimateEvent(db, { ...base, ts: '2020-01-01T00:00:00.000Z', action: { kind: 'hold', reason: 'ancient' } });
+    recordClimateEvent(db, {
+      ...base,
+      ts: '2020-01-01T00:00:00.000Z',
+      action: { kind: 'hold', reason: 'ancient' }
+    });
     expect(pruneClimateEvents(db, Date.parse('2026-08-14T12:00:00.000Z'), 0)).toBe(0);
     expect(listClimateEvents(db)).toHaveLength(1);
   });

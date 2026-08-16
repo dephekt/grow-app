@@ -74,7 +74,11 @@
     <ul class="rows">
       {#each events as e (e.id)}
         <li class="row" class:runoff={e.kind === 'runoff'}>
-          <span class="dot" class:irrigation={e.kind === 'irrigation'} class:runoff={e.kind === 'runoff'}></span>
+          <span
+            class="dot"
+            class:irrigation={e.kind === 'irrigation'}
+            class:runoff={e.kind === 'runoff'}
+          ></span>
           <span class="when mono">{fmtTime(e.ts)}</span>
           <span class="what">
             <span class="label">{eventLabel(e)}</span>
@@ -88,7 +92,8 @@
               role="img"
               aria-label="No pump draw detected during this run"
               title="No pump draw detected during this run — the tank may have served it, or the shot was too short to draw."
-            >⚠</span>
+              >⚠</span
+            >
           {:else}
             <span class="warn-spacer"></span>
           {/if}
@@ -99,9 +104,15 @@
 
   {#if total > pageSize}
     <nav class="pagination" aria-label="Irrigation history pages">
-      <button type="button" disabled={loading || page === 0} onclick={() => onPageChange(page - 1)}>Newer</button>
+      <button type="button" disabled={loading || page === 0} onclick={() => onPageChange(page - 1)}
+        >Newer</button
+      >
       <span class="page mono" aria-live="polite">Page {page + 1} of {pageCount}</span>
-      <button type="button" disabled={loading || page + 1 >= pageCount} onclick={() => onPageChange(page + 1)}>Older</button>
+      <button
+        type="button"
+        disabled={loading || page + 1 >= pageCount}
+        onclick={() => onPageChange(page + 1)}>Older</button
+      >
     </nav>
   {/if}
 </div>

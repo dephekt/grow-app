@@ -3,10 +3,20 @@
 
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { mix, volumeForMode, fmtDose, TANK, EC_MIN, EC_MAX, type MixMode, type FeedTarget } from '$lib/mixing/athena';
+  import {
+    mix,
+    volumeForMode,
+    fmtDose,
+    TANK,
+    EC_MIN,
+    EC_MAX,
+    type MixMode,
+    type FeedTarget
+  } from '$lib/mixing/athena';
   import { formatBatchEc, type HydroReadings } from '$lib/mixing/hydro';
 
-  let { hydro = null, feedTarget }: { hydro?: HydroReadings | null; feedTarget: FeedTarget } = $props();
+  let { hydro = null, feedTarget }: { hydro?: HydroReadings | null; feedTarget: FeedTarget } =
+    $props();
 
   let mode = $state<MixMode>('full');
   let customL = $state(1);
@@ -27,7 +37,9 @@
   const liveEc = $derived(hydro?.ec ?? null);
   const livePh = $derived(hydro?.ph ?? null);
   const ecDelta = $derived(liveEc ? liveEc.mScm - ecTarget : null);
-  const ecClass = $derived(ecDelta == null ? '' : Math.abs(ecDelta) <= EC_TOL ? 'ok' : ecDelta < 0 ? 'under' : 'over');
+  const ecClass = $derived(
+    ecDelta == null ? '' : Math.abs(ecDelta) <= EC_TOL ? 'ok' : ecDelta < 0 ? 'under' : 'over'
+  );
   // mS/cm at nutrient strength, but the probe's own µS/cm below 0.1 mS/cm — a fresh-water fill
   // (a few µS/cm) would otherwise round to a misleading "0.00 mS/cm". The delta stays in mS/cm.
   const batchEc = $derived(liveEc ? formatBatchEc(liveEc) : null);
@@ -47,7 +59,9 @@
 <div class="panel calc">
   <div class="panel-head">
     <span class="p-title">// Reservoir mix · Athena Pro Line</span>
-    <span class="basis mono">{feedTarget.stageLabel} · {fmtVol(volumeL)} L · EC {ecTarget.toFixed(1)}</span>
+    <span class="basis mono"
+      >{feedTarget.stageLabel} · {fmtVol(volumeL)} L · EC {ecTarget.toFixed(1)}</span
+    >
   </div>
 
   <!-- Water volume -->
@@ -70,7 +84,9 @@
         <input type="number" min="0" step="0.1" bind:value={customL} aria-label="Custom litres" />
       </label>
     {/if}
-    <span class="hint">Full = fresh fill from empty · Refill = a normal top-up (drain-to-valve back to full).</span>
+    <span class="hint"
+      >Full = fresh fill from empty · Refill = a normal top-up (drain-to-valve back to full).</span
+    >
   </div>
 
   <!-- Target EC + live batch readings -->
@@ -79,16 +95,29 @@
       <div class="ec-main">
         <span class="lbl">Target EC <span class="mono">mS/cm</span></span>
         <div class="ec-row">
-          <input class="ec-input mono" type="number" min="0" step="0.1" bind:value={ec} aria-label="Target EC" />
+          <input
+            class="ec-input mono"
+            type="number"
+            min="0"
+            step="0.1"
+            bind:value={ec}
+            aria-label="Target EC"
+          />
           <div class="chips" role="group" aria-label="EC presets">
             {#each EC_CHIPS as v (v)}
-              <button type="button" class="chip mono" class:on={ec === v} onclick={() => (ec = v)}>{v.toFixed(1)}</button>
+              <button type="button" class="chip mono" class:on={ec === v} onclick={() => (ec = v)}
+                >{v.toFixed(1)}</button
+              >
             {/each}
           </div>
         </div>
-        <span class="hint">CCI LED coco: 3.5 veg / early flower · 3.0 bulk · 2.5 finish · pH 6.0. Seedlings 1.5.</span>
+        <span class="hint"
+          >CCI LED coco: 3.5 veg / early flower · 3.0 bulk · 2.5 finish · pH 6.0. Seedlings 1.5.</span
+        >
         {#if result.extrapolated}
-          <span class="hint warn">⚠ EC is outside the printed chart ({EC_MIN}–{EC_MAX}); this dose is extrapolated.</span>
+          <span class="hint warn"
+            >⚠ EC is outside the printed chart ({EC_MIN}–{EC_MAX}); this dose is extrapolated.</span
+          >
         {/if}
       </div>
 
@@ -98,8 +127,12 @@
           <div class="lr">
             <span class="lk mono">EC</span>
             {#if liveEc}
-              <span class="lv mono" data-testid="live-ec">{batchEc?.value}<i>{batchEc?.unit}</i></span>
-              {#if ecDelta != null}<span class="ld mono {ecClass}">{signed2(ecDelta)} vs {ecTarget.toFixed(1)} mS/cm</span>{/if}
+              <span class="lv mono" data-testid="live-ec"
+                >{batchEc?.value}<i>{batchEc?.unit}</i></span
+              >
+              {#if ecDelta != null}<span class="ld mono {ecClass}"
+                  >{signed2(ecDelta)} vs {ecTarget.toFixed(1)} mS/cm</span
+                >{/if}
             {:else}
               <span class="lv mono none" data-testid="live-ec">—</span>
             {/if}
@@ -112,8 +145,11 @@
                 class:ok={phStatus === 'ok'}
                 class:warn={phStatus === 'near'}
                 class:alert={phStatus === 'off'}
-                data-testid="live-ph">{livePh.value.toFixed(2)}</span>
-              <span class="ld mono muted">target {feedTarget.ph.label} · {feedTarget.stageLabel.toLowerCase()}</span>
+                data-testid="live-ph">{livePh.value.toFixed(2)}</span
+              >
+              <span class="ld mono muted"
+                >target {feedTarget.ph.label} · {feedTarget.stageLabel.toLowerCase()}</span
+              >
             {:else}
               <span class="lv mono none" data-testid="live-ph">—</span>
             {/if}
@@ -127,8 +163,12 @@
   <div class="doses">
     <div class="dose">
       <span class="d-name">Pro Grow / Pro Bloom</span>
-      <span class="d-val mono" data-testid="dose-grow-bloom">{fmtDose(result.growBloom)}<i>mL</i></span>
-      <span class="d-basis mono">{fmtDose(result.perTenL.growBloom)} mL/10 L × {fmtVol(volumeL)} L</span>
+      <span class="d-val mono" data-testid="dose-grow-bloom"
+        >{fmtDose(result.growBloom)}<i>mL</i></span
+      >
+      <span class="d-basis mono"
+        >{fmtDose(result.perTenL.growBloom)} mL/10 L × {fmtVol(volumeL)} L</span
+      >
       <span class="d-note">Grow in veg · Bloom in flower — same dose</span>
     </div>
     <div class="dose">
@@ -140,8 +180,10 @@
   </div>
 
   <p class="order-note">
-    Balance is calibrate-once. <b>First batch:</b> water → Grow/Bloom → Core → Balance to pH (record the mL) → Cleanse.
-    <b>Every batch after:</b> water → that Balance dose up front → Grow/Bloom → Core → Cleanse. Add each separately; confirm EC + pH.
+    Balance is calibrate-once. <b>First batch:</b> water → Grow/Bloom → Core → Balance to pH (record
+    the mL) → Cleanse.
+    <b>Every batch after:</b> water → that Balance dose up front → Grow/Bloom → Core → Cleanse. Add each
+    separately; confirm EC + pH.
   </p>
 </div>
 

@@ -31,10 +31,16 @@ function dialService() {
 
   internals.publishRaw = (topic: string, payload: string) =>
     new Promise<void>((resolve, reject) => {
-      publishes.push({ topic, payload, resolve: () => resolve(), reject: () => reject(new Error('publish failed')) });
+      publishes.push({
+        topic,
+        payload,
+        resolve: () => resolve(),
+        reject: () => reject(new Error('publish failed'))
+      });
     });
 
-  const send = (nodeId: string, live: LiveSpectrum | null) => internals.publishDialSpectrum(nodeId, live);
+  const send = (nodeId: string, live: LiveSpectrum | null) =>
+    internals.publishDialSpectrum(nodeId, live);
   return { internals, publishes, send };
 }
 
@@ -48,7 +54,11 @@ function frame(nodeId: string, seq: number): LiveSpectrum {
     fw: null,
     capturedAt: new Date(0).toISOString(),
     counts: [],
-    processed: { relative: [], peakWavelengthNm: 660, saturated: false } as unknown as LiveSpectrum['processed']
+    processed: {
+      relative: [],
+      peakWavelengthNm: 660,
+      saturated: false
+    } as unknown as LiveSpectrum['processed']
   };
 }
 

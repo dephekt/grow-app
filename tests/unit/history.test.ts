@@ -4,7 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import { liveSnapshot } from '../../e2e/fixtures/live-snapshot';
 import { historyWindowSeconds, isHistoryRange } from '../../src/lib/server/influx/query';
-import { assembleDomainSeries, isTrendDomain, resolveDomainSeries } from '../../src/lib/server/influx/trend-domains';
+import {
+  assembleDomainSeries,
+  isTrendDomain,
+  resolveDomainSeries
+} from '../../src/lib/server/influx/trend-domains';
 import type { DeviceSnapshot, EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';
 import { HISTORY_RANGES, RANGE_SECONDS, type TrendPoint } from '../../src/lib/trends';
 
@@ -58,7 +62,8 @@ describe('history ranges', () => {
 
 describe('isTrendDomain', () => {
   it('accepts the domains', () => {
-    for (const d of ['water', 'climate', 'thermal', 'substrate']) expect(isTrendDomain(d)).toBe(true);
+    for (const d of ['water', 'climate', 'thermal', 'substrate'])
+      expect(isTrendDomain(d)).toBe(true);
   });
   it('rejects anything else', () => {
     expect(isTrendDomain('air')).toBe(false);
@@ -128,7 +133,9 @@ function substrateEntity(nodeId: string, objectId: string): EntityConfig {
 
 function substrateSnapshot(nodeIds: string[]): Snapshot {
   const entities = nodeIds.flatMap((n) =>
-    ['substrate_raw_counts', 'substrate_temperature', 'substrate_bulk_ec'].map((o) => substrateEntity(n, o))
+    ['substrate_raw_counts', 'substrate_temperature', 'substrate_bulk_ec'].map((o) =>
+      substrateEntity(n, o)
+    )
   );
   const devices: DeviceSnapshot[] = nodeIds.map((nodeId) => ({
     id: nodeId,
@@ -149,7 +156,10 @@ describe('substrate trend domain', () => {
    * alone would collapse four pots into one and chart whichever answered last.
    */
   it('keys each probe’s series on node id so probes cannot collide', () => {
-    const specs = resolveDomainSeries(substrateSnapshot(['substrate-a', 'substrate-b']), 'substrate');
+    const specs = resolveDomainSeries(
+      substrateSnapshot(['substrate-a', 'substrate-b']),
+      'substrate'
+    );
     expect(specs).toHaveLength(6);
     expect(new Set(specs.map((s) => s.key)).size).toBe(6);
     expect(specs.map((s) => s.key)).toContain('substrate-a:substrate_raw_counts');
@@ -195,7 +205,9 @@ describe('substrate trend domain', () => {
   it('carries a sparse temperature forward across dense counts', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
-    const ticks = Array.from({ length: 20 }, (_, i) => new Date(Date.parse(T0) + i * 30_000).toISOString());
+    const ticks = Array.from({ length: 20 }, (_, i) =>
+      new Date(Date.parse(T0) + i * 30_000).toISOString()
+    );
     const points = new Map<string, TrendPoint[]>([
       ['substrate-a:substrate_raw_counts', ticks.map((t) => ({ t, v: 2861.35 }))],
       // One temperature point, at the fifth tick — as if it changed once and held.
@@ -212,7 +224,9 @@ describe('substrate trend domain', () => {
   it('steps pore EC when bulk EC changes, rather than interpolating', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
-    const ticks = Array.from({ length: 4 }, (_, i) => new Date(Date.parse(T0) + i * 30_000).toISOString());
+    const ticks = Array.from({ length: 4 }, (_, i) =>
+      new Date(Date.parse(T0) + i * 30_000).toISOString()
+    );
     const points = new Map<string, TrendPoint[]>([
       ['substrate-a:substrate_raw_counts', ticks.map((t) => ({ t, v: 2861.35 }))],
       ['substrate-a:substrate_temperature', [{ t: ticks[0], v: 26.6 }]],
@@ -286,16 +300,26 @@ describe('substrate trend domain', () => {
   it('applies the bound zone’s curve to the history it derives', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
-    const points = new Map<string, TrendPoint[]>([['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]]]);
+    const points = new Map<string, TrendPoint[]>([
+      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 2861.35 }]]
+    ]);
 
     const bound = [{ nodeId: 'substrate-a', zoneId: 'z1' }];
     const soilless = assembleDomainSeries(
-      snapshot, 'substrate', specs, points,
-      [{ id: 'z1', name: 'Tent 1', substrateType: 'Coco' }], bound
+      snapshot,
+      'substrate',
+      specs,
+      points,
+      [{ id: 'z1', name: 'Tent 1', substrateType: 'Coco' }],
+      bound
     );
     const mineral = assembleDomainSeries(
-      snapshot, 'substrate', specs, points,
-      [{ id: 'z1', name: 'Bed', substrateType: 'Loam' }], bound
+      snapshot,
+      'substrate',
+      specs,
+      points,
+      [{ id: 'z1', name: 'Bed', substrateType: 'Loam' }],
+      bound
     );
     expect(soilless[0].points[0].v).toBeCloseTo(47.3, 1);
     expect(mineral[0].points[0].v).toBeCloseTo(41.4, 1);
@@ -310,7 +334,13 @@ describe('substrate trend domain', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
     const points = new Map<string, TrendPoint[]>([
-      ['substrate-a:substrate_raw_counts', [{ t: T0, v: 99999 }, { t: T1, v: -5 }]]
+      [
+        'substrate-a:substrate_raw_counts',
+        [
+          { t: T0, v: 99999 },
+          { t: T1, v: -5 }
+        ]
+      ]
     ]);
     expect(assembleDomainSeries(snapshot, 'substrate', specs, points)).toEqual([]);
   });
@@ -366,7 +396,9 @@ describe('substrate trend domain', () => {
   it('carries a sparse temperature across every count, not just the ticks it recorded on', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
-    const ticks = Array.from({ length: 20 }, (_, i) => new Date(Date.parse(T0) + i * 30_000).toISOString());
+    const ticks = Array.from({ length: 20 }, (_, i) =>
+      new Date(Date.parse(T0) + i * 30_000).toISOString()
+    );
     const points = new Map<string, TrendPoint[]>([
       ['substrate-a:substrate_raw_counts', ticks.map((t) => ({ t, v: 2861.35 }))],
       ['substrate-a:substrate_temperature', [{ t: ticks[5], v: 26.6 }]],
@@ -382,7 +414,9 @@ describe('substrate trend domain', () => {
   it('steps bulk EC rather than interpolating across the change', () => {
     const snapshot = substrateSnapshot(['substrate-a']);
     const specs = resolveDomainSeries(snapshot, 'substrate');
-    const ticks = Array.from({ length: 4 }, (_, i) => new Date(Date.parse(T0) + i * 30_000).toISOString());
+    const ticks = Array.from({ length: 4 }, (_, i) =>
+      new Date(Date.parse(T0) + i * 30_000).toISOString()
+    );
     const points = new Map<string, TrendPoint[]>([
       ['substrate-a:substrate_raw_counts', ticks.map((t) => ({ t, v: 2861.35 }))],
       ['substrate-a:substrate_temperature', [{ t: ticks[0], v: 26.6 }]],

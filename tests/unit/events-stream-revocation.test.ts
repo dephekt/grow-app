@@ -44,9 +44,16 @@ afterEach(() => {
 });
 
 let userSeq = 0;
-async function seedUserWithStream(): Promise<{ userId: number; token: string; response: Response }> {
+async function seedUserWithStream(): Promise<{
+  userId: number;
+  token: string;
+  response: Response;
+}> {
   const db = getAuthDb();
-  const user = await createLocalUser(db, { username: `streamer${userSeq++}`, password: 'password123' });
+  const user = await createLocalUser(db, {
+    username: `streamer${userSeq++}`,
+    password: 'password123'
+  });
   touchedUserIds.add(user.id);
   const { token } = createSession(db, { userId: user.id, loginMethod: 'local' });
 

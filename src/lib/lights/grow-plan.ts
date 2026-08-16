@@ -165,7 +165,12 @@ export function resolveGrowState(now: Date, startIso: string = GROW_START): Grow
     offHours: stage.offHours,
     dayOfGrow,
     nextRamp,
-    weekly: WEEKLY_PLAN.map((w, i) => ({ week: w.week, stage: w.stage, ppfdTarget: w.ppfdTarget, current: i === idx })),
+    weekly: WEEKLY_PLAN.map((w, i) => ({
+      week: w.week,
+      stage: w.stage,
+      ppfdTarget: w.ppfdTarget,
+      current: i === idx
+    })),
     airVpdTarget: wk.airVpdTarget,
     climateRef: wk.climateRef
   };
@@ -242,7 +247,14 @@ export function buildGuidance(
         ? `Below target — lower the fixture until PPFD reads ~${round(target)} µmol.`
         : `Below target — raise to 100%, then lower the fixture until PPFD reads ~${round(target)} µmol.`;
     }
-    return { status: 'under', deltaPct, dimmerForTargetPct, estDistanceCm, targetDistanceCm, message };
+    return {
+      status: 'under',
+      deltaPct,
+      dimmerForTargetPct,
+      estDistanceCm,
+      targetDistanceCm,
+      message
+    };
   }
 
   // Over target: dim down (raising the fixture is the alternative).

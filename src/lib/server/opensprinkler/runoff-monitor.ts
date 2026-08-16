@@ -16,7 +16,10 @@ const RUNOFF_REARM_IDLE_MS = 30_000;
 
 /** Mirrors model.resolveEntity's node match without needing a full snapshot. */
 function isRunoffPowerEntity(entity: EntityConfig): boolean {
-  return (entity.nodeId ?? entity.device.identifiers[0]) === RUNOFF_NODE && entity.objectId === RUNOFF_POWER_OBJECT_ID;
+  return (
+    (entity.nodeId ?? entity.device.identifiers[0]) === RUNOFF_NODE &&
+    entity.objectId === RUNOFF_POWER_OBJECT_ID
+  );
 }
 
 /**
@@ -43,7 +46,10 @@ export class RunoffRunTracker {
     }
     // Below the floor: arm once the pump has been idle long enough that any prior run has ended.
     // `lastAboveMs === null` is the startup case — the first idle sample arms with no wait.
-    if (!this.armed && (this.lastAboveMs === null || nowMs - this.lastAboveMs >= this.rearmIdleMs)) {
+    if (
+      !this.armed &&
+      (this.lastAboveMs === null || nowMs - this.lastAboveMs >= this.rearmIdleMs)
+    ) {
       this.armed = true;
     }
     return null;

@@ -61,7 +61,10 @@ export async function runSchedulerTick(deps: SchedulerTickDeps): Promise<void> {
         continue;
       }
 
-      const seconds = clampSeconds(resolveShotSeconds(shotInputFor(schedule), zone), zone.maxRunSeconds);
+      const seconds = clampSeconds(
+        resolveShotSeconds(shotInputFor(schedule), zone),
+        zone.maxRunSeconds
+      );
 
       // The anchor is a PRECONDITION of the fire, not a consequence: a failed write skips a
       // shot rather than leaving a valve re-firing every tick across the grace window.
@@ -78,7 +81,10 @@ export async function runSchedulerTick(deps: SchedulerTickDeps): Promise<void> {
         try {
           markScheduleFired(db, schedule.id, priorLastFired);
         } catch (revertError) {
-          console.error(`[schedule] schedule ${schedule.id} anchor revert failed after run rejection`, revertError);
+          console.error(
+            `[schedule] schedule ${schedule.id} anchor revert failed after run rejection`,
+            revertError
+          );
         }
         throw error; // surface to the per-schedule catch (logs, continues to siblings)
       }

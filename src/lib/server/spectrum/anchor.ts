@@ -18,9 +18,9 @@ const KEY: Record<AnchorSource, string> = {
 let cache: Anchors | null = null;
 
 function readAnchor(source: AnchorSource): AnchorCalibration | undefined {
-  const row = getSettingsDb().prepare('SELECT value FROM app_settings WHERE key = ?').get(KEY[source]) as
-    | { value: string }
-    | undefined;
+  const row = getSettingsDb()
+    .prepare('SELECT value FROM app_settings WHERE key = ?')
+    .get(KEY[source]) as { value: string } | undefined;
   if (!row) return undefined;
   try {
     return JSON.parse(row.value) as AnchorCalibration;

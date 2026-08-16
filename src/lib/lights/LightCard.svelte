@@ -17,7 +17,9 @@
   const offTime = $derived(entityByRef(snap, light.roles.offTime));
   const dimmer = $derived(entityByRef(snap, light.roles.dimmer));
   const metrics = $derived(
-    (light.roles.metrics ?? []).map((ref) => entityByRef(snap, ref)).filter((e): e is EntityConfig => Boolean(e))
+    (light.roles.metrics ?? [])
+      .map((ref) => entityByRef(snap, ref))
+      .filter((e): e is EntityConfig => Boolean(e))
   );
 
   const isOn = $derived(Boolean(power && live.stateFor(power).value === power.payloadOn));
@@ -151,7 +153,8 @@
       <span class="panel-title">{light.name}</span>
       {#if light.type}<span class="type mono">{light.type}</span>{/if}
     </div>
-    <span class="status mono" class:on={isOn && !offline}>{isOn ? 'ON' : 'OFF'} · {statusText}</span>
+    <span class="status mono" class:on={isOn && !offline}>{isOn ? 'ON' : 'OFF'} · {statusText}</span
+    >
   </div>
 
   {#if power}
