@@ -12,4 +12,5 @@ data
 .env
 .env.*
 .git
+.claude
 .forgejo
