@@ -80,6 +80,13 @@ pnpm check
 pnpm test
 ```
 
+Run `pnpm lint`, not a bare `eslint`. The type-aware rules read the types
+`svelte-kit sync` generates into `.svelte-kit/`, which is gitignored, and the
+script syncs first. Without that step every import resolves to an error type
+and a single file can report a hundred phantom `no-unsafe-*` errors — so if
+your editor's ESLint integration lights up a fresh clone, run `pnpm lint` once
+rather than chasing the findings.
+
 A one-time Prettier reformat touched most of the tree, so `git blame` on an
 untouched line would otherwise point at it rather than at the author.
 `.git-blame-ignore-revs` lists it. GitHub's web blame honours that file with no

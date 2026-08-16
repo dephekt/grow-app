@@ -3,6 +3,7 @@
 
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import type { PageProps } from './$types';
   import BandGauge from '$lib/climate/BandGauge.svelte';
   import ClimateLog from '$lib/climate/ClimateLog.svelte';
   import {
@@ -14,7 +15,7 @@
   import { absoluteHumidityGPerM3 } from '$lib/climate/psychro';
   import { LOG_PAGE_SIZE, type ClimateEventJson, type ClimateLiveState } from './+page';
 
-  let { data } = $props();
+  let { data }: PageProps = $props();
 
   let climate = $state<ClimateLiveState>(untrack(() => data.state));
   let events = $state<ClimateEventJson[]>(untrack(() => data.events));

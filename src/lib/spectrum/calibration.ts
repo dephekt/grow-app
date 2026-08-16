@@ -98,9 +98,9 @@ export const WAVELENGTHS: number[] = Array.from({ length: PIXEL_COUNT }, (_, i) 
 
 // Per-pixel bin edges (midpoints between neighbouring wavelengths; extrapolated at
 // the two ends) and widths — the correct use of Δλ: boundary apportionment.
-const LOWER_EDGE: number[] = new Array(PIXEL_COUNT);
-const UPPER_EDGE: number[] = new Array(PIXEL_COUNT);
-const DELTA_LAMBDA: number[] = new Array(PIXEL_COUNT);
+const LOWER_EDGE: number[] = new Array<number>(PIXEL_COUNT);
+const UPPER_EDGE: number[] = new Array<number>(PIXEL_COUNT);
+const DELTA_LAMBDA: number[] = new Array<number>(PIXEL_COUNT);
 for (let i = 0; i < PIXEL_COUNT; i++) {
   const w = WAVELENGTHS[i];
   const prev = i > 0 ? WAVELENGTHS[i - 1] : w - (WAVELENGTHS[i + 1] - w);

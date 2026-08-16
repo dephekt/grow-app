@@ -11,6 +11,27 @@ import svelteConfig from './svelte.config.js';
 
 const SVELTE = ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'];
 
+// Mirrors .svelte-kit/tsconfig.json's `include`, so it is exactly the files that carry type
+// information -- including the .js kinds, which allowJs+checkJs put in the program too. Everything
+// else is handled as this set's complement rather than a second list, so the two always partition
+// the repo along the same line the program does. Keep it in step with that include; #132 is the
+// issue that moves e2e/ into the program.
+const TYPED = [
+  'src/**/*.{js,ts,svelte}',
+  'test/**/*.{js,ts,svelte}',
+  'tests/**/*.{js,ts,svelte}',
+  'vite.config.{js,ts}'
+];
+
+// The other half of that mirror: tsconfig's `exclude`. SvelteKit builds the service worker in a
+// program of its own, so these live under src/ but not in ours -- and projectService fails a file
+// it cannot find outright, so they have to come back out of TYPED.
+const NOT_TYPED = [
+  'src/service-worker.{js,ts}',
+  'src/service-worker.d.ts',
+  'src/service-worker/**/*.{js,ts}'
+];
+
 // No published header plugin can enforce this on components, because svelte-eslint-parser drops
 // comments that sit outside <script>/<style> and so never reports the <!-- --> form.
 const spdxHeader = {
@@ -83,6 +104,20 @@ export default defineConfig(
     languageOptions: {
       parserOptions: { parser: ts.parser, extraFileExtensions: ['.svelte'], svelteConfig }
     }
+  },
+
+  {
+    // Scoped to TYPED, and never wider -- not even to all .svelte. The parser fails a file it
+    // cannot find in the project outright rather than degrading, so a component added anywhere
+    // outside src/ would report `Parsing error: ... not found by the project service` instead of
+    // simply going un-type-checked.
+    //
+    // This also makes ESLint depend on `svelte-kit sync` output: without .svelte-kit/tsconfig.json
+    // every import resolves to an error type and a single file reports ~111 phantom `no-unsafe-*`.
+    // `pnpm lint` syncs first; a bare `eslint` or an editor's LSP on a fresh clone does not.
+    files: TYPED,
+    ignores: NOT_TYPED,
+    languageOptions: { parserOptions: { projectService: true } }
   },
 
   {
@@ -167,6 +202,37 @@ export default defineConfig(
       ]
     }
   },
+
+  {
+    // Scoped, never universal: every rule here calls getParserServices, which throws rather than
+    // degrading when a file carries no type information.
+    files: TYPED,
+    ignores: NOT_TYPED,
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-enum-comparison': 'error',
+      '@typescript-eslint/no-unsafe-unary-minus': 'error'
+    }
+  },
+
+  {
+    // The complement of TYPED, written as one so the two sets cannot drift apart: a file added
+    // outside src/ or tests/ lands here and goes un-type-checked, rather than falling through both
+    // lists and being silently unenforced. Nothing below this may switch a type-aware rule back on
+    // for these files. (no-explicit-any is not among the 61 it disables, and ts.configs.recommended
+    // sets that one repo-wide already, so it stays on here.)
+    files: ['**/*'],
+    ignores: TYPED,
+    extends: [ts.configs.disableTypeChecked]
+  },
+
+  // The service worker is inside TYPED's globs but outside the program, so the block above skips
+  // it. Named here so every file lands in exactly one half.
+  { files: NOT_TYPED, extends: [ts.configs.disableTypeChecked] },
 
   {
     files: ['**/*.ts', '**/*.js', '**/*.mjs', '**/*.svelte'],

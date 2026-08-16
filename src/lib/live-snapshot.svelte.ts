@@ -84,18 +84,22 @@ export function normalizeSnapshot(value: unknown, fallback?: Snapshot): Snapshot
         ? raw.generatedAt
         : (fallback?.generatedAt ?? new Date().toISOString()),
     broker: brokerOr(raw.broker, fallback?.broker),
+    // Assertions, not checks: Array.isArray says nothing about the elements, so a payload of
+    // [null] still arrives typed. Naming the type keeps the promise visible; validating it is #151.
     devices: Array.isArray(raw.devices)
-      ? clonePlain(raw.devices)
+      ? clonePlain(raw.devices as Snapshot['devices'])
       : clonePlain(fallback?.devices ?? []),
     entities: Array.isArray(raw.entities)
-      ? clonePlain(raw.entities)
+      ? clonePlain(raw.entities as Snapshot['entities'])
       : clonePlain(fallback?.entities ?? []),
     states: recordOr(raw.states, fallback?.states ?? {}),
     uiConfigs: recordOr(raw.uiConfigs, fallback?.uiConfigs ?? {}),
-    lights: Array.isArray(raw.lights) ? clonePlain(raw.lights) : clonePlain(fallback?.lights ?? []),
+    lights: Array.isArray(raw.lights)
+      ? clonePlain(raw.lights as Snapshot['lights'])
+      : clonePlain(fallback?.lights ?? []),
     firmware: firmwareOr(raw.firmware, fallback?.firmware),
     spectrometerNodeIds: Array.isArray(raw.spectrometerNodeIds)
-      ? clonePlain(raw.spectrometerNodeIds as string[])
+      ? clonePlain(raw.spectrometerNodeIds as Snapshot['spectrometerNodeIds'])
       : clonePlain(fallback?.spectrometerNodeIds ?? [])
   };
 }
@@ -113,12 +117,12 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     const events = new EventSource('/api/events');
 
     events.addEventListener('snapshot', (event) => {
-      snapshot = normalizeSnapshot(JSON.parse((event as MessageEvent).data), snapshot);
+      snapshot = normalizeSnapshot(JSON.parse((event as MessageEvent<string>).data), snapshot);
       error = null;
     });
 
     events.addEventListener('entity', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
+      const update = JSON.parse((event as MessageEvent<string>).data) as SnapshotEvent;
       if (!update.entity) return;
       snapshot = {
         ...snapshot,
@@ -130,7 +134,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     });
 
     events.addEventListener('state', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
+      const update = JSON.parse((event as MessageEvent<string>).data) as SnapshotEvent;
       if (!update.entityId || !update.state) return;
       snapshot = {
         ...snapshot,
@@ -143,7 +147,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     });
 
     events.addEventListener('availability', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
+      const update = JSON.parse((event as MessageEvent<string>).data) as SnapshotEvent;
       if (!update.deviceId || !update.availability) return;
       snapshot = {
         ...snapshot,
@@ -156,13 +160,13 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     });
 
     events.addEventListener('broker', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
+      const update = JSON.parse((event as MessageEvent<string>).data) as SnapshotEvent;
       if (!update.broker) return;
       snapshot = { ...snapshot, broker: update.broker };
     });
 
     events.addEventListener('firmware', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
+      const update = JSON.parse((event as MessageEvent<string>).data) as SnapshotEvent;
       if (!update.firmware) return;
       snapshot = { ...snapshot, firmware: update.firmware };
     });
@@ -170,7 +174,7 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
     // The spectrum event travels as the full SnapshotEvent envelope (generic SSE
     // encoder), so read update.spectrum — matching the entity/state/firmware listeners.
     events.addEventListener('spectrum', (event) => {
-      const update = JSON.parse((event as MessageEvent).data) as SnapshotEvent;
+      const update = JSON.parse((event as MessageEvent<string>).data) as SnapshotEvent;
       spectrum = update.spectrum ?? null;
       spectrumReceived = true;
     });

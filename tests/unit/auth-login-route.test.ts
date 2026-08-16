@@ -6,6 +6,7 @@ import { POST } from '../../src/routes/auth/login/+server';
 import { getAuthDb } from '$lib/server/auth/db';
 import { createLocalUser } from '$lib/server/auth/users';
 import { getLoginThrottle } from '$lib/server/auth/login-throttle';
+import { readJson } from './http';
 
 // Exercise the login handler's HTTP-level shed-load contract — the 429 status +
 // Retry-After wiring and the release-slot-on-every-exit invariant — which the
@@ -86,7 +87,7 @@ describe('POST /auth/login shed-load contract', () => {
     );
 
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    expect((await readJson<{ ok: boolean }>(res)).ok).toBe(true);
     expect(setCookies.some((c) => c.name === 'grow_session')).toBe(true);
     expect(getLoginThrottle().inFlight).toBe(0);
   });

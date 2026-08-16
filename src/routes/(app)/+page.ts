@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
+import type { PageLoadEvent } from './$types';
 import type { SubstrateProbeBinding, SubstrateZoneBinding } from '$lib/substrate';
 import type { ClimateBriefState } from '../api/climate/+server';
 
@@ -12,7 +13,7 @@ const ZONES_TIMEOUT_MS = 3000;
 
 /** The dashboard's server-backed reads: zone→probe bindings for the SUBSTRATE card, and the
  *  loop's EFFECTIVE air-VPD target, which an override on /climate can move off the plan. */
-export const load = async ({ fetch }) => {
+export const load = async ({ fetch }: PageLoadEvent) => {
   const empty: SubstrateZoneBinding[] = [];
   const noProbes: SubstrateProbeBinding[] = [];
 

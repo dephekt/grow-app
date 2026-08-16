@@ -46,9 +46,10 @@ export function parseSpectrumPayload(
 
   const counts = raw.counts;
   if (!Array.isArray(counts) || counts.length !== PIXEL_COUNT) return null;
-  const parsed: number[] = new Array(PIXEL_COUNT);
+  const parsed: number[] = new Array<number>(PIXEL_COUNT);
   for (let i = 0; i < PIXEL_COUNT; i++) {
-    const v = counts[i];
+    // Array.isArray narrowed `counts` from unknown to any[], so re-widen before the check below.
+    const v: unknown = counts[i];
     if (typeof v !== 'number' || !Number.isFinite(v)) return null;
     parsed[i] = v;
   }

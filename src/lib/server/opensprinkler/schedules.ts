@@ -65,8 +65,8 @@ interface ScheduleRow {
  *  already normalizes on write, so a bad value here means hand-edited / corrupt data. */
 function parseTimes(json: string): number[] {
   try {
-    const value = JSON.parse(json);
-    return Array.isArray(value) ? value.filter((n) => Number.isInteger(n)) : [];
+    const value: unknown = JSON.parse(json);
+    return Array.isArray(value) ? value.filter((n): n is number => Number.isInteger(n)) : [];
   } catch {
     return [];
   }

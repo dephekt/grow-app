@@ -2,7 +2,9 @@
 <!-- Copyright (C) 2026 Daniel Snider -->
 
 <script lang="ts">
-  let { data } = $props();
+  import type { PageProps } from './$types';
+
+  let { data }: PageProps = $props();
 
   let username = $state('');
   let password = $state('');

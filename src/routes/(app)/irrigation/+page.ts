@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { error, redirect } from '@sveltejs/kit';
+import type { PageLoadEvent } from './$types';
 import type { SubstrateProbeBinding } from '$lib/substrate';
 import type { Zone } from '$lib/server/opensprinkler/zones';
 import type { ScheduleJson } from '$lib/server/opensprinkler/schedules';
@@ -12,7 +13,7 @@ export type { ScheduleJson, IrrigationEventJson };
 
 const HISTORY_PAGE_SIZE = 25;
 
-export const load = async ({ fetch }) => {
+export const load = async ({ fetch }: PageLoadEvent) => {
   // Zones, schedules, and the history feed are independent reads; fetch them in parallel.
   const [zonesRes, schedulesRes, eventsRes] = await Promise.all([
     fetch('/api/irrigation/zones'),

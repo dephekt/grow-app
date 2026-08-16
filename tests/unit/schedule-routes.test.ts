@@ -3,6 +3,20 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { AuthenticatedUser } from '$lib/server/auth/users';
+import { readJson } from './http';
+
+type ScheduleRow = {
+  id: string;
+  zoneId: string;
+  times: string[];
+  shotMl: number | null;
+  shotSeconds: number | null;
+  nextDueAt: string | null;
+};
+type ScheduleBody = { schedule: ScheduleRow };
+type SchedulesBody = { schedules: ScheduleRow[] };
+type ZoneBody = { zone: { id: string } };
+type ErrorBody = { error: string };
 
 // In-memory DB, OpenSprinkler DISABLED — schedule CRUD never touches the controller,
 // so the routes exercise purely against the store. Set before importing the handlers
@@ -52,7 +66,7 @@ async function createZone(body: Record<string, unknown>): Promise<{ id: string }
   const res = (await ZONE_POST(
     event({ body, user: admin }) as unknown as Parameters<typeof ZONE_POST>[0]
   )) as Response;
-  return (await res.json()).zone;
+  return (await readJson<ZoneBody>(res)).zone;
 }
 
 async function createSchedule(
@@ -61,7 +75,7 @@ async function createSchedule(
   const res = (await POST(
     event({ body, user: admin }) as unknown as Parameters<typeof POST>[0]
   )) as Response;
-  return (await res.json()).schedule;
+  return (await readJson<ScheduleBody>(res)).schedule;
 }
 
 beforeEach(() => {
@@ -73,7 +87,7 @@ beforeEach(() => {
 describe('/api/irrigation/schedules', () => {
   it('lists schedules and filters by zoneId', async () => {
     let res = (await GET(event({}) as unknown as Parameters<typeof GET>[0])) as Response;
-    expect((await res.json()).schedules).toEqual([]);
+    expect((await readJson<SchedulesBody>(res)).schedules).toEqual([]);
 
     const a = await createZone({ name: 'A', stationSid: 0 });
     const b = await createZone({ name: 'B', stationSid: 1 });
@@ -81,11 +95,11 @@ describe('/api/irrigation/schedules', () => {
     await createSchedule({ zoneId: b.id, times: ['07:00'], shotSeconds: 30 });
 
     res = (await GET(event({}) as unknown as Parameters<typeof GET>[0])) as Response;
-    expect((await res.json()).schedules).toHaveLength(2);
+    expect((await readJson<SchedulesBody>(res)).schedules).toHaveLength(2);
 
     const url = `http://localhost/api/irrigation/schedules?zoneId=${a.id}`;
     res = (await GET(event({ url }) as unknown as Parameters<typeof GET>[0])) as Response;
-    const filtered = (await res.json()).schedules;
+    const filtered = (await readJson<SchedulesBody>(res)).schedules;
     expect(filtered).toHaveLength(1);
     expect(filtered[0].zoneId).toBe(a.id);
   });
@@ -117,7 +131,7 @@ describe('/api/irrigation/schedules', () => {
       }) as unknown as Parameters<typeof POST>[0]
     )) as Response;
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/time/i);
+    expect((await readJson<ErrorBody>(res)).error).toMatch(/time/i);
     // No shot size.
     res = (await POST(
       event({ body: { zoneId: zone.id, times: ['06:00'] } }) as unknown as Parameters<
@@ -125,7 +139,7 @@ describe('/api/irrigation/schedules', () => {
       >[0]
     )) as Response;
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/exactly one/i);
+    expect((await readJson<ErrorBody>(res)).error).toMatch(/exactly one/i);
     // Two shot sizes.
     res = (await POST(
       event({
@@ -133,7 +147,7 @@ describe('/api/irrigation/schedules', () => {
       }) as unknown as Parameters<typeof POST>[0]
     )) as Response;
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/exactly one/i);
+    expect((await readJson<ErrorBody>(res)).error).toMatch(/exactly one/i);
   });
 
   it('404s an unknown zoneId', async () => {
@@ -153,7 +167,7 @@ describe('/api/irrigation/schedules', () => {
       }) as unknown as Parameters<typeof POST>[0]
     )) as Response;
     expect(res.status).toBe(201);
-    const schedule = (await res.json()).schedule;
+    const schedule = (await readJson<ScheduleBody>(res)).schedule;
     expect(schedule.times).toEqual(['06:00', '18:00']); // deduped + sorted
     expect(typeof schedule.nextDueAt === 'string').toBe(true);
   });
@@ -225,7 +239,7 @@ describe('/api/irrigation/schedules/[id]', () => {
       >[0]
     )) as Response;
     expect(res.status).toBe(200);
-    const updated = (await res.json()).schedule;
+    const updated = (await readJson<ScheduleBody>(res)).schedule;
     expect(updated.times).toEqual(['09:00']);
     expect(updated.shotMl).toBe(50);
     expect(updated.shotSeconds).toBeNull(); // shot triplet replaced
@@ -261,6 +275,6 @@ describe('/api/irrigation/schedules/[id]', () => {
 
     const url = `http://localhost/api/irrigation/schedules?zoneId=${zone.id}`;
     const res = (await GET(event({ url }) as unknown as Parameters<typeof GET>[0])) as Response;
-    expect((await res.json()).schedules).toEqual([]);
+    expect((await readJson<SchedulesBody>(res)).schedules).toEqual([]);
   });
 });

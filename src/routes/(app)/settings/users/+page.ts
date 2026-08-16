@@ -2,9 +2,10 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { error, redirect } from '@sveltejs/kit';
+import type { PageLoadEvent } from './$types';
 import type { UserSummary } from '$lib/server/auth/users';
 
-export const load = async ({ fetch }) => {
+export const load = async ({ fetch }: PageLoadEvent) => {
   const response = await fetch('/api/users');
   if (response.status === 401 || response.status === 403) {
     // Non-admins have no business here; the API is the real gate.

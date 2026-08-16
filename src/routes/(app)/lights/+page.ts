@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
+import type { PageLoadEvent } from './$types';
 import type { LiveSpectrum } from '$lib/server/mqtt/types';
 import type { CaptureSummary } from '$lib/server/spectrum/captures';
 import type { SpectroConfig } from '$lib/spectrum/calibration';
@@ -9,7 +10,7 @@ type Anchors = SpectroConfig['anchors'];
 
 // Live values arrive via the shared SSE snapshot; this loader only seeds initial state because the
 // service consumes the retained spectrum frame before any browser subscribes.
-export const load = async ({ fetch }) => {
+export const load = async ({ fetch }: PageLoadEvent) => {
   let initialSpectrum: LiveSpectrum | null = null;
   let captures: CaptureSummary[] = [];
   let anchors: Anchors = {};

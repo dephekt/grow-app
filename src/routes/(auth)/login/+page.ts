@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { redirect } from '@sveltejs/kit';
+import type { PageLoadEvent } from './$types';
 import { sanitizeNext } from '$lib/auth-redirect';
 
 /** Map a `?error=` code from the OIDC callback to a user-facing message. */
@@ -16,7 +17,7 @@ function errorMessage(code: string | null): string | null {
   }
 }
 
-export const load = async ({ fetch, url }) => {
+export const load = async ({ fetch, url }: PageLoadEvent) => {
   const next = sanitizeNext(url.searchParams.get('next'));
   const error = errorMessage(url.searchParams.get('error'));
 

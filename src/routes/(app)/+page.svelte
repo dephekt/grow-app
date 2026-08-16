@@ -3,6 +3,7 @@
 
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import type { PageProps } from './$types';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import {
     findQuantumPpfdEntity,
@@ -23,7 +24,7 @@
   import SubstratePanel from '$lib/dashboard/SubstratePanel.svelte';
   import SmartPlugsPanel from '$lib/dashboard/SmartPlugsPanel.svelte';
 
-  let { data } = $props();
+  let { data }: PageProps = $props();
   const live = getLiveSnapshot();
 
   type Row = { label: string; value: string; status?: 'ok' | 'warn' | 'alert' | 'none' };
