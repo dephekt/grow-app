@@ -1,0 +1,8 @@
+# Revisions `git blame` should skip. GitHub honours this file in its web blame with no setup;
+# see CONTRIBUTING.md for the one-time config that does the same locally.
+#
+# Every SHA here must resolve on main -- git treats an unresolvable one as a silent no-op, so a
+# typo would quietly stop blame from skipping anything. The Lint job checks them on every PR.
+
+# chore: format the tree with prettier (#87)
+eff65bf4309ad6c50c07545707c113310830d0e2

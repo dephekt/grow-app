@@ -80,5 +80,16 @@ pnpm test
 ```
 
 A one-time Prettier reformat touched most of the tree, so `git blame` on an
-untouched line may point at it rather than at the author. A
-`.git-blame-ignore-revs` follows once the reformat has a commit on `main`.
+untouched line would otherwise point at it rather than at the author.
+`.git-blame-ignore-revs` lists it. GitHub's web blame honours that file with no
+setup at all; to get the same locally, once per clone:
+
+```sh
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+That writes to `.git/config`, which every worktree of the clone shares, so one
+run covers the ones you already have. Know the cost before enabling it: `git
+blame` fails outright — `fatal: could not open object name list` — in any
+checkout where the file is absent, such as a commit older than it. Nothing
+overrides it per invocation; unset the config to blame there.

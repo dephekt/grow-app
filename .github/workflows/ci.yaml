@@ -22,7 +22,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+      # Full history so the blame-revs check can test reachability locally.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -39,6 +42,44 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Format
         run: pnpm format:check
+      # Every line must be an unabbreviated SHA reachable from the default branch, since git treats
+      # an unreachable one as a silent no-op and blame then skips nothing.
+      - name: Validate .git-blame-ignore-revs
+        env:
+          BASE: origin/${{ github.event.repository.default_branch }}
+        run: |
+          file=.git-blame-ignore-revs
+          if [ ! -f "$file" ]; then
+            echo "::error::$file is missing; drop this step too if the file is intentionally gone"
+            exit 1
+          fi
+          if ! git rev-parse --verify --quiet "$BASE" > /dev/null; then
+            echo "::error::$BASE is unavailable, so reachability cannot be checked; this job needs fetch-depth: 0"
+            exit 1
+          fi
+          # The `|| [ -n ]` keeps a final line that has no trailing newline.
+          revs=0
+          while read -r sha _ || [ -n "$sha" ]; do
+            sha=${sha%$'\r'} # git tolerates CRLF here, so the check should too
+            case "$sha" in '' | '#'*) continue ;; esac
+            revs=$((revs + 1))
+            if [[ ! "$sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "::error file=$file::'$sha' is not an unabbreviated 40-character SHA; git blame rejects anything shorter"
+              exit 1
+            fi
+            if ! git rev-parse --verify --quiet "$sha^{commit}" > /dev/null; then
+              echo "::error file=$file::$sha is not a commit in this repository"
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$sha" "$BASE"; then
+              echo "::error file=$file::$sha is not reachable from $BASE; only commits already merged there can be listed here"
+              exit 1
+            fi
+          done < "$file"
+          if [ "$revs" -eq 0 ]; then
+            echo "::error file=$file::no revisions listed, so blame skips nothing; delete the file and this step if that is intended"
+            exit 1
+          fi
 
   check:
     name: Typecheck & unit tests
