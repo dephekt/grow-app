@@ -410,6 +410,14 @@ describe('decideClimate — temperature limits', () => {
     expect(d.reason).toContain('°C floor');
   });
 
+  // The cold branch takes both windows for the same reason the mainline start does: on the tick
+  // after a vent stop the median is under the floor while the short window is not, and a start
+  // that would never be attempted must not be reported as blocked.
+  it('raises no cold block for a start the fast window would have refused anyway', () => {
+    const d = decideClimate(input({ airVpd: 0.88, airVpdFast: 1.05, tentTempC: 19 }));
+    expect(d.kind).toBe('hold');
+  });
+
   it('STOPS a running fan once the tent falls below the cold floor', () => {
     // Cold protection needs a stop leg: on a cold wet night humid room air never carries tent
     // VPD past the top of band, so the ordinary release condition never fires.

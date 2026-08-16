@@ -13,7 +13,13 @@ import {
   updateClimateSmoothing
 } from '../../src/lib/server/climate/loop';
 import { resolveClimateInputs } from '../../src/lib/climate/inputs';
-import { controlBand, DEFAULT_CLIMATE_CONFIG, EXHAUST_NODE } from '../../src/lib/climate/model';
+import {
+  AIR_VPD_HARD_MAX,
+  controlBand,
+  DEFAULT_CLIMATE_CONFIG,
+  EXHAUST_NODE
+} from '../../src/lib/climate/model';
+import { VENT_RUN_08_15 } from './fixtures/vent-run-08-15';
 import { airVpdKpa } from '../../src/lib/climate/psychro';
 import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
 
@@ -146,6 +152,72 @@ function warmed(values: Record<string, string>, nowMs = NOW, entities?: EntityCo
 }
 
 const BAND = controlBand(1.0, DEFAULT_CLIMATE_CONFIG.deadbandKpa);
+
+/**
+ * The measured vent run driven through `runClimateTick` rather than through `decideClimate`.
+ *
+ * The law-level replay in climate-replay.test.ts builds a ClimateDecisionInput by hand, and
+ * every hand-built field is a chance for the harness to diverge from the loop. It did, twice:
+ * a `lastChangeMs` of null meant the minimum-on timer never engaged, so a test asserting the
+ * 1.20 rail could not fail when a timer deferred the stop past it. Here the timers, the two
+ * smoothing windows, the relay stamping and the config are the production ones, and the only
+ * inputs are the readings.
+ */
+describe('the 08-15 vent run, through the loop itself', () => {
+  /** Commanded relay state is echoed back on the FOLLOWING tick, as a real plug does. Starts
+   *  with the relay OFF so the loop performs the start itself and stamps its own timer, rather
+   *  than being handed a fan that has been running since forever. */
+  async function runTrace(): Promise<{ peakWhileOn: number; commands: boolean[] }> {
+    updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
+    const state = new ClimateLoopState();
+    const commands: boolean[] = [];
+    let relayOn = false;
+    let peakWhileOn = 0;
+
+    for (let k = 0; k < VENT_RUN_08_15.length; k++) {
+      const [tempC, rhPct] = VENT_RUN_08_15[k];
+      const nowMs = NOW + k * 10_000;
+      if (relayOn) peakWhileOn = Math.max(peakWhileOn, airVpdKpa(tempC, rhPct));
+
+      let commanded: boolean | null = null;
+      await runClimateTick({
+        db,
+        snapshot: snapshotWith({
+          ...WANTS_VENT,
+          rig_t: String(tempC),
+          rig_h: String(rhPct),
+          fan_relay: relayOn ? 'ON' : 'OFF'
+        }),
+        state,
+        nowMs,
+        publish: async (_entityId: string, on: boolean) => {
+          commanded = on;
+        },
+        canPublish: () => true
+      });
+      if (commanded !== null) {
+        commands.push(commanded);
+        relayOn = commanded;
+      }
+    }
+    return { peakWhileOn, commands };
+  }
+
+  // Honest about its reach: this trace sits flat for its first ~130 s, so the minimum-on timer
+  // has expired before the ramp begins and this case cannot fail when a timer defers the stop.
+  // That property is pinned by the synthetic ramp in climate-replay.test.ts, which starts
+  // climbing on the tick the fan starts. What this one covers is the plumbing the law-level
+  // replay fakes — the two windows, the relay stamping and the config, all production.
+  it('lets go of the relay before the tent reaches the 1.20 hard rail', async () => {
+    const { peakWhileOn } = await runTrace();
+    expect(peakWhileOn).toBeLessThan(AIR_VPD_HARD_MAX);
+  });
+
+  it('starts once and stops once, with no re-command in between', async () => {
+    const { commands } = await runTrace();
+    expect(commands).toEqual([true, false]);
+  });
+});
 
 describe('buildDecisionInput — the two windows', () => {
   /** A vent run at the loop's own 10 s tick: RH falling 79 → 67, which is when the two windows
