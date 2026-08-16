@@ -3,9 +3,10 @@
 
 <script lang="ts">
   import { untrack } from 'svelte';
+  import type { PageProps } from './$types';
   import type { UserSummary } from '$lib/server/auth/users';
 
-  let { data } = $props();
+  let { data }: PageProps = $props();
 
   // Seed once from load data, then manage the list locally as actions mutate it.
   let users = $state<UserSummary[]>(untrack(() => data.users));

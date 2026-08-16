@@ -3,6 +3,7 @@
 
 <script lang="ts">
   import { tick, untrack } from 'svelte';
+  import type { PageProps } from './$types';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import IrrigationCard from '$lib/irrigation/IrrigationCard.svelte';
   import IrrigationHistory from '$lib/irrigation/IrrigationHistory.svelte';
@@ -19,7 +20,7 @@
 
   type ZoneJson = Zone & { stationEntityId: string };
 
-  let { data } = $props();
+  let { data }: PageProps = $props();
   const live = getLiveSnapshot();
 
   // Seed once from load; manage locally as mutations happen.

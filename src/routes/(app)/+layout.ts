@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { redirect } from '@sveltejs/kit';
+import type { LayoutLoadEvent } from './$types';
 import type { Snapshot } from '$lib/server/mqtt/types';
 import type { AuthenticatedUser } from '$lib/server/auth/users';
 
@@ -12,7 +13,7 @@ let initialSnapshot: Snapshot | null = null;
 
 // The authenticated shell, running client-side (ssr=false).
 // Server endpoints are guarded in hooks.server.ts — this is UX, not the security boundary.
-export const load = async ({ fetch, url }) => {
+export const load = async ({ fetch, url }: LayoutLoadEvent) => {
   let user: AuthenticatedUser | null = null;
   try {
     const meResponse = await fetch('/api/me');

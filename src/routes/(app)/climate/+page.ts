@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { error, redirect } from '@sveltejs/kit';
+import type { PageLoadEvent } from './$types';
 import type { ClimateLiveState } from '../../api/climate/+server';
 import type { ClimateEventJson } from '$lib/server/climate/store';
 
@@ -9,7 +10,7 @@ export type { ClimateLiveState, ClimateEventJson };
 
 export const LOG_PAGE_SIZE = 25;
 
-export const load = async ({ fetch }) => {
+export const load = async ({ fetch }: PageLoadEvent) => {
   const [stateRes, eventsRes] = await Promise.all([
     fetch('/api/climate'),
     fetch(`/api/climate/events?limit=${LOG_PAGE_SIZE}&offset=0`)

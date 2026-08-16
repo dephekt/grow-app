@@ -3,10 +3,11 @@
 
 <script lang="ts">
   import { untrack } from 'svelte';
+  import type { PageProps } from './$types';
   import type { ReconcileReport } from '$lib/server/mqtt/tz-reconciler';
   import type { TimeZoneSource } from '$lib/server/settings/site-timezone';
 
-  let { data } = $props();
+  let { data }: PageProps = $props();
 
   // Seed the picker from the effective zone; managed locally as the admin edits + saves.
   let selected = $state<string>(untrack(() => data.timezone));

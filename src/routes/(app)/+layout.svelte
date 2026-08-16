@@ -3,11 +3,12 @@
 
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import type { LayoutProps } from './$types';
   import { createLiveSnapshot } from '$lib/live-snapshot.svelte';
   import { setLiveSnapshotContext } from '$lib/live-snapshot-context';
   import CommandBar from '$lib/CommandBar.svelte';
 
-  let { data, children } = $props();
+  let { data, children }: LayoutProps = $props();
 
   // Single shared live snapshot for the whole app — one SSE connection, provided
   // to every page via context. The command bar and pages all read from it.

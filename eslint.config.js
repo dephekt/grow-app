@@ -11,6 +11,21 @@ import svelteConfig from './svelte.config.js';
 
 const SVELTE = ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'];
 
+// tsconfig's `include`, minus the .svelte half that the SVELTE block already covers.
+const TYPED_TS = ['src/**/*.ts', 'tests/**/*.ts', 'vite.config.ts'];
+
+// Outside tsconfig's `include`, so there is no type information for these at all -- not a rule
+// exemption, an absent program. #132 is the issue that moves e2e/ into one.
+const UNTYPED = [
+  'e2e/**/*.ts',
+  'e2e/**/*.mjs',
+  'scripts/**/*.mjs',
+  'playwright.config.ts',
+  'svelte.config.js',
+  'prettier.config.js',
+  'eslint.config.js'
+];
+
 // No published header plugin can enforce this on components, because svelte-eslint-parser drops
 // comments that sit outside <script>/<style> and so never reports the <!-- --> form.
 const spdxHeader = {
@@ -81,8 +96,21 @@ export default defineConfig(
   {
     files: SVELTE,
     languageOptions: {
-      parserOptions: { parser: ts.parser, extraFileExtensions: ['.svelte'], svelteConfig }
+      parserOptions: {
+        parser: ts.parser,
+        extraFileExtensions: ['.svelte'],
+        svelteConfig,
+        projectService: true
+      }
     }
+  },
+
+  {
+    // Deliberately not set at the root: the parser fails a file it cannot find in the project
+    // outright rather than degrading, so turning this on globally makes all 20 files under
+    // e2e/, scripts/ and the repo root report `Parsing error: ... not found by the project service`.
+    files: TYPED_TS,
+    languageOptions: { parserOptions: { projectService: true } }
   },
 
   {
@@ -166,6 +194,34 @@ export default defineConfig(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
       ]
     }
+  },
+
+  {
+    // Scoped, never universal: every rule here calls getParserServices, which throws rather than
+    // degrading when a file carries no type information. Widens with each commit of #165; the
+    // endpoint is TYPED_TS plus src/**/*.svelte.
+    files: ['src/routes/**/*.ts', 'src/routes/**/*.svelte'],
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-enum-comparison': 'error',
+      '@typescript-eslint/no-unsafe-unary-minus': 'error'
+    }
+  },
+
+  {
+    // Nothing below this may switch a type-aware rule back on for these files.
+    files: UNTYPED,
+    extends: [ts.configs.disableTypeChecked]
+  },
+
+  {
+    // Syntactic, so it needs no program and can go on everywhere. It is what stops a future `: any`
+    // being used to silence one of the seven rules above.
+    rules: { '@typescript-eslint/no-explicit-any': 'error' }
   },
 
   {

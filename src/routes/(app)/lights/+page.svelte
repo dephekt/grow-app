@@ -3,6 +3,7 @@
 
 <script lang="ts">
   import { untrack } from 'svelte';
+  import type { PageProps } from './$types';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import type { CaptureDetail, CaptureSummary } from '$lib/server/spectrum/captures';
   import {
@@ -24,7 +25,7 @@
 
   type Anchors = SpectroConfig['anchors'];
 
-  let { data } = $props();
+  let { data }: PageProps = $props();
   const live = getLiveSnapshot();
 
   // The grow plan resolves off the wall clock; captured once so SSR/hydration agree within the week.
