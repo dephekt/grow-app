@@ -2,8 +2,11 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { DatabaseSync } from 'node:sqlite';
-import { openClimateDb } from '../../src/lib/server/climate/db';
+import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { MIGRATIONS, openClimateDb } from '../../src/lib/server/climate/db';
 import {
   ClimateConfigError,
   countClimateEvents,
@@ -98,6 +101,7 @@ describe('climate events', () => {
     mode: 'active' as const,
     published: true,
     airVpd: 0.85,
+    airVpdFast: 0.92,
     leafVpd: 0.57,
     target: 1.0,
     bandLow: 0.9,
@@ -251,5 +255,54 @@ describe('RollingMedian', () => {
     expect(m.value(60_000)).toBeNull();
     expect(m.value(5_000)).toBe(1);
     expect(m.size).toBe(1);
+  });
+});
+
+/**
+ * Migration 2 lands on a live table — the deployed loop had already written a night of rows
+ * before the fast reading existed — so the column has to arrive without disturbing them.
+ */
+describe('migration 2 — air_vpd_fast on an existing log', () => {
+  it('adds the column to a v1 database, leaving earlier rows readable with a null', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'grow-climate-mig-')), 'climate.db');
+    const old = new DatabaseSync(path);
+    for (const migration of MIGRATIONS.slice(0, 1)) old.exec(migration);
+    old.exec('PRAGMA user_version = 1');
+    old
+      .prepare(
+        `INSERT INTO climate_events (ts, kind, reason, mode, published, air_vpd, target,
+           band_low, band_high, lights_on)
+         VALUES (?, 'hold', 'pre-migration row', 'active', 0, 0.99, 1.0, 0.9, 1.1, 0)`
+      )
+      .run(NOW_ISO);
+    old.close();
+
+    const db = openClimateDb(path);
+    const [row] = listClimateEvents(db);
+    expect(row.reason).toBe('pre-migration row');
+    expect(row.airVpd).toBe(0.99);
+    expect(row.airVpdFast).toBeNull();
+
+    recordClimateEvent(db, {
+      ts: NOW_ISO,
+      action: { kind: 'exhaust', on: false, reason: 'top of band' },
+      mode: 'active',
+      published: true,
+      airVpd: 1.02,
+      airVpdFast: 1.14,
+      leafVpd: null,
+      target: 1.0,
+      bandLow: 0.9,
+      bandHigh: 1.1,
+      tentTempC: 27,
+      tentRhPct: 65,
+      roomTempC: 24,
+      roomRhPct: 55,
+      lightsOn: true
+    });
+    const fresh = listClimateEvents(db).find((e) => e.reason === 'top of band');
+    expect(fresh?.airVpd).toBe(1.02);
+    expect(fresh?.airVpdFast).toBe(1.14);
+    db.close();
   });
 });

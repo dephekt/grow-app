@@ -101,7 +101,16 @@
             <tr>
               <td class="mono nowrap">{stamp(e.ts)}</td>
               <td class="nowrap"><span class="verdict {tone(e)}">{verdict(e)}</span></td>
-              <td class="mono">{num(e.airVpd)}{#if e.leafVpd !== null}<span class="sub"> / {num(e.leafVpd)} leaf</span>{/if}</td>
+              <!-- The edges act on the fast reading, so a row whose reason quotes one figure
+                   must not sit beside a column showing only the median. Shown when the two
+                   have actually diverged, which is when the question gets asked. -->
+              <td class="mono"
+                >{num(e.airVpd)}{#if e.airVpdFast !== null && e.airVpd !== null && Math.abs(e.airVpdFast - e.airVpd) >= 0.01}<span
+                    class="sub"
+                  >
+                    / {num(e.airVpdFast)} fast</span
+                  >{/if}{#if e.leafVpd !== null}<span class="sub"> / {num(e.leafVpd)} leaf</span>{/if}</td
+              >
               <td class="mono sub nowrap">{num(e.bandLow)}–{num(e.bandHigh)}</td>
               <td class="mono sub nowrap">{num(e.tentTempC, 1)}°C {num(e.tentRhPct, 0)}%</td>
               <td class="mono sub nowrap">{num(e.roomTempC, 1)}°C {num(e.roomRhPct, 0)}%</td>

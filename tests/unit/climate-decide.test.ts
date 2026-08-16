@@ -29,6 +29,9 @@ const actuator = (over: Partial<ActuatorState> = {}): ActuatorState => ({
 function input(over: {
   config?: Partial<ClimateConfig>;
   airVpd?: number | null;
+  /** Defaults to `airVpd`, so a case that does not care about the fast/slow split reads as it
+   *  did before the split existed. */
+  airVpdFast?: number | null;
   tentTempC?: number | null;
   room?: { tempC: number; rhPct: number } | null;
   exhaust?: Partial<ActuatorState>;
@@ -50,6 +53,8 @@ function input(over: {
       tent: tentTempC === null ? null : { tempC: tentTempC, rhPct: 65 },
       room,
       airVpd: over.airVpd === undefined ? 1.0 : over.airVpd,
+      airVpdFast:
+        over.airVpdFast === undefined ? (over.airVpd === undefined ? 1.0 : over.airVpd) : over.airVpdFast,
       // Derived from `room` exactly as the loop derives it, so the gate cases stay meaningful.
       ventedAirVpd: room === null ? null : ventedAirVpdKpa(room, lightsOn),
       leafVpd: null,
@@ -160,6 +165,64 @@ describe('decideClimate — hysteresis', () => {
   });
 });
 
+describe('decideClimate — asymmetric smoothing', () => {
+  // Live run 2026-08-15: a daylight vent crossed the band in 3.5 min, so the 5 min median
+  // released the fan at 1.14 while the tent was already at 1.42, spending 8.7% of the day
+  // past the 1.20 rail. The stop edge has to read the short window.
+  it('stops on the fast reading, not the lagging median', () => {
+    const d = decideClimate(input({ airVpd: 1.02, airVpdFast: 1.14, exhaust: { on: true } }));
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+    expect(d.reason).toContain('1.14');
+  });
+
+  it('keeps venting while the fast reading is still inside the band', () => {
+    const d = decideClimate(input({ airVpd: 0.95, airVpdFast: 1.04, exhaust: { on: true } }));
+    expect(d.kind).toBe('hold');
+    expect(d.reason).toContain('still below');
+  });
+
+  // The other edge keeps the long window: the tent re-humidifies ~0.02 kPa/min, so lag costs
+  // nothing there, while a single dropout would otherwise start the fan on noise.
+  it('starts on the median, ignoring a fast reading that dips below the floor', () => {
+    expect(decideClimate(input({ airVpd: 0.95, airVpdFast: 0.80 })).kind).toBe('hold');
+  });
+
+  // The state right after a fast-triggered stop: the tent is hot but the 5 min median is still
+  // dominated by pre-run samples. Starting on the median alone re-vents one tick after
+  // stopping, which is the short-cycle the band is supposed to make impossible.
+  it('refuses to re-start while the fast reading is still high, though the median is under the floor', () => {
+    const d = decideClimate(input({ airVpd: 0.88, airVpdFast: 1.05 }));
+    expect(d.kind).toBe('hold');
+    // And says so, rather than claiming 0.88 is inside a band that starts at 0.90.
+    expect(d.reason).toContain('below the 0.90 floor');
+    expect(d.reason).toContain('1.05');
+  });
+
+  it('starts once the median itself falls below the floor', () => {
+    expect(decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89 }))).toMatchObject({
+      kind: 'exhaust',
+      on: true
+    });
+  });
+
+  it('falls back to the median when there is no fast window yet', () => {
+    const d = decideClimate(input({ airVpd: 1.11, airVpdFast: null, exhaust: { on: true } }));
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+  });
+
+  it('breaches the hard ceiling urgently on the fast reading, voiding the minimum on', () => {
+    const d = decideClimate(
+      input({
+        airVpd: 1.05,
+        airVpdFast: 1.24,
+        exhaust: { on: true, lastChangeMs: NOW - 10_000 },
+        config: { minOnSeconds: 600 }
+      })
+    );
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+  });
+});
+
 describe('decideClimate — minimum on/off', () => {
   it('waits out the minimum off before restarting', () => {
     const d = decideClimate(input({ airVpd: 0.5, exhaust: { lastChangeMs: NOW - 60_000 } }));
@@ -172,8 +235,22 @@ describe('decideClimate — minimum on/off', () => {
     expect(d).toMatchObject({ kind: 'exhaust', on: true });
   });
 
-  it('holds out the minimum on before stopping', () => {
+  // Reversed deliberately. The minimum on used to defer a band-top stop, which was survivable
+  // only while the stop read the 5 min median and therefore always arrived after the timer had
+  // expired. Reading the top of band promptly puts the stop inside the minimum: at the daylight
+  // 0.25 kPa/min a run started at the 0.90 floor crosses to 1.10 in ~48s, and holding it to 120s
+  // releases the fan at 1.23 — past the rail the short window exists to defend.
+  it('does not hold out the minimum on before stopping at the top of band', () => {
     const d = decideClimate(input({ airVpd: 1.15, exhaust: { on: true, lastChangeMs: NOW - 30_000 } }));
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+  });
+
+  it('still serves the minimum on for a stop that is not defending the rail', () => {
+    // The futility stop: the room has gone humid mid-run, so venting no longer helps. Nothing
+    // is breached by running on a little longer, so the timer keeps its say.
+    const d = decideClimate(
+      input({ airVpd: 0.95, exhaust: { on: true, lastChangeMs: NOW - 30_000 }, room: { tempC: 24, rhPct: 95 } })
+    );
     expect(d.kind).toBe('hold');
     expect(d.reason).toContain('minimum on');
   });
@@ -236,16 +313,28 @@ describe('decideClimate — guards that must work in both directions', () => {
 describe('decideClimate — permission is applied once, for every leg', () => {
   const week6 = controlBand(1.1, 0.1);
 
-  it('does not treat the ordinary release as a ceiling breach when the band reaches the rail', () => {
-    // Weeks 6-10 clamp band.high to exactly 1.20, so keying urgency off `vpd >= HARD_MAX`
-    // voided the minimum on for half the grow — the fan could run a single 30 s tick.
+  // The old worry here was that weeks 6-10 clamp band.high to exactly 1.20, so keying urgency
+  // off `vpd >= HARD_MAX` voided the minimum on for half the grow. It is now voided for a
+  // band-top stop in every week by design, so the question becomes whether that permits a
+  // one-tick run — and it does not: starting needs BOTH windows under band.low, which cannot
+  // be true on the tick before one reads band.high.
+  it('releases at the top of band in the weeks where the band reaches the rail', () => {
     expect(week6.high).toBe(AIR_VPD_HARD_MAX);
     const d = decideClimate({
       ...input({ airVpd: 1.2, exhaust: { on: true, lastChangeMs: NOW - 30_000 } }),
       band: week6
     });
-    expect(d.kind).toBe('hold');
-    expect(d.reason).toContain('minimum on');
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+  });
+
+  it('cannot start and stop within one tick, which is what the minimum on protected', () => {
+    // A start demands both windows below 0.90 and a stop demands the fast one at or above the
+    // band top, so no single reading can satisfy both and no pair of adjacent ticks can either
+    // without the tent crossing the whole band in one tick.
+    const started = decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89, exhaust: { on: false } }));
+    expect(started).toMatchObject({ kind: 'exhaust', on: true });
+    const next = decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89, exhaust: { on: true, lastChangeMs: NOW } }));
+    expect(next.kind).toBe('hold');
   });
 
   it('still overrides the minimum once VPD is past the band top as well', () => {
@@ -319,6 +408,14 @@ describe('decideClimate — temperature limits', () => {
     const d = decideClimate(input({ airVpd: 0.5, tentTempC: 19 }));
     expect(d).toMatchObject({ kind: 'blocked', want: 'exhaust' });
     expect(d.reason).toContain('°C floor');
+  });
+
+  // The cold branch takes both windows for the same reason the mainline start does: on the tick
+  // after a vent stop the median is under the floor while the short window is not, and a start
+  // that would never be attempted must not be reported as blocked.
+  it('raises no cold block for a start the fast window would have refused anyway', () => {
+    const d = decideClimate(input({ airVpd: 0.88, airVpdFast: 1.05, tentTempC: 19 }));
+    expect(d.kind).toBe('hold');
   });
 
   it('STOPS a running fan once the tent falls below the cold floor', () => {
@@ -410,6 +507,23 @@ describe('decideClimate — humidifier', () => {
   it('engages at the hard ceiling', () => {
     const d = decideClimate(input({ airVpd: 1.2, config: loopRh, humidifier: { present: true } }));
     expect(d).toMatchObject({ kind: 'humidify', on: true });
+  });
+
+  // Starting is the committing move, so it takes both windows — the fast one catching up after
+  // a vent stop is precisely the transient the median is there to reject, and engaging on it
+  // would set the humidifier against the exhaust.
+  it('does not engage on the post-vent transient alone', () => {
+    const d = decideClimate(
+      input({ airVpd: 1.08, airVpdFast: 1.25, config: loopRh, humidifier: { present: true } })
+    );
+    expect(d.kind).toBe('hold');
+  });
+
+  it('releases on the fast reading, so it does not overshoot the target downward', () => {
+    const d = decideClimate(
+      input({ airVpd: 1.15, airVpdFast: 0.99, config: loopRh, humidifier: { present: true, on: true } })
+    );
+    expect(d).toMatchObject({ kind: 'humidify', on: false });
   });
 
   it('releases back at the target, not at the floor — no shared edge with the exhaust', () => {

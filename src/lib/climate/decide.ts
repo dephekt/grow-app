@@ -11,6 +11,10 @@ export interface ClimateReading {
   room: AirState | null;
   /** Smoothed air VPD, the control input; null whenever the tent sensor cannot be trusted. */
   airVpd: number | null;
+  /** The same quantity over a far shorter window, for the edges that must not lag. Venting
+   *  moves air VPD ~0.15 kPa/min in daylight, so the 5 min median trails a vent run by more
+   *  than the band is wide. Null falls back to `airVpd`. */
+  airVpdFast: number | null;
   /** Smoothed prediction of where venting would settle it; null with no room reference. */
   ventedAirVpd: number | null;
   /** Recorded beside every decision, never an input to one. */
@@ -129,8 +133,24 @@ function applyTransition(
     : { kind: 'humidify', on: desire.on, reason: `${desire.why}${suffix}` };
 }
 
-/** Hysteresis plus the overrides, as a single desired fan state. */
-function desireExhaust(input: ClimateDecisionInput, vpd: number, tentC: number | null): Desire {
+/** Hysteresis plus the overrides, as a single desired fan state.
+ *
+ *  `vpd` is the 5 min median and `fast` a ~25 s one, and the rule for choosing between them is
+ *  shared with the humidifier: STARTING needs both to agree, STOPPING acts on the short one.
+ *
+ *  The asymmetry is in the consequences, not the physics. A late stop breaches a hard agronomic
+ *  rail, while an early one merely ends a vent run short and self-corrects. A spurious start is
+ *  the expensive mistake — it is what short-cycles a relay, and what can set two opposed
+ *  actuators against each other — so it takes both windows to authorise one.
+ *
+ *  Requiring both to start costs nothing in latency: on the falling leg the short window crosses
+ *  the floor FIRST, so the median remains the gate, exactly as it was before this split. */
+function desireExhaust(
+  input: ClimateDecisionInput,
+  vpd: number,
+  fast: number,
+  tentC: number | null
+): Desire {
   const { config, band, reading, exhaust } = input;
   const tooHot = tentC !== null && tentC >= config.ventAlwaysAboveC;
   const tooCold = tentC !== null && tentC <= config.ventNeverBelowC;
@@ -143,7 +163,10 @@ function desireExhaust(input: ClimateDecisionInput, vpd: number, tentC: number |
     const why = `tent ${degC(tentC!)} °C at or below the ${degC(config.ventNeverBelowC)} °C floor`;
     if (exhaust.on) return { on: false, urgent: true, why: `${why} — stopping regardless of VPD` };
     // Still wants ON, because a block reporting `on: false` is no transition and says nothing.
-    return vpd < band.low
+    // Both windows, same as the mainline start: on the tick after a vent stop the median is
+    // under the floor while the short window is not, and testing the median alone would raise
+    // a red `blocked · exhaust ON` for a start that would not have been attempted.
+    return vpd < band.low && fast < band.low
       ? { on: true, why, blocked: `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band, but ${why}` }
       : { on: false, why };
   }
@@ -151,28 +174,48 @@ function desireExhaust(input: ClimateDecisionInput, vpd: number, tentC: number |
   if (exhaust.on) {
     // `>= high`: from grow week 6 band.high clamps to the rail, and holding there parks the
     // fan on it.
-    if (vpd >= band.high) {
+    if (fast >= band.high) {
       return {
         on: false,
-        // Urgent only PAST the band's top, or the minimum on is void for weeks 6 to 10.
-        urgent: vpd > band.high && vpd >= AIR_VPD_HARD_MAX,
-        why: `air VPD ${kpa(vpd)} reached the ${kpa(band.high)} top of band`
+        // Always urgent, so the minimum on can never defer a stop. It used to apply until the
+        // hard rail, which was survivable only because the median stop was so late the timer had
+        // always expired. Reading the top of band promptly puts the stop INSIDE the minimum: a
+        // run starting at the 0.90 floor reaches 1.10 in ~48s at the daylight 0.25 kPa/min, so
+        // the timer would hold the fan through the band and release it at 1.23, past the rail
+        // the short window exists to defend.
+        //
+        // Nothing is lost. The minimum on is anti-chatter, and chatter is already impossible by
+        // construction: restarting needs BOTH windows under the floor, which at the ~0.02
+        // kPa/min a tent re-humidifies at is ten minutes away. It still governs the futility
+        // stop below, where running on a little longer costs nothing.
+        urgent: true,
+        why: `air VPD ${kpa(fast)} reached the ${kpa(band.high)} top of band`
       };
     }
     // Futility's stop half: a room that turns humid mid-run never lets VPD reach the top.
-    if (vented !== null && vented < vpd - config.minGainKpa) {
-      return { on: false, why: `venting now predicts ${kpa(vented)} against the current ${kpa(vpd)} — no longer helping` };
+    if (vented !== null && vented < fast - config.minGainKpa) {
+      return { on: false, why: `venting now predicts ${kpa(vented)} against the current ${kpa(fast)} — no longer helping` };
     }
-    return { on: true, why: `air VPD ${kpa(vpd)} still below the ${kpa(band.high)} top of band` };
+    return { on: true, why: `air VPD ${kpa(fast)} still below the ${kpa(band.high)} top of band` };
   }
 
-  if (vpd < band.low) {
+  if (vpd < band.low && fast < band.low) {
     const why = `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band`;
     // Futility's start half; a missing room reference skips it rather than blocking.
     if (vented !== null && vented < vpd + config.minGainKpa) {
       return { on: true, why, blocked: `${why}, but venting predicts only ${kpa(vented)} against the ${kpa(vpd + config.minGainKpa)} needed` };
     }
     return { on: true, why };
+  }
+  // Below the floor on the median but not on the short window: the state the AND-gate above
+  // exists to create, and the one immediately following every vent stop. Said plainly, because
+  // falling through to the "inside the band" wording below would print a sentence contradicting
+  // its own number, on exactly the row an operator reads to understand the stop.
+  if (vpd < band.low) {
+    return {
+      on: false,
+      why: `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band, but the short window still reads ${kpa(fast)}`
+    };
   }
   const why =
     vpd > band.high
@@ -182,17 +225,34 @@ function desireExhaust(input: ClimateDecisionInput, vpd: number, tentC: number |
 }
 
 /** Engages at the hard ceiling, releases at the target, with a separation floor for the case
- *  an override sits ON the ceiling. */
-function desireHumidifier(band: ControlBand, vpd: number, on: boolean): Desire {
+ *  an override sits ON the ceiling.
+ *
+ *  Follows the same rule as the exhaust, which is about commitment rather than direction:
+ *  STARTING an actuator needs both windows to agree, STOPPING acts on the short one. Starting
+ *  is the committing move — two opposed actuators, or a mains humidifier short-cycling — while
+ *  stopping is always safe, and a late stop is what breaches a rail.
+ *
+ *  So engaging requires the median to reach the ceiling too. The approach to the ceiling is
+ *  driven by the EXHAUST, and the post-vent transient is exactly what the median is there to
+ *  reject: without this, the fast window catching up after a vent stop could engage the
+ *  humidifier at a ceiling the tent never really held, which then runs to the release point and
+ *  pushes VPD back under the floor for another vent — a short cycle between opposed actuators. */
+function desireHumidifier(band: ControlBand, vpd: number, fast: number, on: boolean): Desire {
   const release = Math.min(band.target, AIR_VPD_HARD_MAX - HUMIDIFIER_MIN_SEPARATION_KPA);
   if (on) {
-    return vpd > release
-      ? { on: true, why: `air VPD ${kpa(vpd)} still above the ${kpa(release)} release point` }
-      : { on: false, why: `air VPD ${kpa(vpd)} back below the ${kpa(release)} release point` };
+    return fast > release
+      ? { on: true, why: `air VPD ${kpa(fast)} still above the ${kpa(release)} release point` }
+      : { on: false, why: `air VPD ${kpa(fast)} back below the ${kpa(release)} release point` };
   }
-  return vpd >= AIR_VPD_HARD_MAX
-    ? { on: true, why: `air VPD ${kpa(vpd)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` }
-    : { on: false, why: `air VPD ${kpa(vpd)} below the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
+  if (fast >= AIR_VPD_HARD_MAX && vpd >= AIR_VPD_HARD_MAX) {
+    return { on: true, why: `air VPD ${kpa(fast)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
+  }
+  return fast >= AIR_VPD_HARD_MAX
+    ? {
+        on: false,
+        why: `short window reads ${kpa(fast)} at the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling, but the median is still ${kpa(vpd)}`
+      }
+    : { on: false, why: `air VPD ${kpa(fast)} below the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
 }
 
 export function decideClimate(input: ClimateDecisionInput): ClimateAction {
@@ -205,7 +265,10 @@ export function decideClimate(input: ClimateDecisionInput): ClimateAction {
   if (reading.warmingUp) return { kind: 'hold', reason: 'smoothing window still filling' };
 
   const vpd = reading.airVpd;
-  const fan = desireExhaust(input, vpd, reading.tent?.tempC ?? null);
+  // A tent that has only just appeared has no fast window yet; the median is the safe stand-in
+  // because it is the slower of the two, never the more eager.
+  const fast = reading.airVpdFast ?? vpd;
+  const fan = desireExhaust(input, vpd, fast, reading.tent?.tempC ?? null);
 
   // Never both: neither hysteresis band escapes two opposed actuators fighting each other.
   // Urgent, because that state is worse than an early humidifier stop — and it is unreachable
@@ -222,7 +285,7 @@ export function decideClimate(input: ClimateDecisionInput): ClimateAction {
 
   // Only while the fan is idle, so the two can never be commanded together.
   if (!fan.on) {
-    const rh = desireHumidifier(band, vpd, humidifier.on);
+    const rh = desireHumidifier(band, vpd, fast, humidifier.on);
     const rhAction = applyTransition('humidify', humidifier, rh, config.rhSource, config, nowMs);
     if (rhAction) return rhAction;
   }

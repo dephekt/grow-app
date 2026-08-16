@@ -14,7 +14,10 @@
 import { describe, expect, it } from 'vitest';
 import { decideClimate, type ClimateAction } from '../../src/lib/climate/decide';
 import { airVpdKpa, ventedAirVpdKpa } from '../../src/lib/climate/psychro';
-import { DEFAULT_CLIMATE_CONFIG, controlBand } from '../../src/lib/climate/model';
+import { AIR_VPD_HARD_MAX, DEFAULT_CLIMATE_CONFIG, controlBand } from '../../src/lib/climate/model';
+import { RollingMedian } from '../../src/lib/climate/smoothing';
+import { MIN_FAST_SAMPLES, fastSmoothingWindowMs } from '../../src/lib/server/climate/loop';
+import { VENT_RUN_08_15 } from './fixtures/vent-run-08-15';
 
 interface Sample {
   at: string;
@@ -47,6 +50,9 @@ function replay(
         tent: { tempC: s.tempC, rhPct: s.rhPct },
         room: opts.room,
         airVpd,
+        // The harness replays recorded samples directly rather than through two windows, so
+        // both readings are the same series; the fast/slow split is covered in climate-decide.
+        airVpdFast: airVpd,
         ventedAirVpd: opts.room === null ? null : ventedAirVpdKpa(opts.room, opts.lightsOn),
         leafVpd: null,
         lightsOn: opts.lightsOn,
@@ -64,6 +70,156 @@ function replay(
     return { at: s.at, airVpd, on, action };
   });
 }
+
+/**
+ * The 13:05 vent run of 2026-08-15, at the loop's own 30 s cadence, fed through real smoothing
+ * windows rather than ideal readings. This is the run that put the tent at 1.42 while the 5 min
+ * median still read 1.14, so it is the trace that has to stay covered: the samples below start
+ * at air VPD 0.899 (the reading that triggered the start) and peak at 1.42.
+ */
+/**
+ * Sub-samples the 10 s series at `tickSeconds`, then drives the law through real windows with
+ * the relay timers carried forward — i.e. the loop, not an idealisation of it.
+ */
+function replaySmoothed(tickSeconds: number): { peakWhileOn: number; starts: number } {
+  const tickMs = tickSeconds * 1000;
+  // The production sizing, not a copy of it: a change to fastSmoothingWindowMs has to be felt
+  // here, or this test guards a formula that no longer ships.
+  const prevTick = process.env.GROW_CLIMATE_TICK_SECONDS;
+  process.env.GROW_CLIMATE_TICK_SECONDS = String(tickSeconds);
+  const fastMs = fastSmoothingWindowMs();
+  if (prevTick === undefined) delete process.env.GROW_CLIMATE_TICK_SECONDS;
+  else process.env.GROW_CLIMATE_TICK_SECONDS = prevTick;
+  const slowT = new RollingMedian(300_000), slowH = new RollingMedian(300_000);
+  const fastT = new RollingMedian(fastMs), fastH = new RollingMedian(fastMs);
+  let on = true;
+  // The fan is treated as having just started, so the minimum-on timer is LIVE. Left null, the
+  // timer never engages and the rail assertions below certify a property they do not exercise —
+  // the measured trace happens to sit flat for its first ~130s and outruns the 120s minimum,
+  // so it would pass either way.
+  let lastChangeMs: number | null = 0;
+  let peakWhileOn = 0;
+  let starts = 0;
+
+  for (let raw = 0, k = 0; raw < VENT_RUN_08_15.length; raw += tickSeconds / 10, k++) {
+    const [tempC, rhPct] = VENT_RUN_08_15[raw];
+    const nowMs = k * tickMs;
+    for (const m of [slowT, fastT]) m.push(tempC, nowMs);
+    for (const m of [slowH, fastH]) m.push(rhPct, nowMs);
+    if (on) peakWhileOn = Math.max(peakWhileOn, airVpdKpa(tempC, rhPct));
+
+    const action = decideClimate({
+      nowMs,
+      config: CONFIG,
+      band: BAND,
+      reading: {
+        tent: { tempC: slowT.value(nowMs)!, rhPct: slowH.value(nowMs)! },
+        room: null,
+        airVpd: airVpdKpa(slowT.value(nowMs)!, slowH.value(nowMs)!),
+        airVpdFast:
+          fastT.count(nowMs) < MIN_FAST_SAMPLES
+            ? null
+            : airVpdKpa(fastT.value(nowMs)!, fastH.value(nowMs)!),
+        ventedAirVpd: null,
+        leafVpd: null,
+        lightsOn: true,
+        warmingUp: false
+      },
+      exhaust: { present: true, on, lastChangeMs },
+      humidifier: { present: false, on: false, lastChangeMs: null },
+      armsOn: []
+    });
+    if (action.kind === 'exhaust' && action.on !== on) {
+      if (action.on) starts++;
+      on = action.on;
+      lastChangeMs = nowMs;
+    }
+  }
+  return { peakWhileOn, starts };
+}
+
+describe('replay — 08-15 vent run, at the loop tick', () => {
+  it('is the trace that breached: left alone it reaches 1.45', () => {
+    const peak = Math.max(...VENT_RUN_08_15.map(([t, h]) => airVpdKpa(t, h)));
+    expect(peak).toBeGreaterThan(1.4);
+  });
+
+  // `peakWhileOn` is the highest reading the tent showed while the fan was still commanded on,
+  // i.e. it measures WHEN the loop let go, not where the tent finally settled after it. On this
+  // trace the true peak lands within seconds of the stop, so the two are close, but the claim
+  // being made here is about the stop, not the coast.
+  it('lets go before the tent reaches the 1.20 rail, at the 10 s tick', () => {
+    expect(replaySmoothed(10).peakWhileOn).toBeLessThan(AIR_VPD_HARD_MAX);
+  });
+
+  // The tick, not the window, is what bounds this: at 0.25 kPa/min the tent crosses from the
+  // 1.10 band top to the 1.20 rail in under 25 s, so a 30 s tick cannot see it in time however
+  // the smoothing is arranged. Kept as a test so a tick raised for cost reasons fails here
+  // rather than silently in the tent.
+  it('cannot hold the rail at the old 30 s tick, whatever the window', () => {
+    expect(replaySmoothed(30).peakWhileOn).toBeGreaterThan(AIR_VPD_HARD_MAX);
+  });
+
+  it('never re-starts the fan inside a single run', () => {
+    expect(replaySmoothed(10).starts).toBe(0);
+  });
+});
+
+/**
+ * The measured trace is flat for its first ~130 s, so it clears the 120 s minimum on before it
+ * ramps and cannot catch a stop the timer defers. This is the case it misses: a run that starts
+ * at the floor and ramps immediately, which is what a daylight vent actually does.
+ */
+describe('a vent that ramps from the moment it starts', () => {
+  function rampFromStart(rateKpaPerMin: number): number {
+    const tickMs = 10_000;
+    let on = true;
+    let lastChangeMs: number | null = 0;
+    let peakWhileOn = 0;
+    // Held at 29 °C, with RH solved to place air VPD exactly on the ramp.
+    const tempC = 29.0;
+    const svp = airVpdKpa(tempC, 0);
+    for (let k = 0; k * tickMs <= 600_000; k++) {
+      const nowMs = k * tickMs;
+      const vpd = 0.9 + (rateKpaPerMin / 60) * (nowMs / 1000);
+      if (on) peakWhileOn = Math.max(peakWhileOn, vpd);
+      const action = decideClimate({
+        nowMs,
+        config: CONFIG,
+        band: BAND,
+        reading: {
+          tent: { tempC, rhPct: (1 - vpd / svp) * 100 },
+          room: null,
+          airVpd: vpd,
+          airVpdFast: vpd,
+          ventedAirVpd: null,
+          leafVpd: null,
+          lightsOn: true,
+          warmingUp: false
+        },
+        exhaust: { present: true, on, lastChangeMs },
+        humidifier: { present: false, on: false, lastChangeMs: null },
+        armsOn: []
+      });
+      if (action.kind === 'exhaust' && action.on !== on) {
+        on = action.on;
+        lastChangeMs = nowMs;
+      }
+      if (!on) break;
+    }
+    return peakWhileOn;
+  }
+
+  // 0.25 kPa/min crosses the 0.20-wide band in ~48s, well inside the 120s minimum on, so a
+  // deferred stop lands at 1.23 — past the rail the short window exists to defend.
+  it('lets go at the top of band rather than waiting out the minimum on', () => {
+    expect(rampFromStart(0.25)).toBeLessThan(AIR_VPD_HARD_MAX);
+  });
+
+  it('holds the rail at the steeper rates a hot tent reaches', () => {
+    expect(rampFromStart(0.4)).toBeLessThan(AIR_VPD_HARD_MAX);
+  });
+});
 
 describe('replay — 08-14 daytime, fan running continuously', () => {
   const room = { tempC: 25.02, rhPct: 61.4 };

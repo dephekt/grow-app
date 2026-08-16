@@ -48,6 +48,12 @@ export const MIGRATIONS: string[] = [
   );
 
   CREATE INDEX climate_events_ts ON climate_events(ts);
+  `,
+  // 2 — the short-window VPD the band edges read. `air_vpd` stays the 5 min median derived
+  // from the logged tent pair, so that invariant holds; without this column a release row
+  // would quote one figure in its reason and carry another in `air_vpd`.
+  `
+  ALTER TABLE climate_events ADD COLUMN air_vpd_fast REAL;
   `
 ];
 
