@@ -14,13 +14,9 @@
   import type { DeviceSnapshot, EntityConfig } from '$lib/server/mqtt/types';
   import { isAlertEntity, isThresholdEntity } from '$lib/threshold-match';
   import { page } from '$app/state';
+  import type { PageProps } from './$types';
 
-  let { data } = $props<{
-    data: {
-      selectedDeviceId: string | null;
-      selectedSectionId: string | null;
-    };
-  }>();
+  let { data }: PageProps = $props();
 
   const live = getLiveSnapshot();
 
