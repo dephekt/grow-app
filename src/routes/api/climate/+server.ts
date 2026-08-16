@@ -41,7 +41,7 @@ export type ClimateBriefState = Omit<ReturnType<typeof planState>, 'now' | 'grow
 
 /** The inputs, band and verdict the timer is working from; a preview that publishes nothing. */
 function liveState() {
-  const { config, now, grow, band, week, stage, planTarget, climateRef } = planState();
+  const { config, now, band, week, stage, planTarget, climateRef } = planState();
 
   const inputs = resolveClimateInputs(getSiteMqttService().snapshot(), now.getTime());
   const state = getClimateLoopState();

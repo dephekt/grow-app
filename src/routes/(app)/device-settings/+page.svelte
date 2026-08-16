@@ -7,7 +7,7 @@
   import AlertsPanel from '$lib/AlertsPanel.svelte';
   import CalibrationPanel from '$lib/CalibrationPanel.svelte';
   import PpfdCalibrationPanel from '$lib/lights/PpfdCalibrationPanel.svelte';
-  import { deviceSettingsPresentation, DEVICE_SETTINGS_SECTIONS } from '$lib/device-presentation';
+  import { deviceSettingsPresentation } from '$lib/device-presentation';
   import type { DeviceSettingsSectionId } from '$lib/device-presentation';
   import { getLiveSnapshot } from '$lib/live-snapshot-context';
   import { parseFirmwareUpdateState, resolveInstalledVersion } from '$lib/firmware';

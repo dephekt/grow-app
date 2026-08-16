@@ -41,7 +41,7 @@
     <p class="empty">No data</p>
   {:else}
     <div class="rows">
-      {#each rows as row, i}
+      {#each rows as row, i (row.label)}
         <div class="row" class:first={i === 0}>
           <span class="row-label">{row.label}</span>
           <span class="row-value mono">{row.value}</span>

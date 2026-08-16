@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 // Sanitize a captured /api/snapshot into a committable typed fixture.
 // Usage: node scripts/sanitize-fixture.mjs <raw.json> <out.ts>
 import { readFileSync, writeFileSync } from 'node:fs';

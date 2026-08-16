@@ -42,6 +42,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Format
         run: pnpm format:check
+      - name: Lint
+        run: pnpm lint
       # Every line must be an unabbreviated SHA reachable from the default branch, since git treats
       # an unreachable one as a silent no-op and blame then skips nothing.
       - name: Validate .git-blame-ignore-revs

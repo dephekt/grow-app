@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Daniel Snider
+
 // Minimal mock OpenID Provider for the OIDC e2e test. Serves discovery, JWKS, an
 // /authorize login form, and a /token endpoint that returns an RS256-signed ID
 // token. No external deps (node:crypto + node:http) so it needs nothing hoisted.
@@ -155,6 +158,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  // eslint-disable-next-line no-console
   console.log(`[mock-oidc] listening on ${ISSUER}`);
 });

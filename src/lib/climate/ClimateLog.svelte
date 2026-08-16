@@ -7,13 +7,11 @@
   let {
     events,
     total,
-    anchorId,
     pageSize,
     onpage
   }: {
     events: ClimateEventJson[];
     total: number;
-    anchorId: number;
     pageSize: number;
     /** Resolves false when the page could not be fetched, so the pager does not advance. */
     onpage: (offset: number) => Promise<boolean>;

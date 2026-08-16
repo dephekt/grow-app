@@ -223,7 +223,7 @@
           >
           <div class="actions">
             <div class="views" role="group" aria-label="Spectrum view">
-              {#each VIEWS as v}
+              {#each VIEWS as v (v)}
                 <button class="vbtn" class:on={view === v} onclick={() => (view = v)}>{v}</button>
               {/each}
             </div>
