@@ -5,7 +5,12 @@
   import { onMount, untrack } from 'svelte';
   import BandGauge from '$lib/climate/BandGauge.svelte';
   import ClimateLog from '$lib/climate/ClimateLog.svelte';
-  import { AIR_VPD_HARD_MAX, CLIMATE_MODES, type ActuatorSource, type ClimateMode } from '$lib/climate/model';
+  import {
+    AIR_VPD_HARD_MAX,
+    CLIMATE_MODES,
+    type ActuatorSource,
+    type ClimateMode
+  } from '$lib/climate/model';
   import { absoluteHumidityGPerM3 } from '$lib/climate/psychro';
   import { LOG_PAGE_SIZE, type ClimateEventJson, type ClimateLiveState } from './+page';
 
@@ -118,9 +123,15 @@
   async function loadEvents(offset: number, fresh = false): Promise<boolean> {
     try {
       const anchor = fresh || eventAnchorId === 0 ? '' : `&anchorId=${eventAnchorId}`;
-      const res = await fetch(`/api/climate/events?limit=${LOG_PAGE_SIZE}&offset=${offset}${anchor}`);
+      const res = await fetch(
+        `/api/climate/events?limit=${LOG_PAGE_SIZE}&offset=${offset}${anchor}`
+      );
       if (!res.ok) return false;
-      const body = (await res.json()) as { events?: ClimateEventJson[]; total?: number; anchorId?: number };
+      const body = (await res.json()) as {
+        events?: ClimateEventJson[];
+        total?: number;
+        anchorId?: number;
+      };
       events = body.events ?? [];
       if (Number.isInteger(body.total)) eventTotal = body.total as number;
       if (Number.isSafeInteger(body.anchorId)) eventAnchorId = body.anchorId as number;
@@ -131,7 +142,8 @@
     }
   }
 
-  const num = (v: number | null | undefined, digits = 1) => (v === null || v === undefined ? '—' : v.toFixed(digits));
+  const num = (v: number | null | undefined, digits = 1) =>
+    v === null || v === undefined ? '—' : v.toFixed(digits);
   const ah = (air: { tempC: number; rhPct: number } | null) =>
     air ? absoluteHumidityGPerM3(air.tempC, air.rhPct).toFixed(1) : '—';
 
@@ -180,7 +192,9 @@
       <span class="panel-title">// AIR VPD</span>
       <span class="head-note mono">
         week {climate.week} · {climate.stage} · target {climate.planTarget.toFixed(2)}
-        {#if config.airVpdOverride !== null}<span class="override">overridden {config.airVpdOverride.toFixed(2)}</span>{/if}
+        {#if config.airVpdOverride !== null}<span class="override"
+            >overridden {config.airVpdOverride.toFixed(2)}</span
+          >{/if}
       </span>
     </div>
 
@@ -193,7 +207,8 @@
     />
 
     <div class="verdict-row">
-      <span class="dot {actionTone === 'ok' ? 'ok' : actionTone === 'muted' ? 'faint' : actionTone}"></span>
+      <span class="dot {actionTone === 'ok' ? 'ok' : actionTone === 'muted' ? 'faint' : actionTone}"
+      ></span>
       <span class="verdict-label {actionTone}">{actionLabel}</span>
       <span class="verdict-reason">{action.reason}</span>
     </div>
@@ -244,12 +259,12 @@
       <!-- Shown whether or not the loop is armed: an arm is what stops it taking the relay. -->
       {#if armedArms.length > 0}
         <p class="warn">
-          {armedArms.join(' and ')} {armedArms.length > 1 ? 'are' : 'is'} driving the relay every ~10 s.
+          {armedArms.join(' and ')}
+          {armedArms.length > 1 ? 'are' : 'is'} driving the relay every ~10 s.
           {#if exhaustArmed}
-            Disarm {armedArms.length > 1 ? 'them' : 'it'} in device settings before the loop can take it — it will
-            not disarm {armedArms.length > 1 ? 'them' : 'it'} for you, because it cannot put {armedArms.length > 1
-              ? 'them'
-              : 'it'} back if the app stops.
+            Disarm {armedArms.length > 1 ? 'them' : 'it'} in device settings before the loop can take
+            it — it will not disarm {armedArms.length > 1 ? 'them' : 'it'} for you, because it cannot
+            put {armedArms.length > 1 ? 'them' : 'it'} back if the app stops.
           {/if}
         </p>
       {/if}
@@ -268,9 +283,11 @@
       </button>
       <p class="hint">
         {#if climate.humidifier.present}
-          Engages at the {AIR_VPD_HARD_MAX.toFixed(2)} hard ceiling and releases back at the week's target — outside the exhaust's range, so the two never fight.
+          Engages at the {AIR_VPD_HARD_MAX.toFixed(2)} hard ceiling and releases back at the week's target
+          — outside the exhaust's range, so the two never fight.
         {:else}
-          No humidifier plug discovered. RH stays delegated to the humidistat; a too-high VPD logs as <em>delegated</em> rather than vanishing.
+          No humidifier plug discovered. RH stays delegated to the humidistat; a too-high VPD logs
+          as <em>delegated</em> rather than vanishing.
         {/if}
       </p>
     </div>
@@ -308,10 +325,12 @@
       </table>
     </div>
     <p class="hint">
-      Venting moves the tent toward the room's absolute humidity, so that gap — not the temperature difference —
-      sizes the lever.
+      Venting moves the tent toward the room's absolute humidity, so that gap — not the temperature
+      difference — sizes the lever.
       {#if climate.ventedAirVpd !== null}
-        Fully vented, the tent would settle near <strong>{climate.ventedAirVpd.toFixed(2)} kPa</strong>.
+        Fully vented, the tent would settle near <strong
+          >{climate.ventedAirVpd.toFixed(2)} kPa</strong
+        >.
       {:else}
         No room reference right now, so the predictive gate is skipped rather than blocking.
       {/if}
@@ -344,9 +363,9 @@
       </table>
     </div>
     <p class="hint">
-      One VPD figure covers the whole 24 h — the book lets RH fall with the night temperature rather than depressing
-      VPD after dark. The temp and RH columns are context only: with no heater and no chiller most of that range is
-      unreachable here, so only VPD is regulated.
+      One VPD figure covers the whole 24 h — the book lets RH fall with the night temperature rather
+      than depressing VPD after dark. The temp and RH columns are context only: with no heater and
+      no chiller most of that range is unreachable here, so only VPD is regulated.
     </p>
   </div>
 </section>
@@ -472,7 +491,13 @@
       <span class="panel-title">// ACTIONS</span>
       <span class="head-note mono">{eventTotal} recorded</span>
     </div>
-    <ClimateLog {events} total={eventTotal} anchorId={eventAnchorId} pageSize={LOG_PAGE_SIZE} onpage={loadEvents} />
+    <ClimateLog
+      {events}
+      total={eventTotal}
+      anchorId={eventAnchorId}
+      pageSize={LOG_PAGE_SIZE}
+      onpage={loadEvents}
+    />
   </div>
 </section>
 

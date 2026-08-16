@@ -2,7 +2,11 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { describe, expect, it } from 'vitest';
-import { decideClimate, type ActuatorState, type ClimateDecisionInput } from '../../src/lib/climate/decide';
+import {
+  decideClimate,
+  type ActuatorState,
+  type ClimateDecisionInput
+} from '../../src/lib/climate/decide';
 import { ventedAirVpdKpa } from '../../src/lib/climate/psychro';
 import {
   AIR_VPD_HARD_MAX,
@@ -54,7 +58,11 @@ function input(over: {
       room,
       airVpd: over.airVpd === undefined ? 1.0 : over.airVpd,
       airVpdFast:
-        over.airVpdFast === undefined ? (over.airVpd === undefined ? 1.0 : over.airVpd) : over.airVpdFast,
+        over.airVpdFast === undefined
+          ? over.airVpd === undefined
+            ? 1.0
+            : over.airVpd
+          : over.airVpdFast,
       // Derived from `room` exactly as the loop derives it, so the gate cases stay meaningful.
       ventedAirVpd: room === null ? null : ventedAirVpdKpa(room, lightsOn),
       leafVpd: null,
@@ -77,7 +85,6 @@ describe('decideClimate — mode gate', () => {
     const d = decideClimate(input({ config: { mode: 'observe' }, airVpd: 0.5 }));
     expect(d).toMatchObject({ kind: 'exhaust', on: true });
   });
-
 });
 
 describe('decideClimate — fail-safe', () => {
@@ -95,7 +102,9 @@ describe('decideClimate — fail-safe', () => {
   it('reports an actuator it does not own as DELEGATED even when the plug is absent', () => {
     // The shipped default: RH external with no humidifier plug. Reporting that as `blocked`
     // painted the normal state red and contradicted the page's own copy.
-    const d = decideClimate(input({ airVpd: 1.3, config: { rhSource: 'external' }, humidifier: { present: false } }));
+    const d = decideClimate(
+      input({ airVpd: 1.3, config: { rhSource: 'external' }, humidifier: { present: false } })
+    );
     expect(d).toMatchObject({ kind: 'delegated', want: 'humidify', on: true });
   });
 
@@ -117,7 +126,9 @@ describe('decideClimate — reason text', () => {
     // and the /climate verdict row claim the tent is in band while it sits over the ceiling.
     expect(decideClimate(input({ airVpd: 1.0 })).reason).toContain('inside the');
     expect(decideClimate(input({ airVpd: 1.19 })).reason).toContain('above the 1.10 top of band');
-    expect(decideClimate(input({ airVpd: 0.85, room: null })).reason).toContain('below the 0.90 floor');
+    expect(decideClimate(input({ airVpd: 0.85, room: null })).reason).toContain(
+      'below the 0.90 floor'
+    );
   });
 });
 
@@ -184,7 +195,7 @@ describe('decideClimate — asymmetric smoothing', () => {
   // The other edge keeps the long window: the tent re-humidifies ~0.02 kPa/min, so lag costs
   // nothing there, while a single dropout would otherwise start the fan on noise.
   it('starts on the median, ignoring a fast reading that dips below the floor', () => {
-    expect(decideClimate(input({ airVpd: 0.95, airVpdFast: 0.80 })).kind).toBe('hold');
+    expect(decideClimate(input({ airVpd: 0.95, airVpdFast: 0.8 })).kind).toBe('hold');
   });
 
   // The state right after a fast-triggered stop: the tent is hot but the 5 min median is still
@@ -241,7 +252,9 @@ describe('decideClimate — minimum on/off', () => {
   // 0.25 kPa/min a run started at the 0.90 floor crosses to 1.10 in ~48s, and holding it to 120s
   // releases the fan at 1.23 — past the rail the short window exists to defend.
   it('does not hold out the minimum on before stopping at the top of band', () => {
-    const d = decideClimate(input({ airVpd: 1.15, exhaust: { on: true, lastChangeMs: NOW - 30_000 } }));
+    const d = decideClimate(
+      input({ airVpd: 1.15, exhaust: { on: true, lastChangeMs: NOW - 30_000 } })
+    );
     expect(d).toMatchObject({ kind: 'exhaust', on: false });
   });
 
@@ -249,14 +262,20 @@ describe('decideClimate — minimum on/off', () => {
     // The futility stop: the room has gone humid mid-run, so venting no longer helps. Nothing
     // is breached by running on a little longer, so the timer keeps its say.
     const d = decideClimate(
-      input({ airVpd: 0.95, exhaust: { on: true, lastChangeMs: NOW - 30_000 }, room: { tempC: 24, rhPct: 95 } })
+      input({
+        airVpd: 0.95,
+        exhaust: { on: true, lastChangeMs: NOW - 30_000 },
+        room: { tempC: 24, rhPct: 95 }
+      })
     );
     expect(d.kind).toBe('hold');
     expect(d.reason).toContain('minimum on');
   });
 
   it('lets the hard ceiling override the minimum on', () => {
-    const d = decideClimate(input({ airVpd: AIR_VPD_HARD_MAX, exhaust: { on: true, lastChangeMs: NOW - 30_000 } }));
+    const d = decideClimate(
+      input({ airVpd: AIR_VPD_HARD_MAX, exhaust: { on: true, lastChangeMs: NOW - 30_000 } })
+    );
     expect(d).toMatchObject({ kind: 'exhaust', on: false });
     expect(d.reason).toContain('override beats the minimum');
   });
@@ -284,7 +303,9 @@ describe('decideClimate — guards that must work in both directions', () => {
   it('stops a running fan once the room turns humid and venting stops helping', () => {
     // Tent VPD never climbs to the top of band in this state, so the ordinary release never
     // fires; without a stop leg on the gate the fan runs indefinitely at zero benefit.
-    const d = decideClimate(input({ airVpd: 0.95, exhaust: { on: true }, room: { tempC: 24, rhPct: 95 } }));
+    const d = decideClimate(
+      input({ airVpd: 0.95, exhaust: { on: true }, room: { tempC: 24, rhPct: 95 } })
+    );
     expect(d).toMatchObject({ kind: 'exhaust', on: false });
     expect(d.reason).toContain('no longer helping');
   });
@@ -306,7 +327,9 @@ describe('decideClimate — guards that must work in both directions', () => {
   });
 
   it('skips both halves of the gate with no room reference', () => {
-    expect(decideClimate(input({ airVpd: 0.95, exhaust: { on: true }, room: null })).kind).toBe('hold');
+    expect(decideClimate(input({ airVpd: 0.95, exhaust: { on: true }, room: null })).kind).toBe(
+      'hold'
+    );
   });
 });
 
@@ -331,9 +354,13 @@ describe('decideClimate — permission is applied once, for every leg', () => {
     // A start demands both windows below 0.90 and a stop demands the fast one at or above the
     // band top, so no single reading can satisfy both and no pair of adjacent ticks can either
     // without the tent crossing the whole band in one tick.
-    const started = decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89, exhaust: { on: false } }));
+    const started = decideClimate(
+      input({ airVpd: 0.89, airVpdFast: 0.89, exhaust: { on: false } })
+    );
     expect(started).toMatchObject({ kind: 'exhaust', on: true });
-    const next = decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89, exhaust: { on: true, lastChangeMs: NOW } }));
+    const next = decideClimate(
+      input({ airVpd: 0.89, airVpdFast: 0.89, exhaust: { on: true, lastChangeMs: NOW } })
+    );
     expect(next.kind).toBe('hold');
   });
 
@@ -349,7 +376,11 @@ describe('decideClimate — permission is applied once, for every leg', () => {
     // The release leg used to be gated on ownership and emit nothing, so over-humidification
     // was invisible in the very dry run meant to surface it.
     const d = decideClimate(
-      input({ airVpd: 0.95, config: { rhSource: 'external' }, humidifier: { present: true, on: true } })
+      input({
+        airVpd: 0.95,
+        config: { rhSource: 'external' },
+        humidifier: { present: true, on: true }
+      })
     );
     expect(d).toMatchObject({ kind: 'delegated', want: 'humidify', on: false });
   });
@@ -358,14 +389,22 @@ describe('decideClimate — permission is applied once, for every leg', () => {
     // firmware flips the relay, so noteRelays stamps a transition; the loop must still say it
     // wanted the fan off rather than hiding behind a min-on that does not apply to it.
     const d = decideClimate(
-      input({ airVpd: 1.15, exhaust: { on: true, lastChangeMs: NOW - 30_000 }, config: { exhaustSource: 'firmware' } })
+      input({
+        airVpd: 1.15,
+        exhaust: { on: true, lastChangeMs: NOW - 30_000 },
+        config: { exhaustSource: 'firmware' }
+      })
     );
     expect(d).toMatchObject({ kind: 'delegated', want: 'exhaust', on: false });
   });
 
   it('reports ownership ahead of the minimum off on the start leg too', () => {
     const d = decideClimate(
-      input({ airVpd: 0.5, exhaust: { lastChangeMs: NOW - 30_000 }, config: { exhaustSource: 'firmware' } })
+      input({
+        airVpd: 0.5,
+        exhaust: { lastChangeMs: NOW - 30_000 },
+        config: { exhaustSource: 'firmware' }
+      })
     );
     expect(d).toMatchObject({ kind: 'delegated', want: 'exhaust', on: true });
   });
@@ -428,7 +467,12 @@ describe('decideClimate — temperature limits', () => {
 
   it('reports a cold-stop it cannot perform as delegated rather than acting', () => {
     const d = decideClimate(
-      input({ airVpd: 0.5, tentTempC: 19, exhaust: { on: true }, config: { exhaustSource: 'firmware' } })
+      input({
+        airVpd: 0.5,
+        tentTempC: 19,
+        exhaust: { on: true },
+        config: { exhaustSource: 'firmware' }
+      })
     );
     expect(d).toMatchObject({ kind: 'delegated', want: 'exhaust', on: false });
   });
@@ -436,7 +480,9 @@ describe('decideClimate — temperature limits', () => {
   it('lets a heat override bypass the minimum off', () => {
     // The symmetric case to the hard ceiling overriding the minimum on: an over-temperature
     // tent must not sit out an anti-chatter timer.
-    const d = decideClimate(input({ airVpd: 1.0, tentTempC: 33, exhaust: { lastChangeMs: NOW - 30_000 } }));
+    const d = decideClimate(
+      input({ airVpd: 1.0, tentTempC: 33, exhaust: { lastChangeMs: NOW - 30_000 } })
+    );
     expect(d).toMatchObject({ kind: 'exhaust', on: true });
   });
 
@@ -489,7 +535,9 @@ describe('decideClimate — ownership', () => {
   });
 
   it('says delegated, not blocked, when firmware legitimately owns the fan', () => {
-    const d = decideClimate(input({ airVpd: 0.5, armsOn: ['fan_cycle'], config: { exhaustSource: 'firmware' } }));
+    const d = decideClimate(
+      input({ airVpd: 0.5, armsOn: ['fan_cycle'], config: { exhaustSource: 'firmware' } })
+    );
     expect(d).toMatchObject({ kind: 'delegated', want: 'exhaust', on: true });
   });
 });
@@ -499,7 +547,9 @@ describe('decideClimate — humidifier', () => {
 
   it('does not engage inside the band or merely above it', () => {
     for (const vpd of [1.0, 1.15, 1.19]) {
-      const d = decideClimate(input({ airVpd: vpd, config: loopRh, humidifier: { present: true } }));
+      const d = decideClimate(
+        input({ airVpd: vpd, config: loopRh, humidifier: { present: true } })
+      );
       expect(d.kind).not.toBe('humidify');
     }
   });
@@ -521,14 +571,21 @@ describe('decideClimate — humidifier', () => {
 
   it('releases on the fast reading, so it does not overshoot the target downward', () => {
     const d = decideClimate(
-      input({ airVpd: 1.15, airVpdFast: 0.99, config: loopRh, humidifier: { present: true, on: true } })
+      input({
+        airVpd: 1.15,
+        airVpdFast: 0.99,
+        config: loopRh,
+        humidifier: { present: true, on: true }
+      })
     );
     expect(d).toMatchObject({ kind: 'humidify', on: false });
   });
 
   it('releases back at the target, not at the floor — no shared edge with the exhaust', () => {
     const on = { present: true, on: true };
-    expect(decideClimate(input({ airVpd: 1.05, config: loopRh, humidifier: on })).kind).toBe('hold');
+    expect(decideClimate(input({ airVpd: 1.05, config: loopRh, humidifier: on })).kind).toBe(
+      'hold'
+    );
     expect(decideClimate(input({ airVpd: 1.0, config: loopRh, humidifier: on }))).toMatchObject({
       kind: 'humidify',
       on: false
@@ -574,13 +631,21 @@ describe('decideClimate — humidifier', () => {
 
   it('serves min-off before re-engaging and min-on before releasing', () => {
     const engage = decideClimate(
-      input({ airVpd: 1.3, config: loopRh, humidifier: { present: true, lastChangeMs: NOW - 60_000 } })
+      input({
+        airVpd: 1.3,
+        config: loopRh,
+        humidifier: { present: true, lastChangeMs: NOW - 60_000 }
+      })
     );
     expect(engage.kind).toBe('hold');
     expect(engage.reason).toContain('minimum off');
 
     const release = decideClimate(
-      input({ airVpd: 0.95, config: loopRh, humidifier: { present: true, on: true, lastChangeMs: NOW - 30_000 } })
+      input({
+        airVpd: 0.95,
+        config: loopRh,
+        humidifier: { present: true, on: true, lastChangeMs: NOW - 30_000 }
+      })
     );
     expect(release.kind).toBe('hold');
     expect(release.reason).toContain('minimum on');
@@ -589,7 +654,9 @@ describe('decideClimate — humidifier', () => {
   it('releases a running humidifier before venting, so the two never fight', () => {
     // Unreachable in sequential operation, but a restart or a hand-flipped plug lands here,
     // and neither band would escape a state where both are running against each other.
-    const d = decideClimate(input({ airVpd: 0.5, config: loopRh, humidifier: { present: true, on: true } }));
+    const d = decideClimate(
+      input({ airVpd: 0.5, config: loopRh, humidifier: { present: true, on: true } })
+    );
     expect(d).toMatchObject({ kind: 'humidify', on: false });
     expect(d.reason).toContain('releasing the humidifier');
   });
@@ -601,18 +668,27 @@ describe('decideClimate — humidifier', () => {
 
   it('still releases the humidifier when the exhaust plug is missing entirely', () => {
     const d = decideClimate(
-      input({ airVpd: 0.5, config: loopRh, exhaust: { present: false }, humidifier: { present: true, on: true } })
+      input({
+        airVpd: 0.5,
+        config: loopRh,
+        exhaust: { present: false },
+        humidifier: { present: true, on: true }
+      })
     );
     expect(d).toMatchObject({ kind: 'humidify', on: false });
   });
 
   it('will not command OFF a humidifier plug that is not discovered', () => {
-    const d = decideClimate(input({ airVpd: 0.95, config: loopRh, humidifier: { present: false, on: true } }));
+    const d = decideClimate(
+      input({ airVpd: 0.95, config: loopRh, humidifier: { present: false, on: true } })
+    );
     expect(d).toMatchObject({ kind: 'blocked', want: 'humidify', on: false });
   });
 
   it('delegates when a humidistat owns RH', () => {
-    const d = decideClimate(input({ airVpd: 1.3, config: { rhSource: 'external' }, humidifier: { present: true } }));
+    const d = decideClimate(
+      input({ airVpd: 1.3, config: { rhSource: 'external' }, humidifier: { present: true } })
+    );
     expect(d).toMatchObject({ kind: 'delegated', want: 'humidify' });
   });
 

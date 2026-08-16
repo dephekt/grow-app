@@ -6,7 +6,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openAuthDb } from '$lib/server/auth/db';
-import { createLocalUser, ensureBootstrapAdmin, getUserByUsername, setDisabled } from '$lib/server/auth/users';
+import {
+  createLocalUser,
+  ensureBootstrapAdmin,
+  getUserByUsername,
+  setDisabled
+} from '$lib/server/auth/users';
 import { verifyPassword } from '$lib/server/auth/passwords';
 
 const tempDirs: string[] = [];
@@ -58,7 +63,9 @@ describe('ensureBootstrapAdmin', () => {
 
     const db2 = openAuthDb(':memory:');
     await ensureBootstrapAdmin(db2, { username: 'admin', passwordHash: stored });
-    expect(await verifyPassword('first-secret', getUserByUsername(db2, 'admin')!.password_hash)).toBe(true);
+    expect(
+      await verifyPassword('first-secret', getUserByUsername(db2, 'admin')!.password_hash)
+    ).toBe(true);
   });
 
   it('never resets the password on later boots (inert secret)', async () => {
@@ -130,7 +137,9 @@ describe('createLocalUser', () => {
   it('rejects a duplicate username', async () => {
     const db = openAuthDb(':memory:');
     await createLocalUser(db, { username: 'greg', password: 'password123' });
-    await expect(createLocalUser(db, { username: 'greg', password: 'password456' })).rejects.toThrow();
+    await expect(
+      createLocalUser(db, { username: 'greg', password: 'password456' })
+    ).rejects.toThrow();
   });
 
   it('is case-insensitive on username uniqueness', async () => {

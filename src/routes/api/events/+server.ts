@@ -62,7 +62,9 @@ export const GET: RequestHandler = async ({ fetch, cookies, locals }) => {
         try {
           // A live `snapshot` event must carry the raw snapshot, not the envelope
           // that incremental events travel in.
-          controller.enqueue(encode(event.type, event.type === 'snapshot' ? event.snapshot : event));
+          controller.enqueue(
+            encode(event.type, event.type === 'snapshot' ? event.snapshot : event)
+          );
         } catch {
           // Reader vanished between disconnect and cancel(); stop feeding it.
           closeStream();

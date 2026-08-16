@@ -71,7 +71,10 @@ function getNumber(payload: Record<string, unknown>, keys: readonly string[]): n
   return undefined;
 }
 
-function resolveTopic(topic: string | undefined, baseTopic: string | undefined): string | undefined {
+function resolveTopic(
+  topic: string | undefined,
+  baseTopic: string | undefined
+): string | undefined {
   if (!topic) return undefined;
   if (baseTopic && topic.includes('~')) return topic.replaceAll('~', baseTopic);
   return topic;
@@ -87,7 +90,8 @@ export function normalizeDiscoveryId(value: string): string {
 
 function parseDevice(payload: Record<string, unknown>, fallbackName: string): DiscoveryDevice {
   const rawDevice = payload.device ?? payload.dev;
-  const device = rawDevice && typeof rawDevice === 'object' ? (rawDevice as Record<string, unknown>) : {};
+  const device =
+    rawDevice && typeof rawDevice === 'object' ? (rawDevice as Record<string, unknown>) : {};
   const ids = device.identifiers ?? device.ids;
   const identifiers = Array.isArray(ids)
     ? ids.map(String)
@@ -109,7 +113,10 @@ function parseOptions(value: unknown): string[] | undefined {
   return value.map(String).filter((option) => option.length > 0);
 }
 
-export function parseDiscoveryTopic(topic: string, discoveryPrefix: string): DiscoveryTopicParts | null {
+export function parseDiscoveryTopic(
+  topic: string,
+  discoveryPrefix: string
+): DiscoveryTopicParts | null {
   if (!topic.startsWith(`${discoveryPrefix}/`) || !topic.endsWith('/config')) return null;
   const relative = topic.slice(discoveryPrefix.length + 1, -'/config'.length);
   const parts = relative.split('/').filter(Boolean);
@@ -146,11 +153,16 @@ export function parseDiscoveryPayload(
   const name = rawName === 'null' ? topicParts.objectId : rawName;
   const uniqueId =
     getString(payload, topicKeys.uniqueId) ??
-    normalizeDiscoveryId([topicParts.component, topicParts.nodeId, topicParts.objectId].filter(Boolean).join('_'));
+    normalizeDiscoveryId(
+      [topicParts.component, topicParts.nodeId, topicParts.objectId].filter(Boolean).join('_')
+    );
   const objectId = getString(payload, topicKeys.objectId) ?? topicParts.objectId;
   const stateTopic = resolveTopic(getString(payload, topicKeys.stateTopic), baseTopic);
   const commandTopic = resolveTopic(getString(payload, topicKeys.commandTopic), baseTopic);
-  const availabilityTopic = resolveTopic(getString(payload, topicKeys.availabilityTopic), baseTopic);
+  const availabilityTopic = resolveTopic(
+    getString(payload, topicKeys.availabilityTopic),
+    baseTopic
+  );
   const payloadAvailable = getString(payload, topicKeys.payloadAvailable) ?? 'online';
   const payloadNotAvailable = getString(payload, topicKeys.payloadNotAvailable) ?? 'offline';
   const device = parseDevice(payload, topicParts.nodeId ?? objectId);
@@ -221,15 +233,19 @@ function commandPayload(entity: EntityConfig, value: unknown): string {
       if (typeof value !== 'boolean' && value !== entity.payloadOn && value !== entity.payloadOff) {
         throw new Error('Expected a boolean on/off value');
       }
-      return value === true || value === entity.payloadOn ? (entity.payloadOn ?? 'ON') : (entity.payloadOff ?? 'OFF');
+      return value === true || value === entity.payloadOn
+        ? (entity.payloadOn ?? 'ON')
+        : (entity.payloadOff ?? 'OFF');
     }
     case 'button':
       return entity.payloadPress ?? 'PRESS';
     case 'number': {
       const parsed = numberValue(value);
       if (parsed === undefined) throw new Error('Expected a numeric value');
-      if (entity.min !== undefined && parsed < entity.min) throw new Error(`Value must be >= ${entity.min}`);
-      if (entity.max !== undefined && parsed > entity.max) throw new Error(`Value must be <= ${entity.max}`);
+      if (entity.min !== undefined && parsed < entity.min)
+        throw new Error(`Value must be >= ${entity.min}`);
+      if (entity.max !== undefined && parsed > entity.max)
+        throw new Error(`Value must be <= ${entity.max}`);
       return String(parsed);
     }
     case 'select': {

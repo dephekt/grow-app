@@ -30,24 +30,24 @@ snapshot with `GROW_DEV_SNAPSHOT_FILE=/path/to/snapshot.json pnpm dev`.
 
 Default site-mode broker settings:
 
-| Variable | Default |
-|---|---|
-| `GROW_SITE` | `daniel-home` |
-| `MQTT_URL` | `mqtt://localhost:1883` |
-| `MQTT_USERNAME` | `grow-app-site-daniel-home` |
-| `MQTT_PASSWORD` | empty |
-| `MQTT_PASSWORD_FILE` | empty |
-| `MQTT_TOPIC_PREFIX` | `grow/daniel-home` |
+| Variable                | Default                       |
+| ----------------------- | ----------------------------- |
+| `GROW_SITE`             | `daniel-home`                 |
+| `MQTT_URL`              | `mqtt://localhost:1883`       |
+| `MQTT_USERNAME`         | `grow-app-site-daniel-home`   |
+| `MQTT_PASSWORD`         | empty                         |
+| `MQTT_PASSWORD_FILE`    | empty                         |
+| `MQTT_TOPIC_PREFIX`     | `grow/daniel-home`            |
 | `MQTT_DISCOVERY_PREFIX` | `grow/daniel-home/_discovery` |
 
 Time-series history (optional — the app degrades gracefully without it):
 
-| Variable | Default |
-|---|---|
-| `INFLUX_URL` | empty (history disabled) |
-| `INFLUX_TOKEN` / `INFLUX_TOKEN_FILE` | empty |
-| `INFLUX_ORG` | `grow` |
-| `INFLUX_BUCKET` | `GROW_SITE` value, else `daniel-home` |
+| Variable                             | Default                               |
+| ------------------------------------ | ------------------------------------- |
+| `INFLUX_URL`                         | empty (history disabled)              |
+| `INFLUX_TOKEN` / `INFLUX_TOKEN_FILE` | empty                                 |
+| `INFLUX_ORG`                         | `grow`                                |
+| `INFLUX_BUCKET`                      | `GROW_SITE` value, else `daniel-home` |
 
 When `INFLUX_URL` + token are set, `/api/history` serves trend series and the
 `grow-history-recorder` sidecar (`node build-recorder/recorder.js`, same image)

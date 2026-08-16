@@ -3,7 +3,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { leafVpdKpa, liveLeafVpd, saturationVapourPressureKpa } from '../../src/lib/vpd';
-import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
+import type {
+  DeviceSnapshot,
+  EntityConfig,
+  EntityState,
+  Snapshot
+} from '../../src/lib/server/mqtt/types';
 
 const RIG = 'atoms3u-sensor-rig';
 
@@ -14,7 +19,12 @@ function makeEntity(
     component: 'sensor',
     uniqueId: overrides.id,
     nodeId: RIG,
-    device: { identifiers: [overrides.nodeId ?? RIG], name: RIG, manufacturer: 'stackdrift', model: RIG },
+    device: {
+      identifiers: [overrides.nodeId ?? RIG],
+      name: RIG,
+      manufacturer: 'stackdrift',
+      model: RIG
+    },
     payloadAvailable: 'online',
     payloadNotAvailable: 'offline',
     dangerous: false,
@@ -24,9 +34,23 @@ function makeEntity(
   };
 }
 
-const roiMean = makeEntity({ id: 'roi_mean', name: 'ROI Mean Temp', objectId: 'mlx90640_roi_mean_temp' });
-const airTemp = makeEntity({ id: 'air_t', name: 'Temperature', objectId: 'temperature', deviceClass: 'temperature' });
-const humidity = makeEntity({ id: 'rh', name: 'Humidity', objectId: 'humidity', deviceClass: 'humidity' });
+const roiMean = makeEntity({
+  id: 'roi_mean',
+  name: 'ROI Mean Temp',
+  objectId: 'mlx90640_roi_mean_temp'
+});
+const airTemp = makeEntity({
+  id: 'air_t',
+  name: 'Temperature',
+  objectId: 'temperature',
+  deviceClass: 'temperature'
+});
+const humidity = makeEntity({
+  id: 'rh',
+  name: 'Humidity',
+  objectId: 'humidity',
+  deviceClass: 'humidity'
+});
 const roiSwitch = makeEntity({
   id: 'roi_sw',
   name: 'ROI Enabled',
@@ -37,7 +61,11 @@ const roiSwitch = makeEntity({
 
 const ALL = [roiMean, airTemp, humidity, roiSwitch];
 
-function makeSnapshot(entities: EntityConfig[], states: Record<string, EntityState>, availability = 'online'): Snapshot {
+function makeSnapshot(
+  entities: EntityConfig[],
+  states: Record<string, EntityState>,
+  availability = 'online'
+): Snapshot {
   const device: DeviceSnapshot = {
     id: RIG,
     nodeId: RIG,
@@ -51,7 +79,13 @@ function makeSnapshot(entities: EntityConfig[], states: Record<string, EntitySta
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: '2026-08-11T00:00:00.000Z',
-    broker: { connected: true, connecting: false, error: null, lastConnectedAt: null, lastMessageAt: null },
+    broker: {
+      connected: true,
+      connecting: false,
+      error: null,
+      lastConnectedAt: null,
+      lastMessageAt: null
+    },
     devices: [device],
     entities,
     states,
@@ -146,8 +180,18 @@ describe('liveLeafVpd', () => {
   // those as "air" would silently skew every reading.
   it('ignores non-ambient temperatures on the same rig', () => {
     const decoys = [
-      makeEntity({ id: 'bps', name: 'Barometric Temp', objectId: 'bps_temperature', deviceClass: 'temperature' }),
-      makeEntity({ id: 'dmax', name: 'Daily Max Temp', objectId: 'daily_max_temperature', deviceClass: 'temperature' })
+      makeEntity({
+        id: 'bps',
+        name: 'Barometric Temp',
+        objectId: 'bps_temperature',
+        deviceClass: 'temperature'
+      }),
+      makeEntity({
+        id: 'dmax',
+        name: 'Daily Max Temp',
+        objectId: 'daily_max_temperature',
+        deviceClass: 'temperature'
+      })
     ];
     const snapshot = makeSnapshot([decoys[0], decoys[1], ...ALL], {
       ...LIVE_STATES,

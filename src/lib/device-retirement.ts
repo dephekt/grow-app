@@ -30,14 +30,21 @@ export function filterRetiredDevicesFromSnapshot(snapshot: Snapshot): Snapshot {
     ...snapshot,
     devices: snapshot.devices
       .filter((device) => !isRetiredDeviceNode(device.nodeId) && !isRetiredDeviceNode(device.id))
-      .map((device) => ({ ...device, entityIds: device.entityIds.filter((id) => entityIds.has(id)) })),
+      .map((device) => ({
+        ...device,
+        entityIds: device.entityIds.filter((id) => entityIds.has(id))
+      })),
     entities,
-    states: Object.fromEntries(Object.entries(snapshot.states).filter(([entityId]) => entityIds.has(entityId))),
+    states: Object.fromEntries(
+      Object.entries(snapshot.states).filter(([entityId]) => entityIds.has(entityId))
+    ),
     uiConfigs: Object.fromEntries(activeNodeEntries(snapshot.uiConfigs ?? {})),
     firmware: {
       devices: Object.fromEntries(activeNodeEntries(snapshot.firmware?.devices ?? {})),
       channels: Object.fromEntries(activeNodeEntries(snapshot.firmware?.channels ?? {}))
     },
-    spectrometerNodeIds: snapshot.spectrometerNodeIds?.filter((nodeId) => !isRetiredDeviceNode(nodeId))
+    spectrometerNodeIds: snapshot.spectrometerNodeIds?.filter(
+      (nodeId) => !isRetiredDeviceNode(nodeId)
+    )
   };
 }

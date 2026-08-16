@@ -3,7 +3,12 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { openAuthDb } from '$lib/server/auth/db';
-import { createLocalUser, getUserByOidc, getUserByUsername, upsertOidcUser } from '$lib/server/auth/users';
+import {
+  createLocalUser,
+  getUserByOidc,
+  getUserByUsername,
+  upsertOidcUser
+} from '$lib/server/auth/users';
 import { authorizeFromGroups, resolveRequestOrigin } from '$lib/server/auth/oidc';
 import { getAllowedOrigins, isSsoEnabled } from '$lib/server/auth/config';
 
@@ -11,7 +16,10 @@ describe('authorizeFromGroups', () => {
   const SLUG = 'daniel-home';
 
   it('grants access from the site group without admin', () => {
-    expect(authorizeFromGroups(['/grow-site-daniel-home'], SLUG)).toEqual({ authorized: true, isAdmin: false });
+    expect(authorizeFromGroups(['/grow-site-daniel-home'], SLUG)).toEqual({
+      authorized: true,
+      isAdmin: false
+    });
   });
 
   it('grants access and admin from the global admin group alone', () => {
@@ -30,7 +38,9 @@ describe('authorizeFromGroups', () => {
   });
 
   it('requires the full group path (leading slash; leaf name alone does not match)', () => {
-    expect(authorizeFromGroups(['grow-site-daniel-home', 'grow-admin'], SLUG).authorized).toBe(false);
+    expect(authorizeFromGroups(['grow-site-daniel-home', 'grow-admin'], SLUG).authorized).toBe(
+      false
+    );
   });
 
   it('ignores unrelated groups while honouring the matching one', () => {
@@ -53,7 +63,10 @@ describe('resolveRequestOrigin', () => {
   });
 
   it('takes the first entry of a comma-listed forwarded host/proto', () => {
-    const h = new Headers({ 'x-forwarded-host': 'a.example.com, b.example.com', 'x-forwarded-proto': 'https, http' });
+    const h = new Headers({
+      'x-forwarded-host': 'a.example.com, b.example.com',
+      'x-forwarded-proto': 'https, http'
+    });
     expect(resolveRequestOrigin(h)).toBe('https://a.example.com');
   });
 
@@ -86,8 +99,20 @@ describe('upsertOidcUser', () => {
 
   it('re-syncs display_name + is_admin on a later login without a new row', async () => {
     const db = openAuthDb(':memory:');
-    const first = await upsertOidcUser(db, { issuer: ISS, sub: 'sub-1', username: 'greg', displayName: 'Greg', isAdmin: false });
-    const second = await upsertOidcUser(db, { issuer: ISS, sub: 'sub-1', username: 'ignored', displayName: 'Greg R.', isAdmin: true });
+    const first = await upsertOidcUser(db, {
+      issuer: ISS,
+      sub: 'sub-1',
+      username: 'greg',
+      displayName: 'Greg',
+      isAdmin: false
+    });
+    const second = await upsertOidcUser(db, {
+      issuer: ISS,
+      sub: 'sub-1',
+      username: 'ignored',
+      displayName: 'Greg R.',
+      isAdmin: true
+    });
 
     expect(second.id).toBe(first.id);
     expect(second.display_name).toBe('Greg R.');
@@ -99,11 +124,25 @@ describe('upsertOidcUser', () => {
 
   it('does not touch password_hash or disabled on re-sync (local kill-switch survives)', async () => {
     const db = openAuthDb(':memory:');
-    const created = await upsertOidcUser(db, { issuer: ISS, sub: 'sub-1', username: 'greg', displayName: null, isAdmin: true });
+    const created = await upsertOidcUser(db, {
+      issuer: ISS,
+      sub: 'sub-1',
+      username: 'greg',
+      displayName: null,
+      isAdmin: true
+    });
     // Simulate a local admin disabling the account + it having a fallback password.
-    db.prepare("UPDATE users SET disabled = 1, password_hash = 'scrypt$fake' WHERE id = ?").run(created.id);
+    db.prepare("UPDATE users SET disabled = 1, password_hash = 'scrypt$fake' WHERE id = ?").run(
+      created.id
+    );
 
-    const after = await upsertOidcUser(db, { issuer: ISS, sub: 'sub-1', username: 'greg', displayName: null, isAdmin: false });
+    const after = await upsertOidcUser(db, {
+      issuer: ISS,
+      sub: 'sub-1',
+      username: 'greg',
+      displayName: null,
+      isAdmin: false
+    });
     expect(after.disabled).toBe(1);
     expect(after.password_hash).toBe('scrypt$fake');
     expect(after.is_admin).toBe(0); // admin still re-synced from the claim
@@ -113,7 +152,13 @@ describe('upsertOidcUser', () => {
     const db = openAuthDb(':memory:');
     const local = await createLocalUser(db, { username: 'greg', password: 'password123' });
 
-    const oidc = await upsertOidcUser(db, { issuer: ISS, sub: 'sub-99', username: 'greg', displayName: null, isAdmin: false });
+    const oidc = await upsertOidcUser(db, {
+      issuer: ISS,
+      sub: 'sub-99',
+      username: 'greg',
+      displayName: null,
+      isAdmin: false
+    });
     expect(oidc.id).not.toBe(local.id);
     expect(oidc.username).toBe('greg-2');
     // The pre-existing local account is untouched (no takeover by claim).

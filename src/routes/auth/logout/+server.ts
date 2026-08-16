@@ -19,6 +19,10 @@ export const POST: RequestHandler = ({ cookies, locals, request }) => {
     // LAN — leaving the dead cookie in place. Decide it per request instead.
     cookies.delete(SESSION_COOKIE, { path: '/', secure: isSecureRequest(request.headers) });
   }
-  recordAudit(getAuthDb(), { event: 'logout', userId: locals.user?.id ?? null, username: locals.user?.username ?? null });
+  recordAudit(getAuthDb(), {
+    event: 'logout',
+    userId: locals.user?.id ?? null,
+    username: locals.user?.username ?? null
+  });
   return json({ ok: true });
 };

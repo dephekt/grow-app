@@ -30,7 +30,10 @@ test('captures device settings references for Penpot import', async ({ page }, t
   await page.goto('/device-settings?device=atlas-hydro-monitor&section=calibration');
 
   await expect(page.getByRole('heading', { name: 'Atlas Hydro Monitor' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Calibration/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('link', { name: /Calibration/ })).toHaveAttribute(
+    'aria-current',
+    'page'
+  );
   await expect(page.locator('h3.step-name')).toBeVisible();
 
   await page.screenshot({

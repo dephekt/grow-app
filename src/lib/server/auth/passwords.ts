@@ -16,7 +16,14 @@ const DUMMY_SALT = Buffer.alloc(16, 0x2a);
 
 // Async on purpose: the callback API runs on the libuv threadpool, where `scryptSync`
 // would block the event loop for the whole derivation.
-function derive(password: string, salt: Buffer, keylen: number, n: number, r: number, p: number): Promise<Buffer> {
+function derive(
+  password: string,
+  salt: Buffer,
+  keylen: number,
+  n: number,
+  r: number,
+  p: number
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scrypt(password, salt, keylen, { N: n, r, p, maxmem: MAXMEM }, (err, derivedKey) => {
       if (err) reject(err);
@@ -48,7 +55,13 @@ function parse(stored: string): ParsedHash | null {
   const p = Number(parts[3]);
   if (!Number.isInteger(n) || !Number.isInteger(r) || !Number.isInteger(p)) return null;
   try {
-    return { n, r, p, salt: Buffer.from(parts[4], 'base64url'), hash: Buffer.from(parts[5], 'base64url') };
+    return {
+      n,
+      r,
+      p,
+      salt: Buffer.from(parts[4], 'base64url'),
+      hash: Buffer.from(parts[5], 'base64url')
+    };
   } catch {
     return null;
   }
@@ -58,7 +71,10 @@ function parse(stored: string): ParsedHash | null {
  * Always performs a scrypt derivation — even for a null/garbage stored hash — so a missing
  * user, a passwordless account, and a wrong password can't be told apart by timing.
  */
-export async function verifyPassword(password: string, stored: string | null | undefined): Promise<boolean> {
+export async function verifyPassword(
+  password: string,
+  stored: string | null | undefined
+): Promise<boolean> {
   const parsed = stored ? parse(stored) : null;
   const salt = parsed?.salt ?? DUMMY_SALT;
   const expected = parsed?.hash ?? Buffer.alloc(KEYLEN, 0);

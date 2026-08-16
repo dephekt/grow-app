@@ -4,7 +4,12 @@
 import { describe, expect, it } from 'vitest';
 import { resolveClimateInputs } from '../../src/lib/climate/inputs';
 import { EXHAUST_NODE } from '../../src/lib/climate/model';
-import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
+import type {
+  DeviceSnapshot,
+  EntityConfig,
+  EntityState,
+  Snapshot
+} from '../../src/lib/server/mqtt/types';
 
 /** Matches the fixture's state `updatedAt`, so nothing reads as stale unless a test says so. */
 const NOW = Date.parse('2026-08-14T12:00:00.000Z');
@@ -58,7 +63,13 @@ function makeSnapshot(
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: '2026-08-14T12:00:00.000Z',
-    broker: { connected: true, connecting: false, error: null, lastConnectedAt: null, lastMessageAt: null },
+    broker: {
+      connected: true,
+      connecting: false,
+      error: null,
+      lastConnectedAt: null,
+      lastMessageAt: null
+    },
     devices,
     entities,
     states,
@@ -82,9 +93,27 @@ const sw = (nodeId: string, id: string, objectId: string) =>
 /** The live fleet in miniature: in-tent rig, room feather, exhaust plug with its arms, lamp. */
 function fullFleet() {
   return [
-    makeEntity(RIG, { id: 'rig_t', name: 'Temperature', objectId: 'temperature', deviceClass: 'temperature', unit: '°C' }),
-    makeEntity(RIG, { id: 'rig_h', name: 'Humidity', objectId: 'humidity', deviceClass: 'humidity', unit: '%' }),
-    makeEntity(RIG, { id: 'rig_co2', name: 'CO2', objectId: 'co2', deviceClass: 'carbon_dioxide', unit: 'ppm' }),
+    makeEntity(RIG, {
+      id: 'rig_t',
+      name: 'Temperature',
+      objectId: 'temperature',
+      deviceClass: 'temperature',
+      unit: '°C'
+    }),
+    makeEntity(RIG, {
+      id: 'rig_h',
+      name: 'Humidity',
+      objectId: 'humidity',
+      deviceClass: 'humidity',
+      unit: '%'
+    }),
+    makeEntity(RIG, {
+      id: 'rig_co2',
+      name: 'CO2',
+      objectId: 'co2',
+      deviceClass: 'carbon_dioxide',
+      unit: 'ppm'
+    }),
     makeEntity(ROOM, {
       id: 'room_t',
       name: 'Ext Temperature',
@@ -92,7 +121,13 @@ function fullFleet() {
       deviceClass: 'temperature',
       unit: '°C'
     }),
-    makeEntity(ROOM, { id: 'room_h', name: 'Ext Humidity', objectId: 'ext_humidity', deviceClass: 'humidity', unit: '%' }),
+    makeEntity(ROOM, {
+      id: 'room_h',
+      name: 'Ext Humidity',
+      objectId: 'ext_humidity',
+      deviceClass: 'humidity',
+      unit: '%'
+    }),
     sw(EXHAUST_NODE, 'fan_relay', 'exhaust_fan'),
     sw(EXHAUST_NODE, 'fan_cyc', 'fan_cycle'),
     sw(EXHAUST_NODE, 'fan_sch', 'fan_schedule'),
@@ -137,7 +172,10 @@ describe('resolveClimateInputs', () => {
   });
 
   it('resolves the exhaust relay and both firmware arms', () => {
-    const inputs = resolveClimateInputs(makeSnapshot(fullFleet(), { ...LIVE_VALUES, fan_cyc: 'ON' }), NOW);
+    const inputs = resolveClimateInputs(
+      makeSnapshot(fullFleet(), { ...LIVE_VALUES, fan_cyc: 'ON' }),
+      NOW
+    );
     expect(inputs.exhaust.present).toBe(true);
     expect(inputs.exhaust.on).toBe(true);
     expect(inputs.arms.map((a) => a.objectId)).toEqual(['fan_cycle', 'fan_schedule']);
@@ -153,7 +191,10 @@ describe('resolveClimateInputs', () => {
   });
 
   it('drops tent air when its device goes offline rather than using the retained value', () => {
-    const inputs = resolveClimateInputs(makeSnapshot(fullFleet(), LIVE_VALUES, { [RIG]: 'offline' }), NOW);
+    const inputs = resolveClimateInputs(
+      makeSnapshot(fullFleet(), LIVE_VALUES, { [RIG]: 'offline' }),
+      NOW
+    );
     expect(inputs.tent).toBeNull();
     expect(inputs.airVpd).toBeNull();
   });
@@ -164,19 +205,26 @@ describe('resolveClimateInputs', () => {
   });
 
   it('ignores a blank retained payload instead of reading it as zero', () => {
-    const inputs = resolveClimateInputs(makeSnapshot(fullFleet(), { ...LIVE_VALUES, rig_t: '' }), NOW);
+    const inputs = resolveClimateInputs(
+      makeSnapshot(fullFleet(), { ...LIVE_VALUES, rig_t: '' }),
+      NOW
+    );
     expect(inputs.tent).toBeNull();
   });
 
   it('ignores an unreadable (nan) payload', () => {
-    const inputs = resolveClimateInputs(makeSnapshot(fullFleet(), { ...LIVE_VALUES, room_h: 'nan' }), NOW);
+    const inputs = resolveClimateInputs(
+      makeSnapshot(fullFleet(), { ...LIVE_VALUES, room_h: 'nan' }),
+      NOW
+    );
     expect(inputs.room).toBeNull();
   });
 
   it('reports the lamp from its relay', () => {
     expect(resolveClimateInputs(makeSnapshot(fullFleet(), LIVE_VALUES), NOW).lightsOn).toBe(true);
     expect(
-      resolveClimateInputs(makeSnapshot(fullFleet(), { ...LIVE_VALUES, light_relay: 'OFF' }), NOW).lightsOn
+      resolveClimateInputs(makeSnapshot(fullFleet(), { ...LIVE_VALUES, light_relay: 'OFF' }), NOW)
+        .lightsOn
     ).toBe(false);
   });
 
@@ -184,10 +232,19 @@ describe('resolveClimateInputs', () => {
     const noLight = fullFleet().filter((e) => e.nodeId !== LIGHT);
     const withPpfd = [
       ...noLight,
-      makeEntity('quantum-sensor', { id: 'ppfd', name: 'PPFD', objectId: 'ppfd', unit: 'µmol/m²/s' })
+      makeEntity('quantum-sensor', {
+        id: 'ppfd',
+        name: 'PPFD',
+        objectId: 'ppfd',
+        unit: 'µmol/m²/s'
+      })
     ];
-    expect(resolveClimateInputs(makeSnapshot(withPpfd, { ...LIVE_VALUES, ppfd: '420' }), NOW).lightsOn).toBe(true);
-    expect(resolveClimateInputs(makeSnapshot(withPpfd, { ...LIVE_VALUES, ppfd: '0' }), NOW).lightsOn).toBe(false);
+    expect(
+      resolveClimateInputs(makeSnapshot(withPpfd, { ...LIVE_VALUES, ppfd: '420' }), NOW).lightsOn
+    ).toBe(true);
+    expect(
+      resolveClimateInputs(makeSnapshot(withPpfd, { ...LIVE_VALUES, ppfd: '0' }), NOW).lightsOn
+    ).toBe(false);
   });
 
   it('reports no humidifier until a fifth plug exists', () => {
@@ -236,9 +293,18 @@ describe('resolveClimateInputs', () => {
     // position flips the vented-temperature offset by 2.8 °C.
     const withPpfd = [
       ...fullFleet(),
-      makeEntity('quantum-sensor', { id: 'ppfd', name: 'PPFD', objectId: 'ppfd', unit: 'µmol/m²/s' })
+      makeEntity('quantum-sensor', {
+        id: 'ppfd',
+        name: 'PPFD',
+        objectId: 'ppfd',
+        unit: 'µmol/m²/s'
+      })
     ];
-    const snapshot = makeSnapshot(withPpfd, { ...LIVE_VALUES, light_relay: 'OFF', ppfd: '900' }, { [LIGHT]: 'offline' });
+    const snapshot = makeSnapshot(
+      withPpfd,
+      { ...LIVE_VALUES, light_relay: 'OFF', ppfd: '900' },
+      { [LIGHT]: 'offline' }
+    );
     expect(resolveClimateInputs(snapshot, NOW).lightsOn).toBe(true);
   });
 
@@ -254,7 +320,10 @@ describe('resolveClimateInputs', () => {
       }),
       ...fullFleet()
     ];
-    const inputs = resolveClimateInputs(makeSnapshot(withDewpoint, { ...LIVE_VALUES, room_dew: '15.0' }), NOW);
+    const inputs = resolveClimateInputs(
+      makeSnapshot(withDewpoint, { ...LIVE_VALUES, room_dew: '15.0' }),
+      NOW
+    );
     expect(inputs.room).toEqual({ tempC: 25.02, rhPct: 61.4 });
   });
 
@@ -276,8 +345,14 @@ describe('resolveClimateInputs', () => {
       unit: '%'
     });
     const values = { ...LIVE_VALUES, spare_t: '30.0', spare_h: '20.0' };
-    const forward = resolveClimateInputs(makeSnapshot([...fullFleet(), spare, spareRh], values), NOW);
-    const reversed = resolveClimateInputs(makeSnapshot([spare, spareRh, ...fullFleet()], values), NOW);
+    const forward = resolveClimateInputs(
+      makeSnapshot([...fullFleet(), spare, spareRh], values),
+      NOW
+    );
+    const reversed = resolveClimateInputs(
+      makeSnapshot([spare, spareRh, ...fullFleet()], values),
+      NOW
+    );
     expect(forward.roomNode).toBe(reversed.roomNode);
     expect(forward.room).toEqual(reversed.room);
   });
@@ -342,7 +417,10 @@ describe('resolveClimateInputs', () => {
       }),
       ...fullFleet()
     ];
-    const inputs = resolveClimateInputs(makeSnapshot(withDailyMax, { ...LIVE_VALUES, room_max: '31.0' }), NOW);
+    const inputs = resolveClimateInputs(
+      makeSnapshot(withDailyMax, { ...LIVE_VALUES, room_max: '31.0' }),
+      NOW
+    );
     expect(inputs.room).toEqual({ tempC: 25.02, rhPct: 61.4 });
   });
 });

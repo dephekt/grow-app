@@ -5,7 +5,11 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireAdmin } from '$lib/server/auth/authz';
 import { getClimateDb } from '$lib/server/climate/db';
-import { ClimateConfigError, getClimateConfig, updateClimateConfig } from '$lib/server/climate/store';
+import {
+  ClimateConfigError,
+  getClimateConfig,
+  updateClimateConfig
+} from '$lib/server/climate/store';
 import { buildDecisionInput, getClimateLoopState } from '$lib/server/climate/loop';
 import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { controlBand, type ClimateConfig } from '$lib/climate/model';
@@ -105,7 +109,8 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
   try {
     const parsed: unknown = await request.json();
     // A bare `null` or an array parses without throwing, then indexing it does.
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not an object');
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed))
+      throw new Error('not an object');
     body = parsed as Record<string, unknown>;
   } catch {
     return json({ ok: false, error: 'Invalid request' }, { status: 400 });

@@ -2,7 +2,11 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { describe, expect, it } from 'vitest';
-import { buildCommandPublish, parseDiscoveryPayload, parseDiscoveryTopic } from '../../src/lib/server/mqtt/discovery';
+import {
+  buildCommandPublish,
+  parseDiscoveryPayload,
+  parseDiscoveryTopic
+} from '../../src/lib/server/mqtt/discovery';
 import { SiteMqttService } from '../../src/lib/server/mqtt/service';
 import { parseUiConfigPayload, parseUiConfigTopic } from '../../src/lib/server/mqtt/ui-metadata';
 
@@ -113,7 +117,12 @@ describe('MQTT discovery parsing', () => {
         object_id: 'thermal_camera',
         unique_id: 'atoms3u-sensor-rig_thermal_camera',
         image_path: '/thermal.jpg',
-        device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' }
+        device: {
+          identifiers: ['30eda0c8f338'],
+          name: 'AtomS3U Sensor Rig',
+          manufacturer: 'stackdrift',
+          model: 'atoms3u-sensor-rig'
+        }
       }),
       prefix
     );
@@ -136,7 +145,9 @@ describe('MQTT discovery parsing', () => {
       topicPrefix: 'grow/daniel-home',
       discoveryPrefix: prefix
     });
-    const receive = (service as unknown as { handleMessage(topic: string, payload: string): void }).handleMessage.bind(service);
+    const receive = (
+      service as unknown as { handleMessage(topic: string, payload: string): void }
+    ).handleMessage.bind(service);
 
     receive(
       `${prefix}/update/atlas-hydro-monitor/firmware_update/config`,
@@ -159,12 +170,18 @@ describe('MQTT discovery parsing', () => {
       })
     );
 
-    const updateEntities = service.snapshot().entities.filter((entity) => entity.component === 'update');
+    const updateEntities = service
+      .snapshot()
+      .entities.filter((entity) => entity.component === 'update');
 
     expect(updateEntities).toHaveLength(2);
     expect(new Set(updateEntities.map((entity) => entity.id)).size).toBe(2);
-    expect(service.firmwareUpdateEntity('atlas-hydro-monitor')?.commandTopic).toContain('/atlas-hydro-monitor/');
-    expect(service.firmwareUpdateEntity('atoms3u-sensor-rig')?.commandTopic).toContain('/atoms3u-sensor-rig/');
+    expect(service.firmwareUpdateEntity('atlas-hydro-monitor')?.commandTopic).toContain(
+      '/atlas-hydro-monitor/'
+    );
+    expect(service.firmwareUpdateEntity('atoms3u-sensor-rig')?.commandTopic).toContain(
+      '/atoms3u-sensor-rig/'
+    );
   });
 
   it('ignores discovery retained for the retired AirQ node', () => {
@@ -174,7 +191,9 @@ describe('MQTT discovery parsing', () => {
       topicPrefix: 'grow/daniel-home',
       discoveryPrefix: prefix
     });
-    const receive = (service as unknown as { handleMessage(topic: string, payload: string): void }).handleMessage.bind(service);
+    const receive = (
+      service as unknown as { handleMessage(topic: string, payload: string): void }
+    ).handleMessage.bind(service);
     const stateTopic = 'grow/daniel-home/m5stack-airq/sensor/co2/state';
 
     receive(
@@ -210,8 +229,21 @@ describe('device UI metadata parsing', () => {
             { id: 'ph_cal', title: 'pH Calibration', order: 40 }
           ],
           entities: [
-            { component: 'sensor', objectId: 'water_ph', group: 'overview', role: 'metric', order: 20, label: 'Water pH' },
-            { component: 'button', objectId: 'ph_cal_mid__7_00_', group: 'ph_cal', order: 10, label: 'pH Mid Point' }
+            {
+              component: 'sensor',
+              objectId: 'water_ph',
+              group: 'overview',
+              role: 'metric',
+              order: 20,
+              label: 'Water pH'
+            },
+            {
+              component: 'button',
+              objectId: 'ph_cal_mid__7_00_',
+              group: 'ph_cal',
+              order: 10,
+              label: 'pH Mid Point'
+            }
           ]
         }),
         topicPrefix
@@ -340,12 +372,38 @@ describe('device UI metadata parsing', () => {
         schema: 'grow-ui.v1',
         nodeId: 'exhaust-fan',
         groups: [
-          { id: 'overview', title: 'Exhaust Fan', order: 10, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
-          { id: 'cycle', title: 'Cycle Timer', order: 30, surface: 'device-settings', deviceSettingsSection: 'controls', defaultOpen: false }
+          {
+            id: 'overview',
+            title: 'Exhaust Fan',
+            order: 10,
+            variant: 'metrics',
+            surface: 'dashboard',
+            defaultOpen: true
+          },
+          {
+            id: 'cycle',
+            title: 'Cycle Timer',
+            order: 30,
+            surface: 'device-settings',
+            deviceSettingsSection: 'controls',
+            defaultOpen: false
+          }
         ],
         entities: [
-          { component: 'sensor', objectId: 'fan_power', group: 'overview', role: 'metric', order: 10 },
-          { component: 'number', objectId: 'fan_cycle_run', group: 'cycle', order: 20, label: 'Run For (min)' }
+          {
+            component: 'sensor',
+            objectId: 'fan_power',
+            group: 'overview',
+            role: 'metric',
+            order: 10
+          },
+          {
+            component: 'number',
+            objectId: 'fan_cycle_run',
+            group: 'cycle',
+            order: 20,
+            label: 'Run For (min)'
+          }
         ]
       }),
       topicPrefix
@@ -405,7 +463,14 @@ describe('device UI metadata parsing', () => {
       }
     ]);
     expect(parsed?.config?.entities).toEqual([
-      { component: 'switch', objectId: 'fan_cycle', group: 'cycle', role: undefined, order: 10, label: undefined }
+      {
+        component: 'switch',
+        objectId: 'fan_cycle',
+        group: 'cycle',
+        role: undefined,
+        order: 10,
+        label: undefined
+      }
     ]);
   });
 

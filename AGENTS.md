@@ -6,16 +6,16 @@
 Before writing any component, confirm `svelte@^5` in `package.json`. Use only
 the right-hand column:
 
-| Concern | Svelte 5 | Svelte 4 (never) |
-|---|---|---|
-| Local reactive state | `let n = $state(0)` | bare `let n = 0` treated as reactive |
-| Derived value | `let d = $derived(n * 2)` | `$: d = n * 2` |
-| Side effect | `$effect(() => { ... })` | `$: { ... }` reactive block |
-| Props | `let { foo } = $props()` | `export let foo` |
-| Two-way prop | `$bindable()` | implicit `export let` binding |
-| Event handler | `onclick={fn}` | `on:click={fn}` |
-| Child content | `{#snippet}` + `{@render children()}` | `<slot />` |
-| Component events | callback props | `createEventDispatcher` |
+| Concern              | Svelte 5                              | Svelte 4 (never)                     |
+| -------------------- | ------------------------------------- | ------------------------------------ |
+| Local reactive state | `let n = $state(0)`                   | bare `let n = 0` treated as reactive |
+| Derived value        | `let d = $derived(n * 2)`             | `$: d = n * 2`                       |
+| Side effect          | `$effect(() => { ... })`              | `$: { ... }` reactive block          |
+| Props                | `let { foo } = $props()`              | `export let foo`                     |
+| Two-way prop         | `$bindable()`                         | implicit `export let` binding        |
+| Event handler        | `onclick={fn}`                        | `on:click={fn}`                      |
+| Child content        | `{#snippet}` + `{@render children()}` | `<slot />`                           |
+| Component events     | callback props                        | `createEventDispatcher`              |
 
 - Shared cross-component state: runes in a `.svelte.js` / `.svelte.ts` module,
   not ad-hoc stores. `svelte/store` stays valid where a store is genuinely the

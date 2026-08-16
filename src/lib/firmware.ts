@@ -49,21 +49,25 @@ export function parseProjectVersion(swVersion: string | undefined): string | nul
   return match?.[1] ?? null;
 }
 
-export function parseFirmwareUpdateState(payloadText: string | null | undefined): FirmwareUpdateState {
+export function parseFirmwareUpdateState(
+  payloadText: string | null | undefined
+): FirmwareUpdateState {
   if (!payloadText) {
     return emptyUpdateState();
   }
 
   try {
     const payload = JSON.parse(payloadText) as Record<string, unknown>;
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { ...emptyUpdateState(), state: payloadText };
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload))
+      return { ...emptyUpdateState(), state: payloadText };
 
     return {
       state: text(payload.state),
       installedVersion: text(payload.installed_version) ?? text(payload.installedVersion),
       latestVersion: text(payload.latest_version) ?? text(payload.latestVersion),
       title: text(payload.title),
-      releaseSummary: text(payload.release_summary) ?? text(payload.summary) ?? text(payload.releaseSummary),
+      releaseSummary:
+        text(payload.release_summary) ?? text(payload.summary) ?? text(payload.releaseSummary),
       releaseUrl: text(payload.release_url) ?? text(payload.releaseUrl),
       error: text(payload.error)
     };

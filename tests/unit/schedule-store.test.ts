@@ -29,7 +29,9 @@ describe('toScheduleJson', () => {
     const now = zonedMinutesToInstant(2026, 7, 15, 600, TZ); // 10:00 local, before the 12:00 slot
     const json = toScheduleJson(schedule([720]), now, TZ);
     expect(json.times).toEqual(['12:00']);
-    expect(json.nextDueAt).toBe(new Date(zonedMinutesToInstant(2026, 7, 15, 720, TZ)).toISOString());
+    expect(json.nextDueAt).toBe(
+      new Date(zonedMinutesToInstant(2026, 7, 15, 720, TZ)).toISOString()
+    );
   });
 
   it('crosses midnight for the next-due instant', () => {

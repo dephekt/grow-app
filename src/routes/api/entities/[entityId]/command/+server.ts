@@ -27,7 +27,8 @@ export const POST: RequestHandler = async ({ fetch, params, request }) => {
     if (error instanceof BrokerNotConnectedError) {
       return json({ ok: false, error: message }, { status: 503 });
     }
-    const status = message === 'Unknown entity' ? 404 : message.includes('Confirmation') ? 409 : 400;
+    const status =
+      message === 'Unknown entity' ? 404 : message.includes('Confirmation') ? 409 : 400;
     return json({ ok: false, error: message }, { status });
   }
 };

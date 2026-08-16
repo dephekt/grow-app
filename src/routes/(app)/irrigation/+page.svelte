@@ -52,9 +52,15 @@
     const discovered = new Set(rows.map((r: { nodeId: string }) => r.nodeId));
     for (const binding of probeBindings) {
       if (discovered.has(binding.nodeId)) continue;
-      rows.push({ nodeId: binding.nodeId, label: probeLabel(binding, binding.nodeId), discovered: false });
+      rows.push({
+        nodeId: binding.nodeId,
+        label: probeLabel(binding, binding.nodeId),
+        discovered: false
+      });
     }
-    return rows.sort((a: { nodeId: string }, b: { nodeId: string }) => a.nodeId.localeCompare(b.nodeId));
+    return rows.sort((a: { nodeId: string }, b: { nodeId: string }) =>
+      a.nodeId.localeCompare(b.nodeId)
+    );
   });
 
   // Per-zone shot controls (keyed by zone id).
@@ -119,7 +125,10 @@
     if (!Number.isFinite(raw) || raw <= 0) return null;
     const unit = unitFor(zone.id);
     if (unit === 'seconds') return Math.min(Math.round(raw), zone.maxRunSeconds);
-    const flow = zone.drippers && zone.emitterLph ? zone.drippers * zone.emitterLph * ML_PER_MIN_PER_LPH : null;
+    const flow =
+      zone.drippers && zone.emitterLph
+        ? zone.drippers * zone.emitterLph * ML_PER_MIN_PER_LPH
+        : null;
     if (!flow) return null;
     let ml = raw;
     if (unit === 'percent') {
@@ -133,7 +142,10 @@
     try {
       const response = await fetch('/api/irrigation/zones');
       if (response.ok) {
-        const body = (await response.json()) as { zones?: ZoneJson[]; probes?: SubstrateProbeBinding[] };
+        const body = (await response.json()) as {
+          zones?: ZoneJson[];
+          probes?: SubstrateProbeBinding[];
+        };
         zones = body.zones ?? [];
         probeBindings = body.probes ?? [];
       }
@@ -145,19 +157,33 @@
   // The history feed is server-persisted; re-fetch it (rather than optimistically mutating)
   // so runoff events and lazily-filled pump energy show up. Only the newest page is polled,
   // so an older page does not shift underneath the reader when a new event lands.
-  async function refreshHistory(page = historyPage, showLoading = false, freshSnapshot = false): Promise<boolean> {
+  async function refreshHistory(
+    page = historyPage,
+    showLoading = false,
+    freshSnapshot = false
+  ): Promise<boolean> {
     const requestId = ++historyRequestId;
     if (showLoading) historyLoading = true;
     try {
       const offset = page * HISTORY_PAGE_SIZE;
       const anchor = freshSnapshot ? '' : `&anchorId=${historyAnchorId}`;
-      const response = await fetch(`/api/irrigation/events?limit=${HISTORY_PAGE_SIZE}&offset=${offset}${anchor}`);
+      const response = await fetch(
+        `/api/irrigation/events?limit=${HISTORY_PAGE_SIZE}&offset=${offset}${anchor}`
+      );
       if (!response.ok) return false;
-      const body = (await response.json()) as { events?: IrrigationEventJson[]; total?: number; anchorId?: number };
+      const body = (await response.json()) as {
+        events?: IrrigationEventJson[];
+        total?: number;
+        anchorId?: number;
+      };
       if (requestId !== historyRequestId) return false;
       history = body.events ?? [];
-      historyTotal = typeof body.total === 'number' && Number.isInteger(body.total) ? body.total : history.length;
-      if (Number.isSafeInteger(body.anchorId) && (body.anchorId as number) >= 0) historyAnchorId = body.anchorId as number;
+      historyTotal =
+        typeof body.total === 'number' && Number.isInteger(body.total)
+          ? body.total
+          : history.length;
+      if (Number.isSafeInteger(body.anchorId) && (body.anchorId as number) >= 0)
+        historyAnchorId = body.anchorId as number;
       historyPage = page;
       return true;
     } catch {
@@ -174,7 +200,9 @@
     if (nextPage === historyPage) return;
     if (!(await refreshHistory(nextPage, true))) return;
     await tick();
-    document.getElementById('irrigation-history')?.scrollIntoView({ block: 'start', inline: 'nearest' });
+    document
+      .getElementById('irrigation-history')
+      ?.scrollIntoView({ block: 'start', inline: 'nearest' });
   }
 
   $effect(() => {
@@ -306,9 +334,13 @@
       pwecMax: num(form.pwecMax),
       // Round the unit-converted canonical values so they don't carry float noise
       // (e.g. 1 gal → 3785 mL, 2.11 GPH → 7.99 L/hr) into the store/API/summary.
-      substrateVolumeMl: form.substrateVolume ? Math.round(Number(form.substrateVolume) * VOLUME_TO_ML[form.volumeUnit]) : null,
+      substrateVolumeMl: form.substrateVolume
+        ? Math.round(Number(form.substrateVolume) * VOLUME_TO_ML[form.volumeUnit])
+        : null,
       drippers: form.drippers ? Number(form.drippers) : null,
-      emitterLph: form.emitterFlow ? Math.round(Number(form.emitterFlow) * FLOW_TO_LPH[form.flowUnit] * 100) / 100 : null,
+      emitterLph: form.emitterFlow
+        ? Math.round(Number(form.emitterFlow) * FLOW_TO_LPH[form.flowUnit] * 100) / 100
+        : null,
       maxRunSeconds: Number(form.maxRunSeconds),
       enabled: form.enabled
     };
@@ -340,7 +372,8 @@
   }
 
   async function removeZone(zone: ZoneJson): Promise<void> {
-    if (!confirm(`Delete zone "${zone.name}"? Its OpenSprinkler station config is unaffected.`)) return;
+    if (!confirm(`Delete zone "${zone.name}"? Its OpenSprinkler station config is unaffected.`))
+      return;
     error = null;
     try {
       const response = await fetch(`/api/irrigation/zones/${zone.id}`, {
@@ -386,7 +419,12 @@
   let scheduleEditingId = $state<string | null>(null);
   let scheduleZoneId = $state<string | null>(null);
   let scheduleSaving = $state(false);
-  const blankScheduleForm = () => ({ times: '', shotValue: '', shotUnit: 'seconds', enabled: true });
+  const blankScheduleForm = () => ({
+    times: '',
+    shotValue: '',
+    shotUnit: 'seconds',
+    enabled: true
+  });
   let scheduleForm = $state(blankScheduleForm());
 
   function startScheduleCreate(zone: ZoneJson): void {
@@ -397,9 +435,15 @@
   function startScheduleEdit(schedule: ScheduleJson): void {
     scheduleEditingId = schedule.id;
     scheduleZoneId = schedule.zoneId;
-    const unit = schedule.shotPercent != null ? 'percent' : schedule.shotMl != null ? 'ml' : 'seconds';
+    const unit =
+      schedule.shotPercent != null ? 'percent' : schedule.shotMl != null ? 'ml' : 'seconds';
     const value = schedule.shotPercent ?? schedule.shotMl ?? schedule.shotSeconds ?? '';
-    scheduleForm = { times: schedule.times.join(', '), shotValue: String(value), shotUnit: unit, enabled: schedule.enabled };
+    scheduleForm = {
+      times: schedule.times.join(', '),
+      shotValue: String(value),
+      shotUnit: unit,
+      enabled: schedule.enabled
+    };
   }
   function cancelScheduleEdit(): void {
     scheduleEditingId = null;
@@ -413,14 +457,24 @@
       .map((t) => t.trim())
       .filter(Boolean);
     const shotKey =
-      scheduleForm.shotUnit === 'percent' ? 'shotPercent' : scheduleForm.shotUnit === 'ml' ? 'shotMl' : 'shotSeconds';
-    return { zoneId, times, [shotKey]: Number(scheduleForm.shotValue), enabled: scheduleForm.enabled };
+      scheduleForm.shotUnit === 'percent'
+        ? 'shotPercent'
+        : scheduleForm.shotUnit === 'ml'
+          ? 'shotMl'
+          : 'shotSeconds';
+    return {
+      zoneId,
+      times,
+      [shotKey]: Number(scheduleForm.shotValue),
+      enabled: scheduleForm.enabled
+    };
   }
 
   async function refreshSchedules(): Promise<void> {
     try {
       const response = await fetch('/api/irrigation/schedules');
-      if (response.ok) schedules = ((await response.json()) as { schedules: ScheduleJson[] }).schedules;
+      if (response.ok)
+        schedules = ((await response.json()) as { schedules: ScheduleJson[] }).schedules;
     } catch {
       /* leave list as-is; the mutation still applied server-side */
     }
@@ -432,7 +486,9 @@
     error = null;
     scheduleSaving = true;
     try {
-      const url = scheduleEditingId ? `/api/irrigation/schedules/${scheduleEditingId}` : '/api/irrigation/schedules';
+      const url = scheduleEditingId
+        ? `/api/irrigation/schedules/${scheduleEditingId}`
+        : '/api/irrigation/schedules';
       const response = await fetch(url, {
         method: scheduleEditingId ? 'PATCH' : 'POST',
         headers: { 'content-type': 'application/json' },
@@ -482,15 +538,17 @@
         class="add-zone"
         aria-expanded={zoneEditorOpen}
         aria-controls="zone-editor"
-        onclick={startCreate}
-      >+ Add zone</button>
+        onclick={startCreate}>+ Add zone</button
+      >
     {/if}
   </header>
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}
 
   {#if zones.length === 0}
-    <p class="empty mono">No zones yet.{isAdmin ? ' Use Add zone to create one.' : ' An admin can add one.'}</p>
+    <p class="empty mono">
+      No zones yet.{isAdmin ? ' Use Add zone to create one.' : ' An admin can add one.'}
+    </p>
   {/if}
 
   <div class="zones">
@@ -499,10 +557,15 @@
       {@const running = stationRunning(zone)}
       <article class="panel zone" class:disabled={!zone.enabled}>
         <div class="panel-head">
-          <span class="panel-title">{zone.name}{#if !zone.enabled}<span class="tag">DISABLED</span>{/if}</span>
+          <span class="panel-title"
+            >{zone.name}{#if !zone.enabled}<span class="tag">DISABLED</span>{/if}</span
+          >
           <span class="state">
-            <span class="dot {running === true ? 'ok pulse' : running === false ? '' : 'faint'}"></span>
-            <span class="mono">{running === true ? 'RUNNING' : running === false ? 'IDLE' : '—'}</span>
+            <span class="dot {running === true ? 'ok pulse' : running === false ? '' : 'faint'}"
+            ></span>
+            <span class="mono"
+              >{running === true ? 'RUNNING' : running === false ? 'IDLE' : '—'}</span
+            >
           </span>
         </div>
 
@@ -527,8 +590,14 @@
             <option value="ml">mL</option>
             <option value="percent">%</option>
           </select>
-          <button class="run-btn" onclick={() => runShot(zone)} disabled={busy(zone.id) || !zone.enabled}>Run</button>
-          <button class="stop-btn" onclick={() => stopZone(zone)} disabled={busy(zone.id)}>Stop</button>
+          <button
+            class="run-btn"
+            onclick={() => runShot(zone)}
+            disabled={busy(zone.id) || !zone.enabled}>Run</button
+          >
+          <button class="stop-btn" onclick={() => stopZone(zone)} disabled={busy(zone.id)}
+            >Stop</button
+          >
           {#if previewSeconds(zone) !== null && unitFor(zone.id) !== 'seconds'}
             <span class="preview mono">≈ {previewSeconds(zone)}s</span>
           {/if}
@@ -539,7 +608,8 @@
           <div class="schedule">
             <div class="schedule-head">
               <span class="schedule-title mono"
-                >SCHEDULE{#if zone.schedulesPaused}<span class="tag paused-tag">PAUSED</span>{/if}</span
+                >SCHEDULE{#if zone.schedulesPaused}<span class="tag paused-tag">PAUSED</span
+                  >{/if}</span
               >
               {#if isAdmin}
                 <span class="schedule-head-actions">
@@ -560,7 +630,9 @@
               <div class="schedule-row" class:off={!schedule.enabled || zone.schedulesPaused}>
                 <span class="mono times">{schedule.times.join(' · ')}</span>
                 <span class="mono muted">{shotLabel(schedule)}</span>
-                <span class="mono next">{zone.schedulesPaused ? 'paused' : `next ${nextRunLabel(schedule)}`}</span>
+                <span class="mono next"
+                  >{zone.schedulesPaused ? 'paused' : `next ${nextRunLabel(schedule)}`}</span
+                >
                 {#if !schedule.enabled}<span class="tag">OFF</span>{/if}
                 {#if isAdmin}
                   <span class="schedule-actions">
@@ -575,13 +647,23 @@
               <form class="schedule-editor" onsubmit={saveSchedule}>
                 <label class="wide">
                   Times
-                  <input type="text" bind:value={scheduleForm.times} placeholder="06:00, 18:00" required />
+                  <input
+                    type="text"
+                    bind:value={scheduleForm.times}
+                    placeholder="06:00, 18:00"
+                    required
+                  />
                   <small class="hint">HH:MM, comma-separated</small>
                 </label>
                 <label>
                   Shot
                   <span class="unit-row">
-                    <input type="text" inputmode="decimal" bind:value={scheduleForm.shotValue} required />
+                    <input
+                      type="text"
+                      inputmode="decimal"
+                      bind:value={scheduleForm.shotValue}
+                      required
+                    />
                     <select bind:value={scheduleForm.shotUnit}>
                       <option value="seconds">sec</option>
                       <option value="ml">mL</option>
@@ -589,9 +671,13 @@
                     </select>
                   </span>
                 </label>
-                <label class="check"><input type="checkbox" bind:checked={scheduleForm.enabled} /> Enabled</label>
+                <label class="check"
+                  ><input type="checkbox" bind:checked={scheduleForm.enabled} /> Enabled</label
+                >
                 <div class="editor-actions">
-                  <button type="submit" disabled={scheduleSaving}>{scheduleEditingId ? 'Save' : 'Add'}</button>
+                  <button type="submit" disabled={scheduleSaving}
+                    >{scheduleEditingId ? 'Save' : 'Add'}</button
+                  >
                   <button type="button" onclick={cancelScheduleEdit}>Cancel</button>
                 </div>
               </form>
@@ -643,7 +729,9 @@
             <span class="probe-preview mono">{row.label}</span>
           </div>
         {/each}
-        <small class="hint">Shown on the substrate card and in chart legends; defaults to the bus letter</small>
+        <small class="hint"
+          >Shown on the substrate card and in chart legends; defaults to the bus letter</small
+        >
       </div>
     {/if}
   </div>
@@ -660,7 +748,13 @@
           <input type="text" inputmode="numeric" bind:value={form.stationSid} required />
           <small class="hint">0-based · OS Zone 1 = 0</small>
         </label>
-        <label>Substrate type<input type="text" list="substrate-types" bind:value={form.substrateType} /></label>
+        <label
+          >Substrate type<input
+            type="text"
+            list="substrate-types"
+            bind:value={form.substrateType}
+          /></label
+        >
       </div>
       <div class="grid">
         <label>
@@ -697,7 +791,13 @@
           </span>
           <small class="hint">per container</small>
         </label>
-        <label>Drippers per container<input type="text" inputmode="numeric" bind:value={form.drippers} /></label>
+        <label
+          >Drippers per container<input
+            type="text"
+            inputmode="numeric"
+            bind:value={form.drippers}
+          /></label
+        >
         <label>
           Emitter flow
           <span class="unit-row">

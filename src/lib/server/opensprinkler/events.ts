@@ -88,14 +88,21 @@ export function toEventJson(row: EventRow): IrrigationEventJson {
 /** Highest inserted event ID. Holding this value across page requests gives the reader a
  *  stable snapshot even if later inserts carry timestamps that sort into an older page. */
 export function latestEventId(db: DatabaseSync): number {
-  const row = db.prepare('SELECT MAX(id) AS id FROM irrigation_events').get() as { id: number | null };
+  const row = db.prepare('SELECT MAX(id) AS id FROM irrigation_events').get() as {
+    id: number | null;
+  };
   return row.id ?? 0;
 }
 
 /** The mixed history feed, newest first. LEFT JOIN zones so each row carries the current
  *  zone name (null once a zone is deleted — the run still happened). `anchorId` freezes the
  *  inserted row set across offset-based page requests. */
-export function listEvents(db: DatabaseSync, limit = 100, offset = 0, anchorId?: number): IrrigationEventJson[] {
+export function listEvents(
+  db: DatabaseSync,
+  limit = 100,
+  offset = 0,
+  anchorId?: number
+): IrrigationEventJson[] {
   const where = anchorId === undefined ? '' : 'WHERE e.id <= ?';
   const params = anchorId === undefined ? [limit, offset] : [anchorId, limit, offset];
   const rows = db
@@ -143,12 +150,16 @@ export function pumpTagsForKind(kind: EventKind): { node: string; entity: string
 export function isSettled(ts: string, seconds: number | null, nowMs: number): boolean {
   const startMs = Date.parse(ts);
   if (!Number.isFinite(startMs)) return false;
-  const endMs = startMs + ((seconds ?? 0) + ENRICH_POST_GRACE_SECONDS + ENERGY_SETTLE_SECONDS) * 1000;
+  const endMs =
+    startMs + ((seconds ?? 0) + ENRICH_POST_GRACE_SECONDS + ENERGY_SETTLE_SECONDS) * 1000;
   return nowMs >= endMs;
 }
 
 /** The InfluxDB query window for an event: [ts, ts + seconds + post-grace]. */
-export function eventWindow(ts: string, seconds: number | null): { startIso: string; stopIso: string } {
+export function eventWindow(
+  ts: string,
+  seconds: number | null
+): { startIso: string; stopIso: string } {
   const startMs = Date.parse(ts);
   const stopMs = startMs + ((seconds ?? 0) + ENRICH_POST_GRACE_SECONDS) * 1000;
   return { startIso: new Date(startMs).toISOString(), stopIso: new Date(stopMs).toISOString() };
@@ -166,7 +177,11 @@ export const ENERGY_RETRY_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 
 /** Rows needing an energy backfill; `limit` applies AFTER the settled filter so pending rows
  *  cannot starve settled ones sorted behind them. */
-export function listEnergyPending(db: DatabaseSync, nowMs: number, limit = 100): PendingEnergyRow[] {
+export function listEnergyPending(
+  db: DatabaseSync,
+  nowMs: number,
+  limit = 100
+): PendingEnergyRow[] {
   const minTs = new Date(nowMs - ENERGY_RETRY_MAX_AGE_MS).toISOString();
   const rows = db
     .prepare(
@@ -183,6 +198,15 @@ export function listEnergyPending(db: DatabaseSync, nowMs: number, limit = 100):
 
 /** Cache a measured energy/peak onto a row. Writing a non-null peak (even a below-floor one)
  *  marks the row measured, so it is never re-queried and a below-floor peak becomes noDraw. */
-export function markEventEnergy(db: DatabaseSync, id: number, energyWh: number, peakW: number): void {
-  db.prepare(`UPDATE irrigation_events SET pump_energy_wh = ?, pump_peak_w = ? WHERE id = ?`).run(energyWh, peakW, id);
+export function markEventEnergy(
+  db: DatabaseSync,
+  id: number,
+  energyWh: number,
+  peakW: number
+): void {
+  db.prepare(`UPDATE irrigation_events SET pump_energy_wh = ?, pump_peak_w = ? WHERE id = ?`).run(
+    energyWh,
+    peakW,
+    id
+  );
 }

@@ -15,7 +15,12 @@ import { getAuthDb } from '$lib/server/auth/db';
 import { ensureBootstrapAdmin, toAuthenticatedUser } from '$lib/server/auth/users';
 import { lookupSession, renewIfNeeded } from '$lib/server/auth/sessions';
 import { classifyPath, isApiOrAuthPath, isSafeMethod, isCsrfSafe } from '$lib/server/auth/guard';
-import { SESSION_COOKIE, getBootstrapAdmin, isSecureRequest, sessionCookieOptions } from '$lib/server/auth/config';
+import {
+  SESSION_COOKIE,
+  getBootstrapAdmin,
+  isSecureRequest,
+  sessionCookieOptions
+} from '$lib/server/auth/config';
 
 // SvelteKit awaits this module before handling any request, so the top-level await
 // below completes bootstrap before the first login can arrive.
@@ -51,7 +56,10 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (token && !lookup) {
     // Must match the per-request Secure flag used on set; SvelteKit's default Secure
     // deletion cookie is dropped by the browser on the plain-HTTP LAN origin.
-    event.cookies.delete(SESSION_COOKIE, { path: '/', secure: isSecureRequest(event.request.headers) });
+    event.cookies.delete(SESSION_COOKIE, {
+      path: '/',
+      secure: isSecureRequest(event.request.headers)
+    });
   }
   event.locals.user = lookup ? toAuthenticatedUser(lookup.user) : null;
 
@@ -77,7 +85,11 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (lookup) {
     const renewed = renewIfNeeded(authDb, lookup.sessionId, lookup.expiresAt);
     if (renewed && token) {
-      event.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(isSecureRequest(event.request.headers)));
+      event.cookies.set(
+        SESSION_COOKIE,
+        token,
+        sessionCookieOptions(isSecureRequest(event.request.headers))
+      );
     }
   }
 

@@ -28,10 +28,17 @@ export const load = async ({ fetch }) => {
   let eventTotal = 0;
   let eventAnchorId = 0;
   if (eventsRes.ok) {
-    const body = (await eventsRes.json()) as { events?: ClimateEventJson[]; total?: number; anchorId?: number };
+    const body = (await eventsRes.json()) as {
+      events?: ClimateEventJson[];
+      total?: number;
+      anchorId?: number;
+    };
     events = body.events ?? [];
     eventTotal = Number.isInteger(body.total) ? (body.total as number) : events.length;
-    eventAnchorId = Number.isSafeInteger(body.anchorId) && (body.anchorId as number) >= 0 ? (body.anchorId as number) : 0;
+    eventAnchorId =
+      Number.isSafeInteger(body.anchorId) && (body.anchorId as number) >= 0
+        ? (body.anchorId as number)
+        : 0;
   }
 
   return { state, events, eventTotal, eventAnchorId };

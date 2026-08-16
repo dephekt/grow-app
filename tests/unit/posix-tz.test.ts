@@ -8,16 +8,27 @@ import { posixTzFromIana, type ZoneinfoReader } from '../../src/lib/server/tz/po
  *  preceded by arbitrary header bytes the extractor must skip past. */
 function footerFile(body: Buffer | string): Buffer {
   const bytes = typeof body === 'string' ? Buffer.from(body, 'latin1') : body;
-  return Buffer.concat([Buffer.from('TZif2\x00header\n', 'latin1'), Buffer.from('\n'), bytes, Buffer.from('\n')]);
+  return Buffer.concat([
+    Buffer.from('TZif2\x00header\n', 'latin1'),
+    Buffer.from('\n'),
+    bytes,
+    Buffer.from('\n')
+  ]);
 }
 
 describe('posixTzFromIana (on-disk zoneinfo footer)', () => {
   it('reads the byte-exact DST footer for America/Chicago', () => {
-    expect(posixTzFromIana('America/Chicago')).toEqual({ ok: true, posix: 'CST6CDT,M3.2.0,M11.1.0' });
+    expect(posixTzFromIana('America/Chicago')).toEqual({
+      ok: true,
+      posix: 'CST6CDT,M3.2.0,M11.1.0'
+    });
   });
 
   it('reads the byte-exact DST footer for Europe/London', () => {
-    expect(posixTzFromIana('Europe/London')).toEqual({ ok: true, posix: 'GMT0BST,M3.5.0/1,M10.5.0' });
+    expect(posixTzFromIana('Europe/London')).toEqual({
+      ok: true,
+      posix: 'GMT0BST,M3.5.0/1,M10.5.0'
+    });
   });
 
   it('reads a fixed-offset Etc zone footer', () => {

@@ -92,7 +92,11 @@ export function parseUiConfigTopic(topic: string, topicPrefix: string): string |
   return nodeId.length > 0 && !nodeId.includes('/') ? nodeId : null;
 }
 
-export function parseUiConfigPayload(topic: string, payloadText: string, topicPrefix: string): ParsedUiConfig | null {
+export function parseUiConfigPayload(
+  topic: string,
+  payloadText: string,
+  topicPrefix: string
+): ParsedUiConfig | null {
   const nodeId = parseUiConfigTopic(topic, topicPrefix);
   if (!nodeId) return null;
   if (payloadText.trim().length === 0) return { nodeId, config: null };
@@ -114,13 +118,18 @@ export function parseUiConfigPayload(topic: string, payloadText: string, topicPr
 
   const compact = schema === 'grow-ui.v2';
   const expandGroup = (value: unknown) => (compact ? expandShortKeys(value, V2_GROUP_KEYS) : value);
-  const expandEntity = (value: unknown) => (compact ? expandShortKeys(value, V2_ENTITY_KEYS) : value);
+  const expandEntity = (value: unknown) =>
+    compact ? expandShortKeys(value, V2_ENTITY_KEYS) : value;
 
   const groups = Array.isArray(raw.groups)
-    ? raw.groups.map((group) => parseGroup(expandGroup(group))).filter((group): group is DeviceUiGroup => Boolean(group))
+    ? raw.groups
+        .map((group) => parseGroup(expandGroup(group)))
+        .filter((group): group is DeviceUiGroup => Boolean(group))
     : [];
   const entities = Array.isArray(raw.entities)
-    ? raw.entities.map((entity) => parseEntity(expandEntity(entity))).filter((entity): entity is DeviceUiEntity => Boolean(entity))
+    ? raw.entities
+        .map((entity) => parseEntity(expandEntity(entity)))
+        .filter((entity): entity is DeviceUiEntity => Boolean(entity))
     : [];
 
   return {

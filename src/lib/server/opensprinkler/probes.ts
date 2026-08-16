@@ -15,7 +15,9 @@ export interface SubstrateProbeRecord {
   updatedAt: string;
 }
 
-export type SubstrateProbePatch = Partial<Omit<SubstrateProbeRecord, 'nodeId' | 'createdAt' | 'updatedAt'>>;
+export type SubstrateProbePatch = Partial<
+  Omit<SubstrateProbeRecord, 'nodeId' | 'createdAt' | 'updatedAt'>
+>;
 
 interface ProbeRow {
   node_id: string;
@@ -43,12 +45,17 @@ export function listProbes(db: DatabaseSync): SubstrateProbeRecord[] {
 }
 
 export function getProbe(db: DatabaseSync, nodeId: string): SubstrateProbeRecord | undefined {
-  const row = db.prepare('SELECT * FROM substrate_probes WHERE node_id = ?').get(nodeId) as ProbeRow | undefined;
+  const row = db.prepare('SELECT * FROM substrate_probes WHERE node_id = ?').get(nodeId) as
+    ProbeRow | undefined;
   return row ? toProbe(row) : undefined;
 }
 
 /** Create or update one probe's binding; only the keys present in `patch` move. */
-export function upsertProbe(db: DatabaseSync, nodeId: string, patch: SubstrateProbePatch): SubstrateProbeRecord {
+export function upsertProbe(
+  db: DatabaseSync,
+  nodeId: string,
+  patch: SubstrateProbePatch
+): SubstrateProbeRecord {
   const now = new Date().toISOString();
   const existing = getProbe(db, nodeId);
 

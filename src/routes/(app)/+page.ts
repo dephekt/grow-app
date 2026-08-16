@@ -18,7 +18,9 @@ export const load = async ({ fetch }) => {
 
   const zonesPromise = (async () => {
     try {
-      const response = await fetch('/api/irrigation/zones', { signal: AbortSignal.timeout(ZONES_TIMEOUT_MS) });
+      const response = await fetch('/api/irrigation/zones', {
+        signal: AbortSignal.timeout(ZONES_TIMEOUT_MS)
+      });
       if (!response.ok) return { zones: empty, probes: noProbes };
       const body = (await response.json()) as {
         zones?: SubstrateZoneBinding[];
@@ -34,7 +36,9 @@ export const load = async ({ fetch }) => {
     try {
       // `brief` so the dashboard does not pay for a full snapshot walk and control-law
       // evaluation to print two scalars.
-      const response = await fetch('/api/climate?brief=1', { signal: AbortSignal.timeout(ZONES_TIMEOUT_MS) });
+      const response = await fetch('/api/climate?brief=1', {
+        signal: AbortSignal.timeout(ZONES_TIMEOUT_MS)
+      });
       if (!response.ok) return null;
       const body = (await response.json()) as Partial<ClimateBriefState>;
       const target = body.band?.target;

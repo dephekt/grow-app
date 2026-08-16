@@ -70,7 +70,8 @@ export function toAuthenticatedUser(row: UserRow): AuthenticatedUser {
 }
 
 export function getUserByUsername(db: DatabaseSync, username: string): UserRow | undefined {
-  return db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username) as UserRow | undefined;
+  return db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username) as
+    UserRow | undefined;
 }
 
 export function getUserById(db: DatabaseSync, id: number): UserRow | undefined {
@@ -78,11 +79,15 @@ export function getUserById(db: DatabaseSync, id: number): UserRow | undefined {
 }
 
 export function getUserByOidc(db: DatabaseSync, issuer: string, sub: string): UserRow | undefined {
-  return db.prepare('SELECT * FROM users WHERE oidc_issuer = ? AND oidc_sub = ?').get(issuer, sub) as UserRow | undefined;
+  return db
+    .prepare('SELECT * FROM users WHERE oidc_issuer = ? AND oidc_sub = ?')
+    .get(issuer, sub) as UserRow | undefined;
 }
 
 export function listUsers(db: DatabaseSync): UserRow[] {
-  return db.prepare('SELECT * FROM users ORDER BY username COLLATE NOCASE').all() as unknown as UserRow[];
+  return db
+    .prepare('SELECT * FROM users ORDER BY username COLLATE NOCASE')
+    .all() as unknown as UserRow[];
 }
 
 export interface CreateLocalUserInput {
@@ -93,7 +98,10 @@ export interface CreateLocalUserInput {
 }
 
 /** Create a pure-local (no OIDC) user with a password; throws if the username is taken. */
-export async function createLocalUser(db: DatabaseSync, input: CreateLocalUserInput): Promise<UserRow> {
+export async function createLocalUser(
+  db: DatabaseSync,
+  input: CreateLocalUserInput
+): Promise<UserRow> {
   // Hash before opening any statement so no `await` sits between statements on the shared connection.
   const passwordHash = await hashPassword(input.password);
   const now = new Date().toISOString();
@@ -102,20 +110,17 @@ export async function createLocalUser(db: DatabaseSync, input: CreateLocalUserIn
       `INSERT INTO users (username, display_name, is_admin, disabled, password_hash, password_updated_at, created_at)
        VALUES (?, ?, ?, 0, ?, ?, ?)`
     )
-    .run(
-      input.username,
-      input.displayName ?? null,
-      input.isAdmin ? 1 : 0,
-      passwordHash,
-      now,
-      now
-    );
+    .run(input.username, input.displayName ?? null, input.isAdmin ? 1 : 0, passwordHash, now, now);
   const id = Number(result.lastInsertRowid);
   recordAudit(db, { event: 'user.created', username: input.username, userId: id });
   return getUserById(db, id)!;
 }
 
-export async function setPassword(db: DatabaseSync, userId: number, password: string): Promise<void> {
+export async function setPassword(
+  db: DatabaseSync,
+  userId: number,
+  password: string
+): Promise<void> {
   const passwordHash = await hashPassword(password);
   db.prepare('UPDATE users SET password_hash = ?, password_updated_at = ? WHERE id = ?').run(
     passwordHash,
@@ -139,7 +144,10 @@ export function setDisabled(db: DatabaseSync, userId: number, disabled: boolean)
 }
 
 export function touchLogin(db: DatabaseSync, userId: number): void {
-  db.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').run(new Date().toISOString(), userId);
+  db.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').run(
+    new Date().toISOString(),
+    userId
+  );
 }
 
 /** Sanitise a claim into a username seed, falling back to `user` when empty. */
@@ -179,7 +187,10 @@ export interface UpsertOidcUserInput {
  * ONLY — never link by email or username.
  * Re-syncing an existing row never touches `password_hash`, `username`, or `disabled`.
  */
-export async function upsertOidcUser(db: DatabaseSync, input: UpsertOidcUserInput): Promise<UserRow> {
+export async function upsertOidcUser(
+  db: DatabaseSync,
+  input: UpsertOidcUserInput
+): Promise<UserRow> {
   const existing = getUserByOidc(db, input.issuer, input.sub);
   if (existing) {
     db.prepare('UPDATE users SET display_name = ?, is_admin = ? WHERE id = ?').run(
@@ -209,7 +220,9 @@ export async function upsertOidcUser(db: DatabaseSync, input: UpsertOidcUserInpu
  */
 export async function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdmin): Promise<void> {
   const existing = db
-    .prepare('SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND disabled = 0 AND password_hash IS NOT NULL')
+    .prepare(
+      'SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND disabled = 0 AND password_hash IS NOT NULL'
+    )
     .get() as { n: number };
   if (existing.n > 0) return;
 
@@ -241,17 +254,26 @@ export async function ensureBootstrapAdmin(db: DatabaseSync, admin: BootstrapAdm
       );
       return;
     }
-    db.prepare('UPDATE users SET password_hash = ?, password_updated_at = ?, is_admin = 1, disabled = 0 WHERE id = ?').run(
-      hash,
-      now,
-      row.id
-    );
-    recordAudit(db, { event: 'admin.bootstrapped', username: admin.username, userId: row.id, detail: 'upgraded existing user' });
+    db.prepare(
+      'UPDATE users SET password_hash = ?, password_updated_at = ?, is_admin = 1, disabled = 0 WHERE id = ?'
+    ).run(hash, now, row.id);
+    recordAudit(db, {
+      event: 'admin.bootstrapped',
+      username: admin.username,
+      userId: row.id,
+      detail: 'upgraded existing user'
+    });
     return;
   }
 
   const result = db
-    .prepare('INSERT INTO users (username, is_admin, disabled, password_hash, password_updated_at, created_at) VALUES (?, 1, 0, ?, ?, ?)')
+    .prepare(
+      'INSERT INTO users (username, is_admin, disabled, password_hash, password_updated_at, created_at) VALUES (?, 1, 0, ?, ?, ?)'
+    )
     .run(admin.username, hash, now, now);
-  recordAudit(db, { event: 'admin.bootstrapped', username: admin.username, userId: Number(result.lastInsertRowid) });
+  recordAudit(db, {
+    event: 'admin.bootstrapped',
+    username: admin.username,
+    userId: Number(result.lastInsertRowid)
+  });
 }

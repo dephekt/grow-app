@@ -51,10 +51,14 @@
 
           <div class="metrics">
             <div class="metric">
-              <span class="metric-label">Power</span><span class="metric-value mono">{fmt(plug.power)}</span>
+              <span class="metric-label">Power</span><span class="metric-value mono"
+                >{fmt(plug.power)}</span
+              >
             </div>
             <div class="metric">
-              <span class="metric-label">Today</span><span class="metric-value mono">{fmt(plug.dailyEnergy)}</span>
+              <span class="metric-label">Today</span><span class="metric-value mono"
+                >{fmt(plug.dailyEnergy)}</span
+              >
             </div>
           </div>
 
@@ -79,7 +83,9 @@
           {#if plug.arms.length > 0}
             <p class="arms mono">
               {#each plug.arms as arm (arm.entity.id)}
-                <span class="arm" class:armed={arm.armed}>{arm.label} {arm.armed ? 'ARMED' : 'disarmed'}</span>
+                <span class="arm" class:armed={arm.armed}
+                  >{arm.label} {arm.armed ? 'ARMED' : 'disarmed'}</span
+                >
               {/each}
             </p>
           {/if}
@@ -87,7 +93,9 @@
           {#if plug.armed}
             <!-- The plug re-asserts its own desired state every 10 s while an arm is on, so a
                  toggle from here is silently reverted. This is the confusion the card exists for. -->
-            <p class="warn">A manual toggle reverts within ~10 s while armed. Disarm to take lasting control.</p>
+            <p class="warn">
+              A manual toggle reverts within ~10 s while armed. Disarm to take lasting control.
+            </p>
           {:else if plug.spec.note}
             <p class="note">{plug.spec.note}</p>
           {/if}

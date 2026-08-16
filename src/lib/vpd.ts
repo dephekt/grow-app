@@ -33,7 +33,11 @@ export function saturationVapourPressureKpa(tempC: number): number {
  *
  * Goes negative when the leaf is cold enough that air is condensing onto it.
  */
-export function leafVpdKpa(leafTempC: number, airTempC: number, relativeHumidityPct: number): number {
+export function leafVpdKpa(
+  leafTempC: number,
+  airTempC: number,
+  relativeHumidityPct: number
+): number {
   const airActual = saturationVapourPressureKpa(airTempC) * (relativeHumidityPct / 100);
   return saturationVapourPressureKpa(leafTempC) - airActual;
 }

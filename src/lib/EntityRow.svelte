@@ -79,7 +79,12 @@
         }}
       />
     {:else if entity.writable && entity.component === 'button'}
-      <button type="button" class:danger={entity.dangerous} disabled={pending} onclick={() => onCommand(entity)}>
+      <button
+        type="button"
+        class:danger={entity.dangerous}
+        disabled={pending}
+        onclick={() => onCommand(entity)}
+      >
         Send
       </button>
     {:else if entity.writable}

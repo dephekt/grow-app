@@ -31,7 +31,8 @@ export interface BatchEcDisplay {
  * would round to a misleading "0.00 mS/cm", so the probe's own reading is shown verbatim.
  */
 export function formatBatchEc(reading: HydroReading & { mScm: number }): BatchEcDisplay {
-  if (reading.mScm < 0.1) return { value: String(Math.round(reading.value * 100) / 100), unit: reading.unit };
+  if (reading.mScm < 0.1)
+    return { value: String(Math.round(reading.value * 100) / 100), unit: reading.unit };
   return { value: reading.mScm.toFixed(2), unit: 'mS/cm' };
 }
 
@@ -47,7 +48,9 @@ export function ecToMilliSiemens(raw: number, unit: string | undefined): number 
 /** Read the live EC + pH from the hydro kit's sensor entities; null for absent/non-numeric. */
 export function selectHydroReadings(snapshot: Snapshot): HydroReadings {
   const read = (deviceClass: string): HydroReading | null => {
-    const entity = snapshot.entities.find((e) => e.component === 'sensor' && e.deviceClass === deviceClass);
+    const entity = snapshot.entities.find(
+      (e) => e.component === 'sensor' && e.deviceClass === deviceClass
+    );
     if (!entity) return null;
     const state = snapshot.states[entity.id];
     if (!state || state.value == null || state.value.trim() === '') return null;

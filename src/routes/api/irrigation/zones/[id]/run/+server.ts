@@ -41,7 +41,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   try {
     seconds = clampSeconds(resolveShotSeconds(body, zone), zone.maxRunSeconds);
   } catch (error) {
-    return json({ ok: false, error: error instanceof Error ? error.message : 'Invalid shot' }, { status: 400 });
+    return json(
+      { ok: false, error: error instanceof Error ? error.message : 'Invalid shot' },
+      { status: 400 }
+    );
   }
 
   try {

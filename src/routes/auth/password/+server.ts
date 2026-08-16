@@ -31,7 +31,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
   if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return json({ ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, { status: 400 });
+    return json(
+      { ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` },
+      { status: 400 }
+    );
   }
 
   const db = getAuthDb();

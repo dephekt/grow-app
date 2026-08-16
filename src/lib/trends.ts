@@ -8,13 +8,14 @@
  */
 export type TrendDomain = 'water' | 'climate' | 'thermal' | 'substrate';
 
-export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string; planned?: boolean }> = [
-  { key: 'water', label: 'Water' },
-  { key: 'climate', label: 'Climate' },
-  { key: 'thermal', label: 'Thermal' },
-  // Substrate charts derived VWC / pore EC beside the raw temp and bulk EC, per probe.
-  { key: 'substrate', label: 'Substrate' }
-];
+export const TREND_DOMAINS: ReadonlyArray<{ key: TrendDomain; label: string; planned?: boolean }> =
+  [
+    { key: 'water', label: 'Water' },
+    { key: 'climate', label: 'Climate' },
+    { key: 'thermal', label: 'Thermal' },
+    // Substrate charts derived VWC / pore EC beside the raw temp and bulk EC, per probe.
+    { key: 'substrate', label: 'Substrate' }
+  ];
 
 export const DEFAULT_TREND_DOMAIN: TrendDomain = 'water';
 

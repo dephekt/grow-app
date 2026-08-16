@@ -20,12 +20,45 @@ const ent = (over: Record<string, unknown>) => ({
 });
 
 const glEntities = [
-  ent({ id: 'gl-power', component: 'switch', name: 'Power', objectId: 'power', payloadOn: 'ON', payloadOff: 'OFF', writable: true }),
-  ent({ id: 'gl-dim', component: 'number', name: 'Brightness', objectId: 'brightness', unit: '%', min: 0, max: 100, step: 1, writable: true }),
+  ent({
+    id: 'gl-power',
+    component: 'switch',
+    name: 'Power',
+    objectId: 'power',
+    payloadOn: 'ON',
+    payloadOff: 'OFF',
+    writable: true
+  }),
+  ent({
+    id: 'gl-dim',
+    component: 'number',
+    name: 'Brightness',
+    objectId: 'brightness',
+    unit: '%',
+    min: 0,
+    max: 100,
+    step: 1,
+    writable: true
+  }),
   ent({ id: 'gl-on', component: 'text', name: 'On time', objectId: 'on_time', writable: true }),
   ent({ id: 'gl-off', component: 'text', name: 'Off time', objectId: 'off_time', writable: true }),
-  ent({ id: 'gl-arm', component: 'switch', name: 'Schedule', objectId: 'schedule', payloadOn: 'ON', payloadOff: 'OFF', writable: true }),
-  ent({ id: 'gl-load', component: 'sensor', name: 'Load', objectId: 'load', unit: 'W', deviceClass: 'power' })
+  ent({
+    id: 'gl-arm',
+    component: 'switch',
+    name: 'Schedule',
+    objectId: 'schedule',
+    payloadOn: 'ON',
+    payloadOff: 'OFF',
+    writable: true
+  }),
+  ent({
+    id: 'gl-load',
+    component: 'sensor',
+    name: 'Load',
+    objectId: 'load',
+    unit: 'W',
+    deviceClass: 'power'
+  })
 ];
 
 const glDevice = {
@@ -118,7 +151,9 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: snapshot }));
   await page.route('**/api/events', (route) => route.abort('failed'));
   await page.route('**/api/spectrum/live', (route) => route.fulfill({ json: frame }));
-  await page.route('**/api/spectrum/anchor', (route) => route.fulfill({ json: { ok: true, anchors: { lux: glData.anchor } } }));
+  await page.route('**/api/spectrum/anchor', (route) =>
+    route.fulfill({ json: { ok: true, anchors: { lux: glData.anchor } } })
+  );
   await page.route('**/api/spectrum', (route) => route.fulfill({ json: { captures: [] } }));
 });
 
@@ -126,12 +161,18 @@ test('lights page — merged spectrum + control + grow plan', async ({ page }, t
   await page.goto('/lights');
   await expect(page.getByText('Live canopy output', { exact: false })).toBeVisible();
   await expect(page.locator('.spd')).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath(`lights-${testInfo.project.name}.png`), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath(`lights-${testInfo.project.name}.png`),
+    fullPage: true
+  });
 });
 
 test('spectrometer calibration settings section', async ({ page }, testInfo) => {
   await page.goto('/device-settings?device=spectrometer&section=calibration');
   await expect(page.getByRole('heading', { name: 'Spectrometer' })).toBeVisible();
   await expect(page.getByText('// PPFD calibration', { exact: false })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath(`spectrometer-calibration-${testInfo.project.name}.png`), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath(`spectrometer-calibration-${testInfo.project.name}.png`),
+    fullPage: true
+  });
 });

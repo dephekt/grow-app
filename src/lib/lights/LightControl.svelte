@@ -4,15 +4,17 @@
 <script lang="ts">
   import type { EntityConfig, LightConfig } from '$lib/server/mqtt/types';
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
-  import { computeSchedule, entityByRef, formatCountdown, photoperiodHours } from '$lib/lights/model';
+  import {
+    computeSchedule,
+    entityByRef,
+    formatCountdown,
+    photoperiodHours
+  } from '$lib/lights/model';
   import { isEntityOffline } from '$lib/entity-match';
   import { toTimeInputValue } from '$lib/time-entity';
 
-  let {
-    light,
-    live,
-    stageLabel
-  }: { light: LightConfig; live: LiveSnapshot; stageLabel?: string } = $props();
+  let { light, live, stageLabel }: { light: LightConfig; live: LiveSnapshot; stageLabel?: string } =
+    $props();
 
   const snap = $derived(live.snapshot);
 
@@ -23,7 +25,9 @@
   const offTime = $derived(entityByRef(snap, light.roles.offTime));
   const dimmer = $derived(entityByRef(snap, light.roles.dimmer));
   const metrics = $derived(
-    (light.roles.metrics ?? []).map((ref) => entityByRef(snap, ref)).filter((e): e is EntityConfig => Boolean(e))
+    (light.roles.metrics ?? [])
+      .map((ref) => entityByRef(snap, ref))
+      .filter((e): e is EntityConfig => Boolean(e))
   );
 
   const isOn = $derived(Boolean(power && live.stateFor(power).value === power.payloadOn));
@@ -56,7 +60,10 @@
   const onClock = $derived(onTime ? toTimeInputValue(live.stateFor(onTime).value) : null);
   const offClock = $derived(offTime ? toTimeInputValue(live.stateFor(offTime).value) : null);
   const photoperiod = $derived(
-    photoperiodHours(onTime ? live.stateFor(onTime).value : null, offTime ? live.stateFor(offTime).value : null)
+    photoperiodHours(
+      onTime ? live.stateFor(onTime).value : null,
+      offTime ? live.stateFor(offTime).value : null
+    )
   );
 
   const countdown = $derived(
@@ -201,15 +208,25 @@
       <span class="pp-title">Photoperiod</span>
       <div class="pp-big">
         {isOn ? 'ON' : 'OFF'}
-        {#if photoperiod}<span class="sm">· {photoperiod.onHours} / {photoperiod.offHours}{#if stageLabel} {stageLabel.toLowerCase()}{/if}</span>{/if}
+        {#if photoperiod}<span class="sm"
+            >· {photoperiod.onHours} / {photoperiod.offHours}{#if stageLabel}
+              {stageLabel.toLowerCase()}{/if}</span
+          >{/if}
       </div>
       <div class="pp-sub">
-        {#if countdown}{countdown} · {/if}{#if onClock && offClock}on <span class="mono">{onClock}</span> / off <span class="mono">{offClock}</span>{:else if !armed}manual{/if}
+        {#if countdown}{countdown} ·
+        {/if}{#if onClock && offClock}on <span class="mono">{onClock}</span> / off
+          <span class="mono">{offClock}</span>{:else if !armed}manual{/if}
       </div>
     </div>
 
     <div class="drawer">
-      <button type="button" class="drawer-toggle" aria-expanded={drawerOpen} onclick={() => (drawerOpen = !drawerOpen)}>
+      <button
+        type="button"
+        class="drawer-toggle"
+        aria-expanded={drawerOpen}
+        onclick={() => (drawerOpen = !drawerOpen)}
+      >
         <span class="chev" class:open={drawerOpen}>▸</span> Schedule &amp; fixture details
       </button>
       {#if drawerOpen}

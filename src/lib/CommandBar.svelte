@@ -13,8 +13,12 @@
 
   const snapshot = $derived(live.snapshot);
   const broker = $derived(snapshot.broker);
-  const brokerLabel = $derived(broker.connected ? 'ONLINE' : broker.connecting ? 'CONNECTING' : 'OFFLINE');
-  const brokerClass = $derived(broker.connected ? 'ok pulse' : broker.connecting ? 'warn' : 'alert');
+  const brokerLabel = $derived(
+    broker.connected ? 'ONLINE' : broker.connecting ? 'CONNECTING' : 'OFFLINE'
+  );
+  const brokerClass = $derived(
+    broker.connected ? 'ok pulse' : broker.connecting ? 'warn' : 'alert'
+  );
   const site = $derived((snapshot.site || 'grow').toUpperCase());
   const sseDown = $derived(Boolean(live.error));
 
@@ -27,14 +31,18 @@
       return false;
     }
   }
-  const hasUpdates = $derived(snapshot.entities.some((e) => updateAvailable(e, snapshot.states[e.id]?.value ?? null)));
+  const hasUpdates = $derived(
+    snapshot.entities.some((e) => updateAvailable(e, snapshot.states[e.id]?.value ?? null))
+  );
 
   let now = $state(new Date());
   onMount(() => {
     const timer = setInterval(() => (now = new Date()), 1000);
     return () => clearInterval(timer);
   });
-  const clock = $derived(now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  const clock = $derived(
+    now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  );
 
   const pathname = $derived(page.url.pathname);
   const onDashboard = $derived(pathname === '/');
@@ -64,7 +72,7 @@
   </nav>
 
   <div class="status">
-    <span class="broker" title={sseDown ? live.error ?? undefined : undefined}>
+    <span class="broker" title={sseDown ? (live.error ?? undefined) : undefined}>
       <span class="dot {sseDown ? 'warn' : brokerClass}"></span>
       <span class="mono">{sseDown ? 'STALE' : brokerLabel}</span>
     </span>

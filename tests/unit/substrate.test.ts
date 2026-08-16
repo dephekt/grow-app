@@ -202,7 +202,11 @@ describe('calibration selection from the zone medium', () => {
   });
 
   it('recognises mineral media', () => {
-    expect(substrateCalibrationFor('Loam')).toMatchObject({ profile: 'mineral', curve: 'mineral', assumed: false });
+    expect(substrateCalibrationFor('Loam')).toMatchObject({
+      profile: 'mineral',
+      curve: 'mineral',
+      assumed: false
+    });
     expect(substrateCalibrationFor('Living soil')).toMatchObject({
       profile: 'mineral',
       curve: 'mineral',
@@ -291,13 +295,17 @@ describe('bandStatus', () => {
     // pwEC prints at 2 decimals, temperature at 1.
     expect(atDisplayPrecision(1.999, DISPLAY_DIGITS.poreEc)).toBe(2);
     expect(atDisplayPrecision(23.999, DISPLAY_DIGITS.temperatureC)).toBe(24);
-    expect(bandStatus(atDisplayPrecision(1.999, DISPLAY_DIGITS.poreEc), { min: 2, max: 6 })).toBe('low');
+    expect(bandStatus(atDisplayPrecision(1.999, DISPLAY_DIGITS.poreEc), { min: 2, max: 6 })).toBe(
+      'low'
+    );
   });
 });
 
-
 describe('poreEcGap', () => {
-  const probe = (readings: Partial<import('../../src/lib/substrate').SubstrateReadings>, available = true) => ({
+  const probe = (
+    readings: Partial<import('../../src/lib/substrate').SubstrateReadings>,
+    available = true
+  ) => ({
     nodeId: 'substrate-a',
     label: 'A',
     deviceName: 'substrate-a',
@@ -319,7 +327,11 @@ describe('poreEcGap', () => {
       ...readings
     },
     thresholds: { vwcPct: OPEN, temperatureC: OPEN, poreEc: OPEN },
-    status: { vwc: 'unknown' as const, temperatureC: 'unknown' as const, poreEc: 'unknown' as const }
+    status: {
+      vwc: 'unknown' as const,
+      temperatureC: 'unknown' as const,
+      poreEc: 'unknown' as const
+    }
   });
 
   it('says nothing when pore EC derived fine', () => {
@@ -381,8 +393,14 @@ describe('medium-specific pore EC', () => {
     const water = 80.3 - 0.37 * (LIVE.temperatureC - 20);
     const args = { bulkEc: LIVE.bulkEc, permittivity, temperatureC: LIVE.temperatureC, vwc: 0.47 };
 
-    expect(poreWaterEc({ ...args, offset: 4.1 })).toBeCloseTo((water * LIVE.bulkEc) / (permittivity - 4.1), 10);
-    expect(poreWaterEc({ ...args, offset: 1.64 })).toBeCloseTo((water * LIVE.bulkEc) / (permittivity - 1.64), 10);
+    expect(poreWaterEc({ ...args, offset: 4.1 })).toBeCloseTo(
+      (water * LIVE.bulkEc) / (permittivity - 4.1),
+      10
+    );
+    expect(poreWaterEc({ ...args, offset: 1.64 })).toBeCloseTo(
+      (water * LIVE.bulkEc) / (permittivity - 1.64),
+      10
+    );
   });
 
   it('defaults the low-level formula to the TEROS generic offset when none is named', () => {
@@ -426,7 +444,11 @@ describe('medium-specific pore EC', () => {
 // Probe resolution from a snapshot
 // ---------------------------------------------------------------------------
 
-function makeEntity(nodeId: string, objectId: string, overrides: Partial<EntityConfig> = {}): EntityConfig {
+function makeEntity(
+  nodeId: string,
+  objectId: string,
+  overrides: Partial<EntityConfig> = {}
+): EntityConfig {
   return {
     id: `${nodeId}_${objectId}`,
     component: 'sensor',
@@ -472,10 +494,18 @@ function makeSnapshot(
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: new Date().toISOString(),
-    broker: { connected: true, connecting: false, error: null, lastConnectedAt: null, lastMessageAt: null },
+    broker: {
+      connected: true,
+      connecting: false,
+      error: null,
+      lastConnectedAt: null,
+      lastMessageAt: null
+    },
     devices,
     entities,
-    states: Object.fromEntries(Object.entries(states).map(([k, v]) => [k, { value: v, updatedAt: null }])),
+    states: Object.fromEntries(
+      Object.entries(states).map(([k, v]) => [k, { value: v, updatedAt: null }])
+    ),
     uiConfigs: {},
     lights: [],
     firmware: { devices: {}, channels: {} }
@@ -541,14 +571,21 @@ describe('resolveSubstrateProbes', () => {
 
   it('drops an unplugged probe’s nan rather than parsing it', () => {
     const probes = resolveSubstrateProbes(
-      makeSnapshot(probeEntities('substrate-a'), { ...liveStates, 'substrate-a_substrate_raw_counts': 'nan' })
+      makeSnapshot(probeEntities('substrate-a'), {
+        ...liveStates,
+        'substrate-a_substrate_raw_counts': 'nan'
+      })
     );
     expect(probes[0].readings.counts).toBeNull();
     expect(probes[0].readings.vwc).toBeNull();
   });
 
   it('orders probes by node id so the tabs hold their position', () => {
-    const entities = [...probeEntities('substrate-c'), ...probeEntities('substrate-a'), ...probeEntities('substrate-b')];
+    const entities = [
+      ...probeEntities('substrate-c'),
+      ...probeEntities('substrate-a'),
+      ...probeEntities('substrate-b')
+    ];
     const probes = resolveSubstrateProbes(makeSnapshot(entities, {}));
     expect(probes.map((p) => p.nodeId)).toEqual(['substrate-a', 'substrate-b', 'substrate-c']);
   });
@@ -571,7 +608,11 @@ describe('resolveSubstrateProbes', () => {
     };
     const bound = [{ nodeId: 'substrate-a', zoneId: 'z1' }];
     // The live sample derives to 0.47 m3/m3 = 47 %, inside 30-60.
-    const inside = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates), [zone], bound);
+    const inside = resolveSubstrateProbes(
+      makeSnapshot(probeEntities('substrate-a'), liveStates),
+      [zone],
+      bound
+    );
     expect(inside[0].readings.vwc).toBeCloseTo(0.47, 1);
     expect(inside[0].status.vwc).toBe('ok');
 
@@ -588,15 +629,15 @@ describe('resolveSubstrateProbes', () => {
     const probes = resolveSubstrateProbes(
       makeSnapshot(probeEntities('substrate-a'), liveStates),
       [
-      {
-        id: 'z1',
-        name: '4x4',
-        substrateType: 'Coco',
-        substrateTempMinC: 18,
-        substrateTempMaxC: 24,
-        pwecMin: 2,
-        pwecMax: 6
-      }
+        {
+          id: 'z1',
+          name: '4x4',
+          substrateType: 'Coco',
+          substrateTempMinC: 18,
+          substrateTempMaxC: 24,
+          pwecMin: 2,
+          pwecMax: 6
+        }
       ],
       [{ nodeId: 'substrate-a', zoneId: 'z1' }]
     );
@@ -607,7 +648,11 @@ describe('resolveSubstrateProbes', () => {
 
   it('leaves every status unknown for an unbound probe', () => {
     const probes = resolveSubstrateProbes(makeSnapshot(probeEntities('substrate-a'), liveStates));
-    expect(probes[0].status).toEqual({ vwc: 'unknown', temperatureC: 'unknown', poreEc: 'unknown' });
+    expect(probes[0].status).toEqual({
+      vwc: 'unknown',
+      temperatureC: 'unknown',
+      poreEc: 'unknown'
+    });
     expect(probes[0].thresholds.vwcPct).toEqual(OPEN);
   });
 

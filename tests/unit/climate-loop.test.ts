@@ -21,7 +21,12 @@ import {
 } from '../../src/lib/climate/model';
 import { VENT_RUN_08_15 } from './fixtures/vent-run-08-15';
 import { airVpdKpa } from '../../src/lib/climate/psychro';
-import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
+import type {
+  DeviceSnapshot,
+  EntityConfig,
+  EntityState,
+  Snapshot
+} from '../../src/lib/server/mqtt/types';
 
 const RIG = 'atoms3u-sensor-rig';
 const ROOM = 'feather-air-monitor';
@@ -60,8 +65,20 @@ const sw = (nodeId: string, id: string, objectId: string) =>
   });
 
 const ENTITIES: EntityConfig[] = [
-  makeEntity(RIG, { id: 'rig_t', name: 'Temperature', objectId: 'temperature', deviceClass: 'temperature', unit: '°C' }),
-  makeEntity(RIG, { id: 'rig_h', name: 'Humidity', objectId: 'humidity', deviceClass: 'humidity', unit: '%' }),
+  makeEntity(RIG, {
+    id: 'rig_t',
+    name: 'Temperature',
+    objectId: 'temperature',
+    deviceClass: 'temperature',
+    unit: '°C'
+  }),
+  makeEntity(RIG, {
+    id: 'rig_h',
+    name: 'Humidity',
+    objectId: 'humidity',
+    deviceClass: 'humidity',
+    unit: '%'
+  }),
   makeEntity(ROOM, {
     id: 'room_t',
     name: 'Ext Temperature',
@@ -69,13 +86,22 @@ const ENTITIES: EntityConfig[] = [
     deviceClass: 'temperature',
     unit: '°C'
   }),
-  makeEntity(ROOM, { id: 'room_h', name: 'Ext Humidity', objectId: 'ext_humidity', deviceClass: 'humidity', unit: '%' }),
+  makeEntity(ROOM, {
+    id: 'room_h',
+    name: 'Ext Humidity',
+    objectId: 'ext_humidity',
+    deviceClass: 'humidity',
+    unit: '%'
+  }),
   sw(EXHAUST_NODE, 'fan_relay', 'exhaust_fan'),
   sw(EXHAUST_NODE, 'fan_cyc', 'fan_cycle'),
   sw(EXHAUST_NODE, 'fan_sch', 'fan_schedule')
 ];
 
-function snapshotWith(values: Record<string, string>, entities: EntityConfig[] = ENTITIES): Snapshot {
+function snapshotWith(
+  values: Record<string, string>,
+  entities: EntityConfig[] = ENTITIES
+): Snapshot {
   const nodes = [...new Set(entities.map((e) => e.nodeId ?? ''))];
   const devices: DeviceSnapshot[] = nodes.map(
     (nodeId) =>
@@ -95,7 +121,13 @@ function snapshotWith(values: Record<string, string>, entities: EntityConfig[] =
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: NOW_ISO,
-    broker: { connected: true, connecting: false, error: null, lastConnectedAt: null, lastMessageAt: null },
+    broker: {
+      connected: true,
+      connecting: false,
+      error: null,
+      lastConnectedAt: null,
+      lastMessageAt: null
+    },
     devices,
     entities,
     states,
@@ -119,7 +151,12 @@ const WANTS_VENT = {
 let db: DatabaseSync;
 let published: Array<{ entityId: string; on: boolean }>;
 
-function deps(values: Record<string, string>, state: ClimateLoopState, nowMs = NOW, entities?: EntityConfig[]) {
+function deps(
+  values: Record<string, string>,
+  state: ClimateLoopState,
+  nowMs = NOW,
+  entities?: EntityConfig[]
+) {
   return {
     db,
     snapshot: snapshotWith(values, entities),
@@ -142,7 +179,11 @@ beforeEach(() => {
  * minute. Fills it through updateClimateSmoothing rather than by ticking, so no log rows and
  * no relay stamps come with it and the tests below stay about the verdict they assert.
  */
-function warmed(values: Record<string, string>, nowMs = NOW, entities?: EntityConfig[]): ClimateLoopState {
+function warmed(
+  values: Record<string, string>,
+  nowMs = NOW,
+  entities?: EntityConfig[]
+): ClimateLoopState {
   const state = new ClimateLoopState();
   const inputs = resolveClimateInputs(snapshotWith(values, entities), nowMs);
   for (let i = MIN_SMOOTHING_SAMPLES - 1; i > 0; i--) {
@@ -224,10 +265,16 @@ describe('buildDecisionInput — the two windows', () => {
    *  diverge. Spaced at the tick because the fast window is sized off it. */
   function ramped(): ClimateLoopState {
     const state = new ClimateLoopState();
-    const rh = [79.1, 78.3, 77.5, 76.7, 75.9, 75.1, 74.3, 73.5, 72.7, 71.9, 71.1, 70.3, 69.5, 68.7, 67.9, 67.1];
+    const rh = [
+      79.1, 78.3, 77.5, 76.7, 75.9, 75.1, 74.3, 73.5, 72.7, 71.9, 71.1, 70.3, 69.5, 68.7, 67.9, 67.1
+    ];
     rh.forEach((h, i) => {
       const at = NOW - (rh.length - 1 - i) * 10_000;
-      updateClimateSmoothing(state, resolveClimateInputs(snapshotWith({ ...WANTS_VENT, rig_h: String(h) }), at), at);
+      updateClimateSmoothing(
+        state,
+        resolveClimateInputs(snapshotWith({ ...WANTS_VENT, rig_h: String(h) }), at),
+        at
+      );
     });
     return state;
   }
@@ -375,7 +422,9 @@ describe('runClimateTick', () => {
     // used to reconstruct the decision it recorded.
     const state = warmed(WANTS_VENT);
     await runClimateTick(deps(WANTS_VENT, state, NOW));
-    await runClimateTick(deps({ ...WANTS_VENT, rig_t: '29.9', rig_h: '77.0' }, state, NOW + 30_000));
+    await runClimateTick(
+      deps({ ...WANTS_VENT, rig_t: '29.9', rig_h: '77.0' }, state, NOW + 30_000)
+    );
 
     for (const row of listClimateEvents(db)) {
       if (row.tentTempC === null || row.tentRhPct === null || row.airVpd === null) continue;
@@ -433,7 +482,9 @@ describe('runClimateTick', () => {
     // The numbers are blanked out of the dedup key, so drifting within the band stays quiet.
     const state = warmed({ ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' });
     await runClimateTick(deps({ ...WANTS_VENT, rig_t: '27.0', rig_h: '72.0' }, state, NOW));
-    await runClimateTick(deps({ ...WANTS_VENT, rig_t: '27.2', rig_h: '71.5' }, state, NOW + 30_000));
+    await runClimateTick(
+      deps({ ...WANTS_VENT, rig_t: '27.2', rig_h: '71.5' }, state, NOW + 30_000)
+    );
     expect(listClimateEvents(db)).toHaveLength(1);
   });
 
@@ -473,7 +524,9 @@ describe('runClimateTick', () => {
     it('refuses to act on a cold glitch that would force-stop a running fan', async () => {
       updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
       const cold = new ClimateLoopState();
-      const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '12.0', fan_relay: 'ON' }, cold, NOW));
+      const result = await runClimateTick(
+        deps({ ...WANTS_VENT, rig_t: '12.0', fan_relay: 'ON' }, cold, NOW)
+      );
 
       expect(result.decision.kind).toBe('hold');
       expect(published).toEqual([]);
@@ -487,7 +540,9 @@ describe('runClimateTick', () => {
       }
       expect(published).toEqual([]);
 
-      const result = await runClimateTick(deps(WANTS_VENT, state, NOW + (MIN_SMOOTHING_SAMPLES - 1) * 30_000));
+      const result = await runClimateTick(
+        deps(WANTS_VENT, state, NOW + (MIN_SMOOTHING_SAMPLES - 1) * 30_000)
+      );
       expect(result.decision).toMatchObject({ kind: 'exhaust', on: true });
     });
 
@@ -495,7 +550,9 @@ describe('runClimateTick', () => {
       // reset() empties the window, so a returning sensor is a cold start again.
       const state = warmed(WANTS_VENT);
       await runClimateTick(deps({ ...WANTS_VENT, rig_t: '' }, state, NOW));
-      const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '33.0' }, state, NOW + 30_000));
+      const result = await runClimateTick(
+        deps({ ...WANTS_VENT, rig_t: '33.0' }, state, NOW + 30_000)
+      );
       expect(result.decision.reason).toContain('smoothing window still filling');
     });
   });
@@ -527,7 +584,9 @@ describe('runClimateTick', () => {
       published = [];
 
       // 12 °C is far under the 20 °C floor, which force-stops the fan ahead of every timer.
-      const result = await runClimateTick(deps({ ...running, rig_t: '12.0' }, state, NOW + 150_000));
+      const result = await runClimateTick(
+        deps({ ...running, rig_t: '12.0' }, state, NOW + 150_000)
+      );
       expect(result.decision.kind).toBe('hold');
       expect(published).toEqual([]);
     });
@@ -547,7 +606,9 @@ describe('runClimateTick', () => {
       updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
       const state = new ClimateLoopState();
       await settle(state, { ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' });
-      const result = await runClimateTick(deps({ ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' }, state, NOW + 150_000));
+      const result = await runClimateTick(
+        deps({ ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' }, state, NOW + 150_000)
+      );
       expect(result.decision).toMatchObject({ kind: 'exhaust', on: true });
       expect(result.decision.reason).toContain('vent limit');
     });

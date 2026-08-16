@@ -130,7 +130,11 @@ function logKey(action: ClimateAction): string {
 
 /** Feed this tick's readings into the smoothing windows. The loop calls this; readers do not,
  *  so a page refresh cannot advance the state the loop decides on. */
-export function updateClimateSmoothing(state: ClimateLoopState, inputs: ClimateInputs, nowMs: number): void {
+export function updateClimateSmoothing(
+  state: ClimateLoopState,
+  inputs: ClimateInputs,
+  nowMs: number
+): void {
   pushAir(state.tentTempC, state.tentRhPct, inputs.tent, nowMs);
   pushAir(state.tentTempFastC, state.tentRhFastPct, inputs.tent, nowMs);
   pushAir(state.roomTempC, state.roomRhPct, inputs.room, nowMs);
@@ -148,7 +152,12 @@ function pushAir(t: RollingMedian, h: RollingMedian, live: AirState | null, nowM
 
 /** The smoothed pair, or null when there is no live reading — a window must never outlive its
  *  sensor. */
-function smoothedAir(t: RollingMedian, h: RollingMedian, live: AirState | null, nowMs: number): AirState | null {
+function smoothedAir(
+  t: RollingMedian,
+  h: RollingMedian,
+  live: AirState | null,
+  nowMs: number
+): AirState | null {
   if (live === null) return null;
   return { tempC: t.value(nowMs) ?? live.tempC, rhPct: h.value(nowMs) ?? live.rhPct };
 }
@@ -190,7 +199,11 @@ export function buildDecisionInput(
       lightsOn: inputs.lightsOn,
       warmingUp: tent !== null && state.tentTempC.count(nowMs) < MIN_SMOOTHING_SAMPLES
     },
-    exhaust: { present: inputs.exhaust.present, on: inputs.exhaust.on, lastChangeMs: state.exhaustChangedMs },
+    exhaust: {
+      present: inputs.exhaust.present,
+      on: inputs.exhaust.on,
+      lastChangeMs: state.exhaustChangedMs
+    },
     humidifier: {
       present: inputs.humidifier.present,
       on: inputs.humidifier.on,

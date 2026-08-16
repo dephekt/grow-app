@@ -140,19 +140,23 @@ describe('statusFromLive', () => {
 
   it('is UNKNOWN when no threshold resolved — a bare live number proves nothing', () => {
     expect(statusFromLive(r, states({ [liveSensor.id]: '5000' }))).toBe('UNKNOWN');
-    expect(statusFromLive(rule({ liveEntity: liveSensor }), states({ [liveSensor.id]: '5000' }))).toBe('UNKNOWN');
+    expect(
+      statusFromLive(rule({ liveEntity: liveSensor }), states({ [liveSensor.id]: '5000' }))
+    ).toBe('UNKNOWN');
   });
 
   it('works one-sided when only one threshold resolved', () => {
     const oneSided = states({ [highThreshold.id]: '900', [liveSensor.id]: '600' });
     expect(statusFromLive(r, oneSided)).toBe('OK');
-    expect(statusFromLive(r, states({ [highThreshold.id]: '900', [liveSensor.id]: '950' }))).toBe('HIGH');
+    expect(statusFromLive(r, states({ [highThreshold.id]: '900', [liveSensor.id]: '950' }))).toBe(
+      'HIGH'
+    );
   });
 
   it('treats a threshold of 0 as a real threshold', () => {
-    expect(
-      statusFromLive(r, states({ [lowThreshold.id]: '0', [liveSensor.id]: '-1' }))
-    ).toBe('LOW');
+    expect(statusFromLive(r, states({ [lowThreshold.id]: '0', [liveSensor.id]: '-1' }))).toBe(
+      'LOW'
+    );
   });
 });
 
@@ -172,8 +176,12 @@ describe('alertStatus: direct alert-sensor states', () => {
       genericAlertEntity: genericAlert,
       liveEntity: liveSensor
     });
-    expect(alertStatus(combined, splitStates({ [genericAlert.id]: 'ON', [liveSensor.id]: '950' }))).toBe('HIGH');
-    expect(alertStatus(combined, splitStates({ [genericAlert.id]: 'ON', [liveSensor.id]: '300' }))).toBe('LOW');
+    expect(
+      alertStatus(combined, splitStates({ [genericAlert.id]: 'ON', [liveSensor.id]: '950' }))
+    ).toBe('HIGH');
+    expect(
+      alertStatus(combined, splitStates({ [genericAlert.id]: 'ON', [liveSensor.id]: '300' }))
+    ).toBe('LOW');
     expect(alertStatus(combined, splitStates({ [genericAlert.id]: 'ON' }))).toBe('ARMED');
     expect(alertStatus(combined, states({ [genericAlert.id]: 'ON' }))).toBe('ARMED');
   });
@@ -200,7 +208,10 @@ describe('alertStatus: full sensor coverage', () => {
     expect(alertStatus(splitRule(), bothOff)).toBe('OK');
     // f090fdb: the device's own alarm wins over the threshold comparison.
     expect(
-      alertStatus(splitRule(), splitStates({ [highAlert.id]: 'OFF', [lowAlert.id]: 'OFF', [liveSensor.id]: '950' }))
+      alertStatus(
+        splitRule(),
+        splitStates({ [highAlert.id]: 'OFF', [lowAlert.id]: 'OFF', [liveSensor.id]: '950' })
+      )
     ).toBe('OK');
   });
 
@@ -215,7 +226,9 @@ describe('alertStatus: partial sensor coverage (silent paired sensor)', () => {
   // A paired low alert may be discovered without ever publishing a state.
   it('falls back to the live reading when the silent direction is quiet', () => {
     expect(alertStatus(splitRule(), splitStates({ [highAlert.id]: 'OFF' }))).toBe('OK');
-    expect(alertStatus(splitRule(), splitStates({ [highAlert.id]: 'OFF', [liveSensor.id]: '300' }))).toBe('LOW');
+    expect(
+      alertStatus(splitRule(), splitStates({ [highAlert.id]: 'OFF', [liveSensor.id]: '300' }))
+    ).toBe('LOW');
   });
 
   it('never alerts a direction whose own sensor reports off', () => {
@@ -242,18 +255,23 @@ describe('alertStatus: partial sensor coverage (silent paired sensor)', () => {
     // sensors cannot promote it to OK either.
     expect(alertStatus(splitRule(), states({ [liveSensor.id]: '5000' }))).toBe('UNKNOWN');
     // ...but explicit all-off sensor evidence still yields OK.
-    expect(alertStatus(splitRule(), states({ [liveSensor.id]: '5000', [highAlert.id]: 'OFF' }))).toBe('OK');
+    expect(
+      alertStatus(splitRule(), states({ [liveSensor.id]: '5000', [highAlert.id]: 'OFF' }))
+    ).toBe('OK');
   });
 
   it('stays UNKNOWN on live OK when a reporting sensor is indeterminate', () => {
-    expect(
-      alertStatus(splitRule(), splitStates({ [highAlert.id]: 'unavailable' }))
-    ).toBe('UNKNOWN');
+    expect(alertStatus(splitRule(), splitStates({ [highAlert.id]: 'unavailable' }))).toBe(
+      'UNKNOWN'
+    );
   });
 
   it('still alerts from live past an indeterminate sensor', () => {
     expect(
-      alertStatus(splitRule(), splitStates({ [highAlert.id]: 'unavailable', [liveSensor.id]: '950' }))
+      alertStatus(
+        splitRule(),
+        splitStates({ [highAlert.id]: 'unavailable', [liveSensor.id]: '950' })
+      )
     ).toBe('HIGH');
   });
 });
@@ -269,11 +287,15 @@ describe('alertStatus: structurally one-sided sensor coverage', () => {
   });
 
   it('defers the uncovered direction to the live reading', () => {
-    expect(alertStatus(oneSided, splitStates({ [highAlert.id]: 'OFF', [liveSensor.id]: '300' }))).toBe('LOW');
+    expect(
+      alertStatus(oneSided, splitStates({ [highAlert.id]: 'OFF', [liveSensor.id]: '300' }))
+    ).toBe('LOW');
   });
 
   it('keeps the covered direction with its sensor', () => {
-    expect(alertStatus(oneSided, splitStates({ [highAlert.id]: 'OFF', [liveSensor.id]: '950' }))).toBe('OK');
+    expect(
+      alertStatus(oneSided, splitStates({ [highAlert.id]: 'OFF', [liveSensor.id]: '950' }))
+    ).toBe('OK');
     expect(alertStatus(oneSided, splitStates({ [highAlert.id]: 'OFF' }))).toBe('OK');
     expect(alertStatus(oneSided, states({ [highAlert.id]: 'OFF' }))).toBe('OK');
   });

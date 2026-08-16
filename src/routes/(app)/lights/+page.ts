@@ -20,7 +20,9 @@ export const load = async ({ fetch }) => {
       fetch('/api/spectrum/anchor')
     ]);
     initialSpectrum = liveRes.ok ? ((await liveRes.json()) as LiveSpectrum | null) : null;
-    captures = listRes.ok ? ((await listRes.json()) as { captures: CaptureSummary[] }).captures : [];
+    captures = listRes.ok
+      ? ((await listRes.json()) as { captures: CaptureSummary[] }).captures
+      : [];
     anchors = anchorRes.ok ? ((await anchorRes.json()) as { anchors: Anchors }).anchors : {};
   } catch {
     /* offline — render live controls with placeholders */

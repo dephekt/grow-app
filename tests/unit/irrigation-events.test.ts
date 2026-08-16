@@ -56,7 +56,13 @@ describe('irrigation events feed — persistence + shaping', () => {
   it('surfaces a zone run (recordEvent) as an irrigation event with the joined zone name', () => {
     const db = freshDb();
     const zone = createZone(db, { name: 'Tent 1', stationSid: 0 });
-    recordEvent(db, { zoneId: zone.id, stationSid: 0, seconds: 30, requestedPercent: 3, actor: 'dan' });
+    recordEvent(db, {
+      zoneId: zone.id,
+      stationSid: 0,
+      seconds: 30,
+      requestedPercent: 3,
+      actor: 'dan'
+    });
 
     const [e] = listEvents(db);
     expect(e.kind).toBe('irrigation');
@@ -176,7 +182,13 @@ describe('irrigation events feed — energy enrichment eligibility', () => {
     // Old, unmeasured → eligible.
     insertRaw(db, { ts: '2026-07-12T10:00:00.000Z', stationSid: 0, seconds: 30 });
     // Old, already measured → skip.
-    insertRaw(db, { ts: '2026-07-12T09:00:00.000Z', stationSid: 1, seconds: 30, peakW: 40, energyWh: 0.5 });
+    insertRaw(db, {
+      ts: '2026-07-12T09:00:00.000Z',
+      stationSid: 1,
+      seconds: 30,
+      peakW: 40,
+      energyWh: 0.5
+    });
     // Fresh, not settled → skip.
     const now = base + 10 * 60 * 1000; // 10 min after the first event
     insertRaw(db, { ts: new Date(now - 5_000).toISOString(), stationSid: 2, seconds: 30 });
@@ -198,7 +210,13 @@ describe('irrigation events feed — energy enrichment eligibility', () => {
 
 describe('pumpTagsForKind', () => {
   it('maps each kind to its plug tag pair', () => {
-    expect(pumpTagsForKind('irrigation')).toEqual({ node: 'irrigation-pump', entity: 'pump_power' });
-    expect(pumpTagsForKind('runoff')).toEqual({ node: 'runoff-monitor', entity: 'runoff_pump_power' });
+    expect(pumpTagsForKind('irrigation')).toEqual({
+      node: 'irrigation-pump',
+      entity: 'pump_power'
+    });
+    expect(pumpTagsForKind('runoff')).toEqual({
+      node: 'runoff-monitor',
+      entity: 'runoff_pump_power'
+    });
   });
 });

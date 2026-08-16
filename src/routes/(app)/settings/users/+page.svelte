@@ -107,9 +107,13 @@
               <button onclick={() => patchUser(u.id, { disabled: true })}>Disable</button>
             {/if}
             {#if u.hasLocalPassword}
-              <button onclick={() => patchUser(u.id, { clearPassword: true })}>Clear password</button>
+              <button onclick={() => patchUser(u.id, { clearPassword: true })}
+                >Clear password</button
+              >
             {/if}
-            <button onclick={() => patchUser(u.id, { revokeSessions: true })}>Revoke sessions</button>
+            <button onclick={() => patchUser(u.id, { revokeSessions: true })}
+              >Revoke sessions</button
+            >
           </td>
         </tr>
       {/each}
@@ -125,7 +129,13 @@
       </label>
       <label>
         Password
-        <input type="password" bind:value={newPassword} autocomplete="new-password" minlength="8" required />
+        <input
+          type="password"
+          bind:value={newPassword}
+          autocomplete="new-password"
+          minlength="8"
+          required
+        />
       </label>
       <label class="admin-check">
         <input type="checkbox" bind:checked={newIsAdmin} />

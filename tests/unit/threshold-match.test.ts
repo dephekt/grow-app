@@ -34,16 +34,56 @@ function mk(
 }
 
 // The thermal camera's single-band alarm, as curated by the AtomS3U _ui/config.
-const thermalHigh = mk({ component: 'number', objectId: 'thermal_alarm_high_threshold', name: 'Thermal Alarm High Threshold', unit: '°C', writable: true });
-const thermalLow = mk({ component: 'number', objectId: 'thermal_alarm_low_threshold', name: 'Thermal Alarm Low Threshold', unit: '°C', writable: true });
-const thermalAlarm = mk({ component: 'binary_sensor', objectId: 'thermal_alarm', name: 'Thermal Alarm', deviceClass: 'problem' });
-const thermalBuzzer = mk({ component: 'switch', objectId: 'thermal_buzzer_enabled', name: 'Thermal Buzzer Enabled', writable: true });
-const thermalTest = mk({ component: 'button', objectId: 'thermal_alarm_test', name: 'Thermal Alarm Test', writable: true, dangerous: true });
-const thermalButton = mk({ component: 'binary_sensor', objectId: 'thermal_button', name: 'Thermal Button' });
+const thermalHigh = mk({
+  component: 'number',
+  objectId: 'thermal_alarm_high_threshold',
+  name: 'Thermal Alarm High Threshold',
+  unit: '°C',
+  writable: true
+});
+const thermalLow = mk({
+  component: 'number',
+  objectId: 'thermal_alarm_low_threshold',
+  name: 'Thermal Alarm Low Threshold',
+  unit: '°C',
+  writable: true
+});
+const thermalAlarm = mk({
+  component: 'binary_sensor',
+  objectId: 'thermal_alarm',
+  name: 'Thermal Alarm',
+  deviceClass: 'problem'
+});
+const thermalBuzzer = mk({
+  component: 'switch',
+  objectId: 'thermal_buzzer_enabled',
+  name: 'Thermal Buzzer Enabled',
+  writable: true
+});
+const thermalTest = mk({
+  component: 'button',
+  objectId: 'thermal_alarm_test',
+  name: 'Thermal Alarm Test',
+  writable: true,
+  dangerous: true
+});
+const thermalButton = mk({
+  component: 'binary_sensor',
+  objectId: 'thermal_button',
+  name: 'Thermal Button'
+});
 
 // The scd4x split-high/low shape, as a regression guard.
-const co2High = mk({ component: 'number', objectId: 'co2_high_threshold', name: 'CO2 High Threshold' });
-const co2HighAlert = mk({ component: 'binary_sensor', objectId: 'co2_high_alert', name: 'CO2 High Alert' });
+const co2High = mk({
+  component: 'number',
+  objectId: 'co2_high_threshold',
+  name: 'CO2 High Threshold'
+});
+const co2HighAlert = mk({
+  component: 'binary_sensor',
+  objectId: 'co2_high_alert',
+  name: 'CO2 High Alert'
+});
 
 describe('isAlertEntity', () => {
   it('recognises the split-side scd4x alert binaries (regression)', () => {
@@ -55,7 +95,12 @@ describe('isAlertEntity', () => {
   });
 
   it('recognises an alarm binary by device_class problem alone', () => {
-    const problemOnly = mk({ component: 'binary_sensor', objectId: 'freeze_guard', name: 'Freeze Guard', deviceClass: 'problem' });
+    const problemOnly = mk({
+      component: 'binary_sensor',
+      objectId: 'freeze_guard',
+      name: 'Freeze Guard',
+      deviceClass: 'problem'
+    });
     expect(isAlertEntity(problemOnly)).toBe(true);
   });
 
@@ -111,7 +156,15 @@ describe('isBuzzerSwitch', () => {
 
   it('rejects non-switches and non-buzzer switches', () => {
     expect(isBuzzerSwitch(thermalAlarm)).toBe(false);
-    expect(isBuzzerSwitch(mk({ component: 'switch', objectId: 'thermal_overlay_enable', name: 'Thermal Overlay Enable' }))).toBe(false);
+    expect(
+      isBuzzerSwitch(
+        mk({
+          component: 'switch',
+          objectId: 'thermal_overlay_enable',
+          name: 'Thermal Overlay Enable'
+        })
+      )
+    ).toBe(false);
   });
 });
 
@@ -122,6 +175,8 @@ describe('isAlarmTestButton', () => {
 
   it('rejects the alarm binary and unrelated buttons', () => {
     expect(isAlarmTestButton(thermalAlarm)).toBe(false);
-    expect(isAlarmTestButton(mk({ component: 'button', objectId: 'restart', name: 'Restart' }))).toBe(false);
+    expect(
+      isAlarmTestButton(mk({ component: 'button', objectId: 'restart', name: 'Restart' }))
+    ).toBe(false);
   });
 });

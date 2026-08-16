@@ -76,7 +76,8 @@ export interface DeviceUiGroup {
   order: number;
   variant?: 'metrics' | 'list' | string;
   surface?: 'dashboard' | 'device-settings' | string;
-  deviceSettingsSection?: 'controls' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other' | string;
+  deviceSettingsSection?:
+    'controls' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other' | string;
   defaultOpen: boolean;
 }
 
@@ -212,7 +213,8 @@ export interface Snapshot {
 }
 
 export interface SnapshotEvent {
-  type: 'snapshot' | 'entity' | 'state' | 'availability' | 'broker' | 'ui' | 'firmware' | 'spectrum';
+  type:
+    'snapshot' | 'entity' | 'state' | 'availability' | 'broker' | 'ui' | 'firmware' | 'spectrum';
   snapshot?: Snapshot;
   entity?: EntityConfig;
   entityId?: string;

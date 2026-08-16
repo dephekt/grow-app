@@ -33,7 +33,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     input = parseZoneCreate(body);
   } catch (error) {
-    return json({ ok: false, error: error instanceof Error ? error.message : 'Invalid zone' }, { status: 400 });
+    return json(
+      { ok: false, error: error instanceof Error ? error.message : 'Invalid zone' },
+      { status: 400 }
+    );
   }
 
   let zone;
@@ -41,7 +44,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     zone = createZone(getIrrigationDb(), input);
   } catch (err) {
     if (err instanceof Error && /UNIQUE constraint failed/i.test(err.message)) {
-      return json({ ok: false, error: `Station ${input.stationSid} is already used by another zone` }, { status: 409 });
+      return json(
+        { ok: false, error: `Station ${input.stationSid} is already used by another zone` },
+        { status: 409 }
+      );
     }
     throw err;
   }

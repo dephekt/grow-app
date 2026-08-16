@@ -49,9 +49,24 @@ function snap(opts: {
 }
 
 // Both plugs publish objectId "voltage" — resolution MUST disambiguate by node.
-const irrigVoltage = makeEntity(IRRIGATION_NODE, { id: 'irrig_voltage', name: 'Voltage', objectId: 'voltage', unit: 'V' });
-const runoffVoltage = makeEntity(RUNOFF_NODE, { id: 'runoff_voltage', name: 'Voltage', objectId: 'voltage', unit: 'V' });
-const pumpPower = makeEntity(IRRIGATION_NODE, { id: 'irrig_pump_power', name: 'Pump Power', objectId: 'pump_power', unit: 'W' });
+const irrigVoltage = makeEntity(IRRIGATION_NODE, {
+  id: 'irrig_voltage',
+  name: 'Voltage',
+  objectId: 'voltage',
+  unit: 'V'
+});
+const runoffVoltage = makeEntity(RUNOFF_NODE, {
+  id: 'runoff_voltage',
+  name: 'Voltage',
+  objectId: 'voltage',
+  unit: 'V'
+});
+const pumpPower = makeEntity(IRRIGATION_NODE, {
+  id: 'irrig_pump_power',
+  name: 'Pump Power',
+  objectId: 'pump_power',
+  unit: 'W'
+});
 const station1 = makeEntity('opensprinkler', {
   id: 'opensprinkler_station_1',
   name: 'Zone 1',
@@ -63,27 +78,46 @@ const station1 = makeEntity('opensprinkler', {
 describe('irrigation model — entity resolution', () => {
   it('disambiguates a shared objectId by node', () => {
     const s = snap({ entities: [irrigVoltage, runoffVoltage] });
-    expect(resolveEntity(s, { node: IRRIGATION_NODE, objectId: 'voltage' })?.id).toBe('irrig_voltage');
+    expect(resolveEntity(s, { node: IRRIGATION_NODE, objectId: 'voltage' })?.id).toBe(
+      'irrig_voltage'
+    );
     expect(resolveEntity(s, { node: RUNOFF_NODE, objectId: 'voltage' })?.id).toBe('runoff_voltage');
   });
 
   it('numericValue reads and parses the live state, null when absent', () => {
     const s = snap({ entities: [pumpPower], states: { irrig_pump_power: { value: '62.4' } } });
     expect(numericValue(s, { node: IRRIGATION_NODE, objectId: 'pump_power' })).toBeCloseTo(62.4);
-    expect(numericValue(snap({ entities: [pumpPower] }), { node: IRRIGATION_NODE, objectId: 'pump_power' })).toBeNull();
+    expect(
+      numericValue(snap({ entities: [pumpPower] }), {
+        node: IRRIGATION_NODE,
+        objectId: 'pump_power'
+      })
+    ).toBeNull();
   });
 });
 
 describe('irrigation model — OpenSprinkler status', () => {
   it('reads availability from the opensprinkler device; unknown when absent', () => {
-    expect(openSprinklerAvailability(snap({ devices: [makeDevice('opensprinkler', 'online')] }))).toBe('online');
-    expect(openSprinklerAvailability(snap({ devices: [makeDevice('opensprinkler', 'offline')] }))).toBe('offline');
+    expect(
+      openSprinklerAvailability(snap({ devices: [makeDevice('opensprinkler', 'online')] }))
+    ).toBe('online');
+    expect(
+      openSprinklerAvailability(snap({ devices: [makeDevice('opensprinkler', 'offline')] }))
+    ).toBe('offline');
     expect(openSprinklerAvailability(snap({}))).toBe('unknown');
   });
 
   it('anyStationRunning is true only when a station binary_sensor reads ON', () => {
-    expect(anyStationRunning(snap({ entities: [station1], states: { opensprinkler_station_1: { value: 'ON' } } }))).toBe(true);
-    expect(anyStationRunning(snap({ entities: [station1], states: { opensprinkler_station_1: { value: 'OFF' } } }))).toBe(false);
+    expect(
+      anyStationRunning(
+        snap({ entities: [station1], states: { opensprinkler_station_1: { value: 'ON' } } })
+      )
+    ).toBe(true);
+    expect(
+      anyStationRunning(
+        snap({ entities: [station1], states: { opensprinkler_station_1: { value: 'OFF' } } })
+      )
+    ).toBe(false);
     expect(anyStationRunning(snap({ entities: [station1] }))).toBe(false);
   });
 });
@@ -91,9 +125,15 @@ describe('irrigation model — OpenSprinkler status', () => {
 describe('irrigation model — pump running', () => {
   it('irrigationDrawing crosses the draw threshold (5 W above the 3 W noise floor)', () => {
     const base = { entities: [pumpPower] };
-    expect(irrigationDrawing(snap({ ...base, states: { irrig_pump_power: { value: '62.4' } } }))).toBe(true);
-    expect(irrigationDrawing(snap({ ...base, states: { irrig_pump_power: { value: '0' } } }))).toBe(false);
-    expect(irrigationDrawing(snap({ ...base, states: { irrig_pump_power: { value: '4' } } }))).toBe(false);
+    expect(
+      irrigationDrawing(snap({ ...base, states: { irrig_pump_power: { value: '62.4' } } }))
+    ).toBe(true);
+    expect(irrigationDrawing(snap({ ...base, states: { irrig_pump_power: { value: '0' } } }))).toBe(
+      false
+    );
+    expect(irrigationDrawing(snap({ ...base, states: { irrig_pump_power: { value: '4' } } }))).toBe(
+      false
+    );
   });
 
   it('runoffRunning crosses the draw threshold on runoff pump power (not the binary sensor)', () => {

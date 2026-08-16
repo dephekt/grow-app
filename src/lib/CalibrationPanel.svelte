@@ -8,11 +8,7 @@
   import type { EntityConfig } from '$lib/server/mqtt/types';
   import type { LiveSnapshot } from '$lib/live-snapshot-context';
 
-  let {
-    groups,
-    live,
-    deviceEntities
-  } = $props<{
+  let { groups, live, deviceEntities } = $props<{
     groups: PresentedSection[];
     live: LiveSnapshot;
     deviceEntities: EntityConfig[];
@@ -23,9 +19,9 @@
   type ProbeType = 'ph' | 'ec' | 'rtd' | 'orp';
 
   interface CalStep {
-    key: string;        // e.g. "mid", "low", "high", "dry", "k"
-    label: string;      // e.g. "Mid Point"
-    solution: string;   // e.g. "pH 7.00 buffer solution"
+    key: string; // e.g. "mid", "low", "high", "dry", "k"
+    label: string; // e.g. "Mid Point"
+    solution: string; // e.g. "pH 7.00 buffer solution"
     instruction: string;
     target: number | null;
     isDry: boolean;
@@ -46,13 +42,22 @@
     qualityEntities: EntityConfig[];
   }
 
-  const PH_STEPS: Array<{ key: string; label: string; solution: string; instruction: string; target: number; isDry: boolean; patterns: string[] }> = [
+  const PH_STEPS: Array<{
+    key: string;
+    label: string;
+    solution: string;
+    instruction: string;
+    target: number;
+    isDry: boolean;
+    patterns: string[];
+  }> = [
     {
       key: 'mid',
       label: 'Mid Point',
       solution: 'pH 7.00 buffer solution',
-      instruction: 'Rinse the probe with DI water, then submerge in pH 7.00 buffer solution. Wait for reading to stabilize.',
-      target: 7.00,
+      instruction:
+        'Rinse the probe with DI water, then submerge in pH 7.00 buffer solution. Wait for reading to stabilize.',
+      target: 7.0,
       isDry: false,
       patterns: ['ph_cal_mid', 'cal_mid', 'ph_mid']
     },
@@ -60,8 +65,9 @@
       key: 'low',
       label: 'Low Point',
       solution: 'pH 4.00 buffer solution',
-      instruction: 'Rinse the probe with DI water, then submerge in pH 4.00 buffer solution. Wait for reading to stabilize.',
-      target: 4.00,
+      instruction:
+        'Rinse the probe with DI water, then submerge in pH 4.00 buffer solution. Wait for reading to stabilize.',
+      target: 4.0,
       isDry: false,
       patterns: ['ph_cal_low', 'cal_low', 'ph_low']
     },
@@ -69,19 +75,29 @@
       key: 'high',
       label: 'High Point',
       solution: 'pH 10.00 buffer solution',
-      instruction: 'Rinse the probe with DI water, then submerge in pH 10.00 buffer solution. Wait for reading to stabilize.',
-      target: 10.00,
+      instruction:
+        'Rinse the probe with DI water, then submerge in pH 10.00 buffer solution. Wait for reading to stabilize.',
+      target: 10.0,
       isDry: false,
       patterns: ['ph_cal_high', 'cal_high', 'ph_high']
     }
   ];
 
-  const EC_STEPS: Array<{ key: string; label: string; solution: string; instruction: string; target: number | null; isDry: boolean; patterns: string[] }> = [
+  const EC_STEPS: Array<{
+    key: string;
+    label: string;
+    solution: string;
+    instruction: string;
+    target: number | null;
+    isDry: boolean;
+    patterns: string[];
+  }> = [
     {
       key: 'dry',
       label: 'Dry Calibration',
       solution: 'Air (probe must be dry)',
-      instruction: 'Ensure the probe is completely dry before calibrating. Remove from solution and let air dry.',
+      instruction:
+        'Ensure the probe is completely dry before calibrating. Remove from solution and let air dry.',
       target: null,
       isDry: true,
       patterns: ['ec_cal_dry', 'cal_dry']
@@ -90,7 +106,8 @@
       key: 'low',
       label: 'Low Point',
       solution: '12,880 µS/cm EC standard',
-      instruction: 'Submerge the probe in a 12,880 µS/cm EC calibration standard. Wait for reading to stabilize.',
+      instruction:
+        'Submerge the probe in a 12,880 µS/cm EC calibration standard. Wait for reading to stabilize.',
       target: 12880,
       isDry: false,
       patterns: ['ec_cal_low', 'cal_low']
@@ -99,26 +116,44 @@
       key: 'high',
       label: 'High Point',
       solution: '80,000 µS/cm EC standard',
-      instruction: 'Submerge the probe in an 80,000 µS/cm EC calibration standard. Wait for reading to stabilize.',
+      instruction:
+        'Submerge the probe in an 80,000 µS/cm EC calibration standard. Wait for reading to stabilize.',
       target: 80000,
       isDry: false,
       patterns: ['ec_cal_high', 'cal_high']
     }
   ];
 
-  const RTD_STEPS: Array<{ key: string; label: string; solution: string; instruction: string; target: number; isDry: boolean; patterns: string[] }> = [
+  const RTD_STEPS: Array<{
+    key: string;
+    label: string;
+    solution: string;
+    instruction: string;
+    target: number;
+    isDry: boolean;
+    patterns: string[];
+  }> = [
     {
       key: 'point',
       label: 'Reference Temp',
       solution: 'Known-temperature reference bath',
-      instruction: 'Place the probe in a liquid whose temperature is accurately known. Wait for reading to stabilize, then calibrate.',
+      instruction:
+        'Place the probe in a liquid whose temperature is accurately known. Wait for reading to stabilize, then calibrate.',
       target: 100,
       isDry: false,
       patterns: ['rtd_cal', 'rtd_point']
     }
   ];
 
-  const ORP_STEPS: Array<{ key: string; label: string; solution: string; instruction: string; target: number; isDry: boolean; patterns: string[] }> = [
+  const ORP_STEPS: Array<{
+    key: string;
+    label: string;
+    solution: string;
+    instruction: string;
+    target: number;
+    isDry: boolean;
+    patterns: string[];
+  }> = [
     {
       key: 'point',
       label: 'Single Point',
@@ -137,8 +172,20 @@
 
   function detectProbeType(objectId: string): ProbeType | null {
     const n = objectId.toLowerCase();
-    if (n.includes('ph_cal') || n.includes('ph_mid') || n.includes('ph_low') || n.includes('ph_high')) return 'ph';
-    if (n.includes('ec_cal') || n.includes('ec_dry') || n.includes('ec_low') || n.includes('ec_high')) return 'ec';
+    if (
+      n.includes('ph_cal') ||
+      n.includes('ph_mid') ||
+      n.includes('ph_low') ||
+      n.includes('ph_high')
+    )
+      return 'ph';
+    if (
+      n.includes('ec_cal') ||
+      n.includes('ec_dry') ||
+      n.includes('ec_low') ||
+      n.includes('ec_high')
+    )
+      return 'ec';
     if (n.includes('rtd_cal') || n.includes('rtd_point')) return 'rtd';
     if (n.includes('orp_cal') || n.includes('orp_point')) return 'orp';
     // Fallback: if it just has _cal_ and is in a ph/ec/rtd/orp-named group
@@ -150,7 +197,12 @@
     { objectId: string; deviceClass?: string; units: string[]; hint: string }
   > = {
     ph: { objectId: 'water_ph', deviceClass: 'ph', units: ['ph'], hint: 'ph' },
-    ec: { objectId: 'water_ec', deviceClass: 'conductivity', units: ['µs/cm', 'ms/cm', 'us/cm'], hint: 'ec' },
+    ec: {
+      objectId: 'water_ec',
+      deviceClass: 'conductivity',
+      units: ['µs/cm', 'ms/cm', 'us/cm'],
+      hint: 'ec'
+    },
     rtd: { objectId: 'water_temperature', deviceClass: 'temperature', units: ['°c'], hint: 'temp' },
     orp: { objectId: 'water_orp', deviceClass: 'voltage', units: ['mv'], hint: 'orp' }
   };
@@ -178,7 +230,8 @@
       sensors.find((s) => {
         if (!(s.objectId ?? '').toLowerCase().includes(want.hint)) return false;
         return (
-          (want.deviceClass !== undefined && (s.deviceClass ?? '').toLowerCase() === want.deviceClass) ||
+          (want.deviceClass !== undefined &&
+            (s.deviceClass ?? '').toLowerCase() === want.deviceClass) ||
           want.units.includes((s.unit ?? '').toLowerCase())
         );
       }) ?? null
@@ -239,7 +292,9 @@
       const stepDefs = stepsForType[type];
       const steps: CalStep[] = [];
       for (const def of stepDefs) {
-        const entity = entities.find((e) => matchesPatterns((e.objectId ?? e.id).toLowerCase(), def.patterns)) ?? null;
+        const entity =
+          entities.find((e) => matchesPatterns((e.objectId ?? e.id).toLowerCase(), def.patterns)) ??
+          null;
         if (!entity) continue;
         steps.push({
           key: def.key,
@@ -255,16 +310,25 @@
       if (steps.length === 0) continue;
 
       const liveEntity = findLiveSensor(type, deviceEntities);
-      const clearEntity = deviceEntities.find((e) => {
-        const oid = (e.objectId ?? e.id).toLowerCase();
-        return e.component === 'button' && (oid.includes(`${type}_cal_clear`) || oid.includes('cal_clear'));
-      }) ?? null;
+      const clearEntity =
+        deviceEntities.find((e) => {
+          const oid = (e.objectId ?? e.id).toLowerCase();
+          return (
+            e.component === 'button' &&
+            (oid.includes(`${type}_cal_clear`) || oid.includes('cal_clear'))
+          );
+        }) ?? null;
 
       // The calibration-mode switch: e.g. objectId "ph_calibration_mode" (component switch).
-      const calModeEntity = deviceEntities.find((e) => {
-        const oid = (e.objectId ?? e.id).toLowerCase();
-        return e.component === 'switch' && oid.includes(type) && (oid.includes('calibration_mode') || oid.includes('cal_mode'));
-      }) ?? null;
+      const calModeEntity =
+        deviceEntities.find((e) => {
+          const oid = (e.objectId ?? e.id).toLowerCase();
+          return (
+            e.component === 'switch' &&
+            oid.includes(type) &&
+            (oid.includes('calibration_mode') || oid.includes('cal_mode'))
+          );
+        }) ?? null;
 
       const qualityEntities = findQualityEntities(type, deviceEntities);
 
@@ -283,7 +347,13 @@
   }
 
   // Probe-health diagnostics, matched by prefix so they cannot latch onto another probe's.
-  const QUALITY_PATTERNS = ['slope', 'asymmetry', 'calibration_status', 'cal_status', 'cell_constant'];
+  const QUALITY_PATTERNS = [
+    'slope',
+    'asymmetry',
+    'calibration_status',
+    'cal_status',
+    'cell_constant'
+  ];
   function findQualityEntities(type: ProbeType, deviceEntities: EntityConfig[]): EntityConfig[] {
     return deviceEntities.filter((e) => {
       if (e.component !== 'sensor') return false;
@@ -299,7 +369,9 @@
   let doneMap = $state<Record<string, boolean>>({}); // entity.id → done
 
   let activeProbe = $derived(
-    (selectedProbeType ? probes.find((p) => p.type === selectedProbeType) : null) ?? probes[0] ?? null
+    (selectedProbeType ? probes.find((p) => p.type === selectedProbeType) : null) ??
+      probes[0] ??
+      null
   );
 
   let activeStepIndex = $derived.by(() => {
@@ -328,7 +400,9 @@
   let calModeEntity = $derived(activeProbe?.calModeEntity ?? null);
   let calModeOn = $derived.by(() => {
     if (!calModeEntity) return false;
-    return (live.snapshot.states[calModeEntity.id]?.value ?? null) === (calModeEntity.payloadOn ?? 'ON');
+    return (
+      (live.snapshot.states[calModeEntity.id]?.value ?? null) === (calModeEntity.payloadOn ?? 'ON')
+    );
   });
   let calModeToggling = $state(false);
   async function toggleCalMode(): Promise<void> {
@@ -383,7 +457,10 @@
   let tolerance = $derived.by(() => {
     if (!activeStep) return 0.06;
     if (activeStep.isDry) {
-      const maxTarget = Math.max(0, ...(activeProbe?.steps.map((s) => (s.target != null ? Math.abs(s.target) : 0)) ?? [0]));
+      const maxTarget = Math.max(
+        0,
+        ...(activeProbe?.steps.map((s) => (s.target != null ? Math.abs(s.target) : 0)) ?? [0])
+      );
       return Math.max(0.06, maxTarget * 0.005);
     }
     if (activeStep.target == null) return 0.06;
@@ -436,9 +513,7 @@
   });
 
   let liveDisplayStr = $derived(
-    liveDisplayValue != null
-      ? liveDisplayValue.toFixed(activeProbe?.type === 'ph' ? 2 : 1)
-      : '—'
+    liveDisplayValue != null ? liveDisplayValue.toFixed(activeProbe?.type === 'ph' ? 2 : 1) : '—'
   );
 
   let liveUnit = $derived(activeProbe?.liveEntity?.unit ?? '');
@@ -504,7 +579,11 @@
             type="button"
             class="probe-tab"
             class:active={probe.type === (activeProbe?.type ?? probes[0]?.type)}
-            onclick={() => { selectedProbeType = probe.type; doneMap = {}; readingBuffer = []; }}
+            onclick={() => {
+              selectedProbeType = probe.type;
+              doneMap = {};
+              readingBuffer = [];
+            }}
           >
             {probe.label}
           </button>
@@ -521,7 +600,8 @@
             {#if allDone}
               <span class="step-label done">ALL POINTS CALIBRATED</span>
             {:else}
-              <span class="step-label">STEP {activeStepIndex + 1} / {activeProbe.steps.length}</span>
+              <span class="step-label">STEP {activeStepIndex + 1} / {activeProbe.steps.length}</span
+              >
             {/if}
           </div>
 
@@ -559,7 +639,11 @@
                   <span class="panel-title">Live Reading</span>
                   {#if activeProbe.liveEntity}
                     <div class="stability-indicator">
-                      <span class="dot" class:ok={isStable} class:warn={!isStable && readingBuffer.length > 0}></span>
+                      <span
+                        class="dot"
+                        class:ok={isStable}
+                        class:warn={!isStable && readingBuffer.length > 0}
+                      ></span>
                       <span class="stability-text">
                         {#if isStable}
                           STABLE · READY
@@ -585,10 +669,18 @@
                     <!-- The viewBox tracks the wrap's measured width so chart coordinates map
                          1:1 to CSS pixels at any layout width — a fixed viewBox would meet-scale
                          (letterbox) on narrow layouts and cap the chart on wide ones. -->
-                    <Sparkline points={sparklinePoints} color={isStable ? 'var(--ok)' : 'var(--amber)'} width={sparkWidth || 208} height={36} pulse />
+                    <Sparkline
+                      points={sparklinePoints}
+                      color={isStable ? 'var(--ok)' : 'var(--amber)'}
+                      width={sparkWidth || 208}
+                      height={36}
+                      pulse
+                    />
                   </div>
                 {:else if !activeProbe.liveEntity}
-                  <p class="no-sensor-note muted">No live sensor found for this probe. Calibrate will remain disabled.</p>
+                  <p class="no-sensor-note muted">
+                    No live sensor found for this probe. Calibrate will remain disabled.
+                  </p>
                 {/if}
               </div>
 
@@ -657,9 +749,7 @@
             </div>
 
             <div class="sidebar-actions">
-              <button type="button" class="clear-btn" onclick={clearCalibration}>
-                CLEAR
-              </button>
+              <button type="button" class="clear-btn" onclick={clearCalibration}> CLEAR </button>
             </div>
           </div>
         </div>
@@ -699,7 +789,10 @@
     font-size: 0.82rem;
     font-weight: 600;
     letter-spacing: 0.04em;
-    transition: color 0.1s, border-color 0.1s, background 0.1s;
+    transition:
+      color 0.1s,
+      border-color 0.1s,
+      background 0.1s;
   }
 
   .probe-tab.active {
@@ -817,8 +910,12 @@
     background: var(--faint);
     flex: none;
   }
-  .dot.ok { background: var(--ok); }
-  .dot.warn { background: var(--amber); }
+  .dot.ok {
+    background: var(--ok);
+  }
+  .dot.warn {
+    background: var(--amber);
+  }
 
   .live-value-row {
     display: flex;
@@ -866,7 +963,10 @@
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    transition:
+      color 0.15s,
+      border-color 0.15s,
+      background 0.15s;
   }
 
   .calibrate-btn.ready {
@@ -905,7 +1005,10 @@
     cursor: pointer;
     font: inherit;
     text-align: left;
-    transition: color 0.12s, border-color 0.12s, background 0.12s;
+    transition:
+      color 0.12s,
+      border-color 0.12s,
+      background 0.12s;
   }
 
   .cal-mode-toggle.on {
@@ -997,7 +1100,9 @@
     font: inherit;
     font-size: 0.82rem;
     text-align: left;
-    transition: background 0.1s, border-color 0.1s;
+    transition:
+      background 0.1s,
+      border-color 0.1s;
   }
 
   .step-row.active {
@@ -1047,7 +1152,9 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    transition: border-color 0.1s, color 0.1s;
+    transition:
+      border-color 0.1s,
+      color 0.1s;
   }
 
   .clear-btn:hover {

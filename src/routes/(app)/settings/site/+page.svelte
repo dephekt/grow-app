@@ -28,7 +28,9 @@
   // Client-side type-to-narrow: the full IANA list is ~600 entries, so a plain filter box
   // over a native <select> keeps it usable without pulling in a combobox dependency.
   const visibleZones = $derived(
-    filter.trim() ? allZones.filter((z) => z.toLowerCase().includes(filter.trim().toLowerCase())) : allZones
+    filter.trim()
+      ? allZones.filter((z) => z.toLowerCase().includes(filter.trim().toLowerCase()))
+      : allZones
   );
 
   // Only meaningful when nothing is persisted — explains which env/host default is winning
@@ -87,8 +89,8 @@
   <form onsubmit={save}>
     <h2>Time zone</h2>
     <p class="lead">
-      The one IANA zone for this site — drives the irrigation schedule, the lights countdown, and the time pushed to
-      devices.
+      The one IANA zone for this site — drives the irrigation schedule, the lights countdown, and
+      the time pushed to devices.
     </p>
 
     {#if sourceHint}<p class="hint">{sourceHint}</p>{/if}
@@ -117,12 +119,17 @@
       <p class="ok" role="status">
         Saved {stored}.
         {#if report}
-          {#if report.pushed.length}Pushed to {report.pushed.length} device{report.pushed.length === 1 ? '' : 's'}.
+          {#if report.pushed.length}Pushed to {report.pushed.length} device{report.pushed.length ===
+            1
+              ? ''
+              : 's'}.
           {/if}
-          {#if report.inSync.length}{report.inSync.length} already in sync. {/if}
-          {#if report.failed.length}{report.failed.length} could not be reached. {/if}
-          {#if report.pushed.length === 0 && report.inSync.length === 0 && report.failed.length === 0}No tz-capable
-            devices connected.{/if}
+          {#if report.inSync.length}{report.inSync.length} already in sync.
+          {/if}
+          {#if report.failed.length}{report.failed.length} could not be reached.
+          {/if}
+          {#if report.pushed.length === 0 && report.inSync.length === 0 && report.failed.length === 0}No
+            tz-capable devices connected.{/if}
         {/if}
       </p>
     {/if}

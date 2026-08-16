@@ -35,7 +35,11 @@ export interface DomainSeriesSpec {
   entity: string;
 }
 
-function metricSpecs(snapshot: Snapshot, device: DeviceSnapshot | undefined, stripPrefix = ''): DomainSeriesSpec[] {
+function metricSpecs(
+  snapshot: Snapshot,
+  device: DeviceSnapshot | undefined,
+  stripPrefix = ''
+): DomainSeriesSpec[] {
   if (!device) return [];
   return presentedNumericMetrics(snapshot, device, stripPrefix)
     .map((m) => ({
@@ -145,13 +149,19 @@ export function assembleDomainSeries(
   probeBindings: readonly SubstrateProbeBinding[] = []
 ): TrendSeries[] {
   if (domain !== 'substrate') {
-    return specs.map((s) => ({ key: s.key, label: s.label, unit: s.unit, points: pointsByKey.get(s.key) ?? [] }));
+    return specs.map((s) => ({
+      key: s.key,
+      label: s.label,
+      unit: s.unit,
+      points: pointsByKey.get(s.key) ?? []
+    }));
   }
 
   const probes = resolveSubstrateProbes(snapshot, zones, probeBindings);
   // With one probe the readings need no qualifier; with several, each series says whose
   // pot it is. Prefix rather than suffix so the legend's probe names line up.
-  const qualify = (label: string, probeLabel: string) => (probes.length > 1 ? `${probeLabel} ${label}` : label);
+  const qualify = (label: string, probeLabel: string) =>
+    probes.length > 1 ? `${probeLabel} ${label}` : label;
 
   const series: TrendSeries[] = [];
   for (const probe of probes) {
@@ -163,13 +173,21 @@ export function assembleDomainSeries(
     // Water content is a pointwise function of counts alone, so it charts wherever the
     // sensor recorded — no join, no dropped buckets.
     const vwc = counts.flatMap((p) => {
-      const derived = deriveReadings({ counts: p.v, temperatureC: null, bulkEc: null }, calibration).vwc;
+      const derived = deriveReadings(
+        { counts: p.v, temperatureC: null, bulkEc: null },
+        calibration
+      ).vwc;
       return derived === null ? [] : [{ t: p.t, v: derived * 100 }];
     });
     // Every count can be rejected as out of range, and an empty series is a legend entry
     // with no line behind it.
     if (vwc.length > 0) {
-      series.push({ key: `${probe.nodeId}:vwc`, label: qualify('VWC', probeLabel), unit: '%', points: vwc });
+      series.push({
+        key: `${probe.nodeId}:vwc`,
+        label: qualify('VWC', probeLabel),
+        unit: '%',
+        points: vwc
+      });
     }
 
     // The publisher skips unchanged writes, so these three record at wildly different
@@ -180,12 +198,21 @@ export function assembleDomainSeries(
       const temperatureC = temps(p.t);
       const bulkEc = bulk(p.t);
       if (temperatureC === null || bulkEc === null) return [];
-      return [{ t: p.t, readings: deriveReadings({ counts: p.v, temperatureC, bulkEc }, calibration) }];
+      return [
+        { t: p.t, readings: deriveReadings({ counts: p.v, temperatureC, bulkEc }, calibration) }
+      ];
     });
 
-    const poreEc = derived.flatMap((d) => (d.readings.poreEc === null ? [] : [{ t: d.t, v: d.readings.poreEc }]));
+    const poreEc = derived.flatMap((d) =>
+      d.readings.poreEc === null ? [] : [{ t: d.t, v: d.readings.poreEc }]
+    );
     if (poreEc.length > 0) {
-      series.push({ key: `${probe.nodeId}:pwec`, label: qualify('pwEC', probeLabel), unit: 'mS/cm', points: poreEc });
+      series.push({
+        key: `${probe.nodeId}:pwec`,
+        label: qualify('pwEC', probeLabel),
+        unit: 'mS/cm',
+        points: poreEc
+      });
     }
 
     // Charted from the same step-carried readers pwEC derives from, so a temperature that

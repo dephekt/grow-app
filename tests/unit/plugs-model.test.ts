@@ -13,7 +13,12 @@ import {
   type PlugSpec
 } from '../../src/lib/plugs/model';
 import { IRRIGATION_NODE, RUNOFF_NODE } from '../../src/lib/irrigation/model';
-import type { DeviceSnapshot, EntityConfig, EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
+import type {
+  DeviceSnapshot,
+  EntityConfig,
+  EntityState,
+  Snapshot
+} from '../../src/lib/server/mqtt/types';
 
 function makeEntity(
   nodeId: string,
@@ -25,7 +30,12 @@ function makeEntity(
     nodeId,
     // The Athom plugs ship discovery with no device `ids`, so identifiers[0] is a uniq_id
     // slug rather than the node name. Mirrored here on purpose.
-    device: { identifiers: [`slug_${overrides.id}`], name: nodeId, manufacturer: 'athom', model: 'plug-v2' },
+    device: {
+      identifiers: [`slug_${overrides.id}`],
+      name: nodeId,
+      manufacturer: 'athom',
+      model: 'plug-v2'
+    },
     payloadAvailable: 'online',
     payloadNotAvailable: 'offline',
     dangerous: false,
@@ -59,7 +69,13 @@ function makeSnapshot(
     topicPrefix: 'grow/daniel-home',
     discoveryPrefix: 'grow/daniel-home/_discovery',
     generatedAt: '2026-08-12T00:00:00.000Z',
-    broker: { connected: true, connecting: false, error: null, lastConnectedAt: null, lastMessageAt: null },
+    broker: {
+      connected: true,
+      connecting: false,
+      error: null,
+      lastConnectedAt: null,
+      lastMessageAt: null
+    },
     devices,
     entities,
     states,
@@ -72,11 +88,20 @@ function makeSnapshot(
 const spec = (node: string): PlugSpec => PLUGS.find((p) => p.node === node)!;
 
 /** A plug with its relay, power and daily-energy entities. */
-function plugEntities(node: string, relayObjectId: string | null, powerObjectId: string): EntityConfig[] {
+function plugEntities(
+  node: string,
+  relayObjectId: string | null,
+  powerObjectId: string
+): EntityConfig[] {
   const out: EntityConfig[] = [
     makeEntity(node, { id: `${node}_power`, name: 'Power', objectId: powerObjectId, unit: 'W' }),
     // Every plug publishes this same objectId — the collision the resolver must survive.
-    makeEntity(node, { id: `${node}_daily`, name: 'Daily Energy', objectId: 'total_daily_energy', unit: 'kWh' })
+    makeEntity(node, {
+      id: `${node}_daily`,
+      name: 'Daily Energy',
+      objectId: 'total_daily_energy',
+      unit: 'kWh'
+    })
   ];
   if (relayObjectId) {
     out.push(
@@ -108,14 +133,20 @@ describe('resolvePlug — entity resolution', () => {
     });
 
     expect(resolvePlug(snapshot, spec(EXHAUST_NODE)).dailyEnergy?.id).toBe(`${EXHAUST_NODE}_daily`);
-    expect(resolvePlug(snapshot, spec(GROW_LIGHT_NODE)).dailyEnergy?.id).toBe(`${GROW_LIGHT_NODE}_daily`);
+    expect(resolvePlug(snapshot, spec(GROW_LIGHT_NODE)).dailyEnergy?.id).toBe(
+      `${GROW_LIGHT_NODE}_daily`
+    );
   });
 
   // The plugs' device.identifiers[0] is a uniq_id slug, not the node name, so availability
   // has to be resolved through nodeId as well or an offline plug reads as online.
   it('sees a plug offline even though its device id is a slug', () => {
     const entities = plugEntities(EXHAUST_NODE, 'exhaust_fan', 'fan_power');
-    const snapshot = makeSnapshot(entities, { [`${EXHAUST_NODE}_relay`]: state('ON') }, { [EXHAUST_NODE]: 'offline' });
+    const snapshot = makeSnapshot(
+      entities,
+      { [`${EXHAUST_NODE}_relay`]: state('ON') },
+      { [EXHAUST_NODE]: 'offline' }
+    );
     const plug = resolvePlug(snapshot, spec(EXHAUST_NODE));
     expect(plug.offline).toBe(true);
     expect(plug.activity).toBe('offline');
@@ -123,7 +154,11 @@ describe('resolvePlug — entity resolution', () => {
 
   it('treats a never-reported LWT as available, not offline', () => {
     const entities = plugEntities(EXHAUST_NODE, 'exhaust_fan', 'fan_power');
-    const snapshot = makeSnapshot(entities, { [`${EXHAUST_NODE}_relay`]: state('OFF') }, { [EXHAUST_NODE]: 'unknown' });
+    const snapshot = makeSnapshot(
+      entities,
+      { [`${EXHAUST_NODE}_relay`]: state('OFF') },
+      { [EXHAUST_NODE]: 'unknown' }
+    );
     expect(resolvePlug(snapshot, spec(EXHAUST_NODE)).offline).toBe(false);
   });
 });
@@ -259,7 +294,10 @@ describe('resolvePlugs', () => {
       ...plugEntities(RUNOFF_NODE, null, 'runoff_pump_power'),
       ...plugEntities(EXHAUST_NODE, 'exhaust_fan', 'fan_power')
     ];
-    expect(resolvePlugs(makeSnapshot(entities, {})).map((p) => p.spec.node)).toEqual([EXHAUST_NODE, RUNOFF_NODE]);
+    expect(resolvePlugs(makeSnapshot(entities, {})).map((p) => p.spec.node)).toEqual([
+      EXHAUST_NODE,
+      RUNOFF_NODE
+    ]);
   });
 });
 

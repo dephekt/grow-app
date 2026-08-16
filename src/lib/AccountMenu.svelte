@@ -28,7 +28,9 @@
   // Auto-close timer id, tracked so a reopen can cancel a still-pending close.
   let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const passwordAction = $derived(hasLocalPassword ? 'Change local password' : 'Set local password');
+  const passwordAction = $derived(
+    hasLocalPassword ? 'Change local password' : 'Set local password'
+  );
 
   function openPasswordDialog(): void {
     menuOpen = false;
@@ -79,7 +81,10 @@
   async function signOut(): Promise<void> {
     menuOpen = false;
     try {
-      await fetch('/auth/logout', { method: 'POST', headers: { 'content-type': 'application/json' } });
+      await fetch('/auth/logout', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' }
+      });
     } catch {
       // ignore — we redirect regardless
     }
@@ -101,10 +106,22 @@
 
   {#if menuOpen}
     <div class="menu" role="menu">
-      <button class="menu-item" role="menuitem" onclick={openPasswordDialog}>{passwordAction}</button>
+      <button class="menu-item" role="menuitem" onclick={openPasswordDialog}
+        >{passwordAction}</button
+      >
       {#if user.isAdmin}
-        <a class="menu-item" role="menuitem" href="/settings/users" onclick={() => (menuOpen = false)}>Manage users</a>
-        <a class="menu-item" role="menuitem" href="/settings/site" onclick={() => (menuOpen = false)}>Site settings</a>
+        <a
+          class="menu-item"
+          role="menuitem"
+          href="/settings/users"
+          onclick={() => (menuOpen = false)}>Manage users</a
+        >
+        <a
+          class="menu-item"
+          role="menuitem"
+          href="/settings/site"
+          onclick={() => (menuOpen = false)}>Site settings</a
+        >
       {/if}
       <button class="menu-item danger" role="menuitem" onclick={signOut}>Sign out</button>
     </div>
@@ -115,7 +132,10 @@
   <form method="dialog" onsubmit={savePassword}>
     <h2>{passwordAction}</h2>
     {#if !hasLocalPassword}
-      <p class="hint">Set a local password to sign in without SSO — useful when the identity provider is unreachable.</p>
+      <p class="hint">
+        Set a local password to sign in without SSO — useful when the identity provider is
+        unreachable.
+      </p>
     {/if}
     {#if hasLocalPassword}
       <label>
@@ -125,11 +145,23 @@
     {/if}
     <label>
       New password
-      <input type="password" bind:value={newPassword} autocomplete="new-password" required minlength="8" />
+      <input
+        type="password"
+        bind:value={newPassword}
+        autocomplete="new-password"
+        required
+        minlength="8"
+      />
     </label>
     <label>
       Confirm new password
-      <input type="password" bind:value={confirmPassword} autocomplete="new-password" required minlength="8" />
+      <input
+        type="password"
+        bind:value={confirmPassword}
+        autocomplete="new-password"
+        required
+        minlength="8"
+      />
     </label>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     {#if saved}<p class="ok" role="status">Password saved</p>{/if}

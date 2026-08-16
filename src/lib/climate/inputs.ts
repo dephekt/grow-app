@@ -20,7 +20,13 @@ import { GROW_LIGHT_NODE } from '$lib/plugs/model';
 import { liveLeafVpd } from '$lib/vpd';
 import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 import { airVpdKpa, type AirState } from './psychro';
-import { EXHAUST_ARMS, EXHAUST_NODE, EXHAUST_RELAY, HUMIDIFIER_NODE, HUMIDIFIER_RELAY } from './model';
+import {
+  EXHAUST_ARMS,
+  EXHAUST_NODE,
+  EXHAUST_RELAY,
+  HUMIDIFIER_NODE,
+  HUMIDIFIER_RELAY
+} from './model';
 
 export interface ResolvedActuator {
   entity: EntityConfig | undefined;
@@ -104,7 +110,9 @@ export function resolveClimateInputs(snapshot: Snapshot, nowMs: number): Climate
   const climateDevice = resolveClimateDevice(snapshot);
   const tentNode = climateDevice?.nodeId ?? climateDevice?.id ?? null;
   const onTent = (pred: (e: EntityConfig) => boolean) =>
-    tentNode === null ? undefined : snapshot.entities.find((e) => pred(e) && entityNodeKey(e) === tentNode);
+    tentNode === null
+      ? undefined
+      : snapshot.entities.find((e) => pred(e) && entityNodeKey(e) === tentNode);
 
   const tent = airStateFrom(snapshot, onTent(isAmbientTemperature), onTent(isHumidity), nowMs);
 
@@ -123,7 +131,9 @@ export function resolveClimateInputs(snapshot: Snapshot, nowMs: number): Climate
         .sort(byNode)[0];
       return humidity ? { node, temp, humidity } : null;
     })
-    .find((pair): pair is { node: string; temp: EntityConfig; humidity: EntityConfig } => pair !== null);
+    .find(
+      (pair): pair is { node: string; temp: EntityConfig; humidity: EntityConfig } => pair !== null
+    );
 
   const roomNode = roomPair?.node ?? null;
   const room = airStateFrom(snapshot, roomPair?.temp, roomPair?.humidity, nowMs);

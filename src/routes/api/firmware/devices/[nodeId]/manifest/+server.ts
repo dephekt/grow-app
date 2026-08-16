@@ -17,11 +17,19 @@ export const GET: RequestHandler = async ({ params, url }) => {
   try {
     const service = getSiteMqttService();
     const device = service.firmwareDevice(nodeId);
-    if (!device) return json({ error: 'Firmware metadata is not discovered for this device' }, { status: 404 });
+    if (!device)
+      return json(
+        { error: 'Firmware metadata is not discovered for this device' },
+        { status: 404 }
+      );
 
     const channel = service.selectedFirmwareChannel(nodeId);
     const resolved = await resolveFirmwarePackage(device, channel);
-    if (!resolved) return json({ error: `No ${channel} firmware package found for ${device.package}` }, { status: 404 });
+    if (!resolved)
+      return json(
+        { error: `No ${channel} firmware package found for ${device.package}` },
+        { status: 404 }
+      );
 
     return json(toEspHomeManifest(resolved.manifest, nodeId, tokenResult.token), {
       headers: {

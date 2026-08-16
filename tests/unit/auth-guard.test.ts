@@ -7,7 +7,15 @@ import { isSecureRequest } from '$lib/server/auth/config';
 
 describe('classifyPath', () => {
   it('treats health, favicon, login, /api/me and pre-session auth routes as public', () => {
-    for (const p of ['/health', '/favicon.ico', '/login', '/api/me', '/auth/login', '/auth/oidc', '/auth/oidc/callback']) {
+    for (const p of [
+      '/health',
+      '/favicon.ico',
+      '/login',
+      '/api/me',
+      '/auth/login',
+      '/auth/oidc',
+      '/auth/oidc/callback'
+    ]) {
       expect(classifyPath(p)).toBe('public');
     }
   });
@@ -19,7 +27,9 @@ describe('classifyPath', () => {
 
   it('treats firmware device manifest and binary paths as device-token', () => {
     expect(classifyPath('/api/firmware/devices/atlas-hydro-monitor/manifest')).toBe('device-token');
-    expect(classifyPath('/api/firmware/devices/atlas-hydro-monitor/binary/atlas.ota.bin')).toBe('device-token');
+    expect(classifyPath('/api/firmware/devices/atlas-hydro-monitor/binary/atlas.ota.bin')).toBe(
+      'device-token'
+    );
   });
 
   it('treats other firmware endpoints and app/api paths as protected', () => {

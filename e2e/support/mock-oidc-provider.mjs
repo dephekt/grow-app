@@ -30,7 +30,9 @@ function signIdToken(claims, nonce) {
   const header = { alg: 'RS256', typ: 'JWT', kid: KID };
   const payload = { iss: ISSUER, aud: CLIENT_ID, iat: now, exp: now + 300, nonce, ...claims };
   const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
-  const signature = cryptoSign('RSA-SHA256', Buffer.from(signingInput), signingKey).toString('base64url');
+  const signature = cryptoSign('RSA-SHA256', Buffer.from(signingInput), signingKey).toString(
+    'base64url'
+  );
   return `${signingInput}.${signature}`;
 }
 
@@ -59,18 +61,34 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, ISSUER);
 
   if (url.pathname === '/.well-known/openid-configuration') {
-    return send(res, 200, 'application/json', JSON.stringify({
-      issuer: ISSUER,
-      authorization_endpoint: `${ISSUER}/authorize`,
-      token_endpoint: `${ISSUER}/token`,
-      jwks_uri: `${ISSUER}/jwks`,
-      response_types_supported: ['code'],
-      subject_types_supported: ['public'],
-      id_token_signing_alg_values_supported: ['RS256'],
-      token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic'],
-      scopes_supported: ['openid', 'profile', 'email'],
-      claims_supported: ['sub', 'iss', 'aud', 'exp', 'iat', 'nonce', 'preferred_username', 'name', 'email', 'groups']
-    }));
+    return send(
+      res,
+      200,
+      'application/json',
+      JSON.stringify({
+        issuer: ISSUER,
+        authorization_endpoint: `${ISSUER}/authorize`,
+        token_endpoint: `${ISSUER}/token`,
+        jwks_uri: `${ISSUER}/jwks`,
+        response_types_supported: ['code'],
+        subject_types_supported: ['public'],
+        id_token_signing_alg_values_supported: ['RS256'],
+        token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic'],
+        scopes_supported: ['openid', 'profile', 'email'],
+        claims_supported: [
+          'sub',
+          'iss',
+          'aud',
+          'exp',
+          'iat',
+          'nonce',
+          'preferred_username',
+          'name',
+          'email',
+          'groups'
+        ]
+      })
+    );
   }
 
   if (url.pathname === '/jwks') {
@@ -114,17 +132,23 @@ const server = createServer(async (req, res) => {
     const params = new URLSearchParams(body);
     const code = params.get('code') ?? '';
     const entry = pending.get(code);
-    if (!entry) return send(res, 400, 'application/json', JSON.stringify({ error: 'invalid_grant' }));
+    if (!entry)
+      return send(res, 400, 'application/json', JSON.stringify({ error: 'invalid_grant' }));
     pending.delete(code); // single-use
 
     const idToken = signIdToken(entry.claims, entry.nonce);
-    return send(res, 200, 'application/json', JSON.stringify({
-      access_token: randomUUID(),
-      token_type: 'Bearer',
-      expires_in: 300,
-      id_token: idToken,
-      scope: 'openid profile email'
-    }));
+    return send(
+      res,
+      200,
+      'application/json',
+      JSON.stringify({
+        access_token: randomUUID(),
+        token_type: 'Bearer',
+        expires_in: 300,
+        id_token: idToken,
+        scope: 'openid profile email'
+      })
+    );
   }
 
   send(res, 404, 'text/plain', 'not found');

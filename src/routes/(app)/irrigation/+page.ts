@@ -27,7 +27,10 @@ export const load = async ({ fetch }) => {
     error(zonesRes.status, 'Could not load irrigation zones');
   }
 
-  const zonesBody = (await zonesRes.json()) as { zones: ZoneJson[]; probes?: SubstrateProbeBinding[] };
+  const zonesBody = (await zonesRes.json()) as {
+    zones: ZoneJson[];
+    probes?: SubstrateProbeBinding[];
+  };
   const zones = zonesBody.zones ?? [];
   const probes = zonesBody.probes ?? [];
 
@@ -47,10 +50,17 @@ export const load = async ({ fetch }) => {
   let eventTotal = 0;
   let eventAnchorId = 0;
   if (eventsRes.ok) {
-    const body = (await eventsRes.json()) as { events?: IrrigationEventJson[]; total?: number; anchorId?: number };
+    const body = (await eventsRes.json()) as {
+      events?: IrrigationEventJson[];
+      total?: number;
+      anchorId?: number;
+    };
     events = body.events ?? [];
     eventTotal = Number.isInteger(body.total) ? (body.total as number) : events.length;
-    eventAnchorId = Number.isSafeInteger(body.anchorId) && (body.anchorId as number) >= 0 ? (body.anchorId as number) : 0;
+    eventAnchorId =
+      Number.isSafeInteger(body.anchorId) && (body.anchorId as number) >= 0
+        ? (body.anchorId as number)
+        : 0;
   }
 
   return { zones, probes, schedules, scheduleTimeZone, events, eventTotal, eventAnchorId };

@@ -9,7 +9,11 @@ import type { OpenSprinklerConfig } from '../../src/lib/server/opensprinkler/con
 import type { EntityState } from '../../src/lib/server/mqtt/types';
 import { settle, ZONE } from './fixtures';
 
-const config: OpenSprinklerConfig = { enabled: true, baseTopic: 'grow/test/os', discoveryPrefix: 'homeassistant' };
+const config: OpenSprinklerConfig = {
+  enabled: true,
+  baseTopic: 'grow/test/os',
+  discoveryPrefix: 'homeassistant'
+};
 
 // A minimal SiteMqttService stub: enough for runStation (publish) + isStationRunning
 // (entityState). entityState mirrors the real one's null-guard for a missing entity.

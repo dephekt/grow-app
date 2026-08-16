@@ -53,7 +53,8 @@ export function resolveShotSeconds(input: ShotInput, zone: Zone): number {
     if (!Number.isFinite(ml) || ml <= 0) throw new Error('ml must be a positive number');
   } else if (input.percent != null) {
     const percent = Number(input.percent);
-    if (!Number.isFinite(percent) || percent <= 0) throw new Error('percent must be a positive number');
+    if (!Number.isFinite(percent) || percent <= 0)
+      throw new Error('percent must be a positive number');
     ml = percentToMl(percent, zone);
     if (ml == null) throw new Error('zone has no substrate volume; set it or use seconds');
   } else {
@@ -61,7 +62,8 @@ export function resolveShotSeconds(input: ShotInput, zone: Zone): number {
   }
 
   const seconds = mlToSeconds(ml, zone);
-  if (seconds == null) throw new Error('zone has no emitter flow; set drippers + emitter flow or use seconds');
+  if (seconds == null)
+    throw new Error('zone has no emitter flow; set drippers + emitter flow or use seconds');
   const rounded = Math.round(seconds);
   if (rounded <= 0) throw new Error('computed run time rounds to 0 seconds');
   return rounded;

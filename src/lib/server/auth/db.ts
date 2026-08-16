@@ -89,7 +89,9 @@ export function openAuthDb(path: string): DatabaseSync {
 
 /** Delete sessions whose rolling expiry has passed, returning the number removed. */
 export function purgeExpiredSessions(db: DatabaseSync): number {
-  const result = db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(new Date().toISOString());
+  const result = db
+    .prepare('DELETE FROM sessions WHERE expires_at <= ?')
+    .run(new Date().toISOString());
   return Number(result.changes);
 }
 

@@ -57,7 +57,8 @@ describe('dial spectrum binning', () => {
     // One bin spans ~4-5 pixels. Light exactly one pixel inside a bin: max ⇒ 100, mean ⇒ ~20-25.
     const target = 500;
     let idx = 0;
-    for (let i = 0; i < PIXEL_COUNT; i++) if (Math.abs(WAVELENGTHS[i] - target) < Math.abs(WAVELENGTHS[idx] - target)) idx = i;
+    for (let i = 0; i < PIXEL_COUNT; i++)
+      if (Math.abs(WAVELENGTHS[i] - target) < Math.abs(WAVELENGTHS[idx] - target)) idx = i;
 
     const relative = new Array(PIXEL_COUNT).fill(0);
     relative[idx] = 100;
@@ -93,7 +94,10 @@ describe('dial spectrum binning', () => {
 
   it('carries the peak wavelength and saturation flag through untouched', () => {
     const out = toDialSpectrum(
-      frame(relativeFrom((nm) => (nm > 600 && nm < 620 ? 100 : 0)), { peak: 662.5, sat: true }),
+      frame(
+        relativeFrom((nm) => (nm > 600 && nm < 620 ? 100 : 0)),
+        { peak: 662.5, sat: true }
+      ),
       9
     );
     expect(out.peak).toBe(662.5);
@@ -107,7 +111,11 @@ describe('dial spectrum binning', () => {
 });
 
 /** A realistic horticulture-LED shape: blue peak, green trough, broad red peak, far-red tail. */
-function relativeSpectrumFixture(): { relative: number[]; peakWavelengthNm: number; saturated: boolean } {
+function relativeSpectrumFixture(): {
+  relative: number[];
+  peakWavelengthNm: number;
+  saturated: boolean;
+} {
   const gauss = (nm: number, mu: number, sigma: number, h: number) =>
     h * Math.exp(-((nm - mu) ** 2) / (2 * sigma ** 2));
   return {

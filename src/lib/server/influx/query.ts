@@ -5,7 +5,12 @@ import { RANGE_SECONDS, type HistoryRange } from '$lib/trends';
 import { getInfluxConfig, getInfluxDB } from './client';
 
 // The range vocabulary is owned by `$lib/trends` so the client panel can share it.
-export { DEFAULT_HISTORY_RANGE, HISTORY_RANGES, isHistoryRange, type HistoryRange } from '$lib/trends';
+export {
+  DEFAULT_HISTORY_RANGE,
+  HISTORY_RANGES,
+  isHistoryRange,
+  type HistoryRange
+} from '$lib/trends';
 
 /** Single Influx measurement the recorder writes every reading into (tag-keyed). */
 export const READING_MEASUREMENT = 'reading';
@@ -46,7 +51,10 @@ export function escapeFluxString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-export async function queryHistory(series: HistorySeriesRequest[], range: HistoryRange): Promise<HistorySeries[]> {
+export async function queryHistory(
+  series: HistorySeriesRequest[],
+  range: HistoryRange
+): Promise<HistorySeries[]> {
   const config = getInfluxConfig();
   const db = getInfluxDB(config);
   if (!config || !db || series.length === 0) return [];
@@ -54,7 +62,10 @@ export async function queryHistory(series: HistorySeriesRequest[], range: Histor
   const seconds = RANGE_SECONDS[range];
   const windowSeconds = historyWindowSeconds(range);
   const predicate = series
-    .map((s) => `(r.node == "${escapeFluxString(s.node)}" and r.entity == "${escapeFluxString(s.entity)}")`)
+    .map(
+      (s) =>
+        `(r.node == "${escapeFluxString(s.node)}" and r.entity == "${escapeFluxString(s.entity)}")`
+    )
     .join(' or ');
 
   const flux = `from(bucket: "${escapeFluxString(config.bucket)}")
@@ -86,5 +97,7 @@ export async function queryHistory(series: HistorySeriesRequest[], range: Histor
   }
 
   // Preserve request order; drop series with no stored history yet.
-  return series.map((s) => byKey.get(s.key)).filter((s): s is HistorySeries => Boolean(s && s.points.length > 0));
+  return series
+    .map((s) => byKey.get(s.key))
+    .filter((s): s is HistorySeries => Boolean(s && s.points.length > 0));
 }

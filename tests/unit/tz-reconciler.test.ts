@@ -23,12 +23,15 @@ function makeDeps(overrides: Partial<ReconcileTimeZoneDeps> = {}): {
   publish: ReturnType<typeof vi.fn>;
   warn: ReturnType<typeof vi.fn>;
 } {
-  const publish = vi.fn<(entityId: string, posix: string) => Promise<void>>().mockResolvedValue(undefined);
+  const publish = vi
+    .fn<(entityId: string, posix: string) => Promise<void>>()
+    .mockResolvedValue(undefined);
   const warn = vi.fn<(reason: string, iana: string) => void>();
   const deps: ReconcileTimeZoneDeps = {
     desiredIana: CHICAGO,
     entities: [{ id: 'plug_time_zone', currentValue: null }],
-    toPosix: (iana): PosixResult => (iana === CHICAGO ? { ok: true, posix: CHICAGO_POSIX } : { ok: false, reason: 'invalid-zone' }),
+    toPosix: (iana): PosixResult =>
+      iana === CHICAGO ? { ok: true, posix: CHICAGO_POSIX } : { ok: false, reason: 'invalid-zone' },
     publish,
     lastPublished: new Map<string, string>(),
     warn,
@@ -50,7 +53,9 @@ describe('reconcileTimeZone — the six branches', () => {
   });
 
   it('records inSync (no publish) when the device already reports the desired POSIX', async () => {
-    const { deps, publish } = makeDeps({ entities: [{ id: 'plug_time_zone', currentValue: CHICAGO_POSIX }] });
+    const { deps, publish } = makeDeps({
+      entities: [{ id: 'plug_time_zone', currentValue: CHICAGO_POSIX }]
+    });
     const report = await reconcileTimeZone(deps);
     expect(publish).not.toHaveBeenCalled();
     expect(report.inSync).toEqual(['plug_time_zone']);
@@ -86,7 +91,9 @@ describe('reconcileTimeZone — the six branches', () => {
   });
 
   it('buckets a throwing publish into failed without throwing', async () => {
-    const publish = vi.fn<(entityId: string, posix: string) => Promise<void>>().mockRejectedValue(new Error('broker down'));
+    const publish = vi
+      .fn<(entityId: string, posix: string) => Promise<void>>()
+      .mockRejectedValue(new Error('broker down'));
     const { deps } = makeDeps({ publish });
     const report = await reconcileTimeZone(deps);
     expect(report.failed).toEqual(['plug_time_zone']);
@@ -175,7 +182,9 @@ describe('startSiteTimezoneReconciler — a reconnecting device is re-stamped', 
         handlers.push(fn);
         return () => {};
       },
-      timeZoneEntities: () => [{ id: 'plug_time_zone', component: 'text', objectId: 'time_zone', commandTopic: 'x' }],
+      timeZoneEntities: () => [
+        { id: 'plug_time_zone', component: 'text', objectId: 'time_zone', commandTopic: 'x' }
+      ],
       entityState: () => ({ value: '' }),
       publishCommand: (id: string, req: { value: string }) => {
         published.push([id, req.value]);
@@ -194,7 +203,12 @@ describe('startSiteTimezoneReconciler — a reconnecting device is re-stamped', 
     handlers.forEach((h) =>
       h({
         type: 'entity',
-        entity: { id: 'plug_time_zone', component: 'text', objectId: 'time_zone', commandTopic: 'x' }
+        entity: {
+          id: 'plug_time_zone',
+          component: 'text',
+          objectId: 'time_zone',
+          commandTopic: 'x'
+        }
       } as unknown as SnapshotEvent)
     );
     await vi.waitFor(() => expect(published).toHaveLength(2));
@@ -211,7 +225,9 @@ describe('SiteMqttService.timeZoneEntities — only tz-capable entities', () => 
       topicPrefix: prefix,
       discoveryPrefix: `${prefix}/_discovery`
     });
-    const receive = (service as unknown as { handleMessage(topic: string, payload: string): void }).handleMessage.bind(service);
+    const receive = (
+      service as unknown as { handleMessage(topic: string, payload: string): void }
+    ).handleMessage.bind(service);
 
     // A tz-capable text entity on the plug node.
     receive(

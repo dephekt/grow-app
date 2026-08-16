@@ -5,10 +5,19 @@ import { describe, it, expect } from 'vitest';
 import { selectHydroReadings, ecToMilliSiemens, formatBatchEc } from '$lib/mixing/hydro';
 import type { Snapshot } from '$lib/server/mqtt/types';
 
-const ecEnt = { id: 'ec1', component: 'sensor', deviceClass: 'conductivity', unit: 'µS/cm', name: 'Water EC' };
+const ecEnt = {
+  id: 'ec1',
+  component: 'sensor',
+  deviceClass: 'conductivity',
+  unit: 'µS/cm',
+  name: 'Water EC'
+};
 const phEnt = { id: 'ph1', component: 'sensor', deviceClass: 'ph', unit: 'pH', name: 'Water pH' };
 
-function snap(entities: unknown[], states: Record<string, { value: string | null; updatedAt: string | null }>): Snapshot {
+function snap(
+  entities: unknown[],
+  states: Record<string, { value: string | null; updatedAt: string | null }>
+): Snapshot {
   return { entities, states } as unknown as Snapshot;
 }
 

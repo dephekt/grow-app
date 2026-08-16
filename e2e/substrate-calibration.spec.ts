@@ -14,7 +14,12 @@ function entity(objectId: string, unit: string) {
     uniqueId: `${NODE}_${objectId}`,
     objectId,
     nodeId: NODE,
-    device: { identifiers: [NODE], name: 'Substrate A', manufacturer: 'METER Group', model: 'TEROS 12' },
+    device: {
+      identifiers: [NODE],
+      name: 'Substrate A',
+      manufacturer: 'METER Group',
+      model: 'TEROS 12'
+    },
     unit,
     payloadAvailable: 'online',
     payloadNotAvailable: 'offline',
@@ -54,11 +59,16 @@ const withProbe = {
 
 const probes = [{ nodeId: NODE, zoneId: 'z1', name: null }];
 
-async function openWithMedium(page: import('@playwright/test').Page, substrateType: 'Coco' | 'Rockwool') {
+async function openWithMedium(
+  page: import('@playwright/test').Page,
+  substrateType: 'Coco' | 'Rockwool'
+) {
   const zones = [{ id: 'z1', name: 'Tent 1', substrateType }];
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: withProbe }));
   await page.route('**/api/events', (route) => route.abort('failed'));
-  await page.route('**/api/irrigation/zones', (route) => route.fulfill({ json: { zones, probes } }));
+  await page.route('**/api/irrigation/zones', (route) =>
+    route.fulfill({ json: { zones, probes } })
+  );
   await page.goto('/');
   return page.locator('.panel', { hasText: '// SUBSTRATE' });
 }

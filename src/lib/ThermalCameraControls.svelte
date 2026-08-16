@@ -36,20 +36,31 @@
 
   let controlsByObjectId: Map<string, PresentedEntity> = $derived(
     new Map<string, PresentedEntity>(
-      controls.map((control: PresentedEntity): [string, PresentedEntity] => [control.entity.objectId ?? control.entity.id, control])
+      controls.map((control: PresentedEntity): [string, PresentedEntity] => [
+        control.entity.objectId ?? control.entity.id,
+        control
+      ])
     )
   );
-  let palette: PresentedEntity | undefined = $derived(controlsByObjectId.get('thermal_color_palette'));
-  let overlay: PresentedEntity | undefined = $derived(controlsByObjectId.get('thermal_overlay_enable'));
+  let palette: PresentedEntity | undefined = $derived(
+    controlsByObjectId.get('thermal_color_palette')
+  );
+  let overlay: PresentedEntity | undefined = $derived(
+    controlsByObjectId.get('thermal_overlay_enable')
+  );
   let roiEnabled: PresentedEntity | undefined = $derived(controlsByObjectId.get('roi_enabled'));
   let row: PresentedEntity | undefined = $derived(controlsByObjectId.get('roi_center_row'));
   let column: PresentedEntity | undefined = $derived(controlsByObjectId.get('roi_center_column'));
   let size: PresentedEntity | undefined = $derived(controlsByObjectId.get('roi_size'));
   let fallbackControls: PresentedEntity[] = $derived(
-    controls.filter((control: PresentedEntity) => !SPECIAL_CONTROL_IDS.has(control.entity.objectId ?? ''))
+    controls.filter(
+      (control: PresentedEntity) => !SPECIAL_CONTROL_IDS.has(control.entity.objectId ?? '')
+    )
   );
   let knownControls: PresentedEntity[] = $derived(
-    controls.filter((control: PresentedEntity) => SPECIAL_CONTROL_IDS.has(control.entity.objectId ?? ''))
+    controls.filter((control: PresentedEntity) =>
+      SPECIAL_CONTROL_IDS.has(control.entity.objectId ?? '')
+    )
   );
   let rowValue: number | null = $derived(row ? numericState(row) : null);
   let columnValue: number | null = $derived(column ? numericState(column) : null);
@@ -108,7 +119,11 @@
   }
 
   function stepFor(entry: PresentedEntity): number {
-    return entry.entity.step !== undefined && Number.isFinite(entry.entity.step) && entry.entity.step > 0 ? entry.entity.step : 1;
+    return entry.entity.step !== undefined &&
+      Number.isFinite(entry.entity.step) &&
+      entry.entity.step > 0
+      ? entry.entity.step
+      : 1;
   }
 
   function clamp(value: number, min: number, max: number): number {
@@ -119,17 +134,36 @@
     return Boolean((row && isPending(row)) || (column && isPending(column)));
   }
 
-  function moveDisabled(entry: PresentedEntity, delta: number, fallbackMin: number, fallbackMax: number): boolean {
+  function moveDisabled(
+    entry: PresentedEntity,
+    delta: number,
+    fallbackMin: number,
+    fallbackMax: number
+  ): boolean {
     const current = numericState(entry);
     if (current === null || positionPending()) return true;
-    return delta < 0 ? current <= minFor(entry, fallbackMin) : current >= maxFor(entry, fallbackMax);
+    return delta < 0
+      ? current <= minFor(entry, fallbackMin)
+      : current >= maxFor(entry, fallbackMax);
   }
 
-  function move(entry: PresentedEntity, delta: number, fallbackMin: number, fallbackMax: number): void {
+  function move(
+    entry: PresentedEntity,
+    delta: number,
+    fallbackMin: number,
+    fallbackMax: number
+  ): void {
     if (moveDisabled(entry, delta, fallbackMin, fallbackMax)) return;
     const current = numericState(entry);
     if (current === null) return;
-    onCommand(entry.entity, clamp(current + delta * stepFor(entry), minFor(entry, fallbackMin), maxFor(entry, fallbackMax)));
+    onCommand(
+      entry.entity,
+      clamp(
+        current + delta * stepFor(entry),
+        minFor(entry, fallbackMin),
+        maxFor(entry, fallbackMax)
+      )
+    );
   }
 </script>
 

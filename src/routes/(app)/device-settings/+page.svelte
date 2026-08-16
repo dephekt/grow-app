@@ -27,34 +27,48 @@
   let devices = $derived(live.snapshot.devices ?? []);
   let selectedDevice = $derived(
     devices.find(
-      (d) => d.nodeId === (page.url.searchParams.get('device') ?? data.selectedDeviceId) ||
-             d.id === (page.url.searchParams.get('device') ?? data.selectedDeviceId)
-    ) ?? devices[0] ?? null
+      (d) =>
+        d.nodeId === (page.url.searchParams.get('device') ?? data.selectedDeviceId) ||
+        d.id === (page.url.searchParams.get('device') ?? data.selectedDeviceId)
+    ) ??
+      devices[0] ??
+      null
   );
 
   let activeSectionId = $derived<DeviceSettingsSectionId | null>(
-    (page.url.searchParams.get('section') ?? data.selectedSectionId) as DeviceSettingsSectionId | null
+    (page.url.searchParams.get('section') ??
+      data.selectedSectionId) as DeviceSettingsSectionId | null
   );
 
-  let entityPanels = $derived(selectedDevice ? deviceSettingsPresentation(live.snapshot, selectedDevice) : []);
+  let entityPanels = $derived(
+    selectedDevice ? deviceSettingsPresentation(live.snapshot, selectedDevice) : []
+  );
 
   // The spectrometer's PPFD calibration section isn't entity-derived, so it's injected as a
   // synthetic Calibration tab on the device that publishes the spectrum frames.
   const showPpfdCal = $derived(
-    Boolean(selectedDevice) && (live.snapshot.spectrometerNodeIds ?? []).includes(selectedDevice?.nodeId ?? '')
+    Boolean(selectedDevice) &&
+      (live.snapshot.spectrometerNodeIds ?? []).includes(selectedDevice?.nodeId ?? '')
   );
 
   let firmwareConfig = $derived(
     selectedDevice
-      ? (live.snapshot.firmware?.devices?.[selectedDevice.nodeId] ?? live.snapshot.firmware?.devices?.[selectedDevice.id] ?? null)
+      ? (live.snapshot.firmware?.devices?.[selectedDevice.nodeId] ??
+          live.snapshot.firmware?.devices?.[selectedDevice.id] ??
+          null)
       : null
   );
 
   function deviceHasUpdate(device: DeviceSnapshot): boolean {
-    const fc = live.snapshot.firmware?.devices?.[device.nodeId] ?? live.snapshot.firmware?.devices?.[device.id] ?? null;
+    const fc =
+      live.snapshot.firmware?.devices?.[device.nodeId] ??
+      live.snapshot.firmware?.devices?.[device.id] ??
+      null;
     const allEntities = live.snapshot.entities ?? [];
     const updateEntity = allEntities.find(
-      (e) => (e.nodeId === device.nodeId || e.device?.identifiers?.includes(device.nodeId)) && e.component === 'update'
+      (e) =>
+        (e.nodeId === device.nodeId || e.device?.identifiers?.includes(device.nodeId)) &&
+        e.component === 'update'
     );
     const updateState = updateEntity
       ? parseFirmwareUpdateState(live.snapshot.states[updateEntity.id]?.value)
@@ -79,7 +93,12 @@
   }
 
   let allTabs = $derived.by(() => {
-    const tabs: Array<{ id: DeviceSettingsSectionId; title: string; count: number; hasUpdate: boolean }> = [];
+    const tabs: Array<{
+      id: DeviceSettingsSectionId;
+      title: string;
+      count: number;
+      hasUpdate: boolean;
+    }> = [];
 
     if (firmwareConfig) {
       tabs.push({ id: 'updates', title: 'Updates', count: 0, hasUpdate: false });
@@ -166,7 +185,10 @@
 
 <svelte:head>
   <title>Device Settings · {live.snapshot.site}</title>
-  <meta name="description" content="Device-specific grow HMI controls, calibration, maintenance, diagnostics, and alerts" />
+  <meta
+    name="description"
+    content="Device-specific grow HMI controls, calibration, maintenance, diagnostics, and alerts"
+  />
 </svelte:head>
 
 <div class="settings-shell">
@@ -260,30 +282,34 @@
               <p class="muted">No firmware info available for this device.</p>
             </div>
           {/if}
-
         {:else if activeTabId === 'alerts' && activeEntityPanel}
           <!-- ── Alerts (curated if recognized shape, else generic) ── -->
           {#if isAlertsCurated(activeEntityPanel)}
-            <AlertsPanel groups={activeEntityPanel.groups} {live} deviceEntities={deviceEntityList} />
+            <AlertsPanel
+              groups={activeEntityPanel.groups}
+              {live}
+              deviceEntities={deviceEntityList}
+            />
           {:else}
             {@render genericSectionList(activeEntityPanel.groups)}
           {/if}
-
         {:else if activeTabId === 'calibration'}
           <!-- ── Calibration: probe cal (curated/generic) and/or the grow-light PPFD panel ── -->
           {#if activeEntityPanel && isCalibrationCurated(activeEntityPanel)}
-            <CalibrationPanel groups={activeEntityPanel.groups} {live} deviceEntities={deviceEntityList} />
+            <CalibrationPanel
+              groups={activeEntityPanel.groups}
+              {live}
+              deviceEntities={deviceEntityList}
+            />
           {:else if activeEntityPanel}
             {@render genericSectionList(activeEntityPanel.groups)}
           {/if}
           {#if showPpfdCal}
             <PpfdCalibrationPanel {live} />
           {/if}
-
         {:else if activeEntityPanel}
           <!-- ── Generic sections (Controls, Maintenance, Diagnostics, Other) ── -->
           {@render genericSectionList(activeEntityPanel.groups)}
-
         {:else if allTabs.length === 0}
           <div class="empty-section panel">
             <p class="muted">This device has no configurable settings.</p>
@@ -294,7 +320,11 @@
   </div>
 </div>
 
-{#snippet genericSectionList(groups: typeof activeEntityPanel extends null ? never : NonNullable<typeof activeEntityPanel>['groups'])}
+{#snippet genericSectionList(
+  groups: typeof activeEntityPanel extends null
+    ? never
+    : NonNullable<typeof activeEntityPanel>['groups']
+)}
   <div class="section-list">
     {#each groups as group (group.id)}
       {@const open = getSectionOpen(group.id, group.defaultOpen)}
@@ -512,7 +542,10 @@
     font-size: 0.82rem;
     font-weight: 600;
     text-decoration: none;
-    transition: color 0.1s, border-color 0.1s, background 0.1s;
+    transition:
+      color 0.1s,
+      border-color 0.1s,
+      background 0.1s;
   }
 
   .section-tab:hover {
@@ -631,11 +664,19 @@
     background: var(--faint);
     flex: none;
   }
-  .dot.ok { background: var(--ok); }
-  .dot.warn { background: var(--amber); }
-  .dot.alert { background: var(--alert); }
+  .dot.ok {
+    background: var(--ok);
+  }
+  .dot.warn {
+    background: var(--amber);
+  }
+  .dot.alert {
+    background: var(--alert);
+  }
 
-  .muted { color: var(--muted); }
+  .muted {
+    color: var(--muted);
+  }
   .mono {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;

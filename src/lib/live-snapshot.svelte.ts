@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import type { BrokerSnapshot, EntityConfig, EntityState, FirmwareSnapshot, LiveSpectrum, Snapshot, SnapshotEvent } from '$lib/server/mqtt/types';
+import type {
+  BrokerSnapshot,
+  EntityConfig,
+  EntityState,
+  FirmwareSnapshot,
+  LiveSpectrum,
+  Snapshot,
+  SnapshotEvent
+} from '$lib/server/mqtt/types';
 import { formatEntityState } from '$lib/state-format';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -30,11 +38,18 @@ function brokerOr(value: unknown, fallback?: BrokerSnapshot): BrokerSnapshot {
 
   return {
     connected: typeof value.connected === 'boolean' ? value.connected : fallbackBroker.connected,
-    connecting: typeof value.connecting === 'boolean' ? value.connecting : fallbackBroker.connecting,
-    error: typeof value.error === 'string' || value.error === null ? value.error : fallbackBroker.error,
+    connecting:
+      typeof value.connecting === 'boolean' ? value.connecting : fallbackBroker.connecting,
+    error:
+      typeof value.error === 'string' || value.error === null ? value.error : fallbackBroker.error,
     lastConnectedAt:
-      typeof value.lastConnectedAt === 'string' || value.lastConnectedAt === null ? value.lastConnectedAt : fallbackBroker.lastConnectedAt,
-    lastMessageAt: typeof value.lastMessageAt === 'string' || value.lastMessageAt === null ? value.lastMessageAt : fallbackBroker.lastMessageAt
+      typeof value.lastConnectedAt === 'string' || value.lastConnectedAt === null
+        ? value.lastConnectedAt
+        : fallbackBroker.lastConnectedAt,
+    lastMessageAt:
+      typeof value.lastMessageAt === 'string' || value.lastMessageAt === null
+        ? value.lastMessageAt
+        : fallbackBroker.lastMessageAt
   };
 }
 
@@ -56,14 +71,25 @@ function firmwareOr(value: unknown, fallback?: FirmwareSnapshot): FirmwareSnapsh
 export function normalizeSnapshot(value: unknown, fallback?: Snapshot): Snapshot {
   const raw = isRecord(value) ? value : {};
   return {
-    site: typeof raw.site === 'string' ? raw.site : fallback?.site ?? 'grow',
-    timezone: typeof raw.timezone === 'string' ? raw.timezone : fallback?.timezone ?? 'UTC',
-    topicPrefix: typeof raw.topicPrefix === 'string' ? raw.topicPrefix : fallback?.topicPrefix ?? '',
-    discoveryPrefix: typeof raw.discoveryPrefix === 'string' ? raw.discoveryPrefix : fallback?.discoveryPrefix ?? '',
-    generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : fallback?.generatedAt ?? new Date().toISOString(),
+    site: typeof raw.site === 'string' ? raw.site : (fallback?.site ?? 'grow'),
+    timezone: typeof raw.timezone === 'string' ? raw.timezone : (fallback?.timezone ?? 'UTC'),
+    topicPrefix:
+      typeof raw.topicPrefix === 'string' ? raw.topicPrefix : (fallback?.topicPrefix ?? ''),
+    discoveryPrefix:
+      typeof raw.discoveryPrefix === 'string'
+        ? raw.discoveryPrefix
+        : (fallback?.discoveryPrefix ?? ''),
+    generatedAt:
+      typeof raw.generatedAt === 'string'
+        ? raw.generatedAt
+        : (fallback?.generatedAt ?? new Date().toISOString()),
     broker: brokerOr(raw.broker, fallback?.broker),
-    devices: Array.isArray(raw.devices) ? clonePlain(raw.devices) : clonePlain(fallback?.devices ?? []),
-    entities: Array.isArray(raw.entities) ? clonePlain(raw.entities) : clonePlain(fallback?.entities ?? []),
+    devices: Array.isArray(raw.devices)
+      ? clonePlain(raw.devices)
+      : clonePlain(fallback?.devices ?? []),
+    entities: Array.isArray(raw.entities)
+      ? clonePlain(raw.entities)
+      : clonePlain(fallback?.entities ?? []),
     states: recordOr(raw.states, fallback?.states ?? {}),
     uiConfigs: recordOr(raw.uiConfigs, fallback?.uiConfigs ?? {}),
     lights: Array.isArray(raw.lights) ? clonePlain(raw.lights) : clonePlain(fallback?.lights ?? []),
@@ -96,7 +122,10 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
       if (!update.entity) return;
       snapshot = {
         ...snapshot,
-        entities: [...snapshot.entities.filter((entity) => entity.id !== update.entity?.id), update.entity]
+        entities: [
+          ...snapshot.entities.filter((entity) => entity.id !== update.entity?.id),
+          update.entity
+        ]
       };
     });
 
@@ -119,7 +148,9 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
       snapshot = {
         ...snapshot,
         devices: snapshot.devices.map((device) =>
-          device.id === update.deviceId ? { ...device, availability: update.availability ?? 'unknown' } : device
+          device.id === update.deviceId
+            ? { ...device, availability: update.availability ?? 'unknown' }
+            : device
         )
       };
     });
@@ -204,7 +235,10 @@ export function createLiveSnapshot(initialSnapshot: Snapshot | null | undefined)
 
   /** Run an irrigation zone as a shot, tracking pending/error under a `zone:<id>`
    *  key so they can't collide with entity-id command state. */
-  async function runZoneShot(zoneId: string, shot: { seconds?: number; ml?: number; percent?: number }): Promise<boolean> {
+  async function runZoneShot(
+    zoneId: string,
+    shot: { seconds?: number; ml?: number; percent?: number }
+  ): Promise<boolean> {
     const key = `zone:${zoneId}`;
     commandPending = { ...commandPending, [key]: true };
     commandErrors = { ...commandErrors, [key]: '' };

@@ -6,7 +6,11 @@ import type { DatabaseSync } from 'node:sqlite';
 import { openIrrigationDb } from '../../src/lib/server/opensprinkler/db';
 import { createZone } from '../../src/lib/server/opensprinkler/zones';
 import * as scheduleStore from '../../src/lib/server/opensprinkler/schedules';
-import { createSchedule, getSchedule, markScheduleFired } from '../../src/lib/server/opensprinkler/schedules';
+import {
+  createSchedule,
+  getSchedule,
+  markScheduleFired
+} from '../../src/lib/server/opensprinkler/schedules';
 import {
   getScheduleGraceMs,
   getScheduleTickMs,
@@ -43,13 +47,18 @@ class FakeController implements SchedulerController {
 
 let db: DatabaseSync;
 
-function deps(controller: SchedulerController, over: Partial<SchedulerTickDeps> = {}): SchedulerTickDeps {
+function deps(
+  controller: SchedulerController,
+  over: Partial<SchedulerTickDeps> = {}
+): SchedulerTickDeps {
   return { db, controller, nowMs: NOW, tz: TZ, graceMs: GRACE, ...over };
 }
 
 function events(): Array<Record<string, unknown>> {
   return db
-    .prepare('SELECT source, actor, schedule_id, seconds, requested_percent, requested_ml FROM irrigation_events')
+    .prepare(
+      'SELECT source, actor, schedule_id, seconds, requested_percent, requested_ml FROM irrigation_events'
+    )
     .all() as Array<Record<string, unknown>>;
 }
 
@@ -67,7 +76,14 @@ describe('runSchedulerTick', () => {
 
     expect(ctrl.runs).toEqual([{ sid: 0, seconds: 30 }]);
     expect(events()).toEqual([
-      { source: 'schedule', actor: 'scheduler', schedule_id: sched.id, seconds: 30, requested_percent: null, requested_ml: null }
+      {
+        source: 'schedule',
+        actor: 'scheduler',
+        schedule_id: sched.id,
+        seconds: 30,
+        requested_percent: null,
+        requested_ml: null
+      }
     ]);
     expect(getSchedule(db, sched.id)?.lastFiredAt).toBe(SLOT_ISO);
 
@@ -99,13 +115,23 @@ describe('runSchedulerTick', () => {
   });
 
   it('logs the requested percent/ml on the audit row for a volumetric shot', async () => {
-    const zone = createZone(db, { name: 'T', stationSid: 0, substrateVolumeMl: 4000, drippers: 2, emitterLph: 2 });
+    const zone = createZone(db, {
+      name: 'T',
+      stationSid: 0,
+      substrateVolumeMl: 4000,
+      drippers: 2,
+      emitterLph: 2
+    });
     createSchedule(db, { zoneId: zone.id, times: [360], shotPercent: 3 });
     const ctrl = new FakeController();
 
     await runSchedulerTick(deps(ctrl));
     expect(ctrl.runs).toEqual([{ sid: 0, seconds: 108 }]); // 3% of 4000mL over 66.7mL/min
-    expect(events()[0]).toMatchObject({ requested_percent: 3, requested_ml: null, source: 'schedule' });
+    expect(events()[0]).toMatchObject({
+      requested_percent: 3,
+      requested_ml: null,
+      source: 'schedule'
+    });
   });
 
   it('consumes the window on a busy station: no fire, no audit, last_fired advanced', async () => {

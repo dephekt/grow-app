@@ -23,7 +23,10 @@ const NUL = 0x00;
  * Guard order matters: the charset check rejects dot-bearing input (path traversal) before any
  * fs read.
  */
-export function posixTzFromIana(iana: string, readZoneinfo: ZoneinfoReader = defaultReader): PosixResult {
+export function posixTzFromIana(
+  iana: string,
+  readZoneinfo: ZoneinfoReader = defaultReader
+): PosixResult {
   if (!isValidTimeZone(iana)) return { ok: false, reason: 'invalid-zone' };
   // `-` is last so it is a literal, not a `+`..`/` range that would admit `.` and `,`.
   if (!/^[A-Za-z0-9_+/-]+$/.test(iana)) return { ok: false, reason: 'bad-charset' };

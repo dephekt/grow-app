@@ -148,14 +148,18 @@ describe('substrate probe binding', () => {
 
   it('is at schema version 9', () => {
     const db = freshDb();
-    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(9);
+    expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(
+      9
+    );
   });
 
   /** Migration 7 removed the placeholders the binding replaced; migration 9 removed the
    *  binding column itself, once the reference moved onto the probe. */
   it('no longer carries the vwc/pwec entity or probe-binding columns', () => {
     const db = freshDb();
-    const columns = (db.prepare('PRAGMA table_info(zones)').all() as unknown as { name: string }[]).map((c) => c.name);
+    const columns = (
+      db.prepare('PRAGMA table_info(zones)').all() as unknown as { name: string }[]
+    ).map((c) => c.name);
     expect(columns).not.toContain('substrate_node_id');
     expect(columns).not.toContain('vwc_entity_id');
     expect(columns).not.toContain('pwec_entity_id');
@@ -244,14 +248,25 @@ describe('irrigation zone store', () => {
 
   it('can create a zone already paused', () => {
     const db = freshDb();
-    expect(createZone(db, { name: 'P', stationSid: 1, schedulesPaused: true }).schedulesPaused).toBe(true);
+    expect(
+      createZone(db, { name: 'P', stationSid: 1, schedulesPaused: true }).schedulesPaused
+    ).toBe(true);
   });
 
   it('records irrigation events', () => {
     const db = freshDb();
     const zone = createZone(db, { name: 'Z', stationSid: 0 });
-    recordEvent(db, { zoneId: zone.id, stationSid: 0, seconds: 30, requestedPercent: 3, actor: 'dan' });
-    const rows = db.prepare('SELECT seconds, actor FROM irrigation_events').all() as Array<{ seconds: number; actor: string }>;
+    recordEvent(db, {
+      zoneId: zone.id,
+      stationSid: 0,
+      seconds: 30,
+      requestedPercent: 3,
+      actor: 'dan'
+    });
+    const rows = db.prepare('SELECT seconds, actor FROM irrigation_events').all() as Array<{
+      seconds: number;
+      actor: string;
+    }>;
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ seconds: 30, actor: 'dan' });
   });
@@ -275,7 +290,13 @@ describe('migration 9 — probe binding backfill', () => {
     return path;
   }
 
-  const insertZone = (db: DatabaseSync, id: string, name: string, sid: number, node: string | null) =>
+  const insertZone = (
+    db: DatabaseSync,
+    id: string,
+    name: string,
+    sid: number,
+    node: string | null
+  ) =>
     db
       .prepare(
         `INSERT INTO zones (id, name, station_sid, substrate_node_id, substrate_type, max_run_seconds,
@@ -290,7 +311,9 @@ describe('migration 9 — probe binding backfill', () => {
 
     expect(listProbes(db)).toHaveLength(1);
     expect(getProbe(db, 'substrate-a')).toMatchObject({ zoneId: 'z1', name: null });
-    const columns = (db.prepare('PRAGMA table_info(zones)').all() as unknown as { name: string }[]).map((c) => c.name);
+    const columns = (
+      db.prepare('PRAGMA table_info(zones)').all() as unknown as { name: string }[]
+    ).map((c) => c.name);
     expect(columns).not.toContain('substrate_node_id');
     // The zone itself is untouched by the move.
     expect(getZone(db, 'z1')?.name).toBe('4x4');
@@ -321,12 +344,16 @@ describe('migration 9 — probe binding backfill', () => {
 
   /** A node id stored with stray whitespace has to match the snapshot's node id verbatim. */
   it('trims the node id it carries over', () => {
-    const db = openIrrigationDb(atVersion8((seed) => insertZone(seed, 'z1', '4x4', 0, '  substrate-a  ')));
+    const db = openIrrigationDb(
+      atVersion8((seed) => insertZone(seed, 'z1', '4x4', 0, '  substrate-a  '))
+    );
     expect(getProbe(db, 'substrate-a')?.zoneId).toBe('z1');
   });
 
   it('stamps timestamps the app can parse back', () => {
-    const db = openIrrigationDb(atVersion8((seed) => insertZone(seed, 'z1', '4x4', 0, 'substrate-a')));
+    const db = openIrrigationDb(
+      atVersion8((seed) => insertZone(seed, 'z1', '4x4', 0, 'substrate-a'))
+    );
     const created = getProbe(db, 'substrate-a')!.createdAt;
     expect(Number.isNaN(Date.parse(created))).toBe(false);
   });

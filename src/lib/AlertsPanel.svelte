@@ -13,14 +13,16 @@
     isThresholdEntity,
     metricPrefix
   } from '$lib/threshold-match';
-  import { isAmbientTemperature, isCo2, isHumidity, isThermalMeanTemp, isWaterPh } from '$lib/entity-match';
+  import {
+    isAmbientTemperature,
+    isCo2,
+    isHumidity,
+    isThermalMeanTemp,
+    isWaterPh
+  } from '$lib/entity-match';
   import { alertStatus, numericStateValue } from '$lib/alert-status';
 
-  let {
-    groups,
-    live,
-    deviceEntities
-  } = $props<{
+  let { groups, live, deviceEntities } = $props<{
     groups: PresentedSection[];
     live: LiveSnapshot;
     deviceEntities: EntityConfig[];
@@ -30,8 +32,8 @@
   // Find all threshold number entities (objectId contains threshold/high/low)
   // and pair them with matching alert binary_sensors by metric prefix.
   interface ThresholdRule {
-    metric: string;          // e.g. "co2"
-    label: string;           // e.g. "CO₂"
+    metric: string; // e.g. "co2"
+    label: string; // e.g. "CO₂"
     unit: string | null;
     lowEntity: EntityConfig | null;
     highEntity: EntityConfig | null;
@@ -155,7 +157,8 @@
         const oid = (e.objectId ?? e.id).toLowerCase();
         const nm = (e.name ?? '').toLowerCase();
         const isMetric = oid.includes(metric) || nm.includes(metric);
-        const isControl = oid.includes('threshold') || oid.includes('alert') || oid.includes('limit');
+        const isControl =
+          oid.includes('threshold') || oid.includes('alert') || oid.includes('limit');
         return isMetric && !isControl;
       }) ?? null
     );
@@ -169,7 +172,9 @@
     return (
       allEntries
         .map((entry: import('$lib/device-presentation').PresentedEntity) => entry.entity)
-        .find((e: EntityConfig) => pred(e) && (e.objectId ?? e.id).toLowerCase().startsWith(root)) ?? null
+        .find(
+          (e: EntityConfig) => pred(e) && (e.objectId ?? e.id).toLowerCase().startsWith(root)
+        ) ?? null
     );
   }
 
@@ -235,19 +240,27 @@
     });
   });
 
-  let recognizedIds = $derived(new Set([
-    ...rules.flatMap((r) => [
-      r.lowEntity?.id,
-      r.highEntity?.id,
-      r.lowAlertEntity?.id,
-      r.highAlertEntity?.id,
-      r.genericAlertEntity?.id,
-      r.buzzerEntity?.id,
-      r.alarmTestEntity?.id,
-      r.liveEntity?.id
-    ].filter(Boolean))
-  ]));
-  let fallbackEntries = $derived(allEntries.filter((e: import('$lib/device-presentation').PresentedEntity) => !recognizedIds.has(e.entity.id)));
+  let recognizedIds = $derived(
+    new Set([
+      ...rules.flatMap((r) =>
+        [
+          r.lowEntity?.id,
+          r.highEntity?.id,
+          r.lowAlertEntity?.id,
+          r.highAlertEntity?.id,
+          r.genericAlertEntity?.id,
+          r.buzzerEntity?.id,
+          r.alarmTestEntity?.id,
+          r.liveEntity?.id
+        ].filter(Boolean)
+      )
+    ])
+  );
+  let fallbackEntries = $derived(
+    allEntries.filter(
+      (e: import('$lib/device-presentation').PresentedEntity) => !recognizedIds.has(e.entity.id)
+    )
+  );
 
   // ── Per-rule helpers ────────────────────────────────────────────────────────
   // Status derivation (alertStatus, statusFromLive, isOn/isOff) lives in $lib/alert-status.
@@ -274,11 +287,14 @@
   }
 
   function stepFor(entity: EntityConfig): number {
-    return Number.isFinite(entity.step) && (entity.step as number) > 0 ? (entity.step as number) : 1;
+    return Number.isFinite(entity.step) && (entity.step as number) > 0
+      ? (entity.step as number)
+      : 1;
   }
 
   function precisionFor(entity: EntityConfig): number {
-    if (Number.isFinite(entity.suggestedDisplayPrecision)) return entity.suggestedDisplayPrecision as number;
+    if (Number.isFinite(entity.suggestedDisplayPrecision))
+      return entity.suggestedDisplayPrecision as number;
     return Math.min(decimalPlaces(stepFor(entity)), 6);
   }
 
@@ -292,7 +308,10 @@
   }
 
   /** Displayed threshold value: live drag → optimistic override → committed state. */
-  function thresholdValue(entity: EntityConfig | null, states: Record<string, EntityState>): number | null {
+  function thresholdValue(
+    entity: EntityConfig | null,
+    states: Record<string, EntityState>
+  ): number | null {
     if (!entity) return null;
     if (thresholdDrag?.entityId === entity.id) return thresholdDrag.value;
     if (hasOverride(entity.id)) return thresholdOverrides[entity.id].value;
@@ -347,7 +366,9 @@
       if (high > low) return { low, high };
     }
 
-    const observed = [lowValue, highValue, liveVal].filter((value): value is number => value != null);
+    const observed = [lowValue, highValue, liveVal].filter(
+      (value): value is number => value != null
+    );
     if (observed.length >= 2) {
       const low = Math.min(...observed);
       const high = Math.max(...observed);
@@ -362,7 +383,10 @@
 
   /** The band domain derived from configured bounds / committed state only, so it stays
    *  stable across a drag. */
-  function stableDomain(rule: ThresholdRule, states: Record<string, EntityState>): { low: number; high: number } | null {
+  function stableDomain(
+    rule: ThresholdRule,
+    states: Record<string, EntityState>
+  ): { low: number; high: number } | null {
     return ruleBandDomain(
       rule,
       numericStateValue(rule.lowEntity, states),
@@ -371,13 +395,20 @@
     );
   }
 
-  function thresholdBounds(entity: EntityConfig, rule: ThresholdRule, side: ThresholdSide, states: Record<string, EntityState>): { min: number; max: number } {
+  function thresholdBounds(
+    entity: EntityConfig,
+    rule: ThresholdRule,
+    side: ThresholdSide,
+    states: Record<string, EntityState>
+  ): { min: number; max: number } {
     const domain = stableDomain(rule, states);
-    const fallback = numericStateValue(entity, states) ?? (domain ? (domain.low + domain.high) / 2 : 0);
+    const fallback =
+      numericStateValue(entity, states) ?? (domain ? (domain.low + domain.high) / 2 : 0);
     // For unconfigured entities, bound to the stable domain rather than recentring
     // on the moving value every frame.
     let min = finiteOrNull(entity.min) ?? domain?.low ?? fallback - Math.max(Math.abs(fallback), 1);
-    let max = finiteOrNull(entity.max) ?? domain?.high ?? fallback + Math.max(Math.abs(fallback), 1);
+    let max =
+      finiteOrNull(entity.max) ?? domain?.high ?? fallback + Math.max(Math.abs(fallback), 1);
     const sibling = thresholdValue(side === 'low' ? rule.highEntity : rule.lowEntity, states);
 
     if (sibling != null) {
@@ -390,7 +421,13 @@
     return { min: fallback, max: fallback };
   }
 
-  function normalizeThresholdValue(entity: EntityConfig, rule: ThresholdRule, side: ThresholdSide, states: Record<string, EntityState>, value: number): number {
+  function normalizeThresholdValue(
+    entity: EntityConfig,
+    rule: ThresholdRule,
+    side: ThresholdSide,
+    states: Record<string, EntityState>,
+    value: number
+  ): number {
     const { min, max } = thresholdBounds(entity, rule, side, states);
     const rounded = roundToStep(clamp(value, min, max), entity);
     return clamp(rounded, min, max);
@@ -421,7 +458,11 @@
     domainHigh: number | null;
   }
 
-  function bandGeom(rule: ThresholdRule, states: Record<string, EntityState>, status: string): BandGeometry {
+  function bandGeom(
+    rule: ThresholdRule,
+    states: Record<string, EntityState>,
+    status: string
+  ): BandGeometry {
     const liveRaw = rule.liveEntity ? parseFloat(states[rule.liveEntity.id]?.value ?? '') : NaN;
     const liveVal = Number.isFinite(liveRaw) ? liveRaw : null;
 
@@ -434,7 +475,9 @@
     // While dragging a handle of this rule, reuse the domain frozen at drag start so the
     // rendered tick and the pointer→value mapping share one coordinate space.
     const activeDrag =
-      thresholdDrag && (thresholdDrag.entityId === rule.lowEntity?.id || thresholdDrag.entityId === rule.highEntity?.id)
+      thresholdDrag &&
+      (thresholdDrag.entityId === rule.lowEntity?.id ||
+        thresholdDrag.entityId === rule.highEntity?.id)
         ? thresholdDrag
         : null;
     const domain = activeDrag
@@ -462,11 +505,17 @@
 
     // Display value: the real (drag/override/committed) value, or a neutral midpoint when
     // the threshold has never reported.
-    const lowDisplay = hasLow ? lowReal ?? clamp(midpoint(rule.lowEntity, domain), domain.low, domain.high) : null;
-    const highDisplay = hasHigh ? highReal ?? clamp(midpoint(rule.highEntity, domain), domain.low, domain.high) : null;
+    const lowDisplay = hasLow
+      ? (lowReal ?? clamp(midpoint(rule.lowEntity, domain), domain.low, domain.high))
+      : null;
+    const highDisplay = hasHigh
+      ? (highReal ?? clamp(midpoint(rule.highEntity, domain), domain.low, domain.high))
+      : null;
 
-    const lowTick = lowDisplay != null ? bandPct(lowDisplay, domain.low, domain.high) * BAND_W : null;
-    const highTick = highDisplay != null ? bandPct(highDisplay, domain.low, domain.high) * BAND_W : null;
+    const lowTick =
+      lowDisplay != null ? bandPct(lowDisplay, domain.low, domain.high) * BAND_W : null;
+    const highTick =
+      highDisplay != null ? bandPct(highDisplay, domain.low, domain.high) * BAND_W : null;
 
     // OK zone spans only between *known* thresholds.
     const okLeft = (lowReal != null ? lowTick : null) ?? 0;
@@ -500,7 +549,11 @@
     };
   }
 
-  function thresholdLabel(entity: EntityConfig | null, states: Record<string, EntityState>, unit: string | null): string {
+  function thresholdLabel(
+    entity: EntityConfig | null,
+    states: Record<string, EntityState>,
+    unit: string | null
+  ): string {
     if (!entity) return '';
     const value = thresholdValue(entity, states);
     if (value == null) return '?';
@@ -510,7 +563,12 @@
   /** Map a client pointer position to a band x in viewBox user units via the SVG's own
    *  coordinate transform, which stays correct under preserveAspectRatio padding/scaling. */
   function pointerBandX(event: PointerEvent, target: EventTarget | null): number | null {
-    const svg = target instanceof SVGSVGElement ? target : target instanceof SVGElement ? target.ownerSVGElement : null;
+    const svg =
+      target instanceof SVGSVGElement
+        ? target
+        : target instanceof SVGElement
+          ? target.ownerSVGElement
+          : null;
     const ctm = svg?.getScreenCTM();
     if (!svg || !ctm) return null;
     const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
@@ -537,10 +595,17 @@
       'threshold-handle',
       live.commandPending[entity.id] ? 'is-pending' : '',
       thresholdDrag?.entityId === entity.id ? 'is-dragging' : ''
-    ].filter(Boolean).join(' ');
+    ]
+      .filter(Boolean)
+      .join(' ');
   }
 
-  function startThresholdDrag(event: PointerEvent, rule: ThresholdRule, side: ThresholdSide, geom: BandGeometry): void {
+  function startThresholdDrag(
+    event: PointerEvent,
+    rule: ThresholdRule,
+    side: ThresholdSide,
+    geom: BandGeometry
+  ): void {
     // Ignore a second concurrent pointer so a multi-touch can't clobber the active
     // drag and orphan the first (pointer-captured) handle.
     if (thresholdDrag) return;
@@ -548,7 +613,15 @@
     const entity = side === 'low' ? rule.lowEntity : rule.highEntity;
     const tick = side === 'low' ? geom.lowTick : geom.highTick;
     const value = side === 'low' ? geom.lowValue : geom.highValue;
-    if (!entity || live.commandPending[entity.id] || tick == null || value == null || geom.domainLow == null || geom.domainHigh == null) return;
+    if (
+      !entity ||
+      live.commandPending[entity.id] ||
+      tick == null ||
+      value == null ||
+      geom.domainLow == null ||
+      geom.domainHigh == null
+    )
+      return;
 
     const x = pointerBandX(event, event.currentTarget);
     if (x == null) return;
@@ -570,15 +643,30 @@
 
   function moveThresholdDrag(event: PointerEvent, rule: ThresholdRule, side: ThresholdSide): void {
     const entity = side === 'low' ? rule.lowEntity : rule.highEntity;
-    if (!entity || !thresholdDrag || thresholdDrag.entityId !== entity.id || thresholdDrag.pointerId !== event.pointerId) return;
+    if (
+      !entity ||
+      !thresholdDrag ||
+      thresholdDrag.entityId !== entity.id ||
+      thresholdDrag.pointerId !== event.pointerId
+    )
+      return;
 
-    const value = pointerThresholdValue(event, event.currentTarget, entity, rule, side, thresholdDrag);
+    const value = pointerThresholdValue(
+      event,
+      event.currentTarget,
+      entity,
+      rule,
+      side,
+      thresholdDrag
+    );
     if (value == null) return;
 
     event.preventDefault();
     // "moved" = the rounded value has actually left the (rounded) start value, so a pure
     // tap/focus is not an edit.
-    const moved = thresholdDrag.moved || !sameThresholdValue(entity, value, roundToStep(thresholdDrag.startValue, entity));
+    const moved =
+      thresholdDrag.moved ||
+      !sameThresholdValue(entity, value, roundToStep(thresholdDrag.startValue, entity));
     thresholdDrag = { ...thresholdDrag, value, moved };
   }
 
@@ -622,12 +710,23 @@
     scheduleOverrideTimeout(entity.id);
   }
 
-  async function endThresholdDrag(event: PointerEvent, rule: ThresholdRule, side: ThresholdSide): Promise<void> {
+  async function endThresholdDrag(
+    event: PointerEvent,
+    rule: ThresholdRule,
+    side: ThresholdSide
+  ): Promise<void> {
     const entity = side === 'low' ? rule.lowEntity : rule.highEntity;
-    if (!entity || !thresholdDrag || thresholdDrag.entityId !== entity.id || thresholdDrag.pointerId !== event.pointerId) return;
+    if (
+      !entity ||
+      !thresholdDrag ||
+      thresholdDrag.entityId !== entity.id ||
+      thresholdDrag.pointerId !== event.pointerId
+    )
+      return;
 
     const drag = thresholdDrag;
-    const nextValue = pointerThresholdValue(event, event.currentTarget, entity, rule, side, drag) ?? drag.value;
+    const nextValue =
+      pointerThresholdValue(event, event.currentTarget, entity, rule, side, drag) ?? drag.value;
 
     event.preventDefault();
     (event.currentTarget as Element).releasePointerCapture?.(event.pointerId);
@@ -639,7 +738,9 @@
 
     // Compare against the value the user currently sees (override if in flight, else
     // committed) so a correction back toward the committed value still publishes.
-    const baseline = hasOverride(entity.id) ? thresholdOverrides[entity.id].value : numericStateValue(entity, live.snapshot.states);
+    const baseline = hasOverride(entity.id)
+      ? thresholdOverrides[entity.id].value
+      : numericStateValue(entity, live.snapshot.states);
     if (sameThresholdValue(entity, baseline, nextValue)) return;
 
     await publishThreshold(entity, nextValue);
@@ -651,12 +752,17 @@
     thresholdDrag = null;
   }
 
-  async function nudgeThreshold(event: KeyboardEvent, rule: ThresholdRule, side: ThresholdSide): Promise<void> {
+  async function nudgeThreshold(
+    event: KeyboardEvent,
+    rule: ThresholdRule,
+    side: ThresholdSide
+  ): Promise<void> {
     const entity = side === 'low' ? rule.lowEntity : rule.highEntity;
     if (!entity || live.commandPending[entity.id]) return;
 
     const bounds = thresholdBounds(entity, rule, side, live.snapshot.states);
-    const currentValue = thresholdValue(entity, live.snapshot.states) ?? (bounds.min + bounds.max) / 2;
+    const currentValue =
+      thresholdValue(entity, live.snapshot.states) ?? (bounds.min + bounds.max) / 2;
 
     const step = stepFor(entity);
     let nextValue: number | null = null;
@@ -672,16 +778,26 @@
     event.preventDefault();
     const normalized = normalizeThresholdValue(entity, rule, side, live.snapshot.states, nextValue);
     // No-op only when the new value matches what the user currently sees.
-    const baseline = hasOverride(entity.id) ? thresholdOverrides[entity.id].value : numericStateValue(entity, live.snapshot.states);
+    const baseline = hasOverride(entity.id)
+      ? thresholdOverrides[entity.id].value
+      : numericStateValue(entity, live.snapshot.states);
     if (sameThresholdValue(entity, baseline, normalized)) return;
     await publishThreshold(entity, normalized);
   }
 
-  function ariaThresholdMin(entity: EntityConfig, rule: ThresholdRule, side: ThresholdSide): number {
+  function ariaThresholdMin(
+    entity: EntityConfig,
+    rule: ThresholdRule,
+    side: ThresholdSide
+  ): number {
     return thresholdBounds(entity, rule, side, live.snapshot.states).min;
   }
 
-  function ariaThresholdMax(entity: EntityConfig, rule: ThresholdRule, side: ThresholdSide): number {
+  function ariaThresholdMax(
+    entity: EntityConfig,
+    rule: ThresholdRule,
+    side: ThresholdSide
+  ): number {
     return thresholdBounds(entity, rule, side, live.snapshot.states).max;
   }
 </script>
@@ -733,14 +849,26 @@
         </div>
 
         <div class="rule-body">
-          <div class="live-value mono">{liveV}{#if liveV !== '—' && rule.unit}&nbsp;<span class="muted unit-sm">{rule.unit}</span>{/if}</div>
+          <div class="live-value mono">
+            {liveV}{#if liveV !== '—' && rule.unit}&nbsp;<span class="muted unit-sm"
+                >{rule.unit}</span
+              >{/if}
+          </div>
 
           <div class="band-wrap">
             <svg viewBox="0 0 {BAND_W} {BAND_H}" width="100%" height={BAND_H} class="band-svg">
               <rect x="0" y="10" width={BAND_W} height="12" rx="3" fill="var(--panel-2)" />
 
               {#if geom.okLeft != null && geom.okWidth != null && geom.okWidth > 0}
-                <rect x={geom.okLeft} y="10" width={geom.okWidth} height="12" rx="2" fill="var(--ok)" fill-opacity="0.18" />
+                <rect
+                  x={geom.okLeft}
+                  y="10"
+                  width={geom.okWidth}
+                  height="12"
+                  rx="2"
+                  fill="var(--ok)"
+                  fill-opacity="0.18"
+                />
               {/if}
 
               {@render thresholdHandle('low')}
@@ -757,12 +885,16 @@
 
             <div class="band-labels mono">
               {#if geom.hasLow}
-                <span class="band-label-low">{thresholdLabel(rule.lowEntity, states, rule.unit)}</span>
+                <span class="band-label-low"
+                  >{thresholdLabel(rule.lowEntity, states, rule.unit)}</span
+                >
               {:else}
                 <span></span>
               {/if}
               {#if geom.hasHigh}
-                <span class="band-label-high">{thresholdLabel(rule.highEntity, states, rule.unit)}</span>
+                <span class="band-label-high"
+                  >{thresholdLabel(rule.highEntity, states, rule.unit)}</span
+                >
               {:else}
                 <span></span>
               {/if}

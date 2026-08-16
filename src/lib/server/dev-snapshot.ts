@@ -31,7 +31,12 @@ export interface DevCommandResult {
 function isSnapshot(value: unknown): value is Snapshot {
   if (!value || typeof value !== 'object') return false;
   const raw = value as Partial<Snapshot>;
-  return Array.isArray(raw.devices) && Array.isArray(raw.entities) && Boolean(raw.states) && Boolean(raw.broker);
+  return (
+    Array.isArray(raw.devices) &&
+    Array.isArray(raw.entities) &&
+    Boolean(raw.states) &&
+    Boolean(raw.broker)
+  );
 }
 
 export function devSnapshotConfig(): DevSnapshotConfig {

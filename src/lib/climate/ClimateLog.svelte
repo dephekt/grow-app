@@ -38,7 +38,9 @@
 
   function stamp(iso: string): string {
     const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+    return Number.isNaN(d.getTime())
+      ? iso
+      : d.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
   }
 
   /** Verdict label; `published: false` is the dry run's whole point, so it is called out. */
@@ -81,7 +83,10 @@
 
 <div class="log">
   {#if events.length === 0}
-    <p class="empty">No decisions recorded yet. The loop writes a row whenever its verdict changes, and a heartbeat every 15 minutes.</p>
+    <p class="empty">
+      No decisions recorded yet. The loop writes a row whenever its verdict changes, and a heartbeat
+      every 15 minutes.
+    </p>
   {:else}
     <div class="scroll">
       <table>
@@ -105,11 +110,15 @@
                    must not sit beside a column showing only the median. Shown when the two
                    have actually diverged, which is when the question gets asked. -->
               <td class="mono"
-                >{num(e.airVpd)}{#if e.airVpdFast !== null && e.airVpd !== null && Math.abs(e.airVpdFast - e.airVpd) >= 0.01}<span
+                >{num(
+                  e.airVpd
+                )}{#if e.airVpdFast !== null && e.airVpd !== null && Math.abs(e.airVpdFast - e.airVpd) >= 0.01}<span
                     class="sub"
                   >
                     / {num(e.airVpdFast)} fast</span
-                  >{/if}{#if e.leafVpd !== null}<span class="sub"> / {num(e.leafVpd)} leaf</span>{/if}</td
+                  >{/if}{#if e.leafVpd !== null}<span class="sub">
+                    / {num(e.leafVpd)} leaf</span
+                  >{/if}</td
               >
               <td class="mono sub nowrap">{num(e.bandLow)}–{num(e.bandHigh)}</td>
               <td class="mono sub nowrap">{num(e.tentTempC, 1)}°C {num(e.tentRhPct, 0)}%</td>
@@ -123,7 +132,11 @@
 
     {#if pages > 1}
       <div class="pager">
-        <button class="ctl" disabled={busy || offset === 0} onclick={() => go(Math.max(0, offset - pageSize))}>
+        <button
+          class="ctl"
+          disabled={busy || offset === 0}
+          onclick={() => go(Math.max(0, offset - pageSize))}
+        >
           ← Newer
         </button>
         <span class="mono">Page {pageNo} of {pages} · {total} decisions</span>

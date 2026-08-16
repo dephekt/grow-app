@@ -3,8 +3,15 @@
 
 import { describe, expect, it } from 'vitest';
 import { SiteMqttService } from '../../src/lib/server/mqtt/service';
-import { buildStationDiscovery, stationEntityId } from '../../src/lib/server/opensprinkler/discovery';
-import { matchStationTopic, normalizeStationState, stationStateTopic } from '../../src/lib/server/opensprinkler/normalize';
+import {
+  buildStationDiscovery,
+  stationEntityId
+} from '../../src/lib/server/opensprinkler/discovery';
+import {
+  matchStationTopic,
+  normalizeStationState,
+  stationStateTopic
+} from '../../src/lib/server/opensprinkler/normalize';
 
 const BASE = 'grow/daniel-home/os';
 const DISCOVERY = 'grow/daniel-home/_discovery';
@@ -40,9 +47,16 @@ describe('OpenSprinkler discovery round-trip', () => {
       osEnabled: true,
       osBaseTopic: BASE
     });
-    const receive = (service as unknown as { handleMessage(topic: string, payload: string): void }).handleMessage.bind(service);
+    const receive = (
+      service as unknown as { handleMessage(topic: string, payload: string): void }
+    ).handleMessage.bind(service);
 
-    const { topic, payload } = buildStationDiscovery({ discoveryPrefix: DISCOVERY, baseTopic: BASE, sid: 1, name: 'Tent 1' });
+    const { topic, payload } = buildStationDiscovery({
+      discoveryPrefix: DISCOVERY,
+      baseTopic: BASE,
+      sid: 1,
+      name: 'Tent 1'
+    });
     receive(topic, JSON.stringify(payload));
     receive(`${BASE}/availability`, 'online');
     receive(stationStateTopic(BASE, 1), 'ON');
@@ -67,7 +81,9 @@ describe('OpenSprinkler discovery round-trip', () => {
       osEnabled: true,
       osBaseTopic: BASE
     });
-    const receive = (service as unknown as { handleMessage(topic: string, payload: string): void }).handleMessage.bind(service);
+    const receive = (
+      service as unknown as { handleMessage(topic: string, payload: string): void }
+    ).handleMessage.bind(service);
 
     receive(`${BASE}/station/0`, '{"state":1,"duration":5}');
     expect(service.snapshot().entities).toHaveLength(0);

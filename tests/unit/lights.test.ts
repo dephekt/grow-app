@@ -3,7 +3,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { parseLightsConfigPayload } from '../../src/lib/server/mqtt/light-metadata';
-import { computeSchedule, entityByRef, formatCountdown, photoperiodHours } from '../../src/lib/lights/model';
+import {
+  computeSchedule,
+  entityByRef,
+  formatCountdown,
+  photoperiodHours
+} from '../../src/lib/lights/model';
 import { SiteMqttService } from '../../src/lib/server/mqtt/service';
 import type { EntityConfig, Snapshot } from '../../src/lib/server/mqtt/types';
 
@@ -40,7 +45,11 @@ describe('parseLightsConfigPayload', () => {
     });
     const result = parseLightsConfigPayload(topic, payload, PREFIX);
     expect(result?.nodeId).toBe('grow-light');
-    expect(result?.fragment?.lights[0]).toMatchObject({ id: 'main', name: 'Main Light', order: 10 });
+    expect(result?.fragment?.lights[0]).toMatchObject({
+      id: 'main',
+      name: 'Main Light',
+      order: 10
+    });
     expect(result?.fragment?.lights[0].roles).toEqual({
       power: 'grow_light',
       metrics: ['light_power', 'apparent_power']
@@ -49,14 +58,27 @@ describe('parseLightsConfigPayload', () => {
 
   it('treats an empty payload as a deletion (retained clear)', () => {
     const topic = `${PREFIX}/grow-light/_lights/config`;
-    expect(parseLightsConfigPayload(topic, '', PREFIX)).toEqual({ nodeId: 'grow-light', fragment: null });
+    expect(parseLightsConfigPayload(topic, '', PREFIX)).toEqual({
+      nodeId: 'grow-light',
+      fragment: null
+    });
   });
 
   it('rejects a wrong schema, a nodeId mismatch, or a non-_lights topic', () => {
     const topic = `${PREFIX}/grow-light/_lights/config`;
-    expect(parseLightsConfigPayload(topic, JSON.stringify({ schema: 'x', nodeId: 'grow-light', lights: [] }), PREFIX)).toBeNull();
     expect(
-      parseLightsConfigPayload(topic, JSON.stringify({ schema: 'grow-lights.v1', nodeId: 'other', lights: [] }), PREFIX)
+      parseLightsConfigPayload(
+        topic,
+        JSON.stringify({ schema: 'x', nodeId: 'grow-light', lights: [] }),
+        PREFIX
+      )
+    ).toBeNull();
+    expect(
+      parseLightsConfigPayload(
+        topic,
+        JSON.stringify({ schema: 'grow-lights.v1', nodeId: 'other', lights: [] }),
+        PREFIX
+      )
     ).toBeNull();
     expect(parseLightsConfigPayload(`${PREFIX}/grow-light/_ui/config`, '{}', PREFIX)).toBeNull();
   });
@@ -82,18 +104,26 @@ describe('parseLightsConfigPayload', () => {
 });
 
 function entity(node: string, objectId: string): EntityConfig {
-  return { objectId, nodeId: node, device: { identifiers: [node], name: node } } as unknown as EntityConfig;
+  return {
+    objectId,
+    nodeId: node,
+    device: { identifiers: [node], name: node }
+  } as unknown as EntityConfig;
 }
 
 describe('entityByRef', () => {
   const snapshot = {
-    entities: [entity('grow-light', 'grow_light'), entity('atoms3u-sensor-rig', 'grow_light_brightness')]
+    entities: [
+      entity('grow-light', 'grow_light'),
+      entity('atoms3u-sensor-rig', 'grow_light_brightness')
+    ]
   } as unknown as Snapshot;
 
   it('resolves a role reference across devices by node + objectId', () => {
-    expect(entityByRef(snapshot, { node: 'atoms3u-sensor-rig', objectId: 'grow_light_brightness' })?.nodeId).toBe(
-      'atoms3u-sensor-rig'
-    );
+    expect(
+      entityByRef(snapshot, { node: 'atoms3u-sensor-rig', objectId: 'grow_light_brightness' })
+        ?.nodeId
+    ).toBe('atoms3u-sensor-rig');
   });
 
   it('misses on an unknown ref or undefined ref', () => {
@@ -115,7 +145,9 @@ describe('entityByRef', () => {
     } as unknown as EntityConfig;
     const snap = { entities: [withNodeId, noNodeId] } as unknown as Snapshot;
 
-    expect(entityByRef(snap, { node: 'primary-node', objectId: 'grow_light' })?.objectId).toBe('grow_light');
+    expect(entityByRef(snap, { node: 'primary-node', objectId: 'grow_light' })?.objectId).toBe(
+      'grow_light'
+    );
     expect(entityByRef(snap, { node: 'legacy-alias', objectId: 'grow_light' })).toBeUndefined();
     expect(entityByRef(snap, { node: 'dev-a', objectId: 'relay' })?.objectId).toBe('relay');
     expect(entityByRef(snap, { node: 'dev-b', objectId: 'relay' })).toBeUndefined();
@@ -134,7 +166,10 @@ describe('SiteMqttService.mergedLights (cross-device fragment merge)', () => {
       service as unknown as { handleMessage(topic: string, payload: string): void }
     ).handleMessage.bind(service);
     const publishFragment = (nodeId: string, lights: unknown[]) =>
-      receive(`${PREFIX}/${nodeId}/_lights/config`, JSON.stringify({ schema: 'grow-lights.v1', nodeId, lights }));
+      receive(
+        `${PREFIX}/${nodeId}/_lights/config`,
+        JSON.stringify({ schema: 'grow-lights.v1', nodeId, lights })
+      );
     return { service, receive, publishFragment };
   }
 
@@ -159,7 +194,12 @@ describe('SiteMqttService.mergedLights (cross-device fragment merge)', () => {
     const [light] = lights;
     // Identity (name/type/order) comes only from the anchor entry (the one with a
     // name); the dac fragment's order 99 must not override the plug's order 5.
-    expect(light).toMatchObject({ id: 'main', name: 'Main Light', type: 'full-spectrum', order: 5 });
+    expect(light).toMatchObject({
+      id: 'main',
+      name: 'Main Light',
+      type: 'full-spectrum',
+      order: 5
+    });
     // Scalar roles are stamped with the node that published them.
     expect(light.roles.power).toEqual({ node: 'zzz-plug', objectId: 'relay' });
     expect(light.roles.dimmer).toEqual({ node: 'aaa-dac', objectId: 'ch1_brightness' });
@@ -207,8 +247,14 @@ describe('computeSchedule (mirrors the firmware half-open window)', () => {
   });
 
   it('wraps midnight (on 18:00, off 06:00)', () => {
-    expect(computeSchedule('18:00:00', '06:00:00', at(23), 'UTC')).toMatchObject({ inWindow: true, next: 'off' });
-    expect(computeSchedule('18:00:00', '06:00:00', at(12), 'UTC')).toMatchObject({ inWindow: false, next: 'on' });
+    expect(computeSchedule('18:00:00', '06:00:00', at(23), 'UTC')).toMatchObject({
+      inWindow: true,
+      next: 'off'
+    });
+    expect(computeSchedule('18:00:00', '06:00:00', at(12), 'UTC')).toMatchObject({
+      inWindow: false,
+      next: 'on'
+    });
   });
 
   it('on == off is an empty window; invalid/absent times have no window', () => {
@@ -222,7 +268,12 @@ describe('computeSchedule (mirrors the firmware half-open window)', () => {
     // the SAME-DAY 06:00–18:00, so 19:00 wall time is past off → counts down to
     // the next on 11h away. Reading the raw 01:00 UTC hour would wrongly report
     // "before on, 5h to go", so this asserts the tz projection is what drives it.
-    const s = computeSchedule('06:00:00', '18:00:00', new Date(Date.UTC(2026, 0, 1, 1, 0)), 'America/Chicago');
+    const s = computeSchedule(
+      '06:00:00',
+      '18:00:00',
+      new Date(Date.UTC(2026, 0, 1, 1, 0)),
+      'America/Chicago'
+    );
     expect(s).toMatchObject({ inWindow: false, next: 'on' });
     expect(s.secondsUntil).toBe(11 * 3600);
   });
@@ -231,14 +282,20 @@ describe('computeSchedule (mirrors the firmware half-open window)', () => {
     // 06:00 UTC is exactly 00:00 Chicago. With the wrap window on 18:00 / off
     // 06:00, midnight is inside the lit stretch and off is 6h away — all judged
     // against the tz-local wall clock, not UTC (which would read 06:00 = at off).
-    const s = computeSchedule('18:00:00', '06:00:00', new Date(Date.UTC(2026, 0, 1, 6, 0)), 'America/Chicago');
+    const s = computeSchedule(
+      '18:00:00',
+      '06:00:00',
+      new Date(Date.UTC(2026, 0, 1, 6, 0)),
+      'America/Chicago'
+    );
     expect(s).toMatchObject({ hasWindow: true, inWindow: true, next: 'off' });
     expect(s.secondsUntil).toBe(6 * 3600);
   });
 });
 
 describe('formatCountdown', () => {
-  it('renders H:MM at or above an hour', () => expect(formatCountdown(5 * 3600 + 46 * 60)).toBe('5:46'));
+  it('renders H:MM at or above an hour', () =>
+    expect(formatCountdown(5 * 3600 + 46 * 60)).toBe('5:46'));
   it('renders M:SS below an hour', () => expect(formatCountdown(46 * 60 + 12)).toBe('46:12'));
   it('zero-pads the minor field', () => {
     expect(formatCountdown(3600 + 5 * 60)).toBe('1:05');

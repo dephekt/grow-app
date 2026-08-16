@@ -94,7 +94,9 @@ export function getFirmwarePackageSource(): FirmwarePackageSource {
     const token = secretEnv('FIRMWARE_OCI_TOKEN') ?? secretEnv('FIRMWARE_PACKAGE_TOKEN');
     const owner = env('FIRMWARE_OCI_OWNER') ?? DEFAULT_OCI_OWNER;
     const authUser = env('FIRMWARE_OCI_AUTH_USER') ?? env('FIRMWARE_PACKAGE_AUTH_USER') ?? owner;
-    const auth = token ? { authUser, token, scheme: 'basic' } satisfies PackageAuthConfig : undefined;
+    const auth = token
+      ? ({ authUser, token, scheme: 'basic' } satisfies PackageAuthConfig)
+      : undefined;
     return {
       provider: 'ghcr-oci',
       baseUrl: `https://${env('FIRMWARE_OCI_REGISTRY') ?? DEFAULT_OCI_REGISTRY}`,
@@ -108,7 +110,7 @@ export function getFirmwarePackageSource(): FirmwarePackageSource {
   const token = secretEnv('FIRMWARE_PACKAGE_TOKEN');
   const scheme = env('FIRMWARE_PACKAGE_AUTH_SCHEME') === 'bearer' ? 'bearer' : 'basic';
   const authUser = env('FIRMWARE_PACKAGE_AUTH_USER');
-  const auth = token ? { authUser, token, scheme } satisfies PackageAuthConfig : undefined;
+  const auth = token ? ({ authUser, token, scheme } satisfies PackageAuthConfig) : undefined;
   return {
     baseUrl: env('FIRMWARE_PACKAGE_BASE_URL') ?? DEFAULT_CODEBERG_BASE_URL,
     owner: env('FIRMWARE_PACKAGE_OWNER') ?? DEFAULT_FIRMWARE_PACKAGE_OWNER,
@@ -151,7 +153,9 @@ function packageApiBase(baseUrl = DEFAULT_CODEBERG_BASE_URL): string {
   return baseUrl.replace(/\/+$/, '');
 }
 
-function normalizeFetchOptions(options: string | PackageFetchOptions | FirmwarePackageSource = {}): PackageFetchOptions {
+function normalizeFetchOptions(
+  options: string | PackageFetchOptions | FirmwarePackageSource = {}
+): PackageFetchOptions {
   if (typeof options === 'string') return { baseUrl: options };
   return options;
 }
@@ -159,12 +163,17 @@ function normalizeFetchOptions(options: string | PackageFetchOptions | FirmwareP
 function authHeaders(auth?: PackageAuthConfig): HeadersInit | undefined {
   if (!auth?.token) return undefined;
   if (auth.scheme === 'bearer') return { Authorization: `Bearer ${auth.token}` };
-  if (!auth.authUser) throw new Error('FIRMWARE_PACKAGE_AUTH_USER is required for basic package auth');
+  if (!auth.authUser)
+    throw new Error('FIRMWARE_PACKAGE_AUTH_USER is required for basic package auth');
   const value = Buffer.from(`${auth.authUser}:${auth.token}`).toString('base64');
   return { Authorization: `Basic ${value}` };
 }
 
-async function packageFetch(fetchImpl: Fetch, url: string, options: PackageFetchOptions): Promise<Response> {
+async function packageFetch(
+  fetchImpl: Fetch,
+  url: string,
+  options: PackageFetchOptions
+): Promise<Response> {
   return fetchImpl(url, { headers: authHeaders(options.auth) });
 }
 
@@ -181,7 +190,10 @@ function ociBaseUrl(source: FirmwarePackageSource, packageName: string): string 
   return `https://${registry}/v2/${ociRepository(source, packageName)}`;
 }
 
-function ociManifestPackageOwner(device: FirmwareDeviceConfig, source: FirmwarePackageSource): string {
+function ociManifestPackageOwner(
+  device: FirmwareDeviceConfig,
+  source: FirmwarePackageSource
+): string {
   return source.provider === 'ghcr-oci' ? device.packageOwner : source.owner;
 }
 
@@ -205,7 +217,11 @@ async function ociFetch(
   return fetchImpl(url, { ...init, headers });
 }
 
-async function fetchRegistryToken(fetchImpl: Fetch, source: FirmwarePackageSource, challenge: string): Promise<string | null> {
+async function fetchRegistryToken(
+  fetchImpl: Fetch,
+  source: FirmwarePackageSource,
+  challenge: string
+): Promise<string | null> {
   const params = parseBearerChallenge(challenge);
   const realm = params.get('realm');
   if (!realm || !source.auth?.token) return null;
@@ -223,7 +239,8 @@ async function fetchRegistryToken(fetchImpl: Fetch, source: FirmwarePackageSourc
   if (!response.ok) return null;
   const payload = (await response.json()) as unknown;
   if (!payload || typeof payload !== 'object') return null;
-  const token = (payload as Record<string, unknown>).token ?? (payload as Record<string, unknown>).access_token;
+  const token =
+    (payload as Record<string, unknown>).token ?? (payload as Record<string, unknown>).access_token;
   return typeof token === 'string' && token.length > 0 ? token : null;
 }
 
@@ -266,7 +283,11 @@ export async function listCodebergPackages(
       page: String(page),
       limit: String(PACKAGE_LIST_PAGE_SIZE)
     });
-    const response = await packageFetch(fetchImpl, `${root}/api/v1/packages/${encodeURIComponent(owner)}?${params.toString()}`, fetchOptions);
+    const response = await packageFetch(
+      fetchImpl,
+      `${root}/api/v1/packages/${encodeURIComponent(owner)}?${params.toString()}`,
+      fetchOptions
+    );
     if (!response.ok) throw new Error(`Package list failed: ${response.status}`);
     const payload = (await response.json()) as unknown;
     if (!Array.isArray(payload)) throw new Error('Package list response was not an array');
@@ -298,19 +319,32 @@ export async function listOciFirmwarePackages(
   const response = await ociFetch(fetchImpl, source, packageName, '/tags/list?n=1000');
   if (!response.ok) throw new Error(`OCI tag list failed: ${response.status}`);
   const payload = (await response.json()) as unknown;
-  if (!payload || typeof payload !== 'object' || !Array.isArray((payload as Record<string, unknown>).tags)) {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    !Array.isArray((payload as Record<string, unknown>).tags)
+  ) {
     throw new Error('OCI tag list response was not an object with tags');
   }
-  return ((payload as { tags: unknown[] }).tags)
+  return (payload as { tags: unknown[] }).tags
     .filter((tag): tag is string => typeof tag === 'string')
     .map((tag) => ({ name: packageName, version: tag, type: 'oci', createdAt: null }));
 }
 
-export function selectPackageVersion(packages: CodebergPackage[], channel: FirmwareChannel): CodebergPackage | null {
+export function selectPackageVersion(
+  packages: CodebergPackage[],
+  channel: FirmwareChannel
+): CodebergPackage | null {
   if (channel === 'stable') {
-    return packages.filter((item) => stableVersionKey(item.version)).sort(compareStableDescending)[0] ?? null;
+    return (
+      packages.filter((item) => stableVersionKey(item.version)).sort(compareStableDescending)[0] ??
+      null
+    );
   }
-  return packages.filter((item) => EDGE_VERSION_RE.test(item.version)).sort(compareEdgeDescending)[0] ?? null;
+  return (
+    packages.filter((item) => EDGE_VERSION_RE.test(item.version)).sort(compareEdgeDescending)[0] ??
+    null
+  );
 }
 
 export async function downloadPackageManifest(
@@ -323,7 +357,13 @@ export async function downloadPackageManifest(
     return downloadOciPackageManifest(device, version, fetchImpl, source);
   }
 
-  const url = packageDownloadUrl(source.owner, device.package, version, `${device.device}.manifest.json`, source.baseUrl);
+  const url = packageDownloadUrl(
+    source.owner,
+    device.package,
+    version,
+    `${device.device}.manifest.json`,
+    source.baseUrl
+  );
   const response = await packageFetch(fetchImpl, url, source);
   if (!response.ok) throw new Error(`Package manifest download failed: ${response.status}`);
   return parsePackageManifest(await response.json());
@@ -335,7 +375,13 @@ async function downloadOciPackageManifest(
   fetchImpl: Fetch,
   source: FirmwarePackageSource
 ): Promise<FirmwarePackageManifest> {
-  const bytes = await downloadOciLayer(device.package, version, `${device.device}.manifest.json`, fetchImpl, source);
+  const bytes = await downloadOciLayer(
+    device.package,
+    version,
+    `${device.device}.manifest.json`,
+    fetchImpl,
+    source
+  );
   const text = new TextDecoder().decode(bytes);
   return parsePackageManifest(JSON.parse(text));
 }
@@ -354,11 +400,20 @@ export async function resolveFirmwarePackage(
   if (!listing) return null;
 
   const manifest = await downloadPackageManifest(device, listing.version, fetchImpl, source);
-  assertPackageManifestMatchesDevice(manifest, device, channel, ociManifestPackageOwner(device, source));
+  assertPackageManifestMatchesDevice(
+    manifest,
+    device,
+    channel,
+    ociManifestPackageOwner(device, source)
+  );
   return { listing, manifest };
 }
 
-export function toEspHomeManifest(manifest: FirmwarePackageManifest, nodeId: string, token?: string): EspHomeUpdateManifest {
+export function toEspHomeManifest(
+  manifest: FirmwarePackageManifest,
+  nodeId: string,
+  token?: string
+): EspHomeUpdateManifest {
   const otaFilename = otaArtifactFilename(manifest);
   const params = new URLSearchParams({ version: manifest.version });
   if (token) params.set('token', token);
@@ -385,16 +440,29 @@ export async function downloadAndValidateBinary(
   fetchImpl: Fetch = fetch,
   sourceOrOptions: FirmwarePackageSource | PackageFetchOptions = {}
 ): Promise<Uint8Array> {
-  if (!manifest.artifact_filenames.includes(filename)) throw new Error('Artifact is not in the package manifest');
+  if (!manifest.artifact_filenames.includes(filename))
+    throw new Error('Artifact is not in the package manifest');
   if ('provider' in sourceOrOptions && sourceOrOptions.provider === 'ghcr-oci') {
-    const bytes = await downloadOciLayer(manifest.package, manifest.version, filename, fetchImpl, sourceOrOptions);
+    const bytes = await downloadOciLayer(
+      manifest.package,
+      manifest.version,
+      filename,
+      fetchImpl,
+      sourceOrOptions
+    );
     validateBinaryChecksums(manifest, filename, bytes);
     return bytes;
   }
 
   const source = normalizeFetchOptions(sourceOrOptions);
   const owner = 'owner' in sourceOrOptions ? sourceOrOptions.owner : manifest.package_owner;
-  const url = packageDownloadUrl(owner, manifest.package, manifest.version, filename, source.baseUrl ?? DEFAULT_CODEBERG_BASE_URL);
+  const url = packageDownloadUrl(
+    owner,
+    manifest.package,
+    manifest.version,
+    filename,
+    source.baseUrl ?? DEFAULT_CODEBERG_BASE_URL
+  );
   const response = await packageFetch(fetchImpl, url, source);
   if (!response.ok) throw new Error(`Package binary download failed: ${response.status}`);
   const bytes = new Uint8Array(await response.arrayBuffer());
@@ -409,10 +477,17 @@ async function downloadOciLayer(
   fetchImpl: Fetch,
   source: FirmwarePackageSource
 ): Promise<Uint8Array> {
-  const manifestResponse = await ociFetch(fetchImpl, source, packageName, `/manifests/${encodeURIComponent(version)}`, {
-    headers: { accept: OCI_MANIFEST_ACCEPT }
-  });
-  if (!manifestResponse.ok) throw new Error(`OCI manifest download failed: ${manifestResponse.status}`);
+  const manifestResponse = await ociFetch(
+    fetchImpl,
+    source,
+    packageName,
+    `/manifests/${encodeURIComponent(version)}`,
+    {
+      headers: { accept: OCI_MANIFEST_ACCEPT }
+    }
+  );
+  if (!manifestResponse.ok)
+    throw new Error(`OCI manifest download failed: ${manifestResponse.status}`);
   const manifest = (await manifestResponse.json()) as unknown;
   const digest = ociLayerDigest(manifest, filename);
   const blobResponse = await ociFetch(fetchImpl, source, packageName, `/blobs/${digest}`);
@@ -421,7 +496,8 @@ async function downloadOciLayer(
 }
 
 function ociLayerDigest(manifest: unknown, filename: string): string {
-  if (!manifest || typeof manifest !== 'object') throw new Error('OCI manifest response must be an object');
+  if (!manifest || typeof manifest !== 'object')
+    throw new Error('OCI manifest response must be an object');
   const layers = (manifest as Record<string, unknown>).layers;
   if (!Array.isArray(layers)) throw new Error('OCI manifest response missing layers');
   for (const layer of layers) {
@@ -432,15 +508,21 @@ function ociLayerDigest(manifest: unknown, filename: string): string {
       annotations && typeof annotations === 'object'
         ? (annotations as Record<string, unknown>)['org.opencontainers.image.title']
         : undefined;
-    if (title === filename && typeof payload.digest === 'string' && payload.digest.length > 0) return payload.digest;
+    if (title === filename && typeof payload.digest === 'string' && payload.digest.length > 0)
+      return payload.digest;
   }
   throw new Error(`OCI artifact does not contain ${filename}`);
 }
 
-export function validateBinaryChecksums(manifest: FirmwarePackageManifest, filename: string, bytes: Uint8Array): void {
+export function validateBinaryChecksums(
+  manifest: FirmwarePackageManifest,
+  filename: string,
+  bytes: Uint8Array
+): void {
   const expectedSha256 = manifest.sha256[filename];
   const expectedMd5 = manifest.md5[filename];
-  if (!expectedSha256 || !expectedMd5) throw new Error('Artifact checksums are missing from the package manifest');
+  if (!expectedSha256 || !expectedMd5)
+    throw new Error('Artifact checksums are missing from the package manifest');
 
   const sha256 = createHash('sha256').update(bytes).digest('hex');
   if (sha256 !== expectedSha256) throw new Error('Artifact SHA256 mismatch');
@@ -451,7 +533,12 @@ export function validateBinaryChecksums(manifest: FirmwarePackageManifest, filen
 function parseCodebergPackage(item: unknown): CodebergPackage | null {
   if (!item || typeof item !== 'object') return null;
   const payload = item as Record<string, unknown>;
-  if (typeof payload.name !== 'string' || typeof payload.version !== 'string' || typeof payload.type !== 'string') return null;
+  if (
+    typeof payload.name !== 'string' ||
+    typeof payload.version !== 'string' ||
+    typeof payload.type !== 'string'
+  )
+    return null;
   return {
     name: payload.name,
     version: payload.version,
@@ -468,7 +555,8 @@ function hasNextPage(linkHeader: string): boolean {
 }
 
 export function parsePackageManifest(payload: unknown): FirmwarePackageManifest {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Package manifest must be an object');
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload))
+    throw new Error('Package manifest must be an object');
   const manifest = payload as Record<string, unknown>;
   const parsed = {
     schema: manifest.schema,
@@ -492,17 +580,34 @@ export function parsePackageManifest(payload: unknown): FirmwarePackageManifest 
     changelog: manifest.changelog
   };
 
-  if (parsed.schema !== 'grow-firmware-package.v1') throw new Error('Unsupported package manifest schema');
-  if (parsed.channel !== 'stable' && parsed.channel !== 'edge') throw new Error('Unsupported package manifest channel');
-  if (typeof parsed.build_profile !== 'string' || parsed.build_profile.length === 0) throw new Error('Package manifest missing build_profile');
+  if (parsed.schema !== 'grow-firmware-package.v1')
+    throw new Error('Unsupported package manifest schema');
+  if (parsed.channel !== 'stable' && parsed.channel !== 'edge')
+    throw new Error('Unsupported package manifest channel');
+  if (typeof parsed.build_profile !== 'string' || parsed.build_profile.length === 0)
+    throw new Error('Package manifest missing build_profile');
   if (parsed.flashable !== true) throw new Error('Package manifest is not flashable');
-  for (const key of ['device', 'node_id', 'project_name', 'package_owner', 'package', 'version', 'source_sha', 'chip_family'] as const) {
-    if (typeof parsed[key] !== 'string' || parsed[key].length === 0) throw new Error(`Package manifest missing ${key}`);
+  for (const key of [
+    'device',
+    'node_id',
+    'project_name',
+    'package_owner',
+    'package',
+    'version',
+    'source_sha',
+    'chip_family'
+  ] as const) {
+    if (typeof parsed[key] !== 'string' || parsed[key].length === 0)
+      throw new Error(`Package manifest missing ${key}`);
   }
-  if (!Array.isArray(parsed.artifact_filenames) || !parsed.artifact_filenames.every((value) => typeof value === 'string')) {
+  if (
+    !Array.isArray(parsed.artifact_filenames) ||
+    !parsed.artifact_filenames.every((value) => typeof value === 'string')
+  ) {
     throw new Error('Package manifest artifact_filenames must be a string array');
   }
-  if (!isStringRecord(parsed.md5) || !isStringRecord(parsed.sha256)) throw new Error('Package manifest checksums must be string maps');
+  if (!isStringRecord(parsed.md5) || !isStringRecord(parsed.sha256))
+    throw new Error('Package manifest checksums must be string maps');
 
   return parsed as FirmwarePackageManifest;
 }
@@ -518,19 +623,25 @@ export function assertPackageManifestMatchesDevice(
   channel?: FirmwareChannel,
   expectedPackageOwner = device.packageOwner
 ): void {
-  if (channel && manifest.channel !== channel) throw new Error('Package manifest channel does not match selected channel');
-  if (manifest.node_id !== device.nodeId) throw new Error('Package manifest node id does not match device metadata');
-  if (manifest.project_name !== device.projectName) throw new Error('Package manifest project name does not match device metadata');
+  if (channel && manifest.channel !== channel)
+    throw new Error('Package manifest channel does not match selected channel');
+  if (manifest.node_id !== device.nodeId)
+    throw new Error('Package manifest node id does not match device metadata');
+  if (manifest.project_name !== device.projectName)
+    throw new Error('Package manifest project name does not match device metadata');
   if (manifest.package_owner !== expectedPackageOwner || manifest.package !== device.package) {
     throw new Error('Package manifest package identity does not match device metadata');
   }
-  if (manifest.device !== device.device) throw new Error('Package manifest device does not match device metadata');
-  if (manifest.chip_family !== device.chipFamily) throw new Error('Package manifest chip family does not match device metadata');
+  if (manifest.device !== device.device)
+    throw new Error('Package manifest device does not match device metadata');
+  if (manifest.chip_family !== device.chipFamily)
+    throw new Error('Package manifest chip family does not match device metadata');
 }
 
 function otaArtifactFilename(manifest: FirmwarePackageManifest): string {
   const filename = manifest.artifact_filenames.find((artifact) => artifact.endsWith('.ota.bin'));
   if (!filename) throw new Error('Package manifest does not contain an OTA artifact');
-  if (!manifest.md5[filename]) throw new Error('Package manifest OTA artifact is missing an MD5 checksum');
+  if (!manifest.md5[filename])
+    throw new Error('Package manifest OTA artifact is missing an MD5 checksum');
   return filename;
 }

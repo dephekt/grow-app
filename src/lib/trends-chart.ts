@@ -93,4 +93,3 @@ export function zoomWindowLabel(minSec: number, maxSec: number, timeZone?: strin
   });
   return `${fmt.format(minSec * 1000)} → ${fmt.format(maxSec * 1000)}`;
 }
-

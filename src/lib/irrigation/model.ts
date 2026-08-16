@@ -49,7 +49,9 @@ export function numericValue(snapshot: Snapshot, ref: EntityRef): number | null 
 /** Availability of the in-app OpenSprinkler driver (its synthesized device's LWT):
  *  `unknown` when no station has been discovered yet (no zones configured). */
 export function openSprinklerAvailability(snapshot: Snapshot): 'online' | 'offline' | 'unknown' {
-  return snapshot.devices.find((device) => device.id === 'opensprinkler')?.availability ?? 'unknown';
+  return (
+    snapshot.devices.find((device) => device.id === 'opensprinkler')?.availability ?? 'unknown'
+  );
 }
 
 /** True when any OpenSprinkler station is energized (a valve is open). */

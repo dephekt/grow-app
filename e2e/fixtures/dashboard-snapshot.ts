@@ -119,8 +119,18 @@ const plugDevices = PLUG_FIXTURES.map((p) => ({
 
 const plugStates = Object.fromEntries(
   PLUG_FIXTURES.flatMap((p) => [
-    ...(p.relay ? [[`${p.node}_${p.relay.objectId}`, { value: p.relay.on ? 'ON' : 'OFF', updatedAt: PLUG_TS }]] : []),
-    ...(p.arms ?? []).map((arm) => [`${p.node}_${arm.objectId}`, { value: arm.on ? 'ON' : 'OFF', updatedAt: PLUG_TS }]),
+    ...(p.relay
+      ? [
+          [
+            `${p.node}_${p.relay.objectId}`,
+            { value: p.relay.on ? 'ON' : 'OFF', updatedAt: PLUG_TS }
+          ]
+        ]
+      : []),
+    ...(p.arms ?? []).map((arm) => [
+      `${p.node}_${arm.objectId}`,
+      { value: arm.on ? 'ON' : 'OFF', updatedAt: PLUG_TS }
+    ]),
     [`${p.node}_${p.power.objectId}`, { value: p.power.watts, updatedAt: PLUG_TS }],
     [`${p.node}_total_daily_energy`, { value: p.dailyKwh, updatedAt: PLUG_TS }]
   ])
@@ -238,7 +248,12 @@ export const dashboardSnapshot = {
       uniqueId: 'atoms3u-sensor-rig_thermal_camera',
       objectId: 'thermal_camera',
       nodeId: 'atoms3u-sensor-rig',
-      device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+      device: {
+        identifiers: ['30eda0c8f338'],
+        name: 'AtomS3U Sensor Rig',
+        manufacturer: 'stackdrift',
+        model: 'atoms3u-sensor-rig'
+      },
       imagePath: '/thermal.jpg',
       payloadAvailable: 'online',
       payloadNotAvailable: 'offline',
@@ -253,7 +268,12 @@ export const dashboardSnapshot = {
       uniqueId: 'atoms3u_thermal_color_palette',
       objectId: 'thermal_color_palette',
       nodeId: 'atoms3u-sensor-rig',
-      device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+      device: {
+        identifiers: ['30eda0c8f338'],
+        name: 'AtomS3U Sensor Rig',
+        manufacturer: 'stackdrift',
+        model: 'atoms3u-sensor-rig'
+      },
       stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/select/thermal_color_palette/state',
       commandTopic: 'grow/daniel-home/atoms3u-sensor-rig/select/thermal_color_palette/command',
       options: ['ironblack', 'rainbow', 'grayscale'],
@@ -270,7 +290,12 @@ export const dashboardSnapshot = {
       uniqueId: 'atoms3u_thermal_overlay_enable',
       objectId: 'thermal_overlay_enable',
       nodeId: 'atoms3u-sensor-rig',
-      device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+      device: {
+        identifiers: ['30eda0c8f338'],
+        name: 'AtomS3U Sensor Rig',
+        manufacturer: 'stackdrift',
+        model: 'atoms3u-sensor-rig'
+      },
       stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/switch/thermal_overlay_enable/state',
       commandTopic: 'grow/daniel-home/atoms3u-sensor-rig/switch/thermal_overlay_enable/command',
       payloadOn: 'ON',
@@ -288,7 +313,12 @@ export const dashboardSnapshot = {
       uniqueId: 'atoms3u_roi_enabled',
       objectId: 'roi_enabled',
       nodeId: 'atoms3u-sensor-rig',
-      device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+      device: {
+        identifiers: ['30eda0c8f338'],
+        name: 'AtomS3U Sensor Rig',
+        manufacturer: 'stackdrift',
+        model: 'atoms3u-sensor-rig'
+      },
       stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/switch/roi_enabled/state',
       commandTopic: 'grow/daniel-home/atoms3u-sensor-rig/switch/roi_enabled/command',
       payloadOn: 'ON',
@@ -306,7 +336,12 @@ export const dashboardSnapshot = {
       uniqueId: 'atoms3u_roi_center_row',
       objectId: 'roi_center_row',
       nodeId: 'atoms3u-sensor-rig',
-      device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+      device: {
+        identifiers: ['30eda0c8f338'],
+        name: 'AtomS3U Sensor Rig',
+        manufacturer: 'stackdrift',
+        model: 'atoms3u-sensor-rig'
+      },
       stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/number/roi_center_row/state',
       commandTopic: 'grow/daniel-home/atoms3u-sensor-rig/number/roi_center_row/command',
       min: 1,
@@ -325,7 +360,12 @@ export const dashboardSnapshot = {
       uniqueId: 'atoms3u_roi_center_column',
       objectId: 'roi_center_column',
       nodeId: 'atoms3u-sensor-rig',
-      device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+      device: {
+        identifiers: ['30eda0c8f338'],
+        name: 'AtomS3U Sensor Rig',
+        manufacturer: 'stackdrift',
+        model: 'atoms3u-sensor-rig'
+      },
       stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/number/roi_center_column/state',
       commandTopic: 'grow/daniel-home/atoms3u-sensor-rig/number/roi_center_column/command',
       min: 1,
@@ -344,7 +384,12 @@ export const dashboardSnapshot = {
       uniqueId: 'atoms3u_roi_size',
       objectId: 'roi_size',
       nodeId: 'atoms3u-sensor-rig',
-      device: { identifiers: ['30eda0c8f338'], name: 'AtomS3U Sensor Rig', manufacturer: 'stackdrift', model: 'atoms3u-sensor-rig' },
+      device: {
+        identifiers: ['30eda0c8f338'],
+        name: 'AtomS3U Sensor Rig',
+        manufacturer: 'stackdrift',
+        model: 'atoms3u-sensor-rig'
+      },
       stateTopic: 'grow/daniel-home/atoms3u-sensor-rig/number/roi_size/state',
       commandTopic: 'grow/daniel-home/atoms3u-sensor-rig/number/roi_size/command',
       min: 1,
@@ -492,18 +537,51 @@ export const dashboardSnapshot = {
   ],
   states: {
     ...plugStates,
-    atoms3u_temperature: { value: '24.8', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atoms3u_co2_high_threshold: { value: '1500', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atoms3u_co2_high_alert: { value: 'OFF', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atoms3u_thermal_color_palette: { value: 'ironblack', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atoms3u_thermal_overlay_enable: { value: 'OFF', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atoms3u_roi_enabled: { value: 'OFF', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atoms3u_roi_center_row: { value: '6', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atoms3u_roi_center_column: { value: '8', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atoms3u_roi_size: { value: '3.000000', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atlas_water_temperature: { value: '22.1', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
+    atoms3u_temperature: {
+      value: '24.8',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atoms3u_co2_high_threshold: {
+      value: '1500',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atoms3u_co2_high_alert: {
+      value: 'OFF',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atoms3u_thermal_color_palette: {
+      value: 'ironblack',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atoms3u_thermal_overlay_enable: {
+      value: 'OFF',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atoms3u_roi_enabled: {
+      value: 'OFF',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atoms3u_roi_center_row: {
+      value: '6',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atoms3u_roi_center_column: {
+      value: '8',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atoms3u_roi_size: {
+      value: '3.000000',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
+    atlas_water_temperature: {
+      value: '22.1',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
     atlas_water_ph: { value: '6.42', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
-    atlas_enable_ph_circuit: { value: 'ON', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
+    atlas_enable_ph_circuit: {
+      value: 'ON',
+      updatedAt: new Date('2026-06-13T12:00:00Z').toISOString()
+    },
     atlas_uptime: { value: '1h', updatedAt: new Date('2026-06-13T12:00:00Z').toISOString() },
     atlas_firmware_update: {
       value: JSON.stringify({
@@ -521,8 +599,22 @@ export const dashboardSnapshot = {
       schema: 'grow-ui.v1',
       nodeId: 'atoms3u-sensor-rig',
       groups: [
-        { id: 'overview', title: 'Environment', order: 0, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
-        { id: 'thermal_view', title: 'Thermal Camera', order: 15, variant: 'camera', surface: 'dashboard', defaultOpen: true },
+        {
+          id: 'overview',
+          title: 'Environment',
+          order: 0,
+          variant: 'metrics',
+          surface: 'dashboard',
+          defaultOpen: true
+        },
+        {
+          id: 'thermal_view',
+          title: 'Thermal Camera',
+          order: 15,
+          variant: 'camera',
+          surface: 'dashboard',
+          defaultOpen: true
+        },
         {
           id: 'thresholds',
           title: 'Thresholds & Alerts',
@@ -533,14 +625,63 @@ export const dashboardSnapshot = {
         }
       ],
       entities: [
-        { component: 'sensor', objectId: 'temperature', group: 'overview', role: 'metric', order: 10 },
-        { component: 'camera', objectId: 'thermal_camera', group: 'thermal_view', role: 'camera', order: 10, label: 'Thermal Camera' },
-        { component: 'select', objectId: 'thermal_color_palette', group: 'thermal_view', role: 'quick-control', order: 20 },
-        { component: 'switch', objectId: 'thermal_overlay_enable', group: 'thermal_view', role: 'quick-control', order: 30 },
-        { component: 'switch', objectId: 'roi_enabled', group: 'thermal_view', role: 'quick-control', order: 40 },
-        { component: 'number', objectId: 'roi_center_row', group: 'thermal_view', role: 'quick-control', order: 50 },
-        { component: 'number', objectId: 'roi_center_column', group: 'thermal_view', role: 'quick-control', order: 60 },
-        { component: 'number', objectId: 'roi_size', group: 'thermal_view', role: 'quick-control', order: 70 },
+        {
+          component: 'sensor',
+          objectId: 'temperature',
+          group: 'overview',
+          role: 'metric',
+          order: 10
+        },
+        {
+          component: 'camera',
+          objectId: 'thermal_camera',
+          group: 'thermal_view',
+          role: 'camera',
+          order: 10,
+          label: 'Thermal Camera'
+        },
+        {
+          component: 'select',
+          objectId: 'thermal_color_palette',
+          group: 'thermal_view',
+          role: 'quick-control',
+          order: 20
+        },
+        {
+          component: 'switch',
+          objectId: 'thermal_overlay_enable',
+          group: 'thermal_view',
+          role: 'quick-control',
+          order: 30
+        },
+        {
+          component: 'switch',
+          objectId: 'roi_enabled',
+          group: 'thermal_view',
+          role: 'quick-control',
+          order: 40
+        },
+        {
+          component: 'number',
+          objectId: 'roi_center_row',
+          group: 'thermal_view',
+          role: 'quick-control',
+          order: 50
+        },
+        {
+          component: 'number',
+          objectId: 'roi_center_column',
+          group: 'thermal_view',
+          role: 'quick-control',
+          order: 60
+        },
+        {
+          component: 'number',
+          objectId: 'roi_size',
+          group: 'thermal_view',
+          role: 'quick-control',
+          order: 70
+        },
         { component: 'number', objectId: 'co2_high_threshold', group: 'thresholds', order: 10 },
         { component: 'binary_sensor', objectId: 'co2_high_alert', group: 'thresholds', order: 20 }
       ]
@@ -549,7 +690,14 @@ export const dashboardSnapshot = {
       schema: 'grow-ui.v1',
       nodeId: 'atlas-hydro-monitor',
       groups: [
-        { id: 'overview', title: 'Key Readings', order: 0, variant: 'metrics', surface: 'dashboard', defaultOpen: true },
+        {
+          id: 'overview',
+          title: 'Key Readings',
+          order: 0,
+          variant: 'metrics',
+          surface: 'dashboard',
+          defaultOpen: true
+        },
         {
           id: 'controls',
           title: 'Circuit Controls',
@@ -584,10 +732,35 @@ export const dashboardSnapshot = {
           order: 10,
           label: 'Water Temp'
         },
-        { component: 'sensor', objectId: 'water_ph', group: 'overview', role: 'metric', order: 20, label: 'Water pH' },
-        { component: 'switch', objectId: 'enable_ph_circuit', group: 'controls', role: 'quick-control', order: 10 },
-        { component: 'button', objectId: 'ph_cal_mid__7_00_', group: 'ph_cal', order: 10, label: 'pH Mid Point' },
-        { component: 'button', objectId: 'restart_device', group: 'maintenance', order: 90, label: 'Restart Device' }
+        {
+          component: 'sensor',
+          objectId: 'water_ph',
+          group: 'overview',
+          role: 'metric',
+          order: 20,
+          label: 'Water pH'
+        },
+        {
+          component: 'switch',
+          objectId: 'enable_ph_circuit',
+          group: 'controls',
+          role: 'quick-control',
+          order: 10
+        },
+        {
+          component: 'button',
+          objectId: 'ph_cal_mid__7_00_',
+          group: 'ph_cal',
+          order: 10,
+          label: 'pH Mid Point'
+        },
+        {
+          component: 'button',
+          objectId: 'restart_device',
+          group: 'maintenance',
+          order: 90,
+          label: 'Restart Device'
+        }
       ]
     }
   },

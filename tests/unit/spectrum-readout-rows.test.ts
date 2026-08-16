@@ -36,6 +36,9 @@ describe('shareRows / shareTitle', () => {
   });
 
   it('renders a dash for a blank frame with no peak', () => {
-    expect(shareRows(processed({ peakWavelengthNm: null }))[0]).toMatchObject({ value: '—', status: 'none' });
+    expect(shareRows(processed({ peakWavelengthNm: null }))[0]).toMatchObject({
+      value: '—',
+      status: 'none'
+    });
   });
 });

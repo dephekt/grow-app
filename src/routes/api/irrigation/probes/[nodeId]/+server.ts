@@ -25,7 +25,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   try {
     patch = parseProbePatch(body);
   } catch (error) {
-    return json({ ok: false, error: error instanceof Error ? error.message : 'Invalid probe' }, { status: 400 });
+    return json(
+      { ok: false, error: error instanceof Error ? error.message : 'Invalid probe' },
+      { status: 400 }
+    );
   }
 
   // Otherwise an empty body would conjure an all-null row for any node id in the URL.

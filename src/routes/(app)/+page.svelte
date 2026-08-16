@@ -59,7 +59,11 @@
     // Formatted through the shared path because it clamps precision before toFixed;
     // the publisher declares none, so PPFD defaults to whole µmol.
     const display = { ...entity, suggestedDisplayPrecision: entity.suggestedDisplayPrecision ?? 0 };
-    return { label: 'PAR', value: formatEntityState(display, { value: String(ppfd), updatedAt: null }), status: 'ok' };
+    return {
+      label: 'PAR',
+      value: formatEntityState(display, { value: String(ppfd), updatedAt: null }),
+      status: 'ok'
+    };
   });
 
   // Leaf VPD is derived from the thermal ROI, so it has no entity of its own and cannot
@@ -79,7 +83,9 @@
   });
 
   // From the server, since an override on /climate moves it off the plan.
-  let climateTarget = $state<{ airVpdTarget: number; week: number } | null>(untrack(() => data.climate));
+  let climateTarget = $state<{ airVpdTarget: number; week: number } | null>(
+    untrack(() => data.climate)
+  );
 
   // Re-fetched because the dashboard is long-lived and a week rollover would strand it.
   onMount(() => {
@@ -129,8 +135,12 @@
 <div class="dashboard">
   <div class="trends-area"><TrendsPanel /></div>
   <div class="thermal-area"><ThermalPanel {live} /></div>
-  <div class="water-area"><ReadoutPanel title="WATER" rows={waterRows} deviceId={waterDevice?.nodeId} /></div>
-  <div class="climate-area"><ReadoutPanel title="CLIMATE" rows={climateRows} deviceId={climateDevice?.nodeId} /></div>
+  <div class="water-area">
+    <ReadoutPanel title="WATER" rows={waterRows} deviceId={waterDevice?.nodeId} />
+  </div>
+  <div class="climate-area">
+    <ReadoutPanel title="CLIMATE" rows={climateRows} deviceId={climateDevice?.nodeId} />
+  </div>
   <div class="substrate-area">
     <SubstratePanel snapshot={live.snapshot} zones={data.zones} probeBindings={data.probes} />
   </div>

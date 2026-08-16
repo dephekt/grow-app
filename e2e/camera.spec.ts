@@ -41,7 +41,9 @@ test('renders the thermal camera image tile on the dashboard', async ({ page }) 
   expect(imgSrc).toContain('atoms3u_sensor_rig_thermal_camera');
 });
 
-test('renders thermal quick controls below the camera image and posts commands', async ({ page }) => {
+test('renders thermal quick controls below the camera image and posts commands', async ({
+  page
+}) => {
   const commands: Array<{ entityId: string; value: unknown }> = [];
   await page.route('**/api/entities/*/command', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
@@ -68,8 +70,14 @@ test('renders thermal quick controls below the camera image and posts commands',
   expect(controlsBox!.y).toBeGreaterThan(imageBox!.y);
 
   await expect(tile.getByLabel('Palette')).toHaveValue('ironblack');
-  await expect(tile.getByRole('button', { name: 'Overlay' })).toHaveAttribute('aria-pressed', 'false');
-  await expect(tile.getByRole('button', { name: 'ROI Enabled' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(tile.getByRole('button', { name: 'Overlay' })).toHaveAttribute(
+    'aria-pressed',
+    'false'
+  );
+  await expect(tile.getByRole('button', { name: 'ROI Enabled' })).toHaveAttribute(
+    'aria-pressed',
+    'false'
+  );
   await expect(tile.getByLabel('ROI Size')).toHaveValue('3');
   await expect(tile.getByText('Row 6 / Column 8')).toBeVisible();
   await expect(tile.getByRole('group', { name: 'ROI position' })).not.toContainText('6/8');

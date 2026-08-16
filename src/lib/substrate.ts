@@ -92,7 +92,8 @@ export function poreWaterEc(args: {
 const COCO_MEDIA = /coco|coir/i;
 const ROCKWOOL_MEDIA = /rockwool|stonewool/i;
 /** Soilless is tested before mineral so "potting soil" resolves where METER puts it. */
-const SOILLESS_MEDIA = /peat|perlite|vermiculite|potting|soilless|pro-?mix|sphagnum|bark|hydroton|clay pebble/i;
+const SOILLESS_MEDIA =
+  /peat|perlite|vermiculite|potting|soilless|pro-?mix|sphagnum|bark|hydroton|clay pebble/i;
 const MINERAL_MEDIA = /soil|mineral|loam|sand|clay|silt|dirt|field/i;
 
 export type SubstrateCalibrationProfile = 'coco' | 'rockwool' | 'soilless' | 'mineral';
@@ -121,8 +122,10 @@ export function substrateCalibrationFor(
   const text = (substrateType ?? '').trim();
   if (text) {
     if (COCO_MEDIA.test(text)) return calibration('coco', 'soilless', PORE_EC_OFFSETS.coco);
-    if (ROCKWOOL_MEDIA.test(text)) return calibration('rockwool', 'soilless', PORE_EC_OFFSETS.rockwool);
-    if (SOILLESS_MEDIA.test(text)) return calibration('soilless', 'soilless', PORE_EC_OFFSETS.generic);
+    if (ROCKWOOL_MEDIA.test(text))
+      return calibration('rockwool', 'soilless', PORE_EC_OFFSETS.rockwool);
+    if (SOILLESS_MEDIA.test(text))
+      return calibration('soilless', 'soilless', PORE_EC_OFFSETS.generic);
     if (MINERAL_MEDIA.test(text)) return calibration('mineral', 'mineral', PORE_EC_OFFSETS.generic);
   }
   return calibration('soilless', 'soilless', PORE_EC_OFFSETS.generic, true);
@@ -349,7 +352,10 @@ export function resolveSubstrateProbes(
           atDisplayPrecision(readings.temperatureC, DISPLAY_DIGITS.temperatureC),
           thresholds.temperatureC
         ),
-        poreEc: bandStatus(atDisplayPrecision(readings.poreEc, DISPLAY_DIGITS.poreEc), thresholds.poreEc)
+        poreEc: bandStatus(
+          atDisplayPrecision(readings.poreEc, DISPLAY_DIGITS.poreEc),
+          thresholds.poreEc
+        )
       }
     });
   }

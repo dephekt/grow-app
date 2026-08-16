@@ -18,7 +18,9 @@ const firmwarePackage = {
   chip_family: 'ESP32',
   artifact_filenames: ['atlas-hydro-kit.ota.bin', 'atlas-hydro-kit.factory.bin'],
   md5: { 'atlas-hydro-kit.ota.bin': '4a3b8aa1363813d51abb788cfd4c294e' },
-  sha256: { 'atlas-hydro-kit.ota.bin': '7711f755d25874261ba889d6c343474b3952fd5f90d8918833d2e375bf8468c2' },
+  sha256: {
+    'atlas-hydro-kit.ota.bin': '7711f755d25874261ba889d6c343474b3952fd5f90d8918833d2e375bf8468c2'
+  },
   release_summary: 'Two firmware changes',
   release_url: 'https://github.com/dephekt/grow-fleet/commit/0123456789abcdef'
 };
@@ -31,13 +33,19 @@ test.beforeEach(async ({ page }) => {
     await route.abort('failed');
   });
   await page.route('**/api/firmware/devices/*/package**', async (route) => {
-    await route.fulfill({ json: { ok: true, channel: 'stable', package: firmwarePackage, listing: null } });
+    await route.fulfill({
+      json: { ok: true, channel: 'stable', package: firmwarePackage, listing: null }
+    });
   });
   await page.route('**/api/firmware/devices/*/check', async (route) => {
-    await route.fulfill({ json: { ok: true, channel: 'stable', package: firmwarePackage, checkTriggered: true } });
+    await route.fulfill({
+      json: { ok: true, channel: 'stable', package: firmwarePackage, checkTriggered: true }
+    });
   });
   await page.route('**/api/firmware/devices/*/channel', async (route) => {
-    const body = route.request().postData() ? ((route.request().postDataJSON() ?? {}) as { channel?: string }) : {};
+    const body = route.request().postData()
+      ? ((route.request().postDataJSON() ?? {}) as { channel?: string })
+      : {};
     await route.fulfill({
       json: {
         ok: true,
@@ -51,7 +59,15 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.route('**/api/firmware/devices/*/apply', async (route) => {
-    await route.fulfill({ json: { ok: true, nodeId: 'atlas-hydro-monitor', channel: 'stable', version: 'v0.2.0', payload: 'INSTALL' } });
+    await route.fulfill({
+      json: {
+        ok: true,
+        nodeId: 'atlas-hydro-monitor',
+        channel: 'stable',
+        version: 'v0.2.0',
+        payload: 'INSTALL'
+      }
+    });
   });
 });
 
@@ -88,13 +104,20 @@ async function installMockEventSource(page: Page): Promise<void> {
     }
 
     window.EventSource = MockEventSource as unknown as typeof EventSource;
-    (window as unknown as { __emitEventSource: (type: string, payload: unknown) => void }).__emitEventSource = (type, payload) => {
+    (
+      window as unknown as { __emitEventSource: (type: string, payload: unknown) => void }
+    ).__emitEventSource = (type, payload) => {
       for (const source of sources) source.emit(type, payload);
     };
   });
 }
 
-async function dragSliderBy(page: Page, slider: Locator, deltaX: number, beforeRelease?: () => Promise<void>): Promise<void> {
+async function dragSliderBy(
+  page: Page,
+  slider: Locator,
+  deltaX: number,
+  beforeRelease?: () => Promise<void>
+): Promise<void> {
   const box = await slider.boundingBox();
   if (!box) throw new Error('Expected slider to have a bounding box');
 
@@ -168,7 +191,9 @@ test('keeps dashboard metrics live without showing device settings sections', as
   await expect(water).toContainText('6.214');
 
   await page.evaluate(() => {
-    (window as unknown as { __emitEventSource: (type: string, payload: unknown) => void }).__emitEventSource('state', {
+    (
+      window as unknown as { __emitEventSource: (type: string, payload: unknown) => void }
+    ).__emitEventSource('state', {
       type: 'state',
       entityId: 'espsensorwater_ph',
       state: {
@@ -191,7 +216,10 @@ test('renders device calibration settings from query state', async ({ page }) =>
 
   await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Atlas Hydro Monitor' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Calibration/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('link', { name: /Calibration/ })).toHaveAttribute(
+    'aria-current',
+    'page'
+  );
 
   // The curated CalibrationPanel renders a guided step card with a live reading,
   // not the old collapsible settings-group / Send-button markup.
@@ -209,7 +237,10 @@ test('navigates device settings sections and devices with URL state', async ({ p
 
   await page.getByRole('link', { name: /Controls/ }).click();
   await expect(page).toHaveURL(/device=atlas-hydro-monitor&section=controls/);
-  await expect(page.getByRole('link', { name: /Controls/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('link', { name: /Controls/ })).toHaveAttribute(
+    'aria-current',
+    'page'
+  );
 
   // Generic sections render collapsed; expand "Circuit Controls" to reveal the switch.
   await page.locator('.section-summary', { hasText: 'Circuit Controls' }).click();
@@ -226,7 +257,9 @@ test('navigates device settings sections and devices with URL state', async ({ p
   await expect(page.getByRole('slider', { name: 'CO₂ high threshold' })).toBeVisible();
 });
 
-test('aggregates high and low alert binary sensors into the alert card status', async ({ page }) => {
+test('aggregates high and low alert binary sensors into the alert card status', async ({
+  page
+}) => {
   const alertingSnapshot = structuredClone(liveSnapshot);
   alertingSnapshot.states.espbinary_sensorco2_high_alert = {
     value: 'ON',
@@ -254,7 +287,9 @@ test('aggregates high and low alert binary sensors into the alert card status', 
   await expect(page.getByText('VPD High Alert')).toHaveCount(0);
 });
 
-test('drags an alert threshold handle past its bound and publishes the clamped value', async ({ page }) => {
+test('drags an alert threshold handle past its bound and publishes the clamped value', async ({
+  page
+}) => {
   const commands = await captureThresholdCommands(page, liveSnapshot);
 
   await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
@@ -285,7 +320,9 @@ test('drags an alert threshold handle past its bound and publishes the clamped v
   expect(commands[0].body).toMatchObject({ value: 850, confirm: false });
 });
 
-test('drags a threshold handle to a scaled mid-range value, not a clamp boundary', async ({ page }) => {
+test('drags a threshold handle to a scaled mid-range value, not a clamp boundary', async ({
+  page
+}) => {
   const commands = await captureThresholdCommands(page, liveSnapshot);
 
   await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
@@ -310,7 +347,9 @@ test('drags a threshold handle to a scaled mid-range value, not a clamp boundary
   expect(commands[0].body).toMatchObject({ value: 1200, confirm: false });
 });
 
-test('renders a draggable handle for a writable threshold that has no current state', async ({ page }) => {
+test('renders a draggable handle for a writable threshold that has no current state', async ({
+  page
+}) => {
   const noState = structuredClone(liveSnapshot);
   // The high threshold never reported a value (e.g. non-retained / device offline at load).
   delete (noState.states as Record<string, unknown>).espnumberco2_high_threshold;
@@ -355,7 +394,9 @@ test('renders the curated thermal single-band alarm card', async ({ page }) => {
   await expect(page.getByText('Other Alerts')).toHaveCount(0);
 });
 
-test('drags the thermal high threshold past its bound and publishes the clamped value', async ({ page }) => {
+test('drags the thermal high threshold past its bound and publishes the clamped value', async ({
+  page
+}) => {
   const commands = await captureThresholdCommands(page, liveSnapshot);
 
   await page.goto('/device-settings?device=atoms3u-sensor-rig&section=alerts');
@@ -402,12 +443,17 @@ test('toggles the thermal buzzer and sounds the alarm test after confirming', as
   expect(commands[1].body).toMatchObject({ confirm: true });
 });
 
-test('shows stable firmware update status and applies only when device state matches', async ({ page }) => {
+test('shows stable firmware update status and applies only when device state matches', async ({
+  page
+}) => {
   await page.goto('/device-settings?device=atlas-hydro-monitor');
 
   const updates = page.getByRole('region', { name: 'Atlas Hydro Monitor firmware updates' });
   await expect(updates.getByRole('heading', { name: 'Firmware updates' })).toBeVisible();
-  await expect(updates.getByRole('button', { name: 'Stable' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(updates.getByRole('button', { name: 'Stable' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
   await expect(updates).toContainText('v0.1.0');
   await expect(updates).toContainText('v0.2.0');
   await expect(updates).toContainText('0123456789ab');
@@ -423,7 +469,10 @@ test('switches firmware channel and triggers device update check', async ({ page
 
   const updates = page.getByRole('region', { name: 'Atlas Hydro Monitor firmware updates' });
   await updates.getByRole('button', { name: 'Edge' }).click();
-  await expect(updates.getByRole('button', { name: 'Edge' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(updates.getByRole('button', { name: 'Edge' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
 
   await updates.getByRole('button', { name: 'Check' }).click();
   await expect(updates).toContainText('Device check requested');
@@ -505,7 +554,8 @@ test('shows firmware bootstrap state when project metadata is incomplete', async
   // reproduce the bootstrap state by keeping the config but dropping its projectName:
   // the header falls back to "Bootstrap required" and Apply stays disabled.
   const bootstrapSnapshot = structuredClone(liveSnapshot);
-  delete (bootstrapSnapshot.firmware.devices['atoms3u-sensor-rig'] as { projectName?: string }).projectName;
+  delete (bootstrapSnapshot.firmware.devices['atoms3u-sensor-rig'] as { projectName?: string })
+    .projectName;
 
   await page.unroute('**/api/snapshot');
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: bootstrapSnapshot }));
@@ -611,7 +661,9 @@ test('shows both readouts when both sensors read', async ({ page }) => {
   await expect(climate).toContainText('PAR');
 });
 
-test('shows neither readout, and never the nan marker, when neither sensor reads', async ({ page }) => {
+test('shows neither readout, and never the nan marker, when neither sensor reads', async ({
+  page
+}) => {
   const climate = await climatePanel(page, { lux: 'nan', par: null });
   await expect(climate).not.toContainText('Illuminance');
   await expect(climate).not.toContainText('PAR');

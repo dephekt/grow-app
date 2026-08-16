@@ -41,7 +41,8 @@ function optBound(value: unknown, field: string, lo: number, hi: number): number
   // A bound may legitimately be 0, so this cannot lean on `n <= 0` to reject the values
   // Number() coerces to it — '', '  ', [] and false are all 0 and all finite.
   if (typeof value === 'string' && value.trim() === '') return null;
-  if (typeof value !== 'number' && typeof value !== 'string') throw new Error(`${field} must be a number`);
+  if (typeof value !== 'number' && typeof value !== 'string')
+    throw new Error(`${field} must be a number`);
   const n = Number(value);
   if (!Number.isFinite(n)) throw new Error(`${field} must be a number`);
   if (n < lo || n > hi) throw new Error(`${field} must be between ${lo} and ${hi}`);
@@ -79,7 +80,13 @@ function requireBoolean(value: unknown, field: string): boolean {
 /** The three substrate threshold bands and the range each bound must fall inside. */
 const THRESHOLD_BANDS = [
   { min: 'vwcMinPct', max: 'vwcMaxPct', label: 'VWC', lo: 0, hi: 100 },
-  { min: 'substrateTempMinC', max: 'substrateTempMaxC', label: 'Substrate temperature', lo: -40, hi: 60 },
+  {
+    min: 'substrateTempMinC',
+    max: 'substrateTempMaxC',
+    label: 'Substrate temperature',
+    lo: -40,
+    hi: 60
+  },
   { min: 'pwecMin', max: 'pwecMax', label: 'Pore EC', lo: 0, hi: 50 }
 ] as const;
 
@@ -122,7 +129,8 @@ export function parseZoneCreate(body: Record<string, unknown>): ZoneCreate {
     maxRunSeconds: body.maxRunSeconds == null ? 300 : requireRunSeconds(body.maxRunSeconds),
     ...zoneThresholds(body, false),
     enabled: body.enabled == null ? true : requireBoolean(body.enabled, 'enabled'),
-    schedulesPaused: body.schedulesPaused == null ? false : requireBoolean(body.schedulesPaused, 'schedulesPaused')
+    schedulesPaused:
+      body.schedulesPaused == null ? false : requireBoolean(body.schedulesPaused, 'schedulesPaused')
   };
   assertZoneBands(zone);
   return zone;
@@ -133,13 +141,15 @@ export function parseZonePatch(body: Record<string, unknown>): ZonePatch {
   if ('name' in body) patch.name = requireName(body.name);
   if ('stationSid' in body) patch.stationSid = requireStationSid(body.stationSid);
   if ('substrateType' in body) patch.substrateType = optString(body.substrateType);
-  if ('substrateVolumeMl' in body) patch.substrateVolumeMl = optPositiveNumber(body.substrateVolumeMl, 'substrateVolumeMl');
+  if ('substrateVolumeMl' in body)
+    patch.substrateVolumeMl = optPositiveNumber(body.substrateVolumeMl, 'substrateVolumeMl');
   if ('drippers' in body) patch.drippers = optPositiveInt(body.drippers, 'drippers');
   if ('emitterLph' in body) patch.emitterLph = optPositiveNumber(body.emitterLph, 'emitterLph');
   if ('maxRunSeconds' in body) patch.maxRunSeconds = requireRunSeconds(body.maxRunSeconds);
   Object.assign(patch, zoneThresholds(body, true));
   if ('enabled' in body) patch.enabled = requireBoolean(body.enabled, 'enabled');
-  if ('schedulesPaused' in body) patch.schedulesPaused = requireBoolean(body.schedulesPaused, 'schedulesPaused');
+  if ('schedulesPaused' in body)
+    patch.schedulesPaused = requireBoolean(body.schedulesPaused, 'schedulesPaused');
   return patch;
 }
 
@@ -177,7 +187,9 @@ function parseTimes(value: unknown): number[] {
 
 /** Exactly one of shotPercent / shotMl / shotSeconds must be a positive value — the
  *  same invariant the DB CHECK enforces. */
-function parseShot(body: Record<string, unknown>): Pick<ScheduleCreate, 'shotPercent' | 'shotMl' | 'shotSeconds'> {
+function parseShot(
+  body: Record<string, unknown>
+): Pick<ScheduleCreate, 'shotPercent' | 'shotMl' | 'shotSeconds'> {
   const shotPercent = optPositiveNumber(body.shotPercent, 'shotPercent');
   const shotMl = optPositiveNumber(body.shotMl, 'shotMl');
   const shotSeconds = optPositiveInt(body.shotSeconds, 'shotSeconds');

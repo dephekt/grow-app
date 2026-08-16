@@ -38,7 +38,16 @@ export function createSession(db: DatabaseSync, input: CreateSessionInput): NewS
   db.prepare(
     `INSERT INTO sessions (token_hash, user_id, login_method, created_at, last_seen_at, expires_at, user_agent, ip)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(hashToken(token), input.userId, input.loginMethod, nowIso, nowIso, expiresAt, input.userAgent ?? null, input.ip ?? null);
+  ).run(
+    hashToken(token),
+    input.userId,
+    input.loginMethod,
+    nowIso,
+    nowIso,
+    expiresAt,
+    input.userAgent ?? null,
+    input.ip ?? null
+  );
 
   return { token, expiresAt };
 }
@@ -61,7 +70,13 @@ export function lookupSession(db: DatabaseSync, token: string): SessionLookup | 
        FROM sessions s JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?`
     )
-    .get(hashToken(token)) as (UserRow & { session_id: number; session_login_method: LoginMethod; session_expires_at: string }) | undefined;
+    .get(hashToken(token)) as
+    | (UserRow & {
+        session_id: number;
+        session_login_method: LoginMethod;
+        session_expires_at: string;
+      })
+    | undefined;
 
   if (!row) return null;
   if (new Date(row.session_expires_at).getTime() <= Date.now()) return null;
@@ -81,13 +96,21 @@ export function lookupSession(db: DatabaseSync, token: string): SessionLookup | 
  * since it was last extended, returning the new expiry ISO string or null when
  * it was still fresh.
  */
-export function renewIfNeeded(db: DatabaseSync, sessionId: number, expiresAt: string): string | null {
+export function renewIfNeeded(
+  db: DatabaseSync,
+  sessionId: number,
+  expiresAt: string
+): string | null {
   const remaining = new Date(expiresAt).getTime() - Date.now();
   if (remaining >= RENEW_WHEN_REMAINING_MS) return null;
 
   const now = Date.now();
   const newExpiry = new Date(now + SESSION_TTL_MS).toISOString();
-  db.prepare('UPDATE sessions SET expires_at = ?, last_seen_at = ? WHERE id = ?').run(newExpiry, new Date(now).toISOString(), sessionId);
+  db.prepare('UPDATE sessions SET expires_at = ?, last_seen_at = ? WHERE id = ?').run(
+    newExpiry,
+    new Date(now).toISOString(),
+    sessionId
+  );
   return newExpiry;
 }
 

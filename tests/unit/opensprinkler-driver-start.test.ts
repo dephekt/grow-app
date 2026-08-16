@@ -76,7 +76,8 @@ const DISCOVERY: Array<[string, string]> = [[built.topic, JSON.stringify(built.p
  *  would assert through the previous test's controller instance. beforeEach resets the
  *  registry; calling this twice without a reset exercises the idempotence guard. */
 const startDriver = async (): Promise<void> => {
-  const { startOpenSprinklerDriver } = await import('../../src/lib/server/opensprinkler/controller');
+  const { startOpenSprinklerDriver } =
+    await import('../../src/lib/server/opensprinkler/controller');
   startOpenSprinklerDriver();
 };
 

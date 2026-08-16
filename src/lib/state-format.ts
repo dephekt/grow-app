@@ -6,7 +6,15 @@ import { toTimeInputValue } from '$lib/time-entity';
 
 // ESPHome publishes these literals when a numeric sensor cannot produce a reading, and the payload
 // is retained, so it outlives the condition.
-const NO_READING_MARKERS = new Set(['nan', 'inf', '+inf', '-inf', 'infinity', '+infinity', '-infinity']);
+const NO_READING_MARKERS = new Set([
+  'nan',
+  'inf',
+  '+inf',
+  '-inf',
+  'infinity',
+  '+infinity',
+  '-infinity'
+]);
 
 /**
  * Whether a published payload is a sensor saying "I cannot read", as opposed to a value.
@@ -30,7 +38,8 @@ function formattedNumericValue(value: string, precision: number | undefined): st
 }
 
 export function formatEntityState(entity: EntityConfig, state: EntityState): string {
-  if (state.value === null || state.value === undefined || state.value === '') return 'No state yet';
+  if (state.value === null || state.value === undefined || state.value === '')
+    return 'No state yet';
 
   // Time entities display at minute granularity (HH:MM), matching the
   // <input type="time"> editor.
