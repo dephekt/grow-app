@@ -124,7 +124,7 @@
     <text class="empty" x={W / 2} y={H / 2} text-anchor="middle">waiting for spectrum…</text>
   {/if}
 
-  {#each peaks as nm (nm)}
+  {#each peaks as nm, i (i)}
     {#if nm >= WL_MIN && nm <= WL_MAX}
       <line class="peak" x1={px(nm)} y1={T} x2={px(nm)} y2={T + ph} />
       <text class="peak-label" x={px(nm)} y={T - 4} text-anchor="middle">{nm.toFixed(0)}</text>
