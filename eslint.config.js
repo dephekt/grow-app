@@ -118,7 +118,8 @@ export default defineConfig(
 
   {
     // AGENTS.md's Svelte 5 guardrail is prose only, and eslint-plugin-svelte has no rule for these
-    // three; `export let`, `$:` and bare-let are already compile errors under `runes: true`.
+    // three. `export let` and `$:` are compile errors under `runes: true`; bare-let is only the
+    // `non_reactive_update` warning, which is why `check` runs with --fail-on-warnings.
     files: SVELTE,
     rules: {
       'no-restricted-syntax': [

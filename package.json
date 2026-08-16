@@ -21,7 +21,7 @@
     "build:recorder": "esbuild src/lib/server/history/recorder.ts --bundle --platform=node --format=esm --target=node24 --packages=external '--alias:$lib=./src/lib' --outfile=build-recorder/recorder.js",
     "start": "node build",
     "preview": "vite preview --host 127.0.0.1",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
