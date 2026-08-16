@@ -84,8 +84,8 @@ export function normalizeSnapshot(value: unknown, fallback?: Snapshot): Snapshot
         ? raw.generatedAt
         : (fallback?.generatedAt ?? new Date().toISOString()),
     broker: brokerOr(raw.broker, fallback?.broker),
-    // Array.isArray narrows an unknown to any[], and clonePlain<T> passes that straight through,
-    // so each branch has to name the element type it is promising.
+    // Assertions, not checks: Array.isArray says nothing about the elements, so a payload of
+    // [null] still arrives typed. Naming the type keeps the promise visible; validating it is #151.
     devices: Array.isArray(raw.devices)
       ? clonePlain(raw.devices as Snapshot['devices'])
       : clonePlain(fallback?.devices ?? []),

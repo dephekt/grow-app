@@ -11,11 +11,17 @@ import svelteConfig from './svelte.config.js';
 
 const SVELTE = ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'];
 
-// tsconfig.json's `include`, so exactly the files that carry type information. Its complement --
-// e2e/, scripts/, the root configs, and anything added outside src/ or tests/ -- is handled as a
-// complement rather than a second list, so the two sets always partition the repo. Grow this when
-// tsconfig's include grows; #132 is the issue that moves e2e/ into the program.
-const TYPED = ['src/**/*.ts', 'src/**/*.svelte', 'tests/**/*.ts', 'vite.config.ts'];
+// Mirrors .svelte-kit/tsconfig.json's `include`, so it is exactly the files that carry type
+// information -- including the .js kinds, which allowJs+checkJs put in the program too. Everything
+// else is handled as this set's complement rather than a second list, so the two always partition
+// the repo along the same line the program does. Keep it in step with that include; #132 is the
+// issue that moves e2e/ into the program.
+const TYPED = [
+  'src/**/*.{js,ts,svelte}',
+  'test/**/*.{js,ts,svelte}',
+  'tests/**/*.{js,ts,svelte}',
+  'vite.config.{js,ts}'
+];
 
 // No published header plugin can enforce this on components, because svelte-eslint-parser drops
 // comments that sit outside <script>/<style> and so never reports the <!-- --> form.
