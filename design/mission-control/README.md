@@ -53,8 +53,7 @@ nav — SETTINGS shows an amber dot when any controller has an update). 12-col g
 
 Left = controller selector (the fleet, with online LED + update dot). Right = category tabs
 (Controls, Updates, Alerts, Calibration, Maintenance, Diagnostics, Other, with entity counts)
-
-- content. The active item in every selector highlights in amber.
+plus content. The active item in every selector highlights in amber.
 
 ## Core principle: curate, else fall back
 
