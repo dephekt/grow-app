@@ -39,6 +39,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Format
         run: pnpm format:check
+      # git treats an unresolvable rev in this file as a no-op and exits 0, so a typo would
+      # silently stop blame from skipping anything. Resolve via the API, not `git cat-file`:
+      # actions/checkout is shallow, so a real-but-older SHA is absent from the local clone.
+      - name: Validate .git-blame-ignore-revs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          grep -vE '^\s*(#|$)' .git-blame-ignore-revs | while read -r sha; do
+            gh api "repos/${{ github.repository }}/commits/$sha" --jq '.sha' > /dev/null \
+              || { echo "::error file=.git-blame-ignore-revs::$sha does not resolve"; exit 1; }
+          done
 
   check:
     name: Typecheck & unit tests
