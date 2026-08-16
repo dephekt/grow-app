@@ -22,6 +22,8 @@
     "start": "node build",
     "preview": "vite preview --host 127.0.0.1",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "design:screenshots": "playwright test e2e/design-screenshots.spec.ts"
@@ -43,6 +45,8 @@
     "@sveltejs/vite-plugin-svelte": "^5.1.0",
     "@types/node": "^24.0.4",
     "esbuild": "^0.28.1",
+    "prettier": "^3.9.6",
+    "prettier-plugin-svelte": "^4.1.1",
     "svelte-check": "^4.2.2",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
