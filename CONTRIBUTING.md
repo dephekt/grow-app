@@ -89,6 +89,14 @@ git config extensions.worktreeConfig true
 git config --worktree blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
-The `--worktree` form matters if you use `git worktree`: the checkouts share one
-config, and a plain `blame.ignoreRevsFile` makes `git blame` fail outright in
-every worktree whose checked-out commit predates the file.
+That setting has a cost worth knowing before you enable it: `git blame` fails
+outright — `fatal: could not open object name list` — in any checkout where the
+file is absent, such as an old commit or a worktree added before it landed. New
+worktrees inherit the setting, and neither `-c blame.ignoreRevsFile=` nor
+`--ignore-revs-file=` overrides it, so the only way out is to unset it. The
+`--worktree` form is what lets you do that just where it hurts, leaving the rest
+of your checkouts alone:
+
+```sh
+git config --worktree --unset blame.ignoreRevsFile
+```

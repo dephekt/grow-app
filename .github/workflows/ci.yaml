@@ -39,17 +39,37 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Format
         run: pnpm format:check
-      # git treats an unresolvable rev in this file as a no-op and exits 0, so a typo would
-      # silently stop blame from skipping anything. Resolve via the API, not `git cat-file`:
-      # actions/checkout is shallow, so a real-but-older SHA is absent from the local clone.
+      # Every line must be an unabbreviated SHA reachable from the default branch, and only the
+      # abbreviation check fails loudly at blame time -- an unreachable rev is a silent no-op that
+      # exits 0, so blame quietly stops skipping anything. Read the file directly rather than
+      # piping grep into the loop: a pipeline runs the loop in a subshell, and `grep -v` exits 1
+      # on a comments-only file, which pipefail would report as a build failure. The `|| [ -n ]`
+      # is what keeps a final line with no trailing newline from being dropped. Reachability goes
+      # through the API because actions/checkout is shallow, so a real-but-older SHA is absent
+      # from the runner's clone -- but note the API resolves abbreviated SHAs that git rejects,
+      # hence the separate length check.
       - name: Validate .git-blame-ignore-revs
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.repository.default_branch }}
         run: |
-          grep -vE '^\s*(#|$)' .git-blame-ignore-revs | while read -r sha; do
-            gh api "repos/${{ github.repository }}/commits/$sha" --jq '.sha' > /dev/null \
-              || { echo "::error file=.git-blame-ignore-revs::$sha does not resolve"; exit 1; }
-          done
+          test -f .git-blame-ignore-revs
+          while read -r sha _ || [ -n "$sha" ]; do
+            case "$sha" in '' | '#'*) continue ;; esac
+            if [[ ! "$sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "::error file=.git-blame-ignore-revs::'$sha' is not an unabbreviated 40-character SHA; git blame rejects anything shorter"
+              exit 1
+            fi
+            status=$(gh api "repos/$REPO/compare/$BASE...$sha" --jq '.status' 2>/dev/null) || status=unresolvable
+            case "$status" in
+              identical | behind) ;;
+              *)
+                echo "::error file=.git-blame-ignore-revs::$sha is '$status' relative to $BASE; only commits already merged to $BASE can be listed here"
+                exit 1
+                ;;
+            esac
+          done < .git-blame-ignore-revs
 
   check:
     name: Typecheck & unit tests
