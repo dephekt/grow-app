@@ -85,18 +85,11 @@ untouched line would otherwise point at it rather than at the author.
 setup at all; to get the same locally, once per clone:
 
 ```sh
-git config extensions.worktreeConfig true
-git config --worktree blame.ignoreRevsFile .git-blame-ignore-revs
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
-That setting has a cost worth knowing before you enable it: `git blame` fails
-outright — `fatal: could not open object name list` — in any checkout where the
-file is absent, such as an old commit or a worktree added before it landed. New
-worktrees inherit the setting, and neither `-c blame.ignoreRevsFile=` nor
-`--ignore-revs-file=` overrides it, so the only way out is to unset it. The
-`--worktree` form is what lets you do that just where it hurts, leaving the rest
-of your checkouts alone:
-
-```sh
-git config --worktree --unset blame.ignoreRevsFile
-```
+That writes to `.git/config`, which every worktree of the clone shares, so one
+run covers the ones you already have. Know the cost before enabling it: `git
+blame` fails outright — `fatal: could not open object name list` — in any
+checkout where the file is absent, such as a commit older than it. Nothing
+overrides it per invocation; unset the config to blame there.

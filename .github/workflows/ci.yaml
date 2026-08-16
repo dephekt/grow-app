@@ -22,7 +22,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+      # Full history so the blame-revs check can test reachability locally.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -43,16 +46,17 @@ jobs:
       # an unreachable one as a silent no-op and blame then skips nothing.
       - name: Validate .git-blame-ignore-revs
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          BASE: ${{ github.event.repository.default_branch }}
+          BASE: origin/${{ github.event.repository.default_branch }}
         run: |
           file=.git-blame-ignore-revs
           if [ ! -f "$file" ]; then
             echo "::error::$file is missing; drop this step too if the file is intentionally gone"
             exit 1
           fi
-          err=$(mktemp)
+          if ! git rev-parse --verify --quiet "$BASE" > /dev/null; then
+            echo "::error::$BASE is unavailable, so reachability cannot be checked; this job needs fetch-depth: 0"
+            exit 1
+          fi
           # The `|| [ -n ]` keeps a final line that has no trailing newline.
           while read -r sha _ || [ -n "$sha" ]; do
             case "$sha" in '' | '#'*) continue ;; esac
@@ -60,20 +64,14 @@ jobs:
               echo "::error file=$file::'$sha' is not an unabbreviated 40-character SHA; git blame rejects anything shorter"
               exit 1
             fi
-            # Compared through the API because actions/checkout is shallow. Keep stderr out of
-            # $status: on failure gh writes the error body to stdout, and its newlines would
-            # truncate the ::error annotation to its first line.
-            if ! status=$(gh api "repos/$REPO/compare/$BASE...$sha" --jq '.status' 2>"$err"); then
-              echo "::error file=$file::could not compare $sha against $BASE, so its reachability is unknown: $(tr -d '\r\n' <"$err")"
+            if ! git rev-parse --verify --quiet "$sha^{commit}" > /dev/null; then
+              echo "::error file=$file::$sha is not a commit in this repository"
               exit 1
             fi
-            case "$status" in
-              identical | behind) ;;
-              *)
-                echo "::error file=$file::$sha is '$status' relative to $BASE; only commits already merged to $BASE can be listed here"
-                exit 1
-                ;;
-            esac
+            if ! git merge-base --is-ancestor "$sha" "$BASE"; then
+              echo "::error file=$file::$sha is not reachable from $BASE; only commits already merged there can be listed here"
+              exit 1
+            fi
           done < "$file"
 
   check:
