@@ -58,8 +58,10 @@ jobs:
             exit 1
           fi
           # The `|| [ -n ]` keeps a final line that has no trailing newline.
+          revs=0
           while read -r sha _ || [ -n "$sha" ]; do
             case "$sha" in '' | '#'*) continue ;; esac
+            revs=$((revs + 1))
             if [[ ! "$sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
               echo "::error file=$file::'$sha' is not an unabbreviated 40-character SHA; git blame rejects anything shorter"
               exit 1
@@ -73,6 +75,10 @@ jobs:
               exit 1
             fi
           done < "$file"
+          if [ "$revs" -eq 0 ]; then
+            echo "::error file=$file::no revisions listed, so blame skips nothing; delete the file and this step if that is intended"
+            exit 1
+          fi
 
   check:
     name: Typecheck & unit tests
