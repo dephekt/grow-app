@@ -22,18 +22,37 @@ const SMOOTHING_WINDOW_MS = 5 * 60 * 1000;
  *  crosses the whole band in 3.5 min, so the 5 min median released the fan at 1.14 while the
  *  tent was already at 1.42.
  *
- *  Sized off the tick rather than fixed, because it must hold THREE samples to be a median at
- *  all — at two it is their mean and half of any spike reaches the hard-ceiling override, which
- *  is urgent and voids the minimum on. Two ticks of span is not enough: `setInterval` only ever
- *  runs late, so a fixed 60 s window at a 30 s tick measured 2 samples on every tick but the
- *  first. 2.5x leaves half a tick of drift margin.
+ *  Sized off the tick, at 2.5x: three samples when the timer is punctual, two when it is not.
+ *  `setInterval` only ever runs late, so a fixed 60 s window at a 30 s tick measured two samples
+ *  on every tick but the first.
+ *
+ *  Widening it to guarantee three is the obvious move and the wrong one — replaying the measured
+ *  08-15 ramp, 3.5x peaks at 1.199 against a 1.20 rail, giving up almost the whole margin the
+ *  short window exists to buy. What matters is not the sample count but that there is no cliff
+ *  beneath it: see MIN_FAST_SAMPLES.
  *
  *  Clamped to the slow window so a pathological GROW_CLIMATE_TICK_SECONDS collapses the two
  *  windows into one — the behaviour before this split existed — rather than degrading to a
  *  single unsmoothed sample. */
-function fastSmoothingWindowMs(): number {
+export function fastSmoothingWindowMs(): number {
   return Math.min(SMOOTHING_WINDOW_MS, Math.round(2.5 * getClimateTickMs()));
 }
+
+/** Two, not MIN_SMOOTHING_SAMPLES.
+ *
+ *  The fast window's fallback is the 5 min median — the exact lag this whole change removes —
+ *  so demanding three samples builds a cliff: one late tick (GC, a slow prune, an `await
+ *  publish` that outlives the interval and is skipped by the `ticking` guard) and the loop
+ *  silently reverts to the behaviour that breached the rail, under precisely the load that
+ *  accompanies a transition. A reader between ticks fell off it too, so half of /api/climate's
+ *  previews disagreed with the actuator.
+ *
+ *  Two samples is a mean rather than a spike-rejecting median, and that is the right trade here
+ *  because the errors are not symmetric: a spike on the stop edge ends a vent run early, which
+ *  self-corrects — restarting needs BOTH windows under the floor, so the median still gates it —
+ *  while a late stop breaches a hard agronomic limit. One raw sample is still refused, which is
+ *  what the count is really guarding against. */
+export const MIN_FAST_SAMPLES = 2;
 
 /** A quiet loop still says so on this cadence, so a gap in the log means an outage. */
 const HEARTBEAT_MS = 15 * 60 * 1000;
@@ -152,7 +171,7 @@ export function buildDecisionInput(
   // the single unsmoothed sample — the most eager input there is — and decide.ts's fallback to
   // the median would never fire. A reader calling in between ticks lands here.
   const airVpdFast =
-    tentFast === null || state.tentTempFastC.count(nowMs) < MIN_SMOOTHING_SAMPLES
+    tentFast === null || state.tentTempFastC.count(nowMs) < MIN_FAST_SAMPLES
       ? null
       : airVpdKpa(tentFast.tempC, tentFast.rhPct);
   const ventedAirVpd = room === null ? null : ventedAirVpdKpa(room, inputs.lightsOn);

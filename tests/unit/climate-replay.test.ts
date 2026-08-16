@@ -16,6 +16,7 @@ import { decideClimate, type ClimateAction } from '../../src/lib/climate/decide'
 import { airVpdKpa, ventedAirVpdKpa } from '../../src/lib/climate/psychro';
 import { AIR_VPD_HARD_MAX, DEFAULT_CLIMATE_CONFIG, controlBand } from '../../src/lib/climate/model';
 import { RollingMedian } from '../../src/lib/climate/smoothing';
+import { MIN_FAST_SAMPLES, fastSmoothingWindowMs } from '../../src/lib/server/climate/loop';
 
 interface Sample {
   at: string;
@@ -91,7 +92,13 @@ const VENT_RUN_08_15: Array<[number, number]> = [
  */
 function replaySmoothed(tickSeconds: number): { peakWhileOn: number; starts: number } {
   const tickMs = tickSeconds * 1000;
-  const fastMs = Math.min(300_000, Math.round(2.5 * tickMs));
+  // The production sizing, not a copy of it: a change to fastSmoothingWindowMs has to be felt
+  // here, or this test guards a formula that no longer ships.
+  const prevTick = process.env.GROW_CLIMATE_TICK_SECONDS;
+  process.env.GROW_CLIMATE_TICK_SECONDS = String(tickSeconds);
+  const fastMs = fastSmoothingWindowMs();
+  if (prevTick === undefined) delete process.env.GROW_CLIMATE_TICK_SECONDS;
+  else process.env.GROW_CLIMATE_TICK_SECONDS = prevTick;
   const slowT = new RollingMedian(300_000), slowH = new RollingMedian(300_000);
   const fastT = new RollingMedian(fastMs), fastH = new RollingMedian(fastMs);
   let on = true;
@@ -115,7 +122,9 @@ function replaySmoothed(tickSeconds: number): { peakWhileOn: number; starts: num
         room: null,
         airVpd: airVpdKpa(slowT.value(nowMs)!, slowH.value(nowMs)!),
         airVpdFast:
-          fastT.count(nowMs) < 3 ? null : airVpdKpa(fastT.value(nowMs)!, fastH.value(nowMs)!),
+          fastT.count(nowMs) < MIN_FAST_SAMPLES
+            ? null
+            : airVpdKpa(fastT.value(nowMs)!, fastH.value(nowMs)!),
         ventedAirVpd: null,
         leafVpd: null,
         lightsOn: true,
@@ -140,7 +149,11 @@ describe('replay — 08-15 vent run, at the loop tick', () => {
     expect(peak).toBeGreaterThan(1.4);
   });
 
-  it('holds under the 1.20 rail at the 10 s tick', () => {
+  // `peakWhileOn` is the highest reading the tent showed while the fan was still commanded on,
+  // i.e. it measures WHEN the loop let go, not where the tent finally settled after it. On this
+  // trace the true peak lands within seconds of the stop, so the two are close, but the claim
+  // being made here is about the stop, not the coast.
+  it('lets go before the tent reaches the 1.20 rail, at the 10 s tick', () => {
     expect(replaySmoothed(10).peakWhileOn).toBeLessThan(AIR_VPD_HARD_MAX);
   });
 

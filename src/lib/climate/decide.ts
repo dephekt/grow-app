@@ -135,11 +135,16 @@ function applyTransition(
 
 /** Hysteresis plus the overrides, as a single desired fan state.
  *
- *  `vpd` is the 5 min median and `fast` a ~1 min one. Which applies is decided by the leg, not
- *  by preference: venting is the only thing that drives air VPD up quickly, so every branch
- *  reached with the fan running reads `fast`, and every branch reached with it off reads `vpd`,
- *  where the tent re-humidifies an order of magnitude slower and noise rejection is worth more
- *  than latency. */
+ *  `vpd` is the 5 min median and `fast` a ~25 s one, and the rule for choosing between them is
+ *  shared with the humidifier: STARTING needs both to agree, STOPPING acts on the short one.
+ *
+ *  The asymmetry is in the consequences, not the physics. A late stop breaches a hard agronomic
+ *  rail, while an early one merely ends a vent run short and self-corrects. A spurious start is
+ *  the expensive mistake — it is what short-cycles a relay, and what can set two opposed
+ *  actuators against each other — so it takes both windows to authorise one.
+ *
+ *  Requiring both to start costs nothing in latency: on the falling leg the short window crosses
+ *  the floor FIRST, so the median remains the gate, exactly as it was before this split. */
 function desireExhaust(
   input: ClimateDecisionInput,
   vpd: number,
@@ -181,13 +186,6 @@ function desireExhaust(
     return { on: true, why: `air VPD ${kpa(fast)} still below the ${kpa(band.high)} top of band` };
   }
 
-  // BOTH windows must agree before starting. The median alone is the noise-immune signal, but
-  // on its own it re-starts the fan seconds after a fast-triggered stop: the stop fires while
-  // the median still reads the bottom of the band, so the next tick sees `vpd < low` and vents
-  // again. Requiring the fast reading too restores "the band is the debounce" as a structural
-  // property rather than one the minimum-off timer has to rescue. It costs no latency, because
-  // on the falling leg the fast reading crosses the floor FIRST, so the median is still the
-  // one that gates.
   if (vpd < band.low && fast < band.low) {
     const why = `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band`;
     // Futility's start half; a missing room reference skips it rather than blocking.
@@ -195,6 +193,16 @@ function desireExhaust(
       return { on: true, why, blocked: `${why}, but venting predicts only ${kpa(vented)} against the ${kpa(vpd + config.minGainKpa)} needed` };
     }
     return { on: true, why };
+  }
+  // Below the floor on the median but not on the short window: the state the AND-gate above
+  // exists to create, and the one immediately following every vent stop. Said plainly, because
+  // falling through to the "inside the band" wording below would print a sentence contradicting
+  // its own number, on exactly the row an operator reads to understand the stop.
+  if (vpd < band.low) {
+    return {
+      on: false,
+      why: `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band, but the short window still reads ${kpa(fast)}`
+    };
   }
   const why =
     vpd > band.high
@@ -206,21 +214,31 @@ function desireExhaust(
 /** Engages at the hard ceiling, releases at the target, with a separation floor for the case
  *  an override sits ON the ceiling.
  *
- *  Reads the fast window on BOTH edges, because the rule is that whichever leg an actuator is
- *  driving must not lag — and both of this one's legs are driven. It approaches the ceiling
- *  under the exhaust and retreats from it under itself, so a lagging release would overshoot
- *  downward exactly as the lagging exhaust stop overshot upward. Only the exhaust has a truly
- *  passive leg (the tent re-humidifying at ~0.02 kPa/min), and that is the one place the
- *  median's noise rejection is worth its latency. */
-function desireHumidifier(band: ControlBand, fast: number, on: boolean): Desire {
+ *  Follows the same rule as the exhaust, which is about commitment rather than direction:
+ *  STARTING an actuator needs both windows to agree, STOPPING acts on the short one. Starting
+ *  is the committing move — two opposed actuators, or a mains humidifier short-cycling — while
+ *  stopping is always safe, and a late stop is what breaches a rail.
+ *
+ *  So engaging requires the median to reach the ceiling too. The approach to the ceiling is
+ *  driven by the EXHAUST, and the post-vent transient is exactly what the median is there to
+ *  reject: without this, the fast window catching up after a vent stop could engage the
+ *  humidifier at a ceiling the tent never really held, which then runs to the release point and
+ *  pushes VPD back under the floor for another vent — a short cycle between opposed actuators. */
+function desireHumidifier(band: ControlBand, vpd: number, fast: number, on: boolean): Desire {
   const release = Math.min(band.target, AIR_VPD_HARD_MAX - HUMIDIFIER_MIN_SEPARATION_KPA);
   if (on) {
     return fast > release
       ? { on: true, why: `air VPD ${kpa(fast)} still above the ${kpa(release)} release point` }
       : { on: false, why: `air VPD ${kpa(fast)} back below the ${kpa(release)} release point` };
   }
+  if (fast >= AIR_VPD_HARD_MAX && vpd >= AIR_VPD_HARD_MAX) {
+    return { on: true, why: `air VPD ${kpa(fast)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
+  }
   return fast >= AIR_VPD_HARD_MAX
-    ? { on: true, why: `air VPD ${kpa(fast)} at or above the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` }
+    ? {
+        on: false,
+        why: `short window reads ${kpa(fast)} at the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling, but the median is still ${kpa(vpd)}`
+      }
     : { on: false, why: `air VPD ${kpa(fast)} below the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling` };
 }
 
@@ -254,7 +272,7 @@ export function decideClimate(input: ClimateDecisionInput): ClimateAction {
 
   // Only while the fan is idle, so the two can never be commanded together.
   if (!fan.on) {
-    const rh = desireHumidifier(band, fast, humidifier.on);
+    const rh = desireHumidifier(band, vpd, fast, humidifier.on);
     const rhAction = applyTransition('humidify', humidifier, rh, config.rhSource, config, nowMs);
     if (rhAction) return rhAction;
   }

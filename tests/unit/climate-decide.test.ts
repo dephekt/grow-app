@@ -187,6 +187,17 @@ describe('decideClimate — asymmetric smoothing', () => {
     expect(decideClimate(input({ airVpd: 0.95, airVpdFast: 0.80 })).kind).toBe('hold');
   });
 
+  // The state right after a fast-triggered stop: the tent is hot but the 5 min median is still
+  // dominated by pre-run samples. Starting on the median alone re-vents one tick after
+  // stopping, which is the short-cycle the band is supposed to make impossible.
+  it('refuses to re-start while the fast reading is still high, though the median is under the floor', () => {
+    const d = decideClimate(input({ airVpd: 0.88, airVpdFast: 1.05 }));
+    expect(d.kind).toBe('hold');
+    // And says so, rather than claiming 0.88 is inside a band that starts at 0.90.
+    expect(d.reason).toContain('below the 0.90 floor');
+    expect(d.reason).toContain('1.05');
+  });
+
   it('starts once the median itself falls below the floor', () => {
     expect(decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89 }))).toMatchObject({
       kind: 'exhaust',
@@ -462,6 +473,23 @@ describe('decideClimate — humidifier', () => {
   it('engages at the hard ceiling', () => {
     const d = decideClimate(input({ airVpd: 1.2, config: loopRh, humidifier: { present: true } }));
     expect(d).toMatchObject({ kind: 'humidify', on: true });
+  });
+
+  // Starting is the committing move, so it takes both windows — the fast one catching up after
+  // a vent stop is precisely the transient the median is there to reject, and engaging on it
+  // would set the humidifier against the exhaust.
+  it('does not engage on the post-vent transient alone', () => {
+    const d = decideClimate(
+      input({ airVpd: 1.08, airVpdFast: 1.25, config: loopRh, humidifier: { present: true } })
+    );
+    expect(d.kind).toBe('hold');
+  });
+
+  it('releases on the fast reading, so it does not overshoot the target downward', () => {
+    const d = decideClimate(
+      input({ airVpd: 1.15, airVpdFast: 0.99, config: loopRh, humidifier: { present: true, on: true } })
+    );
+    expect(d).toMatchObject({ kind: 'humidify', on: false });
   });
 
   it('releases back at the target, not at the floor — no shared edge with the exhaust', () => {
