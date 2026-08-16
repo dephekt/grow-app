@@ -23,6 +23,15 @@ const TYPED = [
   'vite.config.{js,ts}'
 ];
 
+// The other half of that mirror: tsconfig's `exclude`. SvelteKit builds the service worker in a
+// program of its own, so these live under src/ but not in ours -- and projectService fails a file
+// it cannot find outright, so they have to come back out of TYPED.
+const NOT_TYPED = [
+  'src/service-worker.{js,ts}',
+  'src/service-worker.d.ts',
+  'src/service-worker/**/*.{js,ts}'
+];
+
 // No published header plugin can enforce this on components, because svelte-eslint-parser drops
 // comments that sit outside <script>/<style> and so never reports the <!-- --> form.
 const spdxHeader = {
@@ -102,7 +111,12 @@ export default defineConfig(
     // cannot find in the project outright rather than degrading, so a component added anywhere
     // outside src/ would report `Parsing error: ... not found by the project service` instead of
     // simply going un-type-checked.
+    //
+    // This also makes ESLint depend on `svelte-kit sync` output: without .svelte-kit/tsconfig.json
+    // every import resolves to an error type and a single file reports ~111 phantom `no-unsafe-*`.
+    // `pnpm lint` syncs first; a bare `eslint` or an editor's LSP on a fresh clone does not.
     files: TYPED,
+    ignores: NOT_TYPED,
     languageOptions: { parserOptions: { projectService: true } }
   },
 
@@ -193,6 +207,7 @@ export default defineConfig(
     // Scoped, never universal: every rule here calls getParserServices, which throws rather than
     // degrading when a file carries no type information.
     files: TYPED,
+    ignores: NOT_TYPED,
     rules: {
       '@typescript-eslint/no-unsafe-argument': 'error',
       '@typescript-eslint/no-unsafe-assignment': 'error',
@@ -214,6 +229,10 @@ export default defineConfig(
     ignores: TYPED,
     extends: [ts.configs.disableTypeChecked]
   },
+
+  // The service worker is inside TYPED's globs but outside the program, so the block above skips
+  // it. Named here so every file lands in exactly one half.
+  { files: NOT_TYPED, extends: [ts.configs.disableTypeChecked] },
 
   {
     files: ['**/*.ts', '**/*.js', '**/*.mjs', '**/*.svelte'],
