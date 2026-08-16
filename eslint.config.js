@@ -200,7 +200,7 @@ export default defineConfig(
     // Scoped, never universal: every rule here calls getParserServices, which throws rather than
     // degrading when a file carries no type information. Widens with each commit of #165; the
     // endpoint is TYPED_TS plus src/**/*.svelte.
-    files: ['src/routes/**/*.ts', 'src/routes/**/*.svelte'],
+    files: ['src/routes/**/*.ts', 'src/routes/**/*.svelte', 'tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-argument': 'error',
       '@typescript-eslint/no-unsafe-assignment': 'error',

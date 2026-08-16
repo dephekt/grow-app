@@ -60,7 +60,7 @@ describe('dial spectrum binning', () => {
     for (let i = 0; i < PIXEL_COUNT; i++)
       if (Math.abs(WAVELENGTHS[i] - target) < Math.abs(WAVELENGTHS[idx] - target)) idx = i;
 
-    const relative = new Array(PIXEL_COUNT).fill(0);
+    const relative = new Array<number>(PIXEL_COUNT).fill(0);
     relative[idx] = 100;
 
     const out = toDialSpectrum(frame(relative), 1);
@@ -86,7 +86,7 @@ describe('dial spectrum binning', () => {
   });
 
   it('returns all-zero bins for a blank frame rather than dividing by zero', () => {
-    const out = toDialSpectrum(frame(new Array(PIXEL_COUNT).fill(0)), 7);
+    const out = toDialSpectrum(frame(new Array<number>(PIXEL_COUNT).fill(0)), 7);
     expect(out.bins).toHaveLength(DIAL_BIN_COUNT);
     expect(out.bins.every((v) => v === 0)).toBe(true);
     expect(out.peak).toBeNull();

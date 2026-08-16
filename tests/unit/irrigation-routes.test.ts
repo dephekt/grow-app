@@ -3,6 +3,23 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { AuthenticatedUser } from '$lib/server/auth/users';
+import { readJson } from './http';
+
+type ZoneRow = { id: string; name: string; stationEntityId: string };
+type ZoneBody = { zone: ZoneRow };
+type ZonesBody = { zones: ZoneRow[] };
+type ErrorBody = { error: string };
+type EventsBody = {
+  total: number;
+  limit: number;
+  offset: number;
+  anchorId: number;
+  events: { stationSid: number }[];
+};
+type ProbeRow = { nodeId: string; zoneId: string | null; name: string | null };
+type ProbeBody = { probe: ProbeRow };
+type ProbesBody = { probes: ProbeRow[] };
+type DeletedBody = { deleted: boolean };
 
 // Pin the store to an in-memory DB and leave OpenSprinkler DISABLED (GROW_OS_ENABLED
 // unset) so the routes never reach the controller/MQTT client — the run/stop guard
@@ -51,7 +68,7 @@ async function createViaApi(
   const res = (await POST(
     event({ body, user: admin }) as unknown as Parameters<typeof POST>[0]
   )) as Response;
-  return (await res.json()).zone;
+  return (await readJson<ZoneBody>(res)).zone;
 }
 
 beforeEach(() => {
@@ -63,11 +80,11 @@ beforeEach(() => {
 describe('/api/irrigation/zones', () => {
   it('lists zones (empty, then reflects created ones)', async () => {
     let res = (await GET(event({}) as unknown as Parameters<typeof GET>[0])) as Response;
-    expect((await res.json()).zones).toEqual([]);
+    expect((await readJson<ZonesBody>(res)).zones).toEqual([]);
 
     await createViaApi({ name: 'Tent 1', stationSid: 0 });
     res = (await GET(event({}) as unknown as Parameters<typeof GET>[0])) as Response;
-    expect((await res.json()).zones).toHaveLength(1);
+    expect((await readJson<ZonesBody>(res)).zones).toHaveLength(1);
   });
 
   it('gates create behind admin (401 anon, 403 non-admin)', async () => {
@@ -90,7 +107,7 @@ describe('/api/irrigation/zones', () => {
       event({ body: { stationSid: 0 }, user: admin }) as unknown as Parameters<typeof POST>[0]
     )) as Response;
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/name/);
+    expect((await readJson<ErrorBody>(res)).error).toMatch(/name/);
   });
 
   it('creates a zone and returns its derived station entity id', async () => {
@@ -100,7 +117,7 @@ describe('/api/irrigation/zones', () => {
       >[0]
     )) as Response;
     expect(res.status).toBe(201);
-    const zone = (await res.json()).zone;
+    const zone = (await readJson<ZoneBody>(res)).zone;
     expect(zone.name).toBe('Tent 1');
     expect(zone.stationEntityId).toBe('opensprinkler_station_3');
   });
@@ -113,7 +130,7 @@ describe('/api/irrigation/zones', () => {
       >[0]
     )) as Response;
     expect(res.status).toBe(409);
-    expect((await res.json()).error).toMatch(/station 0/i);
+    expect((await readJson<ErrorBody>(res)).error).toMatch(/station 0/i);
   });
 });
 
@@ -134,8 +151,9 @@ describe('/api/irrigation/events', () => {
 
   it('defaults to the newest 25 rows and reports the full count', async () => {
     insertEvents(30);
-    const body = await getEvents().json();
-    expect(body).toMatchObject({ total: 30, limit: 25, offset: 0, anchorId: expect.any(Number) });
+    const body = await readJson<EventsBody>(getEvents());
+    expect(body).toMatchObject({ total: 30, limit: 25, offset: 0 });
+    expect(body.anchorId).toEqual(expect.any(Number));
     expect(body.events).toHaveLength(25);
     expect(body.events[0].stationSid).toBe(29);
     expect(body.events[24].stationSid).toBe(5);
@@ -143,7 +161,7 @@ describe('/api/irrigation/events', () => {
 
   it('holds an offset page at its anchor and clamps invalid pagination values', async () => {
     insertEvents(30);
-    const firstPage = await getEvents().json();
+    const firstPage = await readJson<EventsBody>(getEvents());
     getIrrigationDb()
       .prepare(
         `INSERT INTO irrigation_events (kind, station_sid, source, seconds, ts)
@@ -151,14 +169,15 @@ describe('/api/irrigation/events', () => {
       )
       .run();
 
-    let body = await getEvents(`?limit=5&offset=25&anchorId=${firstPage.anchorId}`).json();
+    let body = await readJson<EventsBody>(
+      getEvents(`?limit=5&offset=25&anchorId=${firstPage.anchorId}`)
+    );
     expect(body).toMatchObject({ total: 30, limit: 5, offset: 25 });
-    expect(body.events.map((event: { stationSid: number }) => event.stationSid)).toEqual([
-      4, 3, 2, 1, 0
-    ]);
+    expect(body.events.map((event) => event.stationSid)).toEqual([4, 3, 2, 1, 0]);
 
-    body = await getEvents('?limit=0&offset=-1&anchorId=999999').json();
-    expect(body).toMatchObject({ limit: 25, offset: 0, anchorId: expect.any(Number) });
+    body = await readJson<EventsBody>(getEvents('?limit=0&offset=-1&anchorId=999999'));
+    expect(body).toMatchObject({ limit: 25, offset: 0 });
+    expect(body.anchorId).toEqual(expect.any(Number));
     expect(body.anchorId).toBeLessThan(999999);
   });
 });
@@ -181,7 +200,7 @@ describe('/api/irrigation/zones/[id]', () => {
       event({ body: { name: 'Tent A' }, id: zone.id }) as unknown as Parameters<typeof PATCH>[0]
     )) as Response;
     expect(res.status).toBe(200);
-    expect((await res.json()).zone.name).toBe('Tent A');
+    expect((await readJson<ZoneBody>(res)).zone.name).toBe('Tent A');
 
     res = (await DELETE(
       event({ id: zone.id }) as unknown as Parameters<typeof DELETE>[0]
@@ -224,28 +243,25 @@ describe('/api/irrigation/probes/[nodeId]', () => {
   it('rejects a body that names no field, so no all-null row is conjured', async () => {
     expect((await patch({ body: {} })).status).toBe(400);
     expect(
-      (
-        (await (await GET(event({}) as unknown as Parameters<typeof GET>[0])).json()) as {
-          probes: unknown[];
-        }
-      ).probes
+      (await readJson<ProbesBody>(await GET(event({}) as unknown as Parameters<typeof GET>[0])))
+        .probes
     ).toEqual([]);
   });
 
   it('binds a probe, renames it without unbinding, and lists it beside the zones', async () => {
     const zone = await createViaApi({ name: 'Tent 1', stationSid: 0 });
     expect((await patch({ body: { zoneId: zone.id } })).status).toBe(200);
-    expect((await (await patch({ body: { name: 'Gelato A' } })).json()).probe).toMatchObject({
+    expect(
+      (await readJson<ProbeBody>(await patch({ body: { name: 'Gelato A' } }))).probe
+    ).toMatchObject({
       nodeId: 'substrate-a',
       zoneId: zone.id,
       name: 'Gelato A'
     });
 
-    const listed = (await (
+    const listed = await readJson<ProbesBody>(
       await GET(event({}) as unknown as Parameters<typeof GET>[0])
-    ).json()) as {
-      probes: { nodeId: string; zoneId: string | null }[];
-    };
+    );
     expect(listed.probes).toHaveLength(1);
     expect(listed.probes[0]).toMatchObject({ nodeId: 'substrate-a', zoneId: zone.id });
   });
@@ -256,9 +272,9 @@ describe('/api/irrigation/probes/[nodeId]', () => {
         probeEvent({ user }) as unknown as Parameters<typeof PROBE_DELETE>[0]
       ) as Promise<Response>;
     expect((await del(member)).status).toBe(403);
-    expect((await (await del()).json()).deleted).toBe(false);
+    expect((await readJson<DeletedBody>(await del())).deleted).toBe(false);
     await patch({ body: { name: 'Gelato A' } });
-    expect((await (await del()).json()).deleted).toBe(true);
+    expect((await readJson<DeletedBody>(await del())).deleted).toBe(true);
   });
 });
 

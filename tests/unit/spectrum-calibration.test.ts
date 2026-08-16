@@ -11,7 +11,7 @@ import {
   PIXEL_COUNT
 } from '$lib/spectrum/calibration';
 
-const ZERO_DARK = new Array(PIXEL_COUNT).fill(0);
+const ZERO_DARK = new Array<number>(PIXEL_COUNT).fill(0);
 
 describe('spectrum calibration', () => {
   it('maps 288 monotonically increasing wavelengths across the sensor range', () => {
@@ -54,7 +54,7 @@ describe('spectrum calibration', () => {
   });
 
   it('leaves absolute PPFD/PAR/ePAR null and calibrated=false without an anchor', () => {
-    const p = processSpectrum(new Array(PIXEL_COUNT).fill(2000), {
+    const p = processSpectrum(new Array<number>(PIXEL_COUNT).fill(2000), {
       adcFullScale: 16383,
       integrationUs: 20000
     });
@@ -65,20 +65,20 @@ describe('spectrum calibration', () => {
   });
 
   it('flags saturation from a pinned pixel', () => {
-    const counts = new Array(PIXEL_COUNT).fill(1000);
+    const counts = new Array<number>(PIXEL_COUNT).fill(1000);
     counts[120] = 16383;
     const p = processSpectrum(counts, { adcFullScale: 16383 });
     expect(p.saturated).toBe(true);
   });
 
   it('reports a null peak (not a phantom ~320 nm) for an all-dark frame', () => {
-    const p = processSpectrum(new Array(PIXEL_COUNT).fill(0), { adcFullScale: 16383 });
+    const p = processSpectrum(new Array<number>(PIXEL_COUNT).fill(0), { adcFullScale: 16383 });
     expect(p.peakWavelengthNm).toBeNull();
     expect(Math.max(...p.relative)).toBe(0);
   });
 
   it('ignores saturation in the optically-black dummy pixels', () => {
-    const counts = new Array(PIXEL_COUNT).fill(1000);
+    const counts = new Array<number>(PIXEL_COUNT).fill(1000);
     counts[2] = 16383; // dummy region (0..4) — a dark-offset spike, not real saturation
     expect(processSpectrum(counts, { adcFullScale: 16383 }).saturated).toBe(false);
     counts[2] = 1000;
@@ -112,7 +112,7 @@ describe('spectrum calibration', () => {
     // Equal raw counts at a blue and a red pixel — the only difference between views is the transform.
     const blueIdx = WAVELENGTHS.findIndex((nm) => nm >= 450);
     const redIdx = WAVELENGTHS.findIndex((nm) => nm >= 660);
-    const counts = new Array(PIXEL_COUNT).fill(0);
+    const counts = new Array<number>(PIXEL_COUNT).fill(0);
     counts[blueIdx] = 1000;
     counts[redIdx] = 1000;
     const redOverBlue = (v: 'raw' | 'photon' | 'energy') => {
@@ -284,7 +284,7 @@ describe('processSpectrum — estimate vs reference differentiation', () => {
 
     // A near-dark frame collapses the counts-based PPFD toward 0 (the stuck-reading symptom), but the
     // live-lux path holds. Same integration time; only the counts are bad.
-    const badFrame = new Array(PIXEL_COUNT).fill(50);
+    const badFrame = new Array<number>(PIXEL_COUNT).fill(50);
     const countsPath = processSpectrum(badFrame, {
       integrationUs: 8000,
       config: { anchors: { lux: luxAnchor } }
