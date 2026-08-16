@@ -69,4 +69,16 @@ Use your own name in the copyright line for files you author outright.
 See [AGENTS.md](AGENTS.md). Most importantly: this app is Svelte 5 runes mode
 only — no `export let`, `$:`, `on:click`, or `<slot />`.
 
-Run `pnpm check` and `pnpm test` before opening a pull request.
+Formatting is Prettier's job. There are no git hooks — CI is where an
+unformatted tree is caught, and that costs a full round trip. Run these before
+opening a pull request:
+
+```sh
+pnpm format       # rewrites; CI runs pnpm format:check
+pnpm check
+pnpm test
+```
+
+A one-time Prettier reformat touched most of the tree, so `git blame` on an
+untouched line may point at it rather than at the author. A
+`.git-blame-ignore-revs` follows once the reformat has a commit on `main`.
