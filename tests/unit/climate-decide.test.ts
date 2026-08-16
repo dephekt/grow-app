@@ -235,8 +235,22 @@ describe('decideClimate — minimum on/off', () => {
     expect(d).toMatchObject({ kind: 'exhaust', on: true });
   });
 
-  it('holds out the minimum on before stopping', () => {
+  // Reversed deliberately. The minimum on used to defer a band-top stop, which was survivable
+  // only while the stop read the 5 min median and therefore always arrived after the timer had
+  // expired. Reading the top of band promptly puts the stop inside the minimum: at the daylight
+  // 0.25 kPa/min a run started at the 0.90 floor crosses to 1.10 in ~48s, and holding it to 120s
+  // releases the fan at 1.23 — past the rail the short window exists to defend.
+  it('does not hold out the minimum on before stopping at the top of band', () => {
     const d = decideClimate(input({ airVpd: 1.15, exhaust: { on: true, lastChangeMs: NOW - 30_000 } }));
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+  });
+
+  it('still serves the minimum on for a stop that is not defending the rail', () => {
+    // The futility stop: the room has gone humid mid-run, so venting no longer helps. Nothing
+    // is breached by running on a little longer, so the timer keeps its say.
+    const d = decideClimate(
+      input({ airVpd: 0.95, exhaust: { on: true, lastChangeMs: NOW - 30_000 }, room: { tempC: 24, rhPct: 95 } })
+    );
     expect(d.kind).toBe('hold');
     expect(d.reason).toContain('minimum on');
   });
@@ -299,16 +313,28 @@ describe('decideClimate — guards that must work in both directions', () => {
 describe('decideClimate — permission is applied once, for every leg', () => {
   const week6 = controlBand(1.1, 0.1);
 
-  it('does not treat the ordinary release as a ceiling breach when the band reaches the rail', () => {
-    // Weeks 6-10 clamp band.high to exactly 1.20, so keying urgency off `vpd >= HARD_MAX`
-    // voided the minimum on for half the grow — the fan could run a single 30 s tick.
+  // The old worry here was that weeks 6-10 clamp band.high to exactly 1.20, so keying urgency
+  // off `vpd >= HARD_MAX` voided the minimum on for half the grow. It is now voided for a
+  // band-top stop in every week by design, so the question becomes whether that permits a
+  // one-tick run — and it does not: starting needs BOTH windows under band.low, which cannot
+  // be true on the tick before one reads band.high.
+  it('releases at the top of band in the weeks where the band reaches the rail', () => {
     expect(week6.high).toBe(AIR_VPD_HARD_MAX);
     const d = decideClimate({
       ...input({ airVpd: 1.2, exhaust: { on: true, lastChangeMs: NOW - 30_000 } }),
       band: week6
     });
-    expect(d.kind).toBe('hold');
-    expect(d.reason).toContain('minimum on');
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+  });
+
+  it('cannot start and stop within one tick, which is what the minimum on protected', () => {
+    // A start demands both windows below 0.90 and a stop demands the fast one at or above the
+    // band top, so no single reading can satisfy both and no pair of adjacent ticks can either
+    // without the tent crossing the whole band in one tick.
+    const started = decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89, exhaust: { on: false } }));
+    expect(started).toMatchObject({ kind: 'exhaust', on: true });
+    const next = decideClimate(input({ airVpd: 0.89, airVpdFast: 0.89, exhaust: { on: true, lastChangeMs: NOW } }));
+    expect(next.kind).toBe('hold');
   });
 
   it('still overrides the minimum once VPD is past the band top as well', () => {

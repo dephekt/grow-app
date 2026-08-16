@@ -187,6 +187,7 @@
     <BandGauge
       band={climate.band}
       airVpd={climate.airVpd}
+      airVpdFast={climate.airVpdFast}
       leafVpd={climate.leafVpd}
       ventedAirVpd={climate.ventedAirVpd}
     />

@@ -102,7 +102,11 @@ function replaySmoothed(tickSeconds: number): { peakWhileOn: number; starts: num
   const slowT = new RollingMedian(300_000), slowH = new RollingMedian(300_000);
   const fastT = new RollingMedian(fastMs), fastH = new RollingMedian(fastMs);
   let on = true;
-  let lastChangeMs: number | null = null;
+  // The fan is treated as having just started, so the minimum-on timer is LIVE. Left null, the
+  // timer never engages and the rail assertions below certify a property they do not exercise —
+  // the measured trace happens to sit flat for its first ~130s and outruns the 120s minimum,
+  // so it would pass either way.
+  let lastChangeMs: number | null = 0;
   let peakWhileOn = 0;
   let starts = 0;
 
@@ -167,6 +171,62 @@ describe('replay — 08-15 vent run, at the loop tick', () => {
 
   it('never re-starts the fan inside a single run', () => {
     expect(replaySmoothed(10).starts).toBe(0);
+  });
+});
+
+/**
+ * The measured trace is flat for its first ~130 s, so it clears the 120 s minimum on before it
+ * ramps and cannot catch a stop the timer defers. This is the case it misses: a run that starts
+ * at the floor and ramps immediately, which is what a daylight vent actually does.
+ */
+describe('a vent that ramps from the moment it starts', () => {
+  function rampFromStart(rateKpaPerMin: number): number {
+    const tickMs = 10_000;
+    let on = true;
+    let lastChangeMs: number | null = 0;
+    let peakWhileOn = 0;
+    // Held at 29 °C, with RH solved to place air VPD exactly on the ramp.
+    const tempC = 29.0;
+    const svp = airVpdKpa(tempC, 0);
+    for (let k = 0; k * tickMs <= 600_000; k++) {
+      const nowMs = k * tickMs;
+      const vpd = 0.9 + (rateKpaPerMin / 60) * (nowMs / 1000);
+      if (on) peakWhileOn = Math.max(peakWhileOn, vpd);
+      const action = decideClimate({
+        nowMs,
+        config: CONFIG,
+        band: BAND,
+        reading: {
+          tent: { tempC, rhPct: (1 - vpd / svp) * 100 },
+          room: null,
+          airVpd: vpd,
+          airVpdFast: vpd,
+          ventedAirVpd: null,
+          leafVpd: null,
+          lightsOn: true,
+          warmingUp: false
+        },
+        exhaust: { present: true, on, lastChangeMs },
+        humidifier: { present: false, on: false, lastChangeMs: null },
+        armsOn: []
+      });
+      if (action.kind === 'exhaust' && action.on !== on) {
+        on = action.on;
+        lastChangeMs = nowMs;
+      }
+      if (!on) break;
+    }
+    return peakWhileOn;
+  }
+
+  // 0.25 kPa/min crosses the 0.20-wide band in ~48s, well inside the 120s minimum on, so a
+  // deferred stop lands at 1.23 — past the rail the short window exists to defend.
+  it('lets go at the top of band rather than waiting out the minimum on', () => {
+    expect(rampFromStart(0.25)).toBeLessThan(AIR_VPD_HARD_MAX);
+  });
+
+  it('holds the rail at the steeper rates a hot tent reaches', () => {
+    expect(rampFromStart(0.4)).toBeLessThan(AIR_VPD_HARD_MAX);
   });
 });
 

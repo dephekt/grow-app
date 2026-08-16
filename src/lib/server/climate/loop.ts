@@ -306,8 +306,12 @@ export function getClimateLogRetentionDays(): number {
  *  and wrong for a vent run: replaying the measured 08-15 ramp, a 30s tick peaks at 1.25 and a
  *  20s tick at 1.23, both past the 1.20 rail, while 10s peaks at 1.13. No window length fixes
  *  a 30s tick, because at 0.25 kPa/min the tent crosses from band top to rail in under 25s.
- *  Ticks are cheap — a snapshot read and arithmetic — and log rows are written on transitions
- *  and the 15 min heartbeat, not per tick, so this does not triple the log. */
+ *  A tick is not free: `snapshot()` rebuilds the entity world and `resolveClimateInputs` then
+ *  walks it again, so tripling the rate triples that. It is still microseconds at this rig's
+ *  entity count, and it buys the rail — but if the entity count grows by an order of magnitude,
+ *  cache the snapshot rather than slowing the tick, because the tick is load-bearing now. Log
+ *  volume is unaffected: rows are written on transitions and the 15 min heartbeat, not per
+ *  tick. */
 export function getClimateTickMs(): number {
   return Math.max(5, intEnv('GROW_CLIMATE_TICK_SECONDS', 10)) * 1000;
 }

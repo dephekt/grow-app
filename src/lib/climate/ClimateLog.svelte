@@ -105,7 +105,7 @@
                    must not sit beside a column showing only the median. Shown when the two
                    have actually diverged, which is when the question gets asked. -->
               <td class="mono"
-                >{num(e.airVpd)}{#if e.airVpdFast !== null && Math.abs(e.airVpdFast - (e.airVpd ?? 0)) >= 0.01}<span
+                >{num(e.airVpd)}{#if e.airVpdFast !== null && e.airVpd !== null && Math.abs(e.airVpdFast - e.airVpd) >= 0.01}<span
                     class="sub"
                   >
                     / {num(e.airVpdFast)} fast</span

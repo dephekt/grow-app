@@ -163,7 +163,10 @@ function desireExhaust(
     const why = `tent ${degC(tentC!)} °C at or below the ${degC(config.ventNeverBelowC)} °C floor`;
     if (exhaust.on) return { on: false, urgent: true, why: `${why} — stopping regardless of VPD` };
     // Still wants ON, because a block reporting `on: false` is no transition and says nothing.
-    return vpd < band.low
+    // Both windows, same as the mainline start: on the tick after a vent stop the median is
+    // under the floor while the short window is not, and testing the median alone would raise
+    // a red `blocked · exhaust ON` for a start that would not have been attempted.
+    return vpd < band.low && fast < band.low
       ? { on: true, why, blocked: `air VPD ${kpa(vpd)} below the ${kpa(band.low)} floor of band, but ${why}` }
       : { on: false, why };
   }
@@ -174,8 +177,18 @@ function desireExhaust(
     if (fast >= band.high) {
       return {
         on: false,
-        // Urgent only PAST the band's top, or the minimum on is void for weeks 6 to 10.
-        urgent: fast > band.high && fast >= AIR_VPD_HARD_MAX,
+        // Always urgent, so the minimum on can never defer a stop. It used to apply until the
+        // hard rail, which was survivable only because the median stop was so late the timer had
+        // always expired. Reading the top of band promptly puts the stop INSIDE the minimum: a
+        // run starting at the 0.90 floor reaches 1.10 in ~48s at the daylight 0.25 kPa/min, so
+        // the timer would hold the fan through the band and release it at 1.23, past the rail
+        // the short window exists to defend.
+        //
+        // Nothing is lost. The minimum on is anti-chatter, and chatter is already impossible by
+        // construction: restarting needs BOTH windows under the floor, which at the ~0.02
+        // kPa/min a tent re-humidifies at is ten minutes away. It still governs the futility
+        // stop below, where running on a little longer costs nothing.
+        urgent: true,
         why: `air VPD ${kpa(fast)} reached the ${kpa(band.high)} top of band`
       };
     }

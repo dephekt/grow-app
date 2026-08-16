@@ -7,11 +7,15 @@
   let {
     band,
     airVpd,
+    airVpdFast = null,
     leafVpd = null,
     ventedAirVpd = null
   }: {
     band: ControlBand;
     airVpd: number | null;
+    /** The reading the band edges act on. The verdict beside this gauge is written from it, so
+     *  the label has to agree with it or the two contradict each other during a vent run. */
+    airVpdFast?: number | null;
     leafVpd?: number | null;
     ventedAirVpd?: number | null;
   } = $props();
@@ -22,22 +26,30 @@
   const MAX = 1.8;
   const pct = (v: number) => ((Math.min(MAX, Math.max(MIN, v)) - MIN) / (MAX - MIN)) * 100;
 
+  // Judged on the reading the loop judges on, not the median, so the gauge cannot read "in band"
+  // at the moment the verdict beside it says the fan was released at the top.
+  const edge = $derived(airVpdFast ?? airVpd);
+
   const state = $derived.by(() => {
-    if (airVpd === null) return { label: 'no reading', tone: 'unknown' };
-    if (airVpd < AIR_VPD_HARD_MIN) return { label: 'below the hard floor', tone: 'alert' };
-    if (airVpd > AIR_VPD_HARD_MAX) return { label: 'above the hard ceiling', tone: 'alert' };
-    if (airVpd < band.low) return { label: 'below band', tone: 'warn' };
-    if (airVpd > band.high) return { label: 'above band', tone: 'warn' };
+    if (edge === null) return { label: 'no reading', tone: 'unknown' };
+    if (edge < AIR_VPD_HARD_MIN) return { label: 'below the hard floor', tone: 'alert' };
+    if (edge > AIR_VPD_HARD_MAX) return { label: 'above the hard ceiling', tone: 'alert' };
+    if (edge < band.low) return { label: 'below band', tone: 'warn' };
+    if (edge > band.high) return { label: 'above band', tone: 'warn' };
     return { label: 'in band', tone: 'ok' };
   });
+
+  /** Shown only once the two have parted, which is during a vent run and nowhere else. */
+  const diverged = $derived(airVpdFast !== null && airVpd !== null && Math.abs(airVpdFast - airVpd) >= 0.01);
 </script>
 
 <div class="gauge">
   <div class="head">
     <span class="value mono" class:alert={state.tone === 'alert'} class:warn={state.tone === 'warn'}>
-      {airVpd === null ? '—' : airVpd.toFixed(2)}
+      {edge === null ? '—' : edge.toFixed(2)}
     </span>
     <span class="unit mono">kPa air VPD</span>
+    {#if diverged}<span class="unit mono">({airVpd!.toFixed(2)} median)</span>{/if}
     <span class="verdict mono {state.tone}">{state.label}</span>
   </div>
 
@@ -52,8 +64,11 @@
     {#if leafVpd !== null}
       <div class="leaf" style="left:{pct(leafVpd)}%" title="leaf VPD {leafVpd.toFixed(2)}"></div>
     {/if}
-    {#if airVpd !== null}
-      <div class="needle {state.tone}" style="left:{pct(airVpd)}%"></div>
+    {#if diverged}
+      <div class="ghost" style="left:{pct(airVpd!)}%" title="5 min median {airVpd!.toFixed(2)}"></div>
+    {/if}
+    {#if edge !== null}
+      <div class="needle {state.tone}" style="left:{pct(edge)}%"></div>
     {/if}
   </div>
 
