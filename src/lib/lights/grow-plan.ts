@@ -221,8 +221,8 @@ export function buildGuidance(
 
   const deltaPct = ((livePpfd - target) / target) * 100;
   const hasDimmer = dimmerPct != null && dimmerPct > 0;
-  const dimmerForTargetPct = hasDimmer ? (dimmerPct as number) * (target / livePpfd) : null;
-  const estDistanceCm = hasDimmer ? distanceForPpfd(livePpfd, dimmerPct as number) : null;
+  const dimmerForTargetPct = hasDimmer ? dimmerPct * (target / livePpfd) : null;
+  const estDistanceCm = hasDimmer ? distanceForPpfd(livePpfd, dimmerPct) : null;
 
   if (Math.abs(deltaPct) <= ON_TARGET_TOL_PCT) {
     return {

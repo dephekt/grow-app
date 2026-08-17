@@ -279,8 +279,8 @@
     const stepsForType: Record<ProbeType, typeof PH_STEPS> = {
       ph: PH_STEPS,
       ec: EC_STEPS as typeof PH_STEPS,
-      rtd: RTD_STEPS as typeof PH_STEPS,
-      orp: ORP_STEPS as typeof PH_STEPS
+      rtd: RTD_STEPS,
+      orp: ORP_STEPS
     };
 
     const probes: ProbeConfig[] = [];

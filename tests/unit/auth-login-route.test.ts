@@ -49,7 +49,7 @@ async function invokeLogin(
   const event = { request, cookies, getClientAddress: () => ip } as unknown as Parameters<
     typeof POST
   >[0];
-  const res = (await POST(event)) as Response;
+  const res = await POST(event);
   return { res, setCookies };
 }
 

@@ -87,7 +87,7 @@ export function lookupSession(db: DatabaseSync, token: string): SessionLookup | 
     sessionId: session_id,
     expiresAt: session_expires_at,
     loginMethod: session_login_method,
-    user: user as UserRow
+    user
   };
 }
 

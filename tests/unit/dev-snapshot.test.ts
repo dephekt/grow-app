@@ -64,11 +64,11 @@ const config = {
 } satisfies DevSnapshotConfig;
 
 function fetchSnapshot(body: unknown, status = 200): typeof fetch {
-  return (async () =>
+  return async () =>
     new Response(JSON.stringify(body), {
       status,
       headers: { 'content-type': 'application/json' }
-    })) as typeof fetch;
+    });
 }
 
 describe('dev snapshot simulation', () => {

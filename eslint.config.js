@@ -218,7 +218,8 @@ export default defineConfig(
       '@typescript-eslint/no-unsafe-unary-minus': 'error',
       // Kit's error() and redirect() throw for themselves and are typed `never`, so `throw
       // error(...)` throws an HttpError, which is not an Error subclass.
-      '@typescript-eslint/only-throw-error': 'error'
+      '@typescript-eslint/only-throw-error': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error'
     }
   },
 

@@ -50,7 +50,7 @@ function makeEntity(
     writable: false,
     raw: {},
     ...overrides
-  } as EntityConfig;
+  };
 }
 
 const sw = (nodeId: string, id: string, objectId: string) =>
@@ -103,16 +103,13 @@ function snapshotWith(
   entities: EntityConfig[] = ENTITIES
 ): Snapshot {
   const nodes = [...new Set(entities.map((e) => e.nodeId ?? ''))];
-  const devices: DeviceSnapshot[] = nodes.map(
-    (nodeId) =>
-      ({
-        id: `dev_${nodeId}`,
-        nodeId,
-        name: nodeId,
-        availability: 'online',
-        entityIds: entities.filter((e) => e.nodeId === nodeId).map((e) => e.id)
-      }) as DeviceSnapshot
-  );
+  const devices: DeviceSnapshot[] = nodes.map((nodeId) => ({
+    id: `dev_${nodeId}`,
+    nodeId,
+    name: nodeId,
+    availability: 'online',
+    entityIds: entities.filter((e) => e.nodeId === nodeId).map((e) => e.id)
+  }));
   const states: Record<string, EntityState> = {};
   for (const [id, value] of Object.entries(values)) states[id] = { value, updatedAt: NOW_ISO };
   return {
@@ -134,7 +131,7 @@ function snapshotWith(
     uiConfigs: {},
     lights: [],
     firmware: { devices: {}, channels: {} }
-  } as unknown as Snapshot;
+  };
 }
 
 /** Sealed and drifting dry-side: air VPD 0.86, under the 0.90 floor, with a much drier room. */

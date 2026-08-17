@@ -65,9 +65,7 @@ function event(opts: { body?: unknown; user?: AuthenticatedUser | null; id?: str
 async function createViaApi(
   body: Record<string, unknown>
 ): Promise<{ id: string; name: string; stationEntityId: string }> {
-  const res = (await POST(
-    event({ body, user: admin }) as unknown as Parameters<typeof POST>[0]
-  )) as Response;
+  const res = await POST(event({ body, user: admin }) as unknown as Parameters<typeof POST>[0]);
   return (await readJson<ZoneBody>(res)).zone;
 }
 
@@ -79,43 +77,43 @@ beforeEach(() => {
 
 describe('/api/irrigation/zones', () => {
   it('lists zones (empty, then reflects created ones)', async () => {
-    let res = (await GET(event({}) as unknown as Parameters<typeof GET>[0])) as Response;
+    let res = await GET(event({}) as unknown as Parameters<typeof GET>[0]);
     expect((await readJson<ZonesBody>(res)).zones).toEqual([]);
 
     await createViaApi({ name: 'Tent 1', stationSid: 0 });
-    res = (await GET(event({}) as unknown as Parameters<typeof GET>[0])) as Response;
+    res = await GET(event({}) as unknown as Parameters<typeof GET>[0]);
     expect((await readJson<ZonesBody>(res)).zones).toHaveLength(1);
   });
 
   it('gates create behind admin (401 anon, 403 non-admin)', async () => {
-    let res = (await POST(
+    let res = await POST(
       event({ body: { name: 'X', stationSid: 0 }, user: null }) as unknown as Parameters<
         typeof POST
       >[0]
-    )) as Response;
+    );
     expect(res.status).toBe(401);
-    res = (await POST(
+    res = await POST(
       event({ body: { name: 'X', stationSid: 0 }, user: member }) as unknown as Parameters<
         typeof POST
       >[0]
-    )) as Response;
+    );
     expect(res.status).toBe(403);
   });
 
   it('validates the create body', async () => {
-    const res = (await POST(
+    const res = await POST(
       event({ body: { stationSid: 0 }, user: admin }) as unknown as Parameters<typeof POST>[0]
-    )) as Response;
+    );
     expect(res.status).toBe(400);
     expect((await readJson<ErrorBody>(res)).error).toMatch(/name/);
   });
 
   it('creates a zone and returns its derived station entity id', async () => {
-    const res = (await POST(
+    const res = await POST(
       event({ body: { name: 'Tent 1', stationSid: 3 }, user: admin }) as unknown as Parameters<
         typeof POST
       >[0]
-    )) as Response;
+    );
     expect(res.status).toBe(201);
     const zone = (await readJson<ZoneBody>(res)).zone;
     expect(zone.name).toBe('Tent 1');
@@ -124,11 +122,11 @@ describe('/api/irrigation/zones', () => {
 
   it('409s a second zone that reuses a station', async () => {
     await createViaApi({ name: 'Tent 1', stationSid: 0 });
-    const res = (await POST(
+    const res = await POST(
       event({ body: { name: 'Tent 2', stationSid: 0 }, user: admin }) as unknown as Parameters<
         typeof POST
       >[0]
-    )) as Response;
+    );
     expect(res.status).toBe(409);
     expect((await readJson<ErrorBody>(res)).error).toMatch(/station 0/i);
   });
@@ -184,32 +182,28 @@ describe('/api/irrigation/events', () => {
 
 describe('/api/irrigation/zones/[id]', () => {
   it('404s an unknown zone and gates behind admin', async () => {
-    let res = (await PATCH(
+    let res = await PATCH(
       event({ body: { name: 'X' }, id: 'nope' }) as unknown as Parameters<typeof PATCH>[0]
-    )) as Response;
+    );
     expect(res.status).toBe(404);
-    res = (await DELETE(
+    res = await DELETE(
       event({ id: 'nope', user: member }) as unknown as Parameters<typeof DELETE>[0]
-    )) as Response;
+    );
     expect(res.status).toBe(403);
   });
 
   it('updates and deletes an existing zone', async () => {
     const zone = await createViaApi({ name: 'Tent 1', stationSid: 0 });
-    let res = (await PATCH(
+    let res = await PATCH(
       event({ body: { name: 'Tent A' }, id: zone.id }) as unknown as Parameters<typeof PATCH>[0]
-    )) as Response;
+    );
     expect(res.status).toBe(200);
     expect((await readJson<ZoneBody>(res)).zone.name).toBe('Tent A');
 
-    res = (await DELETE(
-      event({ id: zone.id }) as unknown as Parameters<typeof DELETE>[0]
-    )) as Response;
+    res = await DELETE(event({ id: zone.id }) as unknown as Parameters<typeof DELETE>[0]);
     expect(res.status).toBe(200);
 
-    res = (await DELETE(
-      event({ id: zone.id }) as unknown as Parameters<typeof DELETE>[0]
-    )) as Response;
+    res = await DELETE(event({ id: zone.id }) as unknown as Parameters<typeof DELETE>[0]);
     expect(res.status).toBe(404);
   });
 });
@@ -281,11 +275,11 @@ describe('/api/irrigation/probes/[nodeId]', () => {
 describe('run/stop with OpenSprinkler disabled', () => {
   it('returns 503 without touching the controller', async () => {
     const zone = await createViaApi({ name: 'Tent 1', stationSid: 0 });
-    let res = (await RUN(
+    let res = await RUN(
       event({ body: { seconds: 5 }, id: zone.id }) as unknown as Parameters<typeof RUN>[0]
-    )) as Response;
+    );
     expect(res.status).toBe(503);
-    res = (await STOP(event({ id: zone.id }) as unknown as Parameters<typeof STOP>[0])) as Response;
+    res = await STOP(event({ id: zone.id }) as unknown as Parameters<typeof STOP>[0]);
     expect(res.status).toBe(503);
   });
 });

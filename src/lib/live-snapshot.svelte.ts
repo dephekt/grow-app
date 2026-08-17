@@ -17,7 +17,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function clonePlain<T>(value: T): T {
-  return structuredClone($state.snapshot(value) as T);
+  // The two gates disagree about this rune: svelte-eslint-parser declares $state.snapshot as
+  // `<T>(v: T) => T`, Svelte declares it `=> Snapshot<T>`, which TS cannot prove equals T for an
+  // arbitrary T. Going through `unknown` asserts once, at a boundary both of them accept.
+  const plain: unknown = $state.snapshot(value);
+  return structuredClone(plain) as T;
 }
 
 function recordOr<T>(value: unknown, fallback: Record<string, T>): Record<string, T> {

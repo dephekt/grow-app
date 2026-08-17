@@ -191,7 +191,7 @@ describe('firmware package selection and manifests', () => {
     };
 
     await expect(
-      listCodebergPackages('stackdrift-firmware', 'atoms3u-sensor-rig', fetchImpl as typeof fetch, {
+      listCodebergPackages('stackdrift-firmware', 'atoms3u-sensor-rig', fetchImpl, {
         auth: { authUser: 'stackdrift', token: 'secret', scheme: 'basic' }
       })
     ).resolves.toEqual([
@@ -240,7 +240,7 @@ describe('firmware package selection and manifests', () => {
     };
 
     await expect(
-      listOciFirmwarePackages('atoms3u-sensor-rig', fetchImpl as typeof fetch, {
+      listOciFirmwarePackages('atoms3u-sensor-rig', fetchImpl, {
         provider: 'ghcr-oci',
         baseUrl: 'https://ghcr.io',
         registry: 'ghcr.io',
@@ -327,7 +327,7 @@ describe('firmware package selection and manifests', () => {
     };
 
     await expect(
-      downloadAndValidateBinary(manifest, 'atoms3u-sensor-rig.ota.bin', fetchImpl as typeof fetch, {
+      downloadAndValidateBinary(manifest, 'atoms3u-sensor-rig.ota.bin', fetchImpl, {
         provider: 'ghcr-oci',
         baseUrl: 'https://ghcr.io',
         registry: 'ghcr.io',
@@ -381,7 +381,7 @@ describe('firmware package selection and manifests', () => {
           manifestUrl: 'http://192.168.8.3:3080/api/firmware/devices/atoms3u-sensor-rig/manifest'
         },
         'stable',
-        fetchImpl as typeof fetch,
+        fetchImpl,
         {
           baseUrl: 'https://codeberg.org',
           owner: 'stackdrift-firmware'

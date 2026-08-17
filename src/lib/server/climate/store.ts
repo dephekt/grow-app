@@ -129,7 +129,7 @@ export function updateClimateConfig(
     'ventAlwaysAboveC',
     'ventNeverBelowC'
   ] as const) {
-    if (patch[key] !== undefined) next[key] = checkNumber(key, patch[key] as number);
+    if (patch[key] !== undefined) next[key] = checkNumber(key, patch[key]);
   }
   if (patch.airVpdOverride !== undefined) {
     next.airVpdOverride =
