@@ -3,6 +3,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import { dashboardSnapshot } from './fixtures/dashboard-snapshot';
+import { resolveGrowState } from '../src/lib/lights/grow-plan';
 
 /**
  * Mocked reason strings must track decide.ts verbatim; nothing fails when they drift, so treat
@@ -137,9 +138,14 @@ test.describe('climate page — real API reads', () => {
   });
 
   test('shows the cited week target and the book reference beside it', async ({ page }) => {
+    // Derived, not hard-coded: the page reads the wall clock, so pinning a week here is a test
+    // that passes until the grow rolls over and then fails on every branch at once.
+    const grow = resolveGrowState(new Date());
+    const expected = `week ${grow.week} · ${grow.stage.label} · target ${grow.airVpdTarget.toFixed(2)}`;
+
     await page.goto('/climate');
     await expect(page.getByText('CCI Black Book p.57')).toBeVisible();
-    await expect(page.getByText(/week 1 · Veg · target 1\.00/)).toBeVisible();
+    await expect(page.getByText(expected)).toBeVisible();
     await expect(page.getByRole('cell', { name: '28.9 °C' }).first()).toBeVisible();
   });
 
