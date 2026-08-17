@@ -279,8 +279,8 @@
     const stepsForType: Record<ProbeType, typeof PH_STEPS> = {
       ph: PH_STEPS,
       ec: EC_STEPS as typeof PH_STEPS,
-      rtd: RTD_STEPS as typeof PH_STEPS,
-      orp: ORP_STEPS as typeof PH_STEPS
+      rtd: RTD_STEPS,
+      orp: ORP_STEPS
     };
 
     const probes: ProbeConfig[] = [];
@@ -552,7 +552,9 @@
     doneMap = {};
     readingBuffer = [];
     if (activeProbe?.clearEntity) {
-      live.sendCommand(activeProbe.clearEntity);
+      // sendCommand records its own failures and cannot reject, and a failed clear is not worth
+      // blocking the reset on -- so this one is deliberately unawaited.
+      void live.sendCommand(activeProbe.clearEntity);
     }
   }
 

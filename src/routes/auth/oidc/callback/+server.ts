@@ -84,7 +84,7 @@ export const GET: RequestHandler = async ({ request, url, cookies, getClientAddr
     redirect(303, '/login?error=forbidden');
   }
 
-  const user = await upsertOidcUser(db, {
+  const user = upsertOidcUser(db, {
     issuer: claims.iss,
     sub: claims.sub,
     username: claims.preferredUsername ?? claims.email ?? claims.sub,

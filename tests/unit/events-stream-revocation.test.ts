@@ -64,7 +64,7 @@ async function seedUserWithStream(): Promise<{
     cookies: { get: (name: string) => (name === SESSION_COOKIE ? token : undefined) },
     locals: { user: { id: user.id, isAdmin: false } }
   } as unknown as Parameters<typeof GET>[0];
-  const response = (await GET(event)) as Response;
+  const response = await GET(event);
 
   return { userId: user.id, token, response };
 }
@@ -80,7 +80,7 @@ async function invokePatch(targetId: number, body: unknown, adminId: number): Pr
     request,
     locals: { user: { id: adminId, isAdmin: true } }
   } as unknown as Parameters<typeof PATCH>[0];
-  return (await PATCH(event)) as Response;
+  return await PATCH(event);
 }
 
 describe('SSE stream revocation (issue #35)', () => {

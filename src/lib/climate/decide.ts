@@ -179,11 +179,11 @@ function desireExhaust(
     return {
       on: true,
       urgent: true,
-      why: `tent ${degC(tentC!)} °C at or above the ${degC(config.ventAlwaysAboveC)} °C vent limit`
+      why: `tent ${degC(tentC)} °C at or above the ${degC(config.ventAlwaysAboveC)} °C vent limit`
     };
   }
   if (tooCold) {
-    const why = `tent ${degC(tentC!)} °C at or below the ${degC(config.ventNeverBelowC)} °C floor`;
+    const why = `tent ${degC(tentC)} °C at or below the ${degC(config.ventNeverBelowC)} °C floor`;
     if (exhaust.on) return { on: false, urgent: true, why: `${why} — stopping regardless of VPD` };
     // Still wants ON, because a block reporting `on: false` is no transition and says nothing.
     // Both windows, same as the mainline start: on the tick after a vent stop the median is

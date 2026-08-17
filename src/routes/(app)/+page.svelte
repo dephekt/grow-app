@@ -90,7 +90,7 @@
 
   // Re-fetched because the dashboard is long-lived and a week rollover would strand it.
   onMount(() => {
-    const timer = setInterval(async () => {
+    const refreshTarget = async () => {
       try {
         const res = await fetch('/api/climate?brief=1');
         if (!res.ok) return;
@@ -101,7 +101,10 @@
       } catch {
         // Keeps the last good value; the next tick recovers.
       }
-    }, 300_000);
+    };
+    // Named and `void`-ed rather than passed as an async callback: setInterval wants void, and
+    // handing it a promise means nothing observes a rejection.
+    const timer = setInterval(() => void refreshTarget(), 300_000);
     return () => clearInterval(timer);
   });
 

@@ -148,7 +148,7 @@ describe('GET /auth/oidc/callback', () => {
 
   it('denies a locally-disabled OIDC user even with a valid group', async () => {
     const db = getAuthDb();
-    const user = await upsertOidcUser(db, {
+    const user = upsertOidcUser(db, {
       issuer: ISS,
       sub: 'dis',
       username: 'dis',

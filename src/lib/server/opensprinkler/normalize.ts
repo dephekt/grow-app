@@ -34,7 +34,7 @@ export function normalizeStationState(payloadText: string): 'ON' | 'OFF' | null 
     return null;
   }
   if (payload && typeof payload === 'object' && 'state' in payload) {
-    return Number((payload as { state: unknown }).state) === 1 ? 'ON' : 'OFF';
+    return Number(payload.state) === 1 ? 'ON' : 'OFF';
   }
   return null;
 }

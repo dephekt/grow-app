@@ -6,7 +6,7 @@ import { getSiteMqttService } from '$lib/server/mqtt/service';
 import { getSpectrumDb } from '$lib/server/spectrum/db';
 import { listCaptures, saveCapture } from '$lib/server/spectrum/captures';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = () => {
   return json({ ok: true, captures: listCaptures(getSpectrumDb()) });
 };
 
@@ -14,7 +14,7 @@ export const GET: RequestHandler = async () => {
 // client-sent spectrum. `label`/`note` are optional metadata.
 export const POST: RequestHandler = async ({ request }) => {
   const live = getSiteMqttService().latestSpectrum();
-  if (!live) throw error(404, 'No spectrum available to capture');
+  if (!live) error(404, 'No spectrum available to capture');
   const body = (await request.json().catch(() => ({}))) as { label?: string; note?: string };
   const capture = saveCapture(getSpectrumDb(), {
     live,

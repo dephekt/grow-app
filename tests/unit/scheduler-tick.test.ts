@@ -59,7 +59,7 @@ function events(): Array<Record<string, unknown>> {
     .prepare(
       'SELECT source, actor, schedule_id, seconds, requested_percent, requested_ml FROM irrigation_events'
     )
-    .all() as Array<Record<string, unknown>>;
+    .all();
 }
 
 beforeEach(() => {

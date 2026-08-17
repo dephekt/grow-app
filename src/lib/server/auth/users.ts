@@ -187,10 +187,7 @@ export interface UpsertOidcUserInput {
  * ONLY — never link by email or username.
  * Re-syncing an existing row never touches `password_hash`, `username`, or `disabled`.
  */
-export async function upsertOidcUser(
-  db: DatabaseSync,
-  input: UpsertOidcUserInput
-): Promise<UserRow> {
+export function upsertOidcUser(db: DatabaseSync, input: UpsertOidcUserInput): UserRow {
   const existing = getUserByOidc(db, input.issuer, input.sub);
   if (existing) {
     db.prepare('UPDATE users SET display_name = ?, is_admin = ? WHERE id = ?').run(

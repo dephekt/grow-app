@@ -42,7 +42,7 @@ function makeEntity(
     writable: false,
     raw: {},
     ...overrides
-  } as EntityConfig;
+  };
 }
 
 const state = (value: string): EntityState => ({ value, updatedAt: '2026-08-12T00:00:00.000Z' });
@@ -82,7 +82,7 @@ function makeSnapshot(
     uiConfigs: {},
     lights: [],
     firmware: { devices: {}, channels: {} }
-  } as unknown as Snapshot;
+  };
 }
 
 const spec = (node: string): PlugSpec => PLUGS.find((p) => p.node === node)!;

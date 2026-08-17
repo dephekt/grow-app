@@ -7,6 +7,7 @@ import { sanitizeNext } from '$lib/auth-redirect';
 
 /** Map a `?error=` code from the OIDC callback to a user-facing message. */
 function errorMessage(code: string | null): string | null {
+  if (code === null) return null;
   switch (code) {
     case 'sso':
       return 'SSO sign-in failed. Try again, or use your local password.';

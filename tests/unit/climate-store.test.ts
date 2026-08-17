@@ -137,6 +137,21 @@ describe('climate events', () => {
     expect(row.leafVpd).toBe(0.57);
   });
 
+  it('clamps a kind it does not recognise, rather than handing one to an exhaustive switch', () => {
+    // `kind` is bare TEXT and the table outlives the build that wrote it, so a row from another
+    // version can carry anything. The display switches are exhaustive over the union now, so an
+    // unclamped read would render "undefined" where it used to say "hold".
+    db.prepare(
+      `INSERT INTO climate_events (ts, kind, actuator, on_state, reason, mode, published,
+         target, band_low, band_high)
+       VALUES (?, 'dehumidify', NULL, NULL, 'from a future build', 'active', 1, 1.0, 0.9, 1.1)`
+    ).run(NOW_ISO);
+
+    const [row] = listClimateEvents(db);
+    expect(row.kind).toBe('hold');
+    expect(row.reason).toBe('from a future build');
+  });
+
   it('records a hold with no actuator', () => {
     recordClimateEvent(db, { ...base, action: { kind: 'hold', reason: 'inside band' } });
     const [row] = listClimateEvents(db);

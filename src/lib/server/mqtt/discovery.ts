@@ -225,6 +225,16 @@ export function buildCommandPublish(entity: EntityConfig, request: CommandReques
   };
 }
 
+/** String(anObject) publishes '[object Object]' to a device's command topic, which reads as a
+ *  plausible payload and is not one, so an object is rejected rather than stringified. */
+function scalarCommand(value: unknown): string {
+  if (value === undefined || value === null) throw new Error('Expected a command value');
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint')
+    return String(value);
+  throw new Error('Expected a scalar command value');
+}
+
 function commandPayload(entity: EntityConfig, value: unknown): string {
   switch (entity.component) {
     case 'switch':
@@ -249,7 +259,10 @@ function commandPayload(entity: EntityConfig, value: unknown): string {
       return String(parsed);
     }
     case 'select': {
-      const selected = String(value ?? '');
+      // No `?? ''` fallback: a select whose discovery payload carried no options would otherwise
+      // publish an empty payload for an empty request body, which is the same class of thing
+      // scalarCommand exists to stop.
+      const selected = scalarCommand(value);
       if (entity.options && !entity.options.includes(selected)) {
         throw new Error('Value is not one of the discovered options');
       }
@@ -257,8 +270,16 @@ function commandPayload(entity: EntityConfig, value: unknown): string {
     }
     case 'time':
       return timeCommandPayload(value);
+    case 'text':
+      return scalarCommand(value);
+    // Unreachable in practice -- buildCommandPublish rejects anything without a commandTopic, and
+    // these never have one -- but naming them says why rather than letting them fall to a default
+    // that would happily stringify.
+    case 'sensor':
+    case 'binary_sensor':
+    case 'camera':
+      throw new Error(`${entity.component} entities do not take commands`);
     default:
-      if (value === undefined || value === null) throw new Error('Expected a command value');
-      return String(value);
+      return scalarCommand(value);
   }
 }

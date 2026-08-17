@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ request, url, cookies }) => {
 
   const next = sanitizeNext(url.searchParams.get('next'));
 
-  const begun = await beginLogin(origin, next).catch((err) => {
+  const begun = await beginLogin(origin, next).catch((err: unknown) => {
     // Discovery/network failure (e.g. IdP down) — fail the new login cleanly.
     console.error('[auth] OIDC initiate failed', err);
     return null;

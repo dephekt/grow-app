@@ -70,7 +70,9 @@
   }
 
   function controlLabel(entry: PresentedEntity): string {
-    switch (entry.entity.objectId) {
+    // `?? ''` because objectId is optional, and an entity without one has no special label --
+    // switching on the bare optional asks the exhaustiveness check to enumerate `undefined`.
+    switch (entry.entity.objectId ?? '') {
       case 'thermal_color_palette':
         return 'Palette';
       case 'thermal_overlay_enable':

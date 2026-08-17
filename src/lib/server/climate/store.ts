@@ -39,6 +39,24 @@ function asSource(raw: string, fallback: ActuatorSource): ActuatorSource {
   return (SOURCES as string[]).includes(raw) ? (raw as ActuatorSource) : fallback;
 }
 
+/** Keyed to the union like NUMERIC_BOUNDS, not an annotated array: an array accepts a MISSING
+ *  member, so a sixth kind would compile here while every exhaustive switch correctly errored,
+ *  and its rows would then be clamped to 'hold' with the actuator columns still populated. */
+const EVENT_KINDS: Record<ClimateAction['kind'], true> = {
+  hold: true,
+  exhaust: true,
+  humidify: true,
+  delegated: true,
+  blocked: true
+};
+
+/** `climate_events.kind` is bare TEXT and the table outlives the build that wrote it, so a row
+ *  from another version can carry a kind this one has never heard of. Clamped to 'hold' — the same
+ *  value the display switches used to reach through a `default:` — so those can stay exhaustive. */
+function asEventKind(raw: string): ClimateAction['kind'] {
+  return Object.hasOwn(EVENT_KINDS, raw) ? (raw as ClimateAction['kind']) : 'hold';
+}
+
 export function getClimateConfig(db: DatabaseSync): ClimateConfig {
   const row = db.prepare('SELECT * FROM climate_config WHERE id = 1').get() as
     ConfigRow | undefined;
@@ -129,7 +147,7 @@ export function updateClimateConfig(
     'ventAlwaysAboveC',
     'ventNeverBelowC'
   ] as const) {
-    if (patch[key] !== undefined) next[key] = checkNumber(key, patch[key] as number);
+    if (patch[key] !== undefined) next[key] = checkNumber(key, patch[key]);
   }
   if (patch.airVpdOverride !== undefined) {
     next.airVpdOverride =
@@ -231,7 +249,7 @@ function actionTarget(action: ClimateAction): { actuator: string | null; on: boo
     case 'delegated':
     case 'blocked':
       return { actuator: action.want, on: action.on };
-    default:
+    case 'hold':
       return { actuator: null, on: null };
   }
 }
@@ -269,11 +287,11 @@ function toEventJson(row: EventRow): ClimateEventJson {
   return {
     id: row.id,
     ts: row.ts,
-    kind: row.kind as ClimateAction['kind'],
+    kind: asEventKind(row.kind),
     actuator: row.actuator,
     on: row.on_state === null ? null : row.on_state === 1,
     reason: row.reason,
-    mode: row.mode as ClimateMode,
+    mode: asMode(row.mode),
     published: row.published === 1,
     airVpd: row.air_vpd,
     airVpdFast: row.air_vpd_fast,

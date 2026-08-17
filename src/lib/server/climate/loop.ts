@@ -123,7 +123,7 @@ function logKey(action: ClimateAction): string {
     case 'delegated':
     case 'blocked':
       return `${action.kind}:${action.want}:${action.on}:${shape}`;
-    default:
+    case 'hold':
       return `hold:${shape}`;
   }
 }
@@ -361,7 +361,7 @@ async function tickOnce(): Promise<void> {
 export function startClimateLoop(): void {
   if (timer) return;
   timer = setInterval(() => {
-    void tickOnce().catch((error) => console.error('[climate] tick failed', error));
+    void tickOnce().catch((error: unknown) => console.error('[climate] tick failed', error));
   }, getClimateTickMs());
   timer.unref?.();
 }

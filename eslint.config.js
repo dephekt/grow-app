@@ -89,7 +89,10 @@ export default defineConfig(
   ]),
 
   js.configs.recommended,
-  ts.configs.recommended,
+  // Its rule block carries no `files` key, so all 43 rules land everywhere and the 27 type-aware
+  // ones would throw outside the program -- the complement block near the bottom is what scopes
+  // them, and is load-bearing rather than belt-and-braces because of this line.
+  ts.configs.recommendedTypeChecked,
 
   // Scoped, because the preset puts no `files` key on its rule block and would otherwise run all
   // 35 svelte/* rules against plain .ts as well.
@@ -204,19 +207,40 @@ export default defineConfig(
   },
 
   {
-    // Scoped, never universal: every rule here calls getParserServices, which throws rather than
-    // degrading when a file carries no type information.
+    // Strict-tier rules worth their measured cost here. Scoped, never universal: every one calls
+    // getParserServices, which throws rather than degrading when a file has no type information.
+    // The recommendedTypeChecked set above is scoped instead by the complement block below.
     files: TYPED,
     ignores: NOT_TYPED,
     rules: {
-      '@typescript-eslint/no-unsafe-argument': 'error',
-      '@typescript-eslint/no-unsafe-assignment': 'error',
-      '@typescript-eslint/no-unsafe-call': 'error',
-      '@typescript-eslint/no-unsafe-member-access': 'error',
-      '@typescript-eslint/no-unsafe-return': 'error',
-      '@typescript-eslint/no-unsafe-enum-comparison': 'error',
-      '@typescript-eslint/no-unsafe-unary-minus': 'error'
+      '@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
+      // Not in strictTypeChecked -- only in configs.all -- so it has to be named. Left at the v8
+      // default because considerDefaultExhaustiveForUnions counts any `default:` as exhaustive,
+      // which would let a switch drift back to a catch-all without the rule noticing.
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
+      '@typescript-eslint/no-unnecessary-template-expression': 'error',
+      // `void expr` is how this repo marks a deliberately unawaited promise; this fails the idiom
+      // applied to something that is not one.
+      '@typescript-eslint/no-meaningless-void-operator': 'error',
+      '@typescript-eslint/no-deprecated': [
+        'error',
+        {
+          // Deliberate: the LAN proxy in front of the issuer is plain HTTP, and upstream's own
+          // deprecation note sanctions exactly this use. Allowlisted here rather than disabled at
+          // the call site, so the repo keeps zero inline directives.
+          allow: [{ from: 'package', package: 'openid-client', name: 'allowInsecureRequests' }]
+        }
+      ]
     }
+  },
+
+  {
+    // 14 mock stubs -- publish, fetch, loadDevSnapshot, publishOsDiscovery -- that must be async to
+    // satisfy the interface they stand in for, which the rule cannot see. Not a blanket pass: the
+    // one test that was merely async for no reason is fixed rather than covered by this.
+    files: ['tests/**'],
+    rules: { '@typescript-eslint/require-await': 'off' }
   },
 
   {

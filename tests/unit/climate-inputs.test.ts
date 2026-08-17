@@ -33,7 +33,7 @@ function makeEntity(
     writable: false,
     raw: {},
     ...overrides
-  } as EntityConfig;
+  };
 }
 
 function makeSnapshot(
@@ -76,7 +76,7 @@ function makeSnapshot(
     uiConfigs: {},
     lights: [],
     firmware: { devices: {}, channels: {} }
-  } as unknown as Snapshot;
+  };
 }
 
 const sw = (nodeId: string, id: string, objectId: string) =>

@@ -154,15 +154,24 @@
     active: 'Publishes to whichever actuators are armed below.'
   };
 
-  const actionTone = $derived(
-    action.kind === 'blocked'
-      ? 'alert'
-      : action.kind === 'delegated'
-        ? 'warn'
-        : action.kind === 'hold'
-          ? 'muted'
-          : 'ok'
-  );
+  // A switch rather than a ternary chain so switch-exhaustiveness-check covers it too: as a chain
+  // a sixth kind compiled fine and fell through to a green 'ok' dot, which is the wrong direction
+  // to guess in.
+  const actionTone = $derived.by(() => {
+    switch (action.kind) {
+      case 'blocked':
+        return 'alert';
+      case 'delegated':
+        return 'warn';
+      case 'hold':
+        return 'muted';
+      case 'exhaust':
+      case 'humidify':
+        return 'ok';
+      default:
+        return 'muted';
+    }
+  });
 
   const actionLabel = $derived.by(() => {
     switch (action.kind) {
@@ -174,6 +183,10 @@
         return `Delegated — wants ${action.want} ${action.on ? 'ON' : 'OFF'}`;
       case 'blocked':
         return `Blocked — wants ${action.want} ${action.on ? 'ON' : 'OFF'}`;
+      case 'hold':
+        return 'Holding';
+      // Every case above is covered, so this is unreachable for a kind this build knows. It is
+      // here for the one that polls in from a newer server while this tab holds older JS.
       default:
         return 'Holding';
     }
