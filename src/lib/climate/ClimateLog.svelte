@@ -71,14 +71,23 @@
     return e.mode === 'active' ? 'FAILED to set' : 'would set';
   }
 
+  // A switch, like verdict() above, so a sixth kind is a compile error here too rather than
+  // silently painted 'muted'.
   function tone(e: ClimateEventJson): string {
-    if (e.kind === 'blocked') return 'alert';
-    if (e.kind === 'delegated') return 'warn';
-    if (e.kind === 'exhaust' || e.kind === 'humidify') {
-      if (e.published) return 'ok';
-      return e.mode === 'active' ? 'alert' : 'dry';
+    switch (e.kind) {
+      case 'blocked':
+        return 'alert';
+      case 'delegated':
+        return 'warn';
+      case 'exhaust':
+      case 'humidify':
+        if (e.published) return 'ok';
+        return e.mode === 'active' ? 'alert' : 'dry';
+      case 'hold':
+        return 'muted';
+      default:
+        return 'muted';
     }
-    return 'muted';
   }
 
   const num = (v: number | null, digits = 2) => (v === null ? '—' : v.toFixed(digits));
