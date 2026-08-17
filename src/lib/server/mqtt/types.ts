@@ -3,6 +3,9 @@
 
 import type { ProcessedSpectrum } from '$lib/spectrum/calibration';
 
+/** The components discovery actually emits, kept open because the payloads come from ESPHome and
+ *  a new one must not be a type error. `string & {}` is what stops the union collapsing to plain
+ *  `string` -- with a bare `| string` the literals below are invisible to completion. */
 export type EntityComponent =
   | 'sensor'
   | 'binary_sensor'
@@ -14,7 +17,7 @@ export type EntityComponent =
   | 'light'
   | 'fan'
   | 'camera'
-  | string;
+  | (string & {});
 
 export type AvailabilityState = 'online' | 'offline' | 'unknown';
 
@@ -74,10 +77,11 @@ export interface DeviceUiGroup {
   id: string;
   title: string;
   order: number;
-  variant?: 'metrics' | 'list' | string;
-  surface?: 'dashboard' | 'device-settings' | string;
+  // Open unions: see EntityComponent for why `string & {}` rather than `| string`.
+  variant?: 'metrics' | 'list' | (string & {});
+  surface?: 'dashboard' | 'device-settings' | (string & {});
   deviceSettingsSection?:
-    'controls' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other' | string;
+    'controls' | 'alerts' | 'calibration' | 'maintenance' | 'diagnostics' | 'other' | (string & {});
   defaultOpen: boolean;
 }
 
@@ -85,7 +89,7 @@ export interface DeviceUiEntity {
   component: string;
   objectId: string;
   group: string;
-  role?: 'metric' | 'quick-control' | string;
+  role?: 'metric' | 'quick-control' | (string & {});
   order: number;
   label?: string;
 }
