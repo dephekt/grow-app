@@ -56,6 +56,11 @@
         return `blocked · ${e.actuator} ${e.on ? 'ON' : 'OFF'}`;
       case 'hold':
         return 'hold';
+      // asEventKind clamps this column, but on the server, for rows that build read -- these
+      // arrive over the wire, so a tab holding older JS can still be handed a kind it has no case
+      // for. Same guard, and same reason, as actionLabel on /climate.
+      default:
+        return 'hold';
     }
   }
 
