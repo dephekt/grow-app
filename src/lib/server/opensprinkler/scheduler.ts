@@ -154,7 +154,7 @@ export function startIrrigationScheduler(): void {
       nowMs: Date.now(),
       tz: getScheduleTimeZone(),
       graceMs: getScheduleGraceMs()
-    }).catch((error) => console.error('[schedule] tick failed', error));
+    }).catch((error: unknown) => console.error('[schedule] tick failed', error));
   }, getScheduleTickMs());
   timer.unref?.();
 }

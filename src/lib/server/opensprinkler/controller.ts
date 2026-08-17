@@ -77,7 +77,7 @@ export class IrrigationController {
       sid: zone.stationSid,
       name: zone.name
     });
-    void this.service.publishOsDiscovery(topic, JSON.stringify(payload)).catch((error) =>
+    void this.service.publishOsDiscovery(topic, JSON.stringify(payload)).catch((error: unknown) =>
       // Station-qualified: a reconnect window mid-publishAllDiscovery emits one of these per
       // zone, and undifferentiated lines just read as a repeated line.
       notePublishFailure(
@@ -97,7 +97,7 @@ export class IrrigationController {
       stationStateTopic(this.config.baseTopic, sid)
     ];
     for (const topic of topics) {
-      void this.service.publishOsDiscovery(topic, '').catch((error) =>
+      void this.service.publishOsDiscovery(topic, '').catch((error: unknown) =>
         // Topic-qualified: a station retracts two topics, so an unqualified message would
         // print the identical line twice and read as one duplicated warning.
         notePublishFailure(
@@ -134,7 +134,7 @@ export class IrrigationController {
         // only thing standing between a station and running forever.)
         void this.service
           .publishOsCommand(buildStopCommand(sid))
-          .catch((error) => console.error('[opensprinkler] watchdog stop failed', error));
+          .catch((error: unknown) => console.error('[opensprinkler] watchdog stop failed', error));
       },
       (seconds + WATCHDOG_GRACE_SECONDS) * 1000
     );

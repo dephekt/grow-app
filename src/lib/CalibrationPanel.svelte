@@ -552,7 +552,9 @@
     doneMap = {};
     readingBuffer = [];
     if (activeProbe?.clearEntity) {
-      live.sendCommand(activeProbe.clearEntity);
+      // sendCommand records its own failures and cannot reject, and a failed clear is not worth
+      // blocking the reset on -- so this one is deliberately unawaited.
+      void live.sendCommand(activeProbe.clearEntity);
     }
   }
 

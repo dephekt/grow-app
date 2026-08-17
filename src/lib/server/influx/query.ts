@@ -86,7 +86,9 @@ export async function queryHistory(
   try {
     for await (const { values, tableMeta } of queryApi.iterateRows(flux)) {
       const row = tableMeta.toObject(values) as Record<string, unknown>;
-      const key = keyByTag.get(`${String(row.node ?? '')}|${String(row.entity ?? '')}`);
+      // Influx tags are strings; anything else cannot match a key we built, so it reads as absent.
+      const tag = (v: unknown) => (typeof v === 'string' ? v : '');
+      const key = keyByTag.get(`${tag(row.node)}|${tag(row.entity)}`);
       if (!key) continue;
       const v = Number(row._value);
       if (!Number.isFinite(v)) continue;

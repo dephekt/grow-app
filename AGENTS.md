@@ -21,6 +21,11 @@ the right-hand column:
   not ad-hoc stores. `svelte/store` stays valid where a store is genuinely the
   right tool; reach for runes first.
 - If you catch yourself typing `$:` or `export let`, stop. That is Svelte 4.
+- **The one rule the linter cannot hold for you:** an `async` function bound as
+  `onclick={fn}` is a floating promise. `no-misused-promises` sees the
+  `setInterval(async …)` form and none of the attribute bindings, so nothing
+  will fail. Handle the rejection inside the handler, or bind
+  `onclick={() => void fn()}`.
 - Canonical syntax source: the official Svelte 5 docs (`svelte.dev/docs`;
   `svelte.dev/llms.txt` for an LLM-oriented dump), not pre-2024 blog posts or
   training memory.

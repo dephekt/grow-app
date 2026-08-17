@@ -54,7 +54,7 @@
         return `delegated · ${e.actuator} ${e.on ? 'ON' : 'OFF'}`;
       case 'blocked':
         return `blocked · ${e.actuator} ${e.on ? 'ON' : 'OFF'}`;
-      default:
+      case 'hold':
         return 'hold';
     }
   }

@@ -231,7 +231,7 @@ function actionTarget(action: ClimateAction): { actuator: string | null; on: boo
     case 'delegated':
     case 'blocked':
       return { actuator: action.want, on: action.on };
-    default:
+    case 'hold':
       return { actuator: null, on: null };
   }
 }

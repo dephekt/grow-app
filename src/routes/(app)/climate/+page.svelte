@@ -174,7 +174,7 @@
         return `Delegated — wants ${action.want} ${action.on ? 'ON' : 'OFF'}`;
       case 'blocked':
         return `Blocked — wants ${action.want} ${action.on ? 'ON' : 'OFF'}`;
-      default:
+      case 'hold':
         return 'Holding';
     }
   });

@@ -135,7 +135,7 @@ function isTimeZoneEntity(event: SnapshotEvent): boolean {
  *  catch-guarded so a publish failure cannot escape into the emitter. */
 export function startSiteTimezoneReconciler(service: SiteMqttService = getSiteMqttService()): void {
   const guarded = (resetAttempts: boolean) =>
-    void runReconcilePass(service, { resetAttempts }).catch((error) =>
+    void runReconcilePass(service, { resetAttempts }).catch((error: unknown) =>
       console.error('[tz] reconcile pass failed', error)
     );
 

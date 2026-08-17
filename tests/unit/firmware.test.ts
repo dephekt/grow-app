@@ -26,6 +26,11 @@ import {
   resolveInstalledVersion
 } from '../../src/lib/server/firmware/update-state';
 
+/** fetch's first argument, as a URL string. String() would render a Request as '[object Request]',
+ *  so the assertions below would compare against that rather than the URL. */
+const urlOf = (input: string | URL | Request) =>
+  typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+
 const topicPrefix = 'grow/daniel-home';
 
 const manifest = {
@@ -153,7 +158,7 @@ describe('firmware package selection and manifests', () => {
     const requests: string[] = [];
     const authHeaders: Array<string | null> = [];
     const fetchImpl = async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
+      const url = urlOf(input);
       requests.push(url);
       authHeaders.push(new Headers(init?.headers).get('authorization'));
       const page = new URL(url).searchParams.get('page');
@@ -220,7 +225,7 @@ describe('firmware package selection and manifests', () => {
     const requests: string[] = [];
     const authHeaders: Array<string | null> = [];
     const fetchImpl = async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
+      const url = urlOf(input);
       requests.push(url);
       authHeaders.push(new Headers(init?.headers).get('authorization'));
       if (url.includes('/token')) {
@@ -305,7 +310,7 @@ describe('firmware package selection and manifests', () => {
   it('downloads OCI artifact layers by filename before proxying', async () => {
     const bytes = new TextEncoder().encode('grow firmware\n');
     const fetchImpl = async (input: string | URL | Request) => {
-      const url = String(input);
+      const url = urlOf(input);
       if (url.endsWith('/manifests/v1.2.3')) {
         return Response.json({
           layers: [
@@ -351,7 +356,7 @@ describe('firmware package selection and manifests', () => {
 
   it('uses configured package owner even when retained metadata is stale', async () => {
     const fetchImpl = async (input: string | URL | Request) => {
-      const url = String(input);
+      const url = urlOf(input);
       if (url.includes('/api/v1/packages/')) {
         expect(url).toContain('/api/v1/packages/stackdrift-firmware?');
         return Response.json([
@@ -407,7 +412,7 @@ describe('firmware update proxy access', () => {
     ).toEqual({ token: 'download-token' });
   });
 
-  it('rejects missing or invalid firmware update tokens', async () => {
+  it('rejects missing or invalid firmware update tokens', () => {
     process.env.FIRMWARE_UPDATE_TOKEN = 'download-token';
 
     const response = requireFirmwareUpdateToken(new URL('http://localhost/manifest?token=wrong'));

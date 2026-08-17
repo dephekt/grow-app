@@ -80,7 +80,7 @@ describe('upsertOidcUser', () => {
 
   it('provisions a new OIDC-only user on first login', async () => {
     const db = openAuthDb(':memory:');
-    const user = await upsertOidcUser(db, {
+    const user = upsertOidcUser(db, {
       issuer: ISS,
       sub: 'sub-1',
       username: 'greg',
@@ -99,14 +99,14 @@ describe('upsertOidcUser', () => {
 
   it('re-syncs display_name + is_admin on a later login without a new row', async () => {
     const db = openAuthDb(':memory:');
-    const first = await upsertOidcUser(db, {
+    const first = upsertOidcUser(db, {
       issuer: ISS,
       sub: 'sub-1',
       username: 'greg',
       displayName: 'Greg',
       isAdmin: false
     });
-    const second = await upsertOidcUser(db, {
+    const second = upsertOidcUser(db, {
       issuer: ISS,
       sub: 'sub-1',
       username: 'ignored',
@@ -124,7 +124,7 @@ describe('upsertOidcUser', () => {
 
   it('does not touch password_hash or disabled on re-sync (local kill-switch survives)', async () => {
     const db = openAuthDb(':memory:');
-    const created = await upsertOidcUser(db, {
+    const created = upsertOidcUser(db, {
       issuer: ISS,
       sub: 'sub-1',
       username: 'greg',
@@ -136,7 +136,7 @@ describe('upsertOidcUser', () => {
       created.id
     );
 
-    const after = await upsertOidcUser(db, {
+    const after = upsertOidcUser(db, {
       issuer: ISS,
       sub: 'sub-1',
       username: 'greg',
@@ -152,7 +152,7 @@ describe('upsertOidcUser', () => {
     const db = openAuthDb(':memory:');
     const local = await createLocalUser(db, { username: 'greg', password: 'password123' });
 
-    const oidc = await upsertOidcUser(db, {
+    const oidc = upsertOidcUser(db, {
       issuer: ISS,
       sub: 'sub-99',
       username: 'greg',
