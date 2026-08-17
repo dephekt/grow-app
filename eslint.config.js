@@ -214,9 +214,9 @@ export default defineConfig(
     ignores: NOT_TYPED,
     rules: {
       '@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
-      // Not in strictTypeChecked -- only in configs.all -- so it has to be named. Keeping the v8
-      // default: every switch here already has a `default:`, so considerDefaultExhaustiveForUnions
-      // would take it to zero findings and make it inert.
+      // Not in strictTypeChecked -- only in configs.all -- so it has to be named. Left at the v8
+      // default because considerDefaultExhaustiveForUnions counts any `default:` as exhaustive,
+      // which would let a switch drift back to a catch-all without the rule noticing.
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
       '@typescript-eslint/no-unnecessary-template-expression': 'error',

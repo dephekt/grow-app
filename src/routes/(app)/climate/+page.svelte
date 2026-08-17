@@ -176,6 +176,11 @@
         return `Blocked — wants ${action.want} ${action.on ? 'ON' : 'OFF'}`;
       case 'hold':
         return 'Holding';
+      // Every case above is covered, so this is unreachable for a kind this build knows. It is
+      // here for the one that polls in from a newer server while this tab holds older JS: without
+      // it the label renders blank while actionTone still falls through to a green 'ok' dot.
+      default:
+        return 'Holding';
     }
   });
 </script>

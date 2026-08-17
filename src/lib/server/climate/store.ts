@@ -39,19 +39,22 @@ function asSource(raw: string, fallback: ActuatorSource): ActuatorSource {
   return (SOURCES as string[]).includes(raw) ? (raw as ActuatorSource) : fallback;
 }
 
-const EVENT_KINDS: ClimateAction['kind'][] = [
-  'hold',
-  'exhaust',
-  'humidify',
-  'delegated',
-  'blocked'
-];
+/** Keyed to the union like NUMERIC_BOUNDS, not an annotated array: an array accepts a MISSING
+ *  member, so a sixth kind would compile here while every exhaustive switch correctly errored,
+ *  and its rows would then be clamped to 'hold' with the actuator columns still populated. */
+const EVENT_KINDS: Record<ClimateAction['kind'], true> = {
+  hold: true,
+  exhaust: true,
+  humidify: true,
+  delegated: true,
+  blocked: true
+};
 
 /** `climate_events.kind` is bare TEXT and the table outlives the build that wrote it, so a row
  *  from another version can carry a kind this one has never heard of. Clamped to 'hold' — the same
  *  value the display switches used to reach through a `default:` — so those can stay exhaustive. */
 function asEventKind(raw: string): ClimateAction['kind'] {
-  return (EVENT_KINDS as string[]).includes(raw) ? (raw as ClimateAction['kind']) : 'hold';
+  return Object.hasOwn(EVENT_KINDS, raw) ? (raw as ClimateAction['kind']) : 'hold';
 }
 
 export function getClimateConfig(db: DatabaseSync): ClimateConfig {
