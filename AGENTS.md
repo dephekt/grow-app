@@ -24,8 +24,8 @@ the right-hand column:
 - **The one rule the linter cannot hold for you:** an `async` function bound as
   `onclick={fn}` is a floating promise. `no-misused-promises` sees the
   `setInterval(async …)` form and none of the attribute bindings, so nothing
-  will fail. Handle the rejection inside the handler, or bind
-  `onclick={() => void fn()}`.
+  will fail. The handler has to deal with its own rejection — `void fn()`
+  satisfies a type checker and still leaves the rejection unhandled.
 - Canonical syntax source: the official Svelte 5 docs (`svelte.dev/docs`;
   `svelte.dev/llms.txt` for an LLM-oriented dump), not pre-2024 blog posts or
   training memory.

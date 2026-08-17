@@ -39,6 +39,21 @@ function asSource(raw: string, fallback: ActuatorSource): ActuatorSource {
   return (SOURCES as string[]).includes(raw) ? (raw as ActuatorSource) : fallback;
 }
 
+const EVENT_KINDS: ClimateAction['kind'][] = [
+  'hold',
+  'exhaust',
+  'humidify',
+  'delegated',
+  'blocked'
+];
+
+/** `climate_events.kind` is bare TEXT and the table outlives the build that wrote it, so a row
+ *  from another version can carry a kind this one has never heard of. Clamped to 'hold' — the same
+ *  value the display switches used to reach through a `default:` — so those can stay exhaustive. */
+function asEventKind(raw: string): ClimateAction['kind'] {
+  return (EVENT_KINDS as string[]).includes(raw) ? (raw as ClimateAction['kind']) : 'hold';
+}
+
 export function getClimateConfig(db: DatabaseSync): ClimateConfig {
   const row = db.prepare('SELECT * FROM climate_config WHERE id = 1').get() as
     ConfigRow | undefined;
@@ -269,11 +284,11 @@ function toEventJson(row: EventRow): ClimateEventJson {
   return {
     id: row.id,
     ts: row.ts,
-    kind: row.kind as ClimateAction['kind'],
+    kind: asEventKind(row.kind),
     actuator: row.actuator,
     on: row.on_state === null ? null : row.on_state === 1,
     reason: row.reason,
-    mode: row.mode as ClimateMode,
+    mode: asMode(row.mode),
     published: row.published === 1,
     airVpd: row.air_vpd,
     airVpdFast: row.air_vpd_fast,

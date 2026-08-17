@@ -259,7 +259,10 @@ function commandPayload(entity: EntityConfig, value: unknown): string {
       return String(parsed);
     }
     case 'select': {
-      const selected = value == null ? '' : scalarCommand(value);
+      // No `?? ''` fallback: a select whose discovery payload carried no options would otherwise
+      // publish an empty payload for an empty request body, which is the same class of thing
+      // scalarCommand exists to stop.
+      const selected = scalarCommand(value);
       if (entity.options && !entity.options.includes(selected)) {
         throw new Error('Value is not one of the discovered options');
       }
