@@ -435,12 +435,75 @@ describe('decideClimate — predictive gate', () => {
     expect(d).toMatchObject({ kind: 'exhaust', on: true });
     expect(d.reason).toContain('vent limit');
   });
+
+  it('still stops that heat vent if it drags VPD down to the hard floor', () => {
+    // The gate the heat leg skips is about the band; the rails are not skippable.
+    const d = decideClimate(
+      input({
+        airVpd: AIR_VPD_HARD_MIN,
+        tentTempC: 33,
+        room: { tempC: 30, rhPct: 95 },
+        exhaust: { on: true }
+      })
+    );
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+    expect(d.reason).toContain('hard floor');
+  });
 });
 
 describe('decideClimate — temperature limits', () => {
   it('vents on temperature even with VPD inside the band', () => {
     const d = decideClimate(input({ airVpd: 1.0, tentTempC: 31.5 }));
     expect(d).toMatchObject({ kind: 'exhaust', on: true });
+  });
+
+  // The reason the heat limit stopped being an override: this tent sits at 31 °C under the lamp
+  // and the room is drier in absolute terms, so an unconditional vent walked VPD to 1.5 and held
+  // it there. Cooling that cannot be won is now conceded instead.
+  it('STOPS a heat vent at the hard ceiling rather than venting on', () => {
+    const d = decideClimate(
+      input({ airVpd: AIR_VPD_HARD_MAX, tentTempC: 31, exhaust: { on: true } })
+    );
+    expect(d).toMatchObject({ kind: 'exhaust', on: false });
+    expect(d.reason).toContain('hard ceiling');
+  });
+
+  it('keeps a heat vent running while VPD is still under the ceiling', () => {
+    // The band's top no longer stops it: heat is worth the soft band, just not the rail.
+    const d = decideClimate(input({ airVpd: 1.15, tentTempC: 31, exhaust: { on: true } }));
+    expect(d.kind).toBe('hold');
+    expect(d.reason).toContain('hard ceiling');
+  });
+
+  it('refuses to START a heat vent with VPD already above the week target', () => {
+    const d = decideClimate(input({ airVpd: 1.1, tentTempC: 31 }));
+    expect(d.kind).toBe('hold');
+    expect(d.reason).toContain('trade VPD for °C');
+  });
+
+  it('starts a heat vent once VPD has fallen back to the target', () => {
+    const d = decideClimate(input({ airVpd: BAND.target, tentTempC: 31 }));
+    expect(d).toMatchObject({ kind: 'exhaust', on: true });
+    expect(d.reason).toContain('vent limit');
+  });
+
+  it('takes both windows before starting a heat vent, like every other start', () => {
+    const d = decideClimate(input({ airVpd: 0.95, airVpdFast: 1.15, tentTempC: 31 }));
+    expect(d.kind).toBe('hold');
+  });
+
+  it('hands a hot tent at the ceiling to the humidifier instead of the fan', () => {
+    // The corrective actuator for VPD above the rail was unreachable while the fan held the
+    // override: decideClimate only considers the humidifier when the fan is idle.
+    const d = decideClimate(
+      input({
+        airVpd: AIR_VPD_HARD_MAX,
+        tentTempC: 31,
+        config: { rhSource: 'loop' },
+        humidifier: { present: true }
+      })
+    );
+    expect(d).toMatchObject({ kind: 'humidify', on: true });
   });
 
   it('blocks venting below the cold floor', () => {
@@ -477,13 +540,15 @@ describe('decideClimate — temperature limits', () => {
     expect(d).toMatchObject({ kind: 'delegated', want: 'exhaust', on: false });
   });
 
-  it('lets a heat override bypass the minimum off', () => {
-    // The symmetric case to the hard ceiling overriding the minimum on: an over-temperature
-    // tent must not sit out an anti-chatter timer.
+  it('serves the minimum off before restarting a heat vent', () => {
+    // Not the mirror of the hard-ceiling stop, deliberately. A heat vent now ENDS on a VPD rail,
+    // so an urgent restart would put the fan straight back on the rail it just came off; the
+    // minimum off is what bounds that, and the tent is over the limit either way.
     const d = decideClimate(
       input({ airVpd: 1.0, tentTempC: 33, exhaust: { lastChangeMs: NOW - 30_000 } })
     );
-    expect(d).toMatchObject({ kind: 'exhaust', on: true });
+    expect(d.kind).toBe('hold');
+    expect(d.reason).toContain('minimum off');
   });
 
   it('still serves the minimum off for an ordinary VPD-driven start', () => {

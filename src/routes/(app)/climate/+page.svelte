@@ -477,7 +477,7 @@
           disabled={saving || !isAdmin}
           onchange={(e) => commitField(e, 'ventAlwaysAboveC', config.ventAlwaysAboveC)}
         />
-        <span class="field-hint">Heat safety — vents regardless of VPD.</span>
+        <span class="field-hint">Heat — vents up to the VPD rails, never past them.</span>
       </label>
 
       <label>

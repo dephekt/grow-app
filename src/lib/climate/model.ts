@@ -41,7 +41,8 @@ export interface ClimateConfig {
   minOffSeconds: number;
   /** A start is refused unless venting predicts at least this much improvement, kPa. */
   minGainKpa: number;
-  /** Above this tent temperature the fan runs regardless of VPD. */
+  /** Above this tent temperature the fan may spend the whole band on cooling, venting until
+   *  VPD reaches a hard rail. It does not vent past one — see desireExhaust. */
   ventAlwaysAboveC: number;
   /** Below this tent temperature the fan is blocked regardless of VPD. */
   ventNeverBelowC: number;
