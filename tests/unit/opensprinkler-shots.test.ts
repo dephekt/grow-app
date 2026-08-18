@@ -68,6 +68,20 @@ describe('shot math', () => {
     expect(resolveShotSeconds({ ml: 100 }, zone({ drippers: 1 }))).toBe(180);
   });
 
+  it('resolves the numeric strings that arrive over JSON', () => {
+    expect(resolveShotSeconds({ seconds: '42' }, zone())).toBe(42);
+    expect(resolveShotSeconds({ ml: '100' }, zone({ drippers: 1 }))).toBe(180);
+    expect(resolveShotSeconds({ percent: '3' }, zone())).toBe(108);
+  });
+
+  it('rejects non-scalars rather than coercing them to a shot size', () => {
+    // Number([30]) is 30 and Number(true) is 1, so these reached the valve before.
+    expect(() => resolveShotSeconds({ seconds: [30] }, zone())).toThrow(/positive/);
+    expect(() => resolveShotSeconds({ seconds: true }, zone())).toThrow(/positive/);
+    expect(() => resolveShotSeconds({ ml: {} }, zone())).toThrow(/positive/);
+    expect(() => resolveShotSeconds({ percent: '3%' }, zone())).toThrow(/positive/);
+  });
+
   it('rejects non-positive and unspecified inputs', () => {
     expect(() => resolveShotSeconds({}, zone())).toThrow(/one of/);
     expect(() => resolveShotSeconds({ seconds: 0 }, zone())).toThrow(/positive/);
