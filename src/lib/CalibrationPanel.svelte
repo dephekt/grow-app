@@ -582,7 +582,7 @@
           <button
             type="button"
             class="probe-tab"
-            class:active={probe.type === (activeProbe?.type ?? probes[0]?.type)}
+            class:active={probe.type === activeProbe?.type}
             onclick={() => {
               selectedProbeType = probe.type;
               doneMap = {};

@@ -486,7 +486,7 @@
     return {
       zoneId,
       times,
-      [shotKey]: Number(scheduleForm.shotValue),
+      [shotKey]: requireNum(scheduleForm.shotValue, 'Shot'),
       enabled: scheduleForm.enabled
     };
   }
@@ -505,6 +505,17 @@
     event.preventDefault();
     if (!scheduleZoneId) return;
     error = null;
+
+    // Same reason as saveZone: a NaN shot serializes to null, and the server then reports a
+    // missing shot size to someone who typed one.
+    let payload: Record<string, unknown>;
+    try {
+      payload = buildScheduleBody(scheduleZoneId);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Check the numbers in this form';
+      return;
+    }
+
     scheduleSaving = true;
     try {
       const url = scheduleEditingId
@@ -513,7 +524,7 @@
       const response = await fetch(url, {
         method: scheduleEditingId ? 'PATCH' : 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(buildScheduleBody(scheduleZoneId))
+        body: JSON.stringify(payload)
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {

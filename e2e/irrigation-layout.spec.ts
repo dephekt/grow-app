@@ -175,6 +175,30 @@ test('refuses a zone whose numbers are not numbers, naming the field', async ({ 
   expect(posted).toBe(0);
 });
 
+test('refuses a schedule whose shot is not a number, rather than calling it missing', async ({
+  page
+}) => {
+  // A NaN shot serialized to null, and parseShot then counted zero shot keys and answered
+  // "provide exactly one of shotPercent, shotMl, or shotSeconds" — to someone who provided one.
+  let posted = 0;
+  await page.route('**/api/irrigation/schedules', (route) => {
+    if (route.request().method() === 'POST') posted += 1;
+    return route.fallback();
+  });
+
+  await page.goto('/irrigation');
+  await page.locator('article.zone').getByRole('button', { name: '+ Add' }).click();
+
+  await page.getByPlaceholder('06:00, 18:00').fill('06:00');
+  await page.getByLabel('Shot').fill('1,5');
+  // exact, because the "+ Add" link that opened this form also matches "Add".
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+  await expect(page.getByRole('alert')).toContainText('"1,5" is not a number');
+  await expect(page.getByRole('alert')).not.toContainText('exactly one');
+  expect(posted).toBe(0);
+});
+
 test('scrolls a newly revealed zone editor into view below a long zone grid', async ({ page }) => {
   const manyZones = Array.from({ length: 12 }, (_, index) => ({
     ...zone,
