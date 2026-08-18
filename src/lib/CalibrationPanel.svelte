@@ -368,9 +368,11 @@
   let selectedProbeType = $state<ProbeType | null>(null);
   let doneMap = $state<Record<string, boolean>>({}); // entity.id → done
 
+  // .at(0), not [0]: a device with no calibration entities has no probes, and index access types
+  // that case away as non-undefined, so the guards on activeProbe below read as dead code.
   let activeProbe = $derived(
     (selectedProbeType ? probes.find((p) => p.type === selectedProbeType) : null) ??
-      probes[0] ??
+      probes.at(0) ??
       null
   );
 
