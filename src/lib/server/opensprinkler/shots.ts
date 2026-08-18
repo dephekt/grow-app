@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
+import { numericScalar } from './coerce';
 import type { Zone } from './zones';
 
 /**
@@ -28,10 +29,20 @@ export function mlToSeconds(ml: number, zone: EmitterZone): number | null {
   return (ml / flow) * 60;
 }
 
+/** Unvalidated on purpose: the run route hands `request.json()` straight to resolveShotSeconds,
+ *  so declaring these `number` would claim the checking below has already happened. */
 export interface ShotInput {
-  seconds?: number;
-  ml?: number;
-  percent?: number;
+  seconds?: unknown;
+  ml?: unknown;
+  percent?: unknown;
+}
+
+/** Shares numericScalar with the schedule and zone parsers, so a shot arriving through the run
+ *  route and the same shot arriving through a schedule are held to one definition of a number. */
+function positiveNumber(value: unknown, field: string): number {
+  const n = numericScalar(value);
+  if (!Number.isFinite(n) || n <= 0) throw new Error(`${field} must be a positive number`);
+  return n;
 }
 
 /**
@@ -40,23 +51,18 @@ export interface ShotInput {
  */
 export function resolveShotSeconds(input: ShotInput, zone: Zone): number {
   if (input.seconds != null) {
-    const s = Number(input.seconds);
-    if (!Number.isFinite(s) || s <= 0) throw new Error('seconds must be a positive number');
-    const rounded = Math.round(s);
+    const rounded = Math.round(positiveNumber(input.seconds, 'seconds'));
     if (rounded <= 0) throw new Error('run time rounds to 0 seconds');
     return rounded;
   }
 
-  let ml: number | null;
+  let ml: number;
   if (input.ml != null) {
-    ml = Number(input.ml);
-    if (!Number.isFinite(ml) || ml <= 0) throw new Error('ml must be a positive number');
+    ml = positiveNumber(input.ml, 'ml');
   } else if (input.percent != null) {
-    const percent = Number(input.percent);
-    if (!Number.isFinite(percent) || percent <= 0)
-      throw new Error('percent must be a positive number');
-    ml = percentToMl(percent, zone);
-    if (ml == null) throw new Error('zone has no substrate volume; set it or use seconds');
+    const compiled = percentToMl(positiveNumber(input.percent, 'percent'), zone);
+    if (compiled == null) throw new Error('zone has no substrate volume; set it or use seconds');
+    ml = compiled;
   } else {
     throw new Error('provide one of seconds, ml, or percent');
   }

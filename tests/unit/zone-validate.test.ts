@@ -111,6 +111,37 @@ describe('substrate threshold validation', () => {
 });
 
 /**
+ * optBound carried the only guard against this; the rest of the numeric helpers coerced with a
+ * bare Number(), which maps [4] to 4, true to 1 and '' to 0 — all finite, all plausible, none of
+ * them a value anyone sent. They share one definition of a number now.
+ */
+describe('numeric coercion at the request boundary', () => {
+  it('rejects the non-scalars that used to resolve to station 0', () => {
+    // 0 is a legal sid, so unlike the other fields these could not be caught by a range check:
+    // each of them silently bound the zone to a real valve.
+    for (const stationSid of [null, false, '', '   ', [], [4], {}]) {
+      expect(() => parseZoneCreate({ name: '4x4', stationSid })).toThrow(/stationSid/);
+    }
+  });
+
+  it('still takes a number or a numeric string', () => {
+    expect(parseZoneCreate({ name: '4x4', stationSid: 0 })).toMatchObject({ stationSid: 0 });
+    expect(parseZoneCreate({ name: '4x4', stationSid: '4' })).toMatchObject({ stationSid: 4 });
+    expect(parseZoneCreate({ ...base, emitterLph: '2' })).toMatchObject({ emitterLph: 2 });
+  });
+
+  it('rejects them across the zone spec, not just the sid', () => {
+    expect(() => parseZoneCreate({ ...base, emitterLph: [2] })).toThrow(/emitterLph/);
+    expect(() => parseZoneCreate({ ...base, drippers: true })).toThrow(/drippers/);
+    expect(() => parseZoneCreate({ ...base, substrateVolumeMl: [4000] })).toThrow(
+      /substrateVolumeMl/
+    );
+    expect(() => parseZoneCreate({ ...base, maxRunSeconds: [300] })).toThrow(/maxRunSeconds/);
+    expect(() => parseZonePatch({ emitterLph: [2] })).toThrow(/emitterLph/);
+  });
+});
+
+/**
  * The clamp exists so grow-app never commands a run the pump plug would cut short. The plug
  * latches its supply off after a 12 min dry-run session and only a physical rearm clears it,
  * so a zone allowed past the ceiling turns a legitimate long soak into a trip to the tent.

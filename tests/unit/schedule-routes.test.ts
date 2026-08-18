@@ -148,6 +148,21 @@ describe('/api/irrigation/schedules', () => {
     expect((await readJson<ErrorBody>(res)).error).toMatch(/exactly one/i);
   });
 
+  it('rejects a non-scalar shot size instead of firing it on every slot', async () => {
+    // The manual run route resolves a shot once; a schedule re-fires it indefinitely, so a
+    // shotMl of [500] silently becoming 500 is the same coercion with a far longer tail.
+    const zone = await createZone({ name: 'Tent 1', stationSid: 0 });
+    for (const shot of [{ shotMl: [500] }, { shotSeconds: true }, { shotPercent: [['3']] }]) {
+      const res = await POST(
+        event({ body: { zoneId: zone.id, times: ['06:00'], ...shot } }) as unknown as Parameters<
+          typeof POST
+        >[0]
+      );
+      expect(res.status).toBe(400);
+      expect((await readJson<ErrorBody>(res)).error).toMatch(/positive/i);
+    }
+  });
+
   it('404s an unknown zoneId', async () => {
     const res = await POST(
       event({

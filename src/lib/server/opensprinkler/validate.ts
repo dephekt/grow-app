@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Daniel Snider
 
 import { MAX_RUN_SECONDS_CEILING } from '$lib/irrigation/model';
+import { numericScalar } from './coerce';
 import type { ZoneCreate, ZonePatch } from './zones';
 import type { ScheduleCreate, SchedulePatch } from './schedules';
 import type { SubstrateProbePatch } from './probes';
@@ -17,7 +18,7 @@ function requireName(value: unknown): string {
 }
 
 function requireStationSid(value: unknown): number {
-  const n = Number(value);
+  const n = numericScalar(value);
   if (!Number.isInteger(n) || n < 0) throw new Error('stationSid must be a non-negative integer');
   return n;
 }
@@ -30,7 +31,7 @@ function optString(value: unknown): string | null {
 
 function optPositiveNumber(value: unknown, field: string): number | null {
   if (value == null) return null;
-  const n = Number(value);
+  const n = numericScalar(value);
   if (!Number.isFinite(n) || n <= 0) throw new Error(`${field} must be a positive number`);
   return n;
 }
@@ -56,7 +57,7 @@ function optPositiveInt(value: unknown, field: string): number | null {
 }
 
 function requirePositiveInt(value: unknown, field: string): number {
-  const n = Number(value);
+  const n = numericScalar(value);
   if (!Number.isInteger(n) || n <= 0) throw new Error(`${field} must be a positive integer`);
   return n;
 }

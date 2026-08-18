@@ -26,7 +26,7 @@
 
   // Same source the irrigation page uses. The API gate is unchanged — this is about not
   // offering a control that hands a mains relay to an automation and will then be refused.
-  const isAdmin = $derived(Boolean(data.user?.isAdmin));
+  const isAdmin = $derived(data.user?.isAdmin);
   const config = $derived(climate.config);
   const action = $derived(climate.action);
   const exhaustArmed = $derived(config.exhaustSource === 'loop');
