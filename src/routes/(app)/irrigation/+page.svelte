@@ -34,7 +34,7 @@
   let historyLoading = $state(false);
   let historyRequestId = 0;
   let error = $state<string | null>(null);
-  const isAdmin = $derived(Boolean(data.user?.isAdmin));
+  const isAdmin = $derived(data.user?.isAdmin);
 
   const HISTORY_PAGE_SIZE = 25;
 

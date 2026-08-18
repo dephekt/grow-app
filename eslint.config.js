@@ -220,6 +220,10 @@ export default defineConfig(
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
       '@typescript-eslint/no-unnecessary-template-expression': 'error',
+      // Held back in #171 because four of its six hits were two type lies -- shots.ts's parameter
+      // and the index access behind CalibrationPanel's activeProbe -- where deleting the
+      // conversion would have been the wrong fix.
+      '@typescript-eslint/no-unnecessary-type-conversion': 'error',
       // `void expr` is how this repo marks a deliberately unawaited promise; this fails the idiom
       // applied to something that is not one.
       '@typescript-eslint/no-meaningless-void-operator': 'error',
