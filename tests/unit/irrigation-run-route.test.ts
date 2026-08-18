@@ -111,6 +111,19 @@ describe('POST /api/irrigation/zones/[id]/run', () => {
     expect(runs).toEqual([]);
   });
 
+  it('never records a shot size the resolver would have rejected', async () => {
+    // The audit row is written from the raw body, not from what resolveShotSeconds used, so it
+    // coerced separately and could claim a 500 mL shot for a run that was 30 seconds of nothing
+    // of the sort. Both sides read the same definition of a number now.
+    const id = zoneId();
+    const res = await run(id, { seconds: 30, ml: [500] });
+    expect(res.status).toBe(200);
+    const row = getIrrigationDb()
+      .prepare('SELECT seconds, requested_ml FROM irrigation_events WHERE zone_id = ?')
+      .get(id);
+    expect(row).toMatchObject({ seconds: 30, requested_ml: null });
+  });
+
   it('clamps to the zone max-run cap', async () => {
     const res = await run(zoneId(), { seconds: '9000' });
     expect(res.status).toBe(200);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
+import { numericScalar } from './coerce';
 import type { Zone } from './zones';
 
 /**
@@ -36,10 +37,10 @@ export interface ShotInput {
   percent?: unknown;
 }
 
-/** Numbers and numeric strings are both legitimate over JSON; everything else is rejected rather
- *  than coerced, because `Number()` turns `[30]` into 30 and `true` into 1. */
+/** Shares numericScalar with the schedule and zone parsers, so a shot arriving through the run
+ *  route and the same shot arriving through a schedule are held to one definition of a number. */
 function positiveNumber(value: unknown, field: string): number {
-  const n = typeof value === 'number' || typeof value === 'string' ? Number(value) : Number.NaN;
+  const n = numericScalar(value);
   if (!Number.isFinite(n) || n <= 0) throw new Error(`${field} must be a positive number`);
   return n;
 }

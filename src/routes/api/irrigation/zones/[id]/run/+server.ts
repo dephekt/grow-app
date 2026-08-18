@@ -6,14 +6,16 @@ import type { RequestHandler } from './$types';
 import { getIrrigationDb } from '$lib/server/opensprinkler/db';
 import { getZone, recordEvent } from '$lib/server/opensprinkler/zones';
 import { clampSeconds, resolveShotSeconds } from '$lib/server/opensprinkler/shots';
+import { numericScalar } from '$lib/server/opensprinkler/coerce';
 import { getOpenSprinklerConfig } from '$lib/server/opensprinkler/config';
 import { getIrrigationController } from '$lib/server/opensprinkler/controller';
 import { BrokerNotConnectedError } from '$lib/server/mqtt/service';
 
-/** Coerce a JSON value (number or numeric string) to a number for the audit log, or null when absent/non-numeric. */
+/** Coerce a JSON value (number or numeric string) to a number for the audit log, or null when
+ *  absent/non-numeric — on the same definition of a number the run itself was resolved against,
+ *  so the row cannot record a shot size the resolver would have rejected. */
 function numOrNull(value: unknown): number | null {
-  if (value == null || value === '') return null;
-  const n = Number(value);
+  const n = numericScalar(value);
   return Number.isFinite(n) ? n : null;
 }
 
