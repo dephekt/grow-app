@@ -147,6 +147,34 @@ test('places probes with zones and reveals the shared zone editor above history'
   expect((await editor.boundingBox())!.y).toBeLessThan((await history.boundingBox())!.y);
 });
 
+test('refuses a zone whose numbers are not numbers, naming the field', async ({ page }) => {
+  // `required` passes a box of spaces, and Number('   ') is 0 — a legal station — so this used
+  // to POST a zone silently bound to valve 0. Nothing is allowed to reach the API.
+  let posted = 0;
+  await page.route('**/api/irrigation/zones', (route) => {
+    if (route.request().method() === 'POST') posted += 1;
+    return route.fallback();
+  });
+
+  await page.goto('/irrigation');
+  await page.locator('header').getByRole('button', { name: 'Add zone' }).click();
+  const editor = page.locator('#zone-editor');
+
+  await editor.getByLabel('Name').fill('Blank station');
+  await editor.getByLabel('OpenSprinkler station').fill('   ');
+  await editor.getByRole('button', { name: 'Add zone' }).click();
+  await expect(page.getByRole('alert')).toContainText('OpenSprinkler station is required');
+
+  // A typo in an optional field is the other half: NaN would serialize to null, which the
+  // server reads as "clear it" rather than as a mistake.
+  await editor.getByLabel('OpenSprinkler station').fill('3');
+  await editor.getByLabel('Drippers per container').fill('abc');
+  await editor.getByRole('button', { name: 'Add zone' }).click();
+  await expect(page.getByRole('alert')).toContainText('"abc" is not a number');
+
+  expect(posted).toBe(0);
+});
+
 test('scrolls a newly revealed zone editor into view below a long zone grid', async ({ page }) => {
   const manyZones = Array.from({ length: 12 }, (_, index) => ({
     ...zone,

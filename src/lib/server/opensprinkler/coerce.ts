@@ -2,10 +2,11 @@
 // Copyright (C) 2026 Daniel Snider
 
 /**
- * The one place the irrigation API decides what a JSON value has to look like to be a number.
+ * One definition of what a JSON value has to look like to be a number, shared by the shot
+ * resolver, the zone and schedule parsers, and the run route's audit log. Callers keep the
+ * finite-or-integer check they already wrote, since NaN fails both.
  *
- * Every caller already gates on `Number.isFinite`, so returning NaN for the values that are not
- * numbers hardens each of them without changing the check it already writes.
+ * `optBound` is deliberately not a caller: a blank string is "no bound" there, not an error.
  */
 export function numericScalar(value: unknown): number {
   if (typeof value === 'number') return value;

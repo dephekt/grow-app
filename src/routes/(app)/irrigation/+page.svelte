@@ -321,10 +321,22 @@
     return n;
   };
 
+  // `required` only rejects the empty string, so a box of spaces reaches Number() as 0 — and 0
+  // is a legal station, which is the one field the server cannot reject on range.
+  const requireNum = (v: string, field: string) => {
+    const n = num(v);
+    if (n === null) throw new Error(`${field} is required`);
+    return n;
+  };
+
   function buildBody(): Record<string, unknown> {
+    // Read through num() first: a typo like "abc" is truthy, so scaling it below would produce
+    // NaN, and JSON.stringify would send null — which the server reads as "clear this field".
+    const volume = num(form.substrateVolume);
+    const flow = num(form.emitterFlow);
     return {
       name: form.name,
-      stationSid: Number(form.stationSid),
+      stationSid: requireNum(form.stationSid, 'OpenSprinkler station'),
       substrateType: form.substrateType.trim() || null,
       // An empty box is an open side, not a zero.
       vwcMinPct: num(form.vwcMin),
@@ -335,14 +347,11 @@
       pwecMax: num(form.pwecMax),
       // Round the unit-converted canonical values so they don't carry float noise
       // (e.g. 1 gal → 3785 mL, 2.11 GPH → 7.99 L/hr) into the store/API/summary.
-      substrateVolumeMl: form.substrateVolume
-        ? Math.round(Number(form.substrateVolume) * VOLUME_TO_ML[form.volumeUnit])
-        : null,
-      drippers: form.drippers ? Number(form.drippers) : null,
-      emitterLph: form.emitterFlow
-        ? Math.round(Number(form.emitterFlow) * FLOW_TO_LPH[form.flowUnit] * 100) / 100
-        : null,
-      maxRunSeconds: Number(form.maxRunSeconds),
+      substrateVolumeMl:
+        volume === null ? null : Math.round(volume * VOLUME_TO_ML[form.volumeUnit]),
+      drippers: num(form.drippers),
+      emitterLph: flow === null ? null : Math.round(flow * FLOW_TO_LPH[form.flowUnit] * 100) / 100,
+      maxRunSeconds: requireNum(form.maxRunSeconds, 'Max run'),
       enabled: form.enabled
     };
   }
@@ -350,13 +359,24 @@
   async function saveZone(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     error = null;
+
+    // Built before the request, not inside it: num() names the field that is wrong, and the
+    // catch below would report every one of them as "Could not save zone".
+    let payload: Record<string, unknown>;
+    try {
+      payload = buildBody();
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Check the numbers in this form';
+      return;
+    }
+
     saving = true;
     try {
       const url = editingId ? `/api/irrigation/zones/${editingId}` : '/api/irrigation/zones';
       const response = await fetch(url, {
         method: editingId ? 'PATCH' : 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(buildBody())
+        body: JSON.stringify(payload)
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
