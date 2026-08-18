@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Daniel Snider
 
-import type { Snapshot } from '../../src/lib/server/mqtt/types';
+import type { EntityState, Snapshot } from '../../src/lib/server/mqtt/types';
 
 const PLUG_TS = new Date('2026-06-13T12:00:00Z').toISOString();
 
@@ -117,22 +117,21 @@ const plugDevices = PLUG_FIXTURES.map((p) => ({
   entityIds: plugEntities.filter((e) => e.nodeId === p.node).map((e) => e.id)
 }));
 
-const plugStates = Object.fromEntries(
+// Object.fromEntries only returns something better than `any` when its input is tuples, and an
+// array literal inside a conditional spread infers as (string | EntityState)[] instead. Building
+// each pair through a helper that returns a real tuple is what makes the map typed -- untyped, it
+// spread `any` into the fixture's states and out through every spec that clones it.
+const entry = (key: string, value: string): [string, EntityState] => [
+  key,
+  { value, updatedAt: PLUG_TS }
+];
+
+const plugStates: Record<string, EntityState> = Object.fromEntries(
   PLUG_FIXTURES.flatMap((p) => [
-    ...(p.relay
-      ? [
-          [
-            `${p.node}_${p.relay.objectId}`,
-            { value: p.relay.on ? 'ON' : 'OFF', updatedAt: PLUG_TS }
-          ]
-        ]
-      : []),
-    ...(p.arms ?? []).map((arm) => [
-      `${p.node}_${arm.objectId}`,
-      { value: arm.on ? 'ON' : 'OFF', updatedAt: PLUG_TS }
-    ]),
-    [`${p.node}_${p.power.objectId}`, { value: p.power.watts, updatedAt: PLUG_TS }],
-    [`${p.node}_total_daily_energy`, { value: p.dailyKwh, updatedAt: PLUG_TS }]
+    ...(p.relay ? [entry(`${p.node}_${p.relay.objectId}`, p.relay.on ? 'ON' : 'OFF')] : []),
+    ...(p.arms ?? []).map((arm) => entry(`${p.node}_${arm.objectId}`, arm.on ? 'ON' : 'OFF')),
+    entry(`${p.node}_${p.power.objectId}`, p.power.watts),
+    entry(`${p.node}_total_daily_energy`, p.dailyKwh)
   ])
 );
 

@@ -44,11 +44,11 @@ test.beforeEach(async ({ page }) => {
   // The captured live snapshot (~130 real entities, both devices).
   await page.route('**/api/snapshot', (route) => route.fulfill({ json: liveSnapshot }));
   await page.route('**/api/events', (route) => route.abort('failed'));
-  await page.route('**/api/history**', (route) => {
+  await page.route('**/api/history**', async (route) => {
     const u = new URL(route.request().url());
     const domain = u.searchParams.get('domain') ?? 'water';
     const specs = DOMAIN_SERIES[domain] ?? [];
-    route.fulfill({
+    await route.fulfill({
       json: {
         configured: true,
         domain,

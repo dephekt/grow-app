@@ -11,16 +11,22 @@ import svelteConfig from './svelte.config.js';
 
 const SVELTE = ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'];
 
-// Mirrors .svelte-kit/tsconfig.json's `include`, so it is exactly the files that carry type
-// information -- including the .js kinds, which allowJs+checkJs put in the program too. Everything
+// Mirrors .svelte-kit/tsconfig.json's `include` -- which svelte.config.js widens past Kit's
+// default to cover e2e/ and playwright.config.ts -- so these are the files carrying type
+// information, including the .js kinds that allowJs+checkJs put in the program too. Everything
 // else is handled as this set's complement rather than a second list, so the two always partition
-// the repo along the same line the program does. Keep it in step with that include; #132 is the
-// issue that moves e2e/ into the program.
+// the repo along the same line the program does. Keep it in step with that include.
+//
+// Two files sit off that line, both deliberately: e2e/fixtures/live-snapshot.ts is in the program
+// but globalIgnored below (regenerated), and e2e/support/mock-oidc-provider.mjs is linted but is
+// in neither list, so it lands in the complement and goes un-type-checked like any other .mjs.
 const TYPED = [
   'src/**/*.{js,ts,svelte}',
   'test/**/*.{js,ts,svelte}',
   'tests/**/*.{js,ts,svelte}',
-  'vite.config.{js,ts}'
+  'e2e/**/*.{js,ts,svelte}',
+  'vite.config.{js,ts}',
+  'playwright.config.{js,ts}'
 ];
 
 // The other half of that mirror: tsconfig's `exclude`. SvelteKit builds the service worker in a
@@ -111,9 +117,11 @@ export default defineConfig(
 
   {
     // Scoped to TYPED, and never wider -- not even to all .svelte. The parser fails a file it
-    // cannot find in the project outright rather than degrading, so a component added anywhere
-    // outside src/ would report `Parsing error: ... not found by the project service` instead of
-    // simply going un-type-checked.
+    // cannot find in the project outright rather than degrading, so a file added outside the
+    // program would report `Parsing error: ... not found by the project service` instead of
+    // simply going un-type-checked. That is also why widening this list is strictly downstream
+    // of widening the include: projectService resolves each file against the real tsconfig.json
+    // by walking up from it, so TYPED-first reports one parse error per newly-matched file.
     //
     // This also makes ESLint depend on `svelte-kit sync` output: without .svelte-kit/tsconfig.json
     // every import resolves to an error type and a single file reports ~111 phantom `no-unsafe-*`.
@@ -248,9 +256,9 @@ export default defineConfig(
   },
 
   {
-    // The complement of TYPED, written as one so the two sets cannot drift apart: a file added
-    // outside src/ or tests/ lands here and goes un-type-checked, rather than falling through both
-    // lists and being silently unenforced. Nothing below this may switch a type-aware rule back on
+    // The complement of TYPED, written as one so the two sets cannot drift apart: a file outside
+    // the program -- scripts/, design/, any .mjs -- lands here and goes un-type-checked, rather
+    // than falling through both lists and being silently unenforced. Nothing below this may switch a type-aware rule back on
     // for these files. (no-explicit-any is not among the 61 it disables, and ts.configs.recommended
     // sets that one repo-wide already, so it stays on here.)
     files: ['**/*'],
