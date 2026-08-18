@@ -8,7 +8,23 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
   preprocess: vitePreprocess(),
   kit: {
-    adapter: adapter()
+    adapter: adapter(),
+    typescript: {
+      // Kit generates the include from src/, test/, tests/ and vite.config only, which left the
+      // Playwright specs and their fixtures out of `pnpm check` entirely. Widened here rather
+      // than by writing `include` into tsconfig.json, because that key replaces the generated
+      // one wholesale instead of adding to it.
+      config: (config) => ({
+        ...config,
+        include: [
+          ...config.include,
+          '../playwright.config.ts',
+          '../e2e/**/*.js',
+          '../e2e/**/*.ts',
+          '../e2e/**/*.svelte'
+        ]
+      })
+    }
   },
   compilerOptions: {
     runes: true

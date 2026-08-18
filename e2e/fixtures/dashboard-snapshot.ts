@@ -138,6 +138,7 @@ const plugStates = Object.fromEntries(
 
 export const dashboardSnapshot = {
   site: 'daniel-home',
+  timezone: 'UTC',
   topicPrefix: 'grow/daniel-home',
   discoveryPrefix: 'grow/daniel-home/_discovery',
   generatedAt: new Date('2026-06-13T12:00:00Z').toISOString(),
