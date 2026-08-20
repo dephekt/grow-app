@@ -54,6 +54,15 @@ export const MIGRATIONS: string[] = [
   // would quote one figure in its reason and carry another in `air_vpd`.
   `
   ALTER TABLE climate_events ADD COLUMN air_vpd_fast REAL;
+  `,
+  // 3 — what the humidifier was actually doing, which the verdict columns cannot say. Through
+  // the observation phase the loop does not own that relay: it stays closed and the T7's own
+  // humidistat decides, so `humidifier_on` is a constant and `humidifier_misting` is the whole
+  // signal. Both are nullable because a tent with no humidifier plug in it is not a tent whose
+  // humidifier was off.
+  `
+  ALTER TABLE climate_events ADD COLUMN humidifier_on INTEGER;
+  ALTER TABLE climate_events ADD COLUMN humidifier_misting INTEGER;
   `
 ];
 

@@ -7,7 +7,12 @@ import { getSiteMqttService } from '$lib/server/mqtt/service';
 import type { Snapshot } from '$lib/server/mqtt/types';
 import { resolveGrowState } from '$lib/lights/grow-plan';
 import { controlBand, type ClimateConfig, type ControlBand } from '$lib/climate/model';
-import { decideClimate, type ClimateAction, type ClimateDecisionInput } from '$lib/climate/decide';
+import {
+  decideClimate,
+  ownedByLoop,
+  type ClimateAction,
+  type ClimateDecisionInput
+} from '$lib/climate/decide';
 import { resolveClimateInputs, type ClimateInputs } from '$lib/climate/inputs';
 import { airVpdKpa, ventedAirVpdKpa, type AirState } from '$lib/climate/psychro';
 import { RollingMedian } from '$lib/climate/smoothing';
@@ -57,6 +62,11 @@ export const MIN_FAST_SAMPLES = 2;
 /** A quiet loop still says so on this cadence, so a gap in the log means an outage. */
 const HEARTBEAT_MS = 15 * 60 * 1000;
 
+/** The humidifier plug's own fail-safe, in minutes — its `command_watchdog` default in
+ *  grow-fleet's devices/humidifier.yaml. Not read at runtime, since the entity is tunable
+ *  on-device; it is here so the tick this file ships with can be checked against it. */
+export const HUMIDIFIER_WATCHDOG_MINUTES = 5;
+
 /** Samples the window needs before its median can reject an outlier rather than be one. */
 export const MIN_SMOOTHING_SAMPLES = 3;
 
@@ -99,32 +109,45 @@ export class ClimateLoopState {
   }
 
   /** Whether this action is worth a row: any change of verdict, else the heartbeat. */
-  shouldLog(action: ClimateAction, nowMs: number, heartbeat = true): boolean {
-    const key = logKey(action);
+  shouldLog(
+    action: ClimateAction,
+    misting: boolean | null,
+    nowMs: number,
+    heartbeat = true
+  ): boolean {
+    const key = logKey(action, misting);
     if (key !== this.lastLogKey) return true;
     if (!heartbeat) return false;
     return this.lastLogMs === null || nowMs - this.lastLogMs >= HEARTBEAT_MS;
   }
 
-  markLogged(action: ClimateAction, nowMs: number): void {
-    this.lastLogKey = logKey(action);
+  markLogged(action: ClimateAction, misting: boolean | null, nowMs: number): void {
+    this.lastLogKey = logKey(action, misting);
     this.lastLogMs = nowMs;
   }
 }
 
 /** Dedup identity: the kind plus the reason with its numbers blanked, since `hold` covers
- *  outcomes as unalike as in-band and failing safe. */
-function logKey(action: ClimateAction): string {
+ *  outcomes as unalike as in-band and failing safe.
+ *
+ *  The humidifier's observed misting state joins it because through the observation phase the
+ *  loop is not driving that relay — the T7 answers our venting on its own humidistat, and none
+ *  of the verdict fields move when it does. Without this its runs would be sampled only when
+ *  the loop happened to change its mind or the 15 min heartbeat came round, which is coarser
+ *  than the cycles being observed. It costs a row per edge, against a table already bounded by
+ *  the tick and pruned at 90 days. */
+function logKey(action: ClimateAction, misting: boolean | null): string {
   const shape = action.reason.replace(/[\d.]+/g, '#');
+  const rh = misting === null ? '' : `|misting:${misting}`;
   switch (action.kind) {
     case 'exhaust':
     case 'humidify':
-      return `${action.kind}:${action.on}:${shape}`;
+      return `${action.kind}:${action.on}:${shape}${rh}`;
     case 'delegated':
     case 'blocked':
-      return `${action.kind}:${action.want}:${action.on}:${shape}`;
+      return `${action.kind}:${action.want}:${action.on}:${shape}${rh}`;
     case 'hold':
-      return `hold:${shape}`;
+      return `hold:${shape}${rh}`;
   }
 }
 
@@ -250,6 +273,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
 
   let published = false;
   let publishError: string | null = null;
+  const keepalive = humidifierKeepalive(config, inputs);
 
   // Recorded explicitly, or an outage reads as a deliberate dry run.
   const wouldPublish = action.kind === 'exhaust' || action.kind === 'humidify';
@@ -266,6 +290,19 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
       } else if (action.kind === 'humidify' && inputs.humidifier.entity) {
         await publish(inputs.humidifier.entity.id, action.on);
         published = true;
+      } else if (keepalive !== null) {
+        // Skipped on a tick that published an exhaust transition, which costs nothing: the
+        // watchdog absorbs tens of ticks, and decide.ts releases the humidifier before the fan
+        // ever starts, so the two can barely co-occur anyway.
+        try {
+          await publish(keepalive, true);
+        } catch (error) {
+          // Named, because this is not the tick's action failing to reach the relay — it is the
+          // proof-of-life failing, and the consequence is specific: the plug fails dry inside
+          // its watchdog window whatever this tick decided.
+          const detail = error instanceof Error ? error.message : String(error);
+          publishError = `humidifier keepalive failed: ${detail}`;
+        }
       }
     } catch (error) {
       publishError = error instanceof Error ? error.message : String(error);
@@ -279,7 +316,7 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
     : action;
 
   // A switched-off loop records the switch and goes quiet rather than heartbeating forever.
-  if (state.shouldLog(logged, nowMs, config.mode !== 'off')) {
+  if (state.shouldLog(logged, inputs.humidifierMisting, nowMs, config.mode !== 'off')) {
     recordClimateEvent(db, {
       ts: new Date(nowMs).toISOString(),
       action: logged,
@@ -297,14 +334,38 @@ export async function runClimateTick(deps: ClimateTickDeps): Promise<ClimateTick
       tentRhPct: decisionInput.reading.tent?.rhPct ?? null,
       roomTempC: decisionInput.reading.room?.tempC ?? null,
       roomRhPct: decisionInput.reading.room?.rhPct ?? null,
-      lightsOn: inputs.lightsOn
+      lightsOn: inputs.lightsOn,
+      // Recorded whether or not the loop owns the relay: in the observation phase this pair is
+      // the only trace of what the humidifier did, and in the armed phase it is the check that
+      // the relay followed the command.
+      humidifierOn: inputs.humidifier.present ? inputs.humidifier.on : null,
+      humidifierMisting: inputs.humidifierMisting
     });
-    state.markLogged(logged, nowMs);
+    state.markLogged(logged, inputs.humidifierMisting, nowMs);
     // On write, since writes are the only thing that grows the table.
     pruneClimateEvents(db, nowMs, getClimateLogRetentionDays());
   }
 
   return { config, band, inputs, decisionInput, decision: action, published };
+}
+
+/** The humidifier plug opens its relay after HUMIDIFIER_WATCHDOG_MINUTES with no command on
+ *  its MQTT topic, because it is the only actuator with no local arm to fall back on: with
+ *  grow-app gone nothing in the tent knows whether humidity is wanted, and as dry as the room
+ *  beats far too humid.
+ *
+ *  But `applyTransition` publishes only on a transition, so without this the plug's fail-safe
+ *  would cut healthy runs — and that does not degrade gracefully. The loop re-engages only at
+ *  the hard ceiling, so a cut partway down leaves the humidifier off until the tent drifts back
+ *  OVER the ceiling the run was defending, and then repeats. Re-asserting ON every tick is what
+ *  makes the watchdog mean "grow-app is gone" rather than "the run got long".
+ *
+ *  It is a keepalive and not a decision: it never appears in the log and never counts as
+ *  `published`, both of which describe THIS tick's action. */
+function humidifierKeepalive(config: ClimateConfig, inputs: ClimateInputs): string | null {
+  if (!ownedByLoop(config.rhSource)) return null;
+  if (!inputs.humidifier.present || !inputs.humidifier.on) return null;
+  return inputs.humidifier.entity?.id ?? null;
 }
 
 /** Decision-log retention in days (`GROW_CLIMATE_LOG_RETENTION_DAYS`, 0 disables). */

@@ -118,7 +118,9 @@ describe('climate events', () => {
     tentRhPct: 78,
     roomTempC: 25,
     roomRhPct: 55,
-    lightsOn: true
+    lightsOn: true,
+    humidifierOn: null,
+    humidifierMisting: null
   };
 
   it('records the actuator and direction for a command', () => {
@@ -347,7 +349,9 @@ describe('migration 2 — air_vpd_fast on an existing log', () => {
       tentRhPct: 65,
       roomTempC: 24,
       roomRhPct: 55,
-      lightsOn: true
+      lightsOn: true,
+      humidifierOn: null,
+      humidifierMisting: null
     });
     const fresh = listClimateEvents(db).find((e) => e.reason === 'top of band');
     expect(fresh?.airVpd).toBe(1.02);

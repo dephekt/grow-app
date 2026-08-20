@@ -91,13 +91,28 @@
   }
 
   const num = (v: number | null, digits = 2) => (v === null ? '—' : v.toFixed(digits));
+
+  /** Only when a humidifier was actually in the tent for these rows — the column is the whole
+   *  record through the observation phase, and dead weight before the plug exists. */
+  const showHumidifier = $derived(
+    events.some((e) => e.humidifierOn !== null || e.humidifierMisting !== null)
+  );
+
+  /** What the humidifier was doing, which its relay does not say: while grow-app does not own
+   *  it the relay stays closed and the unit's own humidistat decides, so `idle` and `misting`
+   *  are both normal and the interesting thing is which one lines up with a vent run. */
+  function humidifier(e: ClimateEventJson): string {
+    if (e.humidifierOn === false) return 'off';
+    if (e.humidifierMisting === null) return '—';
+    return e.humidifierMisting ? 'misting' : 'idle';
+  }
 </script>
 
 <div class="log">
   {#if events.length === 0}
     <p class="empty">
-      No decisions recorded yet. The loop writes a row whenever its verdict changes, and a heartbeat
-      every 15 minutes.
+      No decisions recorded yet. The loop writes a row whenever its verdict changes, whenever the
+      humidifier starts or stops misting, and as a heartbeat every 15 minutes.
     </p>
   {:else}
     <div class="scroll">
@@ -110,6 +125,7 @@
             <th>Band</th>
             <th>Tent</th>
             <th>Room</th>
+            {#if showHumidifier}<th>Humidifier</th>{/if}
             <th>Why</th>
           </tr>
         </thead>
@@ -135,6 +151,11 @@
               <td class="mono sub nowrap">{num(e.bandLow)}–{num(e.bandHigh)}</td>
               <td class="mono sub nowrap">{num(e.tentTempC, 1)}°C {num(e.tentRhPct, 0)}%</td>
               <td class="mono sub nowrap">{num(e.roomTempC, 1)}°C {num(e.roomRhPct, 0)}%</td>
+              {#if showHumidifier}
+                <td class="mono nowrap" class:misting={e.humidifierMisting === true}
+                  >{humidifier(e)}</td
+                >
+              {/if}
               <td class="reason">{e.reason}</td>
             </tr>
           {/each}
@@ -165,6 +186,12 @@
 </div>
 
 <style>
+  /* The one column read for pattern rather than value: it is scanned against the vent rows
+     beside it, so the misting rows have to pick out at a glance. */
+  .misting {
+    color: var(--ok);
+  }
+
   .empty {
     margin: 0;
     font-size: 0.8rem;

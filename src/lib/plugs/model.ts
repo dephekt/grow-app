@@ -17,6 +17,11 @@ import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 
 export const EXHAUST_NODE = 'exhaust-fan';
 export const GROW_LIGHT_NODE = 'grow-light';
+export const HUMIDIFIER_NODE = 'humidifier';
+
+/** objectId of the plug's own misting signal — its wattage thresholded on-device, which is the
+ *  only thing that distinguishes a T7 whose transducers are running from one merely powered. */
+export const HUMIDIFIER_MISTING = 'misting';
 
 /** The exhaust plug's base package floors reported power below 3 W to exactly 0, so any
  *  non-zero reading is already at or above this. */
@@ -25,6 +30,11 @@ const METER_FLOOR_W = 3;
 /** The lamp idles near zero and runs in the hundreds of watts; anything clear of the meter
  *  floor is a real load. */
 const LIGHT_DRAW_MIN_W = 5;
+
+/** Draw below which a closed humidifier relay is not actually misting — a dry tank, or the
+ *  T7's own panel switched off. Mirrors the plug's `misting_min_w`, which annunciates the same
+ *  condition on-device; move the two together. */
+export const HUMIDIFIER_MISTING_MIN_W = 20;
 
 /** A firmware arm that owns the relay. While one is on, the plug re-asserts its own desired
  *  state every 10 s, so a manual toggle reverts — the card has to say so. */
@@ -86,6 +96,15 @@ export const PLUGS: PlugSpec[] = [
     runningMinW: PUMP_DRAW_MIN_W,
     confirmToggle: true,
     note: 'supply / rearm — switching off disables irrigation'
+  },
+  {
+    node: HUMIDIFIER_NODE,
+    label: 'Humidifier',
+    relay: 'humidifier',
+    power: 'humidifier_power',
+    dailyEnergy: 'total_daily_energy',
+    runningMinW: HUMIDIFIER_MISTING_MIN_W,
+    note: 'climate loop drives this; the plug fails dry if the loop goes quiet'
   },
   {
     node: RUNOFF_NODE,
