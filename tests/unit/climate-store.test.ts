@@ -359,3 +359,58 @@ describe('migration 2 — air_vpd_fast on an existing log', () => {
     db.close();
   });
 });
+
+/**
+ * Migration 3 lands on a live table for the same reason migration 2 did: the loop had been
+ * logging for weeks before a humidifier existed to log anything about. Those rows have to stay
+ * readable, and they have to read as "no humidifier", never as "the humidifier was idle" —
+ * the second is a claim about a tent that had no humidifier in it.
+ */
+describe('migration 3 — humidifier state on an existing log', () => {
+  it('adds the columns to a v2 database, leaving earlier rows null rather than false', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'grow-climate-mig3-')), 'climate.db');
+    const old = new DatabaseSync(path);
+    for (const migration of MIGRATIONS.slice(0, 2)) old.exec(migration);
+    old.exec('PRAGMA user_version = 2');
+    old
+      .prepare(
+        `INSERT INTO climate_events (ts, kind, reason, mode, published, air_vpd, air_vpd_fast,
+           target, band_low, band_high, lights_on)
+         VALUES (?, 'hold', 'pre-humidifier row', 'active', 0, 0.99, 1.01, 1.0, 0.9, 1.1, 1)`
+      )
+      .run(NOW_ISO);
+    old.close();
+
+    const db = openClimateDb(path);
+    const [row] = listClimateEvents(db);
+    expect(row.reason).toBe('pre-humidifier row');
+    expect(row.airVpdFast).toBe(1.01);
+    expect(row.humidifierOn).toBeNull();
+    expect(row.humidifierMisting).toBeNull();
+
+    recordClimateEvent(db, {
+      ts: NOW_ISO,
+      action: { kind: 'hold', reason: 'post-migration row' },
+      mode: 'observe',
+      published: false,
+      airVpd: 1.05,
+      airVpdFast: 1.05,
+      leafVpd: null,
+      target: 1.0,
+      bandLow: 0.9,
+      bandHigh: 1.1,
+      tentTempC: 26,
+      tentRhPct: 69,
+      roomTempC: 25,
+      roomRhPct: 50,
+      lightsOn: true,
+      humidifierOn: true,
+      humidifierMisting: false
+    });
+    const fresh = listClimateEvents(db).find((e) => e.reason === 'post-migration row');
+    expect(fresh?.humidifierOn).toBe(true);
+    // False, and distinguishable from the null above: an idle head is a reading.
+    expect(fresh?.humidifierMisting).toBe(false);
+    db.close();
+  });
+});
