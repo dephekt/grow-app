@@ -8,6 +8,8 @@ import { listClimateEvents, updateClimateConfig } from '../../src/lib/server/cli
 import {
   buildDecisionInput,
   ClimateLoopState,
+  getClimateTickMs,
+  HUMIDIFIER_WATCHDOG_MINUTES,
   MIN_SMOOTHING_SAMPLES,
   runClimateTick,
   updateClimateSmoothing
@@ -17,7 +19,8 @@ import {
   AIR_VPD_HARD_MAX,
   controlBand,
   DEFAULT_CLIMATE_CONFIG,
-  EXHAUST_NODE
+  EXHAUST_NODE,
+  HUMIDIFIER_NODE
 } from '../../src/lib/climate/model';
 import { VENT_RUN_08_15 } from './fixtures/vent-run-08-15';
 import { airVpdKpa } from '../../src/lib/climate/psychro';
@@ -632,5 +635,195 @@ describe('runClimateTick', () => {
     expect(state.exhaustChangedMs).toBeNull(); // cold start is not a transition
     await runClimateTick(deps({ ...WANTS_VENT, fan_relay: 'ON' }, state, NOW + 30_000));
     expect(state.exhaustChangedMs).toBe(NOW + 30_000);
+  });
+});
+
+/**
+ * The humidifier plug is the only actuator with no local arm: it opens its relay after
+ * HUMIDIFIER_WATCHDOG_MINUTES with no command, because with grow-app gone nothing in the tent
+ * knows whether humidity is wanted. `applyTransition` publishes only on a transition, so
+ * without a keepalive that fail-safe would cut healthy runs — and it does not degrade
+ * gracefully, since the loop re-engages only at the 1.2 kPa ceiling.
+ */
+describe('the humidifier keepalive', () => {
+  const HUMIDIFIER_ENTITIES: EntityConfig[] = [
+    ...ENTITIES,
+    sw(HUMIDIFIER_NODE, 'humid_relay', 'humidifier')
+  ];
+
+  /** 26.0 °C / 68.75 % is 1.05 kPa: inside the band so the fan holds off, and above the 1.0
+   *  release point so a running humidifier keeps running. The verdict is a plain hold, which
+   *  is precisely the tick a transition-only publisher says nothing on. */
+  const HOLDING = {
+    rig_t: '26.0',
+    rig_h: '68.75',
+    room_t: '25.0',
+    room_h: '50.0',
+    fan_relay: 'OFF',
+    fan_cyc: 'OFF',
+    fan_sch: 'OFF',
+    humid_relay: 'ON'
+  };
+
+  function armed(rhSource: 'loop' | 'external' = 'loop'): void {
+    updateClimateConfig(db, { mode: 'active', rhSource }, NOW_ISO);
+  }
+
+  async function tick(values: Record<string, string>, entities = HUMIDIFIER_ENTITIES) {
+    return runClimateTick(deps(values, warmed(values, NOW, entities), NOW, entities));
+  }
+
+  it('holds the plug open on a tick that decides nothing', async () => {
+    armed();
+    const result = await tick(HOLDING);
+
+    expect(result.decision.kind).toBe('hold');
+    expect(published).toEqual([{ entityId: 'humid_relay', on: true }]);
+  });
+
+  it('does not record the keepalive as a decision or as a published action', async () => {
+    armed();
+    await tick(HOLDING);
+
+    const rows = listClimateEvents(db, 10);
+    expect(rows.map((row) => row.kind)).toEqual(['hold']);
+    // `published` describes whether THIS tick's action reached the relay, and a hold has none.
+    expect(rows[0]?.published).toBe(false);
+  });
+
+  it('re-asserts on every tick, since nothing about a steady run changes', async () => {
+    armed();
+    const state = warmed(HOLDING, NOW, HUMIDIFIER_ENTITIES);
+    for (let k = 0; k < 3; k++) {
+      await runClimateTick(deps(HOLDING, state, NOW + k * 10_000, HUMIDIFIER_ENTITIES));
+    }
+    expect(published).toEqual(Array(3).fill({ entityId: 'humid_relay', on: true }));
+  });
+
+  it('says nothing while the humidifier is off', async () => {
+    armed();
+    await tick({ ...HOLDING, humid_relay: 'OFF' });
+    expect(published).toEqual([]);
+  });
+
+  it('says nothing while RH is delegated, since the relay is not the loop to hold', async () => {
+    armed('external');
+    await tick(HOLDING);
+    expect(published).toEqual([]);
+  });
+
+  it('says nothing when the plug is not discovered', async () => {
+    armed();
+    await tick(HOLDING, ENTITIES);
+    expect(published).toEqual([]);
+  });
+
+  it('yields to a real transition rather than publishing twice', async () => {
+    armed();
+    // 26.0 °C / 71 % is 0.97 kPa, back under the 1.0 release point.
+    const result = await tick({ ...HOLDING, rig_h: '71' });
+
+    expect(result.decision).toMatchObject({ kind: 'humidify', on: false });
+    expect(published).toEqual([{ entityId: 'humid_relay', on: false }]);
+  });
+
+  it('ticks often enough that a late tick cannot fail the tent dry', () => {
+    // The other half of this coupling is asserted from the firmware side in grow-fleet's
+    // tests/test_humidifier_watchdog.py; the two must be read together.
+    const keepalivesPerWindow = (HUMIDIFIER_WATCHDOG_MINUTES * 60_000) / getClimateTickMs();
+    expect(keepalivesPerWindow).toBeGreaterThanOrEqual(6);
+  });
+});
+
+/**
+ * The observation phase: grow-app does not own the humidifier relay, which stays closed while
+ * the unit's own humidistat decides when to run. None of the verdict columns move when it does,
+ * so without the misting signal on the row there would be no record of how it answered a vent
+ * run — the whole question the phase exists to answer.
+ */
+describe('the humidifier under observation', () => {
+  const bs = (nodeId: string, id: string, objectId: string) =>
+    makeEntity(nodeId, {
+      id,
+      name: objectId,
+      objectId,
+      component: 'binary_sensor',
+      payloadOn: 'ON',
+      payloadOff: 'OFF'
+    });
+
+  const OBSERVED: EntityConfig[] = [
+    ...ENTITIES,
+    sw(HUMIDIFIER_NODE, 'humid_relay', 'humidifier'),
+    bs(HUMIDIFIER_NODE, 'humid_mist', 'misting')
+  ];
+
+  /** In band at 1.05 kPa, so the loop holds and every row below differs only in what the
+   *  humidifier was doing. The relay is closed throughout, as it is for the whole phase. */
+  const RESTING = {
+    rig_t: '26.0',
+    rig_h: '68.75',
+    room_t: '25.0',
+    room_h: '50.0',
+    fan_relay: 'OFF',
+    fan_cyc: 'OFF',
+    fan_sch: 'OFF',
+    humid_relay: 'ON',
+    humid_mist: 'OFF'
+  };
+
+  /** rhSource stays at its default, which is the point: the loop is watching, not driving. */
+  beforeEach(() => {
+    updateClimateConfig(db, { mode: 'observe' }, NOW_ISO);
+  });
+
+  it('records what the humidifier was doing against the verdict', async () => {
+    await runClimateTick(
+      deps({ ...RESTING, humid_mist: 'ON' }, warmed(RESTING, NOW, OBSERVED), NOW, OBSERVED)
+    );
+
+    const [row] = listClimateEvents(db);
+    expect(row).toMatchObject({ kind: 'hold', humidifierOn: true, humidifierMisting: true });
+  });
+
+  it('writes a row on a misting edge the verdict never sees', async () => {
+    const state = warmed(RESTING, NOW, OBSERVED);
+    const trace = ['OFF', 'ON', 'ON', 'OFF'];
+    for (let k = 0; k < trace.length; k++) {
+      await runClimateTick(
+        deps({ ...RESTING, humid_mist: trace[k] }, state, NOW + k * 10_000, OBSERVED)
+      );
+    }
+
+    // One row per edge, not per tick: the repeated 'ON' dedups exactly as a repeated verdict does.
+    const rows = listClimateEvents(db).reverse();
+    expect(rows.map((row) => row.humidifierMisting)).toEqual([false, true, false]);
+    expect(new Set(rows.map((row) => row.kind))).toEqual(new Set(['hold']));
+  });
+
+  it('never publishes, since observing is not owning', async () => {
+    await runClimateTick(
+      deps({ ...RESTING, humid_mist: 'ON' }, warmed(RESTING, NOW, OBSERVED), NOW, OBSERVED)
+    );
+    expect(published).toEqual([]);
+  });
+
+  it('leaves both null for a tent with no humidifier plug in it', async () => {
+    // Null, not false: "there was no humidifier" and "the humidifier was idle" are different
+    // rows, and only one of them is evidence about the T7.
+    await runClimateTick(deps(WANTS_VENT, warmed(WANTS_VENT), NOW));
+
+    const [row] = listClimateEvents(db);
+    expect(row?.humidifierOn).toBeNull();
+    expect(row?.humidifierMisting).toBeNull();
+  });
+
+  it('records a plug that has not published the signal as unknown, not idle', async () => {
+    const entities = [...ENTITIES, sw(HUMIDIFIER_NODE, 'humid_relay', 'humidifier')];
+    await runClimateTick(deps(RESTING, warmed(RESTING, NOW, entities), NOW, entities));
+
+    const [row] = listClimateEvents(db);
+    expect(row?.humidifierOn).toBe(true);
+    expect(row?.humidifierMisting).toBeNull();
   });
 });

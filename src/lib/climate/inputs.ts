@@ -16,7 +16,7 @@ import {
   resolveEntityRef
 } from '$lib/entity-match';
 import { switchIsOn } from '$lib/plugs/model';
-import { GROW_LIGHT_NODE } from '$lib/plugs/model';
+import { GROW_LIGHT_NODE, HUMIDIFIER_MISTING } from '$lib/plugs/model';
 import { liveLeafVpd } from '$lib/vpd';
 import type { EntityConfig, Snapshot } from '$lib/server/mqtt/types';
 import { airVpdKpa, type AirState } from './psychro';
@@ -54,6 +54,10 @@ export interface ClimateInputs {
   roomNode: string | null;
   exhaust: ResolvedActuator;
   humidifier: ResolvedActuator;
+  /** Whether the humidifier is actually putting water in the air, which its relay does not
+   *  say: through the observation phase the relay stays closed and the T7's own humidistat
+   *  decides. Null when the plug is absent or has not published the signal. */
+  humidifierMisting: boolean | null;
   arms: ResolvedArm[];
 }
 
@@ -93,6 +97,20 @@ function resolveActuator(snapshot: Snapshot, node: string, objectId: string): Re
     present: entity !== undefined && !isEntityOffline(snapshot, entity),
     on: switchIsOn(snapshot, entity)
   };
+}
+
+/** Tri-state on purpose: `false` is a plug reporting an idle head, and null is no plug or no
+ *  signal at all. Collapsing them would write "not misting" into the decision log for a tent
+ *  that has no humidifier in it. */
+function resolveMisting(snapshot: Snapshot): boolean | null {
+  const entity = resolveEntityRef(snapshot, {
+    node: HUMIDIFIER_NODE,
+    objectId: HUMIDIFIER_MISTING
+  });
+  if (!entity || isEntityOffline(snapshot, entity)) return null;
+  const value = snapshot.states[entity.id]?.value ?? null;
+  if (value === null) return null;
+  return value === (entity.payloadOn ?? 'ON');
 }
 
 /** The lamp's state: relay first, PPFD as the fallback. Only the futility gate consumes it,
@@ -154,6 +172,7 @@ export function resolveClimateInputs(snapshot: Snapshot, nowMs: number): Climate
     roomNode,
     exhaust: resolveActuator(snapshot, EXHAUST_NODE, EXHAUST_RELAY),
     humidifier: resolveActuator(snapshot, HUMIDIFIER_NODE, HUMIDIFIER_RELAY),
+    humidifierMisting: resolveMisting(snapshot),
     arms
   };
 }

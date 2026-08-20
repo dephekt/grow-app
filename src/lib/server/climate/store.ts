@@ -207,6 +207,10 @@ export interface ClimateEventInput {
   roomTempC: number | null;
   roomRhPct: number | null;
   lightsOn: boolean;
+  /** The humidifier's relay, and whether it was actually misting. Null for either means no
+   *  plug, not an idle one. */
+  humidifierOn: boolean | null;
+  humidifierMisting: boolean | null;
 }
 
 export interface ClimateEventJson extends Omit<ClimateEventInput, 'action'> {
@@ -237,6 +241,8 @@ interface EventRow {
   room_temp_c: number | null;
   room_rh_pct: number | null;
   lights_on: number | null;
+  humidifier_on: number | null;
+  humidifier_misting: number | null;
 }
 
 /** The actuator an action concerns, and the direction — null for a plain hold. */
@@ -259,8 +265,9 @@ export function recordClimateEvent(db: DatabaseSync, event: ClimateEventInput): 
   db.prepare(
     `INSERT INTO climate_events
        (ts, kind, actuator, on_state, reason, mode, published, air_vpd, air_vpd_fast, leaf_vpd,
-        target, band_low, band_high, tent_temp_c, tent_rh_pct, room_temp_c, room_rh_pct, lights_on)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        target, band_low, band_high, tent_temp_c, tent_rh_pct, room_temp_c, room_rh_pct, lights_on,
+        humidifier_on, humidifier_misting)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     event.ts,
     event.action.kind,
@@ -279,7 +286,9 @@ export function recordClimateEvent(db: DatabaseSync, event: ClimateEventInput): 
     event.tentRhPct,
     event.roomTempC,
     event.roomRhPct,
-    event.lightsOn ? 1 : 0
+    event.lightsOn ? 1 : 0,
+    event.humidifierOn === null ? null : event.humidifierOn ? 1 : 0,
+    event.humidifierMisting === null ? null : event.humidifierMisting ? 1 : 0
   );
 }
 
@@ -303,7 +312,9 @@ function toEventJson(row: EventRow): ClimateEventJson {
     tentRhPct: row.tent_rh_pct,
     roomTempC: row.room_temp_c,
     roomRhPct: row.room_rh_pct,
-    lightsOn: row.lights_on === 1
+    lightsOn: row.lights_on === 1,
+    humidifierOn: row.humidifier_on === null ? null : row.humidifier_on === 1,
+    humidifierMisting: row.humidifier_misting === null ? null : row.humidifier_misting === 1
   };
 }
 

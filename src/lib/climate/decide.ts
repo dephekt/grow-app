@@ -86,7 +86,7 @@ function elapsedSince(lastChangeMs: number | null, nowMs: number): number | null
   return lastChangeMs === null ? null : Math.max(0, nowMs - lastChangeMs);
 }
 
-function ownedByLoop(source: ActuatorSource): boolean {
+export function ownedByLoop(source: ActuatorSource): boolean {
   return source === 'loop';
 }
 

@@ -4,7 +4,7 @@
 /** Shared climate-loop vocabulary; client-safe so /climate renders the same band the server
  *  acted on. */
 import { AIR_VPD_HARD_MAX, AIR_VPD_HARD_MIN } from '$lib/lights/grow-plan';
-import { EXHAUST_NODE, PLUGS } from '$lib/plugs/model';
+import { EXHAUST_NODE, HUMIDIFIER_NODE, PLUGS } from '$lib/plugs/model';
 
 /** `observe` decides and logs but never publishes — the dry-run gear. */
 export type ClimateMode = 'off' | 'observe' | 'active';
@@ -16,19 +16,20 @@ export const CLIMATE_MODES: ClimateMode[] = ['off', 'observe', 'active'];
 
 /** Read off the plug registry, and thrown on rather than defaulted: a fallback would let a
  *  rename leave the loop silently reconciling arms that no longer resolve. */
-const EXHAUST_SPEC = PLUGS.find((plug) => plug.node === EXHAUST_NODE);
-if (!EXHAUST_SPEC?.relay) throw new Error(`plug registry has no relay for ${EXHAUST_NODE}`);
+function relayOf(node: string): string {
+  const spec = PLUGS.find((plug) => plug.node === node);
+  if (!spec?.relay) throw new Error(`plug registry has no relay for ${node}`);
+  return spec.relay;
+}
 
-export const EXHAUST_RELAY = EXHAUST_SPEC.relay;
-export const EXHAUST_ARMS: readonly string[] = (EXHAUST_SPEC.arms ?? []).map((arm) => arm.objectId);
+export const EXHAUST_RELAY = relayOf(EXHAUST_NODE);
+export const EXHAUST_ARMS: readonly string[] = (
+  PLUGS.find((plug) => plug.node === EXHAUST_NODE)?.arms ?? []
+).map((arm) => arm.objectId);
 
-export { EXHAUST_NODE };
+export const HUMIDIFIER_RELAY = relayOf(HUMIDIFIER_NODE);
 
-/** Placeholders until the fifth Athom plug exists: unlike EXHAUST_* these are NOT read off the
- *  PLUGS registry, so registering the plug there means deleting these two and reading them the
- *  same way. Guessing its objectIds now would just be wrong when the hardware arrives. */
-export const HUMIDIFIER_NODE = 'humidifier';
-export const HUMIDIFIER_RELAY = 'humidifier';
+export { EXHAUST_NODE, HUMIDIFIER_NODE };
 
 export interface ClimateConfig {
   mode: ClimateMode;
