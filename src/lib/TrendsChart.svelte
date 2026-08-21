@@ -30,7 +30,6 @@
   const shown = new Map<string, boolean>();
   /** What the live plot was built from; the hooks reconcile outside `render`'s arguments. */
   let built: { series: TrendSeries[]; width: number } = { series: [], width: 0 };
-  let lastSeries: TrendSeries[] | null = null;
   let lastData: uPlot.AlignedData | null = null;
   /** Per instance, so a destroyed plot's queued commit still reads its own slots. */
   let slotState: { slots: YAxisSlot[]; sig: string } = { slots: [], sig: '' };
@@ -202,7 +201,7 @@
       plot?.destroy();
       plot = null;
       structureSig = '';
-      lastSeries = null;
+      built = { series: [], width: 0 };
       lastData = null;
       slotState = { slots: [], sig: '' };
       zoom = null;
@@ -210,11 +209,11 @@
       return;
     }
     const width = hostWidth();
-    const fresh = s !== lastSeries;
+    // Only a resize re-renders the same array, and its data is already aligned.
+    const fresh = s !== built.series;
     const data = fresh || !lastData ? buildData(s) : lastData;
     const sig = structureSignature(s, width);
     built = { series: s, width };
-    lastSeries = s;
     lastData = data;
     if (!plot || sig !== structureSig) {
       // New data re-ranges x anyway, so only a resize-driven rebuild keeps the window.
