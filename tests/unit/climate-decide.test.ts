@@ -449,6 +449,28 @@ describe('decideClimate — predictive gate', () => {
     expect(d).toMatchObject({ kind: 'exhaust', on: false });
     expect(d.reason).toContain('hard floor');
   });
+
+  it('does not restart that vent into the same room once the minimum off expires', () => {
+    // The stop above is urgent and `<= band.target` is true of every value under the floor, so
+    // without a floor on the start leg the two make a limit cycle at the minimum off's cadence,
+    // each run pushing VPD further under the rail. Below the floor the predictive gate decides.
+    const d = decideClimate(
+      input({
+        airVpd: AIR_VPD_HARD_MIN,
+        tentTempC: 33,
+        room: { tempC: 20, rhPct: 99 },
+        exhaust: { lastChangeMs: NOW - 400_000 }
+      })
+    );
+    expect(d).toMatchObject({ kind: 'blocked', want: 'exhaust' });
+  });
+
+  it('still starts a hot tent below the floor into a room that would actually raise VPD', () => {
+    const d = decideClimate(
+      input({ airVpd: 0.75, tentTempC: 33, exhaust: { lastChangeMs: NOW - 400_000 } })
+    );
+    expect(d).toMatchObject({ kind: 'exhaust', on: true });
+  });
 });
 
 describe('decideClimate — temperature limits', () => {

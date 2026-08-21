@@ -261,7 +261,11 @@ function desireExhaust(
   // Heat's start leg comes first and is the wider one — it may vent anywhere up to the week's
   // target, where the ordinary law needs VPD under the floor — so a hot tent still reaches the
   // fan when the predictive gate below would have vetoed it on VPD grounds alone.
-  if (heat) {
+  // Above the hard floor only. `<= band.target` admits every value under that rail too, so on
+  // its own it restarts the fan on the tick after the floor stop above clears the minimum off —
+  // a limit cycle driving VPD further under the rail each run. Below the floor the ordinary law
+  // governs instead, and its predictive gate is what tells a dry room from a muggy one.
+  if (heat && vpd > AIR_VPD_HARD_MIN && fast > AIR_VPD_HARD_MIN) {
     // Resuming at the week's target rather than just under the ceiling the stop above uses:
     // the gap between the two is the hysteresis keeping the fan off the rail it came down from.
     // Both windows agree before starting, as every start does.
