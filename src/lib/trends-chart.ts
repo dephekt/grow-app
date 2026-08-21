@@ -120,7 +120,8 @@ export function yAxisSlots(
   drawn?: readonly boolean[]
 ): YAxisSlot[] {
   const declared = yAxisPlans(series, width);
-  const live = yAxisPlans(series, width, drawn);
+  // Without a mask the two plans are the same walk, and this runs once per settled scale.
+  const live = drawn ? yAxisPlans(series, width, drawn) : declared;
   return declared.map((slot, i) => {
     const plan: YAxisPlan | undefined = live[i];
     return {
