@@ -265,19 +265,23 @@
   <div bind:this={el} class="uplot-host"></div>
   {#if isEmpty}
     <div class="empty-state">No history yet</div>
-  {:else if allHidden}
-    <div class="empty-state">All series hidden</div>
-  {:else if zoom}
-    <button
-      type="button"
-      class="zoom-chip mono"
-      title="Reset zoom (or double-click the chart)"
-      onclick={resetZoom}
-    >
-      {zoomWindowLabel(zoom.min, zoom.max)} ✕
-    </button>
   {:else}
-    <span class="zoom-hint mono">drag to zoom</span>
+    {#if allHidden}
+      <div class="empty-state">All series hidden</div>
+    {/if}
+    <!-- The chip outlives the all-hidden overlay; it is the only way back out of a zoom. -->
+    {#if zoom}
+      <button
+        type="button"
+        class="zoom-chip mono"
+        title="Reset zoom (or double-click the chart)"
+        onclick={resetZoom}
+      >
+        {zoomWindowLabel(zoom.min, zoom.max)} ✕
+      </button>
+    {:else if !allHidden}
+      <span class="zoom-hint mono">drag to zoom</span>
+    {/if}
   {/if}
 </div>
 
