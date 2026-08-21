@@ -76,7 +76,9 @@ const EVENTS = {
       tentRhPct: 63.5,
       roomTempC: 25.02,
       roomRhPct: 61.4,
-      lightsOn: true
+      lightsOn: true,
+      humidifierOn: null,
+      humidifierMisting: null
     } satisfies ClimateEventJson,
     {
       id: 1,
@@ -97,7 +99,9 @@ const EVENTS = {
       tentRhPct: 78,
       roomTempC: 24,
       roomRhPct: 92,
-      lightsOn: true
+      lightsOn: true,
+      humidifierOn: null,
+      humidifierMisting: null
     } satisfies ClimateEventJson
   ],
   total: 2,
