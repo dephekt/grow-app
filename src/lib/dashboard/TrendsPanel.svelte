@@ -88,7 +88,10 @@
     </div>
   {:else}
     <div class="chart-wrap" class:loading>
-      <TrendsChart {series} height={300} />
+      <!-- Series keys are node-local objectIds, so a remount is what keeps toggles per-domain. -->
+      {#key domain}
+        <TrendsChart {series} height={300} />
+      {/key}
     </div>
   {/if}
 </div>
