@@ -4,6 +4,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { dashboardSnapshot } from './fixtures/dashboard-snapshot';
 import { resolveGrowState } from '../src/lib/lights/grow-plan';
+import type { ClimateLiveState } from '../src/routes/api/climate/+server';
+import type { ClimateEventJson } from '../src/lib/server/climate/store';
 
 /**
  * Mocked reason strings must track decide.ts verbatim; nothing fails when they drift, so treat
@@ -25,7 +27,6 @@ const LIVE_STATE = {
     minOnSeconds: 120,
     minOffSeconds: 300,
     minGainKpa: 0.05,
-    ventAlwaysAboveC: 31,
     ventNeverBelowC: 20,
     airVpdOverride: null
   },
@@ -36,7 +37,8 @@ const LIVE_STATE = {
   climateRef: { day: { tempC: 28.9, rhPct: 75 }, night: { tempC: 28.9, rhPct: 75 } },
   tent: { tempC: 27.18, rhPct: 63.5 },
   room: { tempC: 25.02, rhPct: 61.4 },
-  airVpd: 1.32,
+  airVpd: 1.19,
+  airVpdFast: 1.32,
   leafVpd: 1.04,
   lightsOn: true,
   tentNode: 'atoms3u-sensor-rig',
@@ -49,7 +51,7 @@ const LIVE_STATE = {
     { objectId: 'fan_schedule', on: false }
   ],
   action: { kind: 'exhaust', on: false, reason: 'air VPD 1.32 reached the 1.10 top of band' }
-};
+} satisfies ClimateLiveState & { ok: true };
 
 const EVENTS = {
   ok: true,
@@ -63,7 +65,8 @@ const EVENTS = {
       reason: 'air VPD 1.32 reached the 1.10 top of band',
       mode: 'active',
       published: true,
-      airVpd: 1.32,
+      airVpd: 1.19,
+      airVpdFast: 1.32,
       leafVpd: 1.04,
       target: 1.0,
       bandLow: 0.9,
@@ -72,8 +75,10 @@ const EVENTS = {
       tentRhPct: 63.5,
       roomTempC: 25.02,
       roomRhPct: 61.4,
-      lightsOn: true
-    },
+      lightsOn: true,
+      humidifierOn: null,
+      humidifierMisting: null
+    } satisfies ClimateEventJson,
     {
       id: 1,
       ts: '2026-08-14T16:00:00.000Z',
@@ -84,6 +89,7 @@ const EVENTS = {
       mode: 'active',
       published: false,
       airVpd: 0.85,
+      airVpdFast: 0.85,
       leafVpd: 0.57,
       target: 1.0,
       bandLow: 0.9,
@@ -92,8 +98,10 @@ const EVENTS = {
       tentRhPct: 78,
       roomTempC: 24,
       roomRhPct: 92,
-      lightsOn: true
-    }
+      lightsOn: true,
+      humidifierOn: null,
+      humidifierMisting: null
+    } satisfies ClimateEventJson
   ],
   total: 2,
   limit: 25,
@@ -233,6 +241,11 @@ test.describe('climate page — populated state', () => {
     // exact, because the log row below carries the same words in lower case.
     await expect(page.getByText('Exhaust OFF', { exact: true })).toBeVisible();
     await expect(page.getByText('air VPD 1.32 reached the 1.10 top of band').first()).toBeVisible();
+
+    // The gauge judges on the fast reading, and shows the median beside it only once the two
+    // have parted. Both assertions above therefore depend on airVpdFast actually arriving: were
+    // it to stop, edge would fall back to the 1.19 median and read "above band" instead.
+    await expect(page.getByText('(1.19 median)')).toBeVisible();
   });
 
   test('shows tent and room absolute humidity, which is what venting moves', async ({ page }) => {

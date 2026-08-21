@@ -246,11 +246,13 @@ test('pages through irrigation history 25 entries at a time', async ({ page }) =
   }));
   let pageZeroRequests = 0;
   let olderAnchorId: number | null = null;
-  let markOlderRequested: () => void;
+  // Assigned synchronously by the Promise executor below; TS's definite-assignment
+  // analysis does not model that, and an optional call would silently no-op the gate.
+  let markOlderRequested!: () => void;
   const olderRequested = new Promise<void>((resolve) => {
     markOlderRequested = resolve;
   });
-  let releaseOlder: () => void;
+  let releaseOlder!: () => void;
   const olderGate = new Promise<void>((resolve) => {
     releaseOlder = resolve;
   });

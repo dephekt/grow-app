@@ -21,7 +21,6 @@ interface ConfigRow {
   min_on_seconds: number;
   min_off_seconds: number;
   min_gain_kpa: number;
-  vent_always_above_c: number;
   vent_never_below_c: number;
   air_vpd_override: number | null;
   updated_at: string;
@@ -69,7 +68,6 @@ export function getClimateConfig(db: DatabaseSync): ClimateConfig {
     minOnSeconds: clamped('minOnSeconds', row.min_on_seconds),
     minOffSeconds: clamped('minOffSeconds', row.min_off_seconds),
     minGainKpa: clamped('minGainKpa', row.min_gain_kpa),
-    ventAlwaysAboveC: clamped('ventAlwaysAboveC', row.vent_always_above_c),
     ventNeverBelowC: clamped('ventNeverBelowC', row.vent_never_below_c),
     airVpdOverride:
       row.air_vpd_override === null ? null : clamped('airVpdOverride', row.air_vpd_override)
@@ -83,7 +81,6 @@ type NumericKey =
   | 'minOnSeconds'
   | 'minOffSeconds'
   | 'minGainKpa'
-  | 'ventAlwaysAboveC'
   | 'ventNeverBelowC'
   | 'airVpdOverride';
 
@@ -94,7 +91,6 @@ const NUMERIC_BOUNDS: Record<NumericKey, { min: number; max: number }> = {
   minOnSeconds: { min: 0, max: 3600 },
   minOffSeconds: { min: 0, max: 3600 },
   minGainKpa: { min: 0, max: 1 },
-  ventAlwaysAboveC: { min: 20, max: 45 },
   ventNeverBelowC: { min: 5, max: 30 },
   // The book's hard rails, because controlBand clamps the target into them anyway: a wider
   // range here would accept 1.50, regulate 1.20, and print "overridden 1.50" on /climate.
@@ -144,7 +140,6 @@ export function updateClimateConfig(
     'minOnSeconds',
     'minOffSeconds',
     'minGainKpa',
-    'ventAlwaysAboveC',
     'ventNeverBelowC'
   ] as const) {
     if (patch[key] !== undefined) next[key] = checkNumber(key, patch[key]);
@@ -154,24 +149,18 @@ export function updateClimateConfig(
       patch.airVpdOverride === null ? null : checkNumber('airVpdOverride', patch.airVpdOverride);
   }
 
-  // A vent floor at or above the vent ceiling would both force and block the fan every tick.
-  if (next.ventNeverBelowC >= next.ventAlwaysAboveC) {
-    throw new ClimateConfigError('ventNeverBelowC must be below ventAlwaysAboveC');
-  }
-
   // Upsert, because an UPDATE against a missing singleton row would report success and then be
   // contradicted by the PATCH response re-reading the DB.
   db.prepare(
     `INSERT INTO climate_config
        (id, mode, exhaust_source, rh_source, deadband_kpa, min_on_seconds, min_off_seconds,
-        min_gain_kpa, vent_always_above_c, vent_never_below_c, air_vpd_override, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        min_gain_kpa, vent_never_below_c, air_vpd_override, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        mode = excluded.mode, exhaust_source = excluded.exhaust_source,
        rh_source = excluded.rh_source, deadband_kpa = excluded.deadband_kpa,
        min_on_seconds = excluded.min_on_seconds, min_off_seconds = excluded.min_off_seconds,
-       min_gain_kpa = excluded.min_gain_kpa, vent_always_above_c = excluded.vent_always_above_c,
-       vent_never_below_c = excluded.vent_never_below_c,
+       min_gain_kpa = excluded.min_gain_kpa, vent_never_below_c = excluded.vent_never_below_c,
        air_vpd_override = excluded.air_vpd_override, updated_at = excluded.updated_at`
   ).run(
     next.mode,
@@ -181,7 +170,6 @@ export function updateClimateConfig(
     next.minOnSeconds,
     next.minOffSeconds,
     next.minGainKpa,
-    next.ventAlwaysAboveC,
     next.ventNeverBelowC,
     next.airVpdOverride,
     nowIso

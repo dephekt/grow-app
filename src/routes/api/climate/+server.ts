@@ -95,7 +95,6 @@ const PATCHABLE = [
   'minOnSeconds',
   'minOffSeconds',
   'minGainKpa',
-  'ventAlwaysAboveC',
   'ventNeverBelowC',
   'airVpdOverride'
 ] as const;

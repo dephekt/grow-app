@@ -63,6 +63,14 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE climate_events ADD COLUMN humidifier_on INTEGER;
   ALTER TABLE climate_events ADD COLUMN humidifier_misting INTEGER;
+  `,
+  // 4 — the vent-above-°C limit, retired with the exhaust's heat leg. The fan is not a cooler,
+  // so venting on temperature spent VPD the tent could not get back; heat is now answered by
+  // dialling the lamp down, and reported by the sensor rig's own temperature_high_alert. The
+  // column is dropped rather than left in place because a setting the UI still showed and the
+  // loop no longer read is worse than no setting at all.
+  `
+  ALTER TABLE climate_config DROP COLUMN vent_always_above_c;
   `
 ];
 

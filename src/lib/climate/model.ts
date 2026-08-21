@@ -41,8 +41,6 @@ export interface ClimateConfig {
   minOffSeconds: number;
   /** A start is refused unless venting predicts at least this much improvement, kPa. */
   minGainKpa: number;
-  /** Above this tent temperature the fan runs regardless of VPD. */
-  ventAlwaysAboveC: number;
   /** Below this tent temperature the fan is blocked regardless of VPD. */
   ventNeverBelowC: number;
   /** Overrides the week's cited target when set; null follows WEEKLY_PLAN. */
@@ -61,7 +59,6 @@ export const DEFAULT_CLIMATE_CONFIG: ClimateConfig = {
   minOnSeconds: 120,
   minOffSeconds: 300,
   minGainKpa: 0.05,
-  ventAlwaysAboveC: 31,
   ventNeverBelowC: 20,
   airVpdOverride: null
 };

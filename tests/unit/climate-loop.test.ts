@@ -605,12 +605,12 @@ describe('runClimateTick', () => {
     it('still acts on a sustained excursion', async () => {
       updateClimateConfig(db, { mode: 'active', exhaustSource: 'loop' }, NOW_ISO);
       const state = new ClimateLoopState();
-      await settle(state, { ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' });
-      const result = await runClimateTick(
-        deps({ ...WANTS_VENT, rig_t: '33.0', rig_h: '40.0' }, state, NOW + 150_000)
-      );
+      // Driven by VPD alone now that the heat leg is gone: a dry tent under the band floor is
+      // what earns a vent, whatever the thermometer says.
+      await settle(state, WANTS_VENT);
+      const result = await runClimateTick(deps(WANTS_VENT, state, NOW + 150_000));
       expect(result.decision).toMatchObject({ kind: 'exhaust', on: true });
-      expect(result.decision.reason).toContain('vent limit');
+      expect(result.decision.reason).toContain('floor of band');
     });
   });
 

@@ -466,21 +466,6 @@
       </label>
 
       <label>
-        <span class="field-label">Vent above °C</span>
-        <input
-          class="mono"
-          type="number"
-          step="0.5"
-          min="20"
-          max="45"
-          value={config.ventAlwaysAboveC}
-          disabled={saving || !isAdmin}
-          onchange={(e) => commitField(e, 'ventAlwaysAboveC', config.ventAlwaysAboveC)}
-        />
-        <span class="field-hint">Heat safety — vents regardless of VPD.</span>
-      </label>
-
-      <label>
         <span class="field-label">Never vent below °C</span>
         <input
           class="mono"

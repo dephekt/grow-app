@@ -163,7 +163,13 @@ function applyTransition(
  *  actuators against each other — so it takes both windows to authorise one.
  *
  *  Requiring both to start costs nothing in latency: on the falling leg the short window crosses
- *  the floor FIRST, so the median remains the gate, exactly as it was before this split. */
+ *  the floor FIRST, so the median remains the gate, exactly as it was before this split.
+ *
+ *  Temperature enters only as the cold floor, which stops the fan outright because venting into
+ *  a cold tent has no upside. There is deliberately no heat leg: the fan is not a cooler, it
+ *  swaps tent air for room air, and this room is far drier in absolute terms, so every degree it
+ *  removes is bought with VPD the tent cannot get back. Heat is answered by the lamp — dial the
+ *  PPFD back — and reported by the sensor rig's own temperature_high_alert, not by this loop. */
 function desireExhaust(
   input: ClimateDecisionInput,
   vpd: number,
@@ -171,17 +177,9 @@ function desireExhaust(
   tentC: number | null
 ): Desire {
   const { config, band, reading, exhaust } = input;
-  const tooHot = tentC !== null && tentC >= config.ventAlwaysAboveC;
   const tooCold = tentC !== null && tentC <= config.ventNeverBelowC;
   const vented = reading.ventedAirVpd;
 
-  if (tooHot) {
-    return {
-      on: true,
-      urgent: true,
-      why: `tent ${degC(tentC)} °C at or above the ${degC(config.ventAlwaysAboveC)} °C vent limit`
-    };
-  }
   if (tooCold) {
     const why = `tent ${degC(tentC)} °C at or below the ${degC(config.ventNeverBelowC)} °C floor`;
     if (exhaust.on) return { on: false, urgent: true, why: `${why} — stopping regardless of VPD` };
@@ -199,8 +197,7 @@ function desireExhaust(
   }
 
   if (exhaust.on) {
-    // `>= high`: from grow week 6 band.high clamps to the rail, and holding there parks the
-    // fan on it.
+    // `>=`, not `>`: holding at the top of band parks the fan on it.
     if (fast >= band.high) {
       return {
         on: false,
@@ -211,10 +208,10 @@ function desireExhaust(
         // the timer would hold the fan through the band and release it at 1.23, past the rail
         // the short window exists to defend.
         //
-        // Nothing is lost. The minimum on is anti-chatter, and chatter is already impossible by
-        // construction: restarting needs BOTH windows under the floor, which at the ~0.02
-        // kPa/min a tent re-humidifies at is ten minutes away. It still governs the futility
-        // stop below, where running on a little longer costs nothing.
+        // Nothing is lost on the ordinary leg. The minimum on is anti-chatter, and chatter is
+        // already impossible by construction: restarting needs BOTH windows under the floor,
+        // which at the ~0.02 kPa/min a tent re-humidifies at is ten minutes away. It still
+        // governs the futility stop below, where running on a little longer costs nothing.
         urgent: true,
         why: `air VPD ${kpa(fast)} reached the ${kpa(band.high)} top of band`
       };

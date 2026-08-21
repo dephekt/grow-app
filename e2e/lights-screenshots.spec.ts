@@ -4,11 +4,16 @@
 import { expect, test } from '@playwright/test';
 import { liveSnapshot } from './fixtures/live-snapshot';
 import glData from './fixtures/grow-light-data.json' assert { type: 'json' };
+import type { EntityConfig } from '../src/lib/server/mqtt/types';
 
 // A grow-light controller (GP8413 DAC) + logical light, injected so the merged Lights page shows
 // the full control + calibrated PPFD. The base fixture has no lights, so we add one here.
-const ent = (over: Record<string, unknown>) => ({
-  uniqueId: String(over.id),
+// Typed, not Record<string, unknown>: TS treats a spread of an index signature as contributing
+// no known properties, so the six entities below were never checked against EntityConfig at all.
+const ent = (
+  over: Partial<EntityConfig> & Pick<EntityConfig, 'id' | 'component' | 'name'>
+): EntityConfig => ({
+  uniqueId: over.id,
   device: { identifiers: ['grow-light'], name: 'Grow Light' },
   payloadAvailable: 'online',
   payloadNotAvailable: 'offline',
