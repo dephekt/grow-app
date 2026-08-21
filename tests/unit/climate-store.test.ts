@@ -61,13 +61,6 @@ describe('climate config', () => {
     );
   });
 
-  it('rejects a vent floor at or above the vent ceiling', () => {
-    // Otherwise every tick would both force and block the fan.
-    expect(() =>
-      updateClimateConfig(db, { ventNeverBelowC: 29, ventAlwaysAboveC: 28 }, NOW_ISO)
-    ).toThrow(ClimateConfigError);
-  });
-
   it('writes nothing when validation fails', () => {
     expect(() => updateClimateConfig(db, { mode: 'active', deadbandKpa: 99 }, NOW_ISO)).toThrow();
     expect(getClimateConfig(db).mode).toBe('observe');
@@ -306,6 +299,46 @@ describe('RollingMedian', () => {
     expect(m.value(60_000)).toBeNull();
     expect(m.value(5_000)).toBe(1);
     expect(m.size).toBe(1);
+  });
+});
+
+/**
+ * Migration 4 drops a column from the live config row rather than leaving it orphaned, so the
+ * one deployment carrying a real setting has to survive it.
+ */
+describe('migration 4 — vent_always_above_c retired with the heat leg', () => {
+  it('drops the column from a v3 database, preserving the rest of the config row', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'grow-climate-mig-')), 'climate.db');
+    const old = new DatabaseSync(path);
+    for (const migration of MIGRATIONS.slice(0, 3)) old.exec(migration);
+    old.exec('PRAGMA user_version = 3');
+    old
+      .prepare(
+        `INSERT INTO climate_config (id, mode, exhaust_source, rh_source, deadband_kpa,
+           min_on_seconds, min_off_seconds, min_gain_kpa, vent_always_above_c, vent_never_below_c,
+           air_vpd_override, updated_at)
+         VALUES (1, 'active', 'loop', 'loop', 0.12, 120, 300, 0.05, 31, 18, NULL, ?)`
+      )
+      .run(NOW_ISO);
+    old.close();
+
+    const db = openClimateDb(path);
+    const columns = (
+      db.prepare('PRAGMA table_info(climate_config)').all() as { name: string }[]
+    ).map((c) => c.name);
+    expect(columns).not.toContain('vent_always_above_c');
+
+    // The surviving settings are the point: a drop that silently reset the row would hand the
+    // loop defaults on the next boot without saying so.
+    const config = getClimateConfig(db);
+    expect(config.mode).toBe('active');
+    expect(config.deadbandKpa).toBe(0.12);
+    expect(config.ventNeverBelowC).toBe(18);
+
+    // And the row stays writable afterwards, which the upsert's column list decides.
+    updateClimateConfig(db, { ventNeverBelowC: 17 }, NOW_ISO);
+    expect(getClimateConfig(db).ventNeverBelowC).toBe(17);
+    db.close();
   });
 });
 

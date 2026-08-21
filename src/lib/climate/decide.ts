@@ -5,7 +5,6 @@
  *  only place permission is checked — so a guard cannot be added to one leg and not the other. */
 import {
   AIR_VPD_HARD_MAX,
-  AIR_VPD_HARD_MIN,
   type ActuatorSource,
   type ClimateConfig,
   type ControlBand
@@ -166,9 +165,11 @@ function applyTransition(
  *  Requiring both to start costs nothing in latency: on the falling leg the short window crosses
  *  the floor FIRST, so the median remains the gate, exactly as it was before this split.
  *
- *  Both temperature limits sit inside that law rather than above it. The cold floor stops the
- *  fan outright, because venting into a cold tent has no upside; the heat limit only moves the
- *  fan's VPD envelope out to the book's hard rails. VPD is the priority either way. */
+ *  Temperature enters only as the cold floor, which stops the fan outright because venting into
+ *  a cold tent has no upside. There is deliberately no heat leg: the fan is not a cooler, it
+ *  swaps tent air for room air, and this room is far drier in absolute terms, so every degree it
+ *  removes is bought with VPD the tent cannot get back. Heat is answered by the lamp — dial the
+ *  PPFD back — and reported by the sensor rig's own temperature_high_alert, not by this loop. */
 function desireExhaust(
   input: ClimateDecisionInput,
   vpd: number,
@@ -195,23 +196,9 @@ function desireExhaust(
       : { on: false, why };
   }
 
-  // Heat WIDENS the fan's VPD envelope; it does not override it. The fan is not a cooler — it
-  // swaps tent air for room air, and this room is far drier in absolute terms, so every degree
-  // it removes is bought with VPD. The tent's temperature is set by the lamp, so at full power
-  // there is no run length that reaches the book's figure; an unconditional override just parks
-  // the fan on and walks VPD past the rail. Spending the soft band on the attempt is worth it,
-  // spending the 1.2 rail is not: a tolerable 31 °C beats 31 °C at 1.5 kPa. Saying so out loud
-  // is an alert's job, not the fan's.
-  const heat =
-    tentC !== null && tentC >= config.ventAlwaysAboveC
-      ? `tent ${degC(tentC)} °C at or above the ${degC(config.ventAlwaysAboveC)} °C vent limit`
-      : null;
-
   if (exhaust.on) {
-    // `>=`, not `>`: from grow week 6 band.high clamps to the rail the heat leg stops on
-    // anyway, and holding at either parks the fan on it.
-    const stopAt = heat ? AIR_VPD_HARD_MAX : band.high;
-    if (fast >= stopAt) {
+    // `>=`, not `>`: holding at the top of band parks the fan on it.
+    if (fast >= band.high) {
       return {
         on: false,
         // Always urgent, so the minimum on can never defer a stop. It used to apply until the
@@ -224,28 +211,9 @@ function desireExhaust(
         // Nothing is lost on the ordinary leg. The minimum on is anti-chatter, and chatter is
         // already impossible by construction: restarting needs BOTH windows under the floor,
         // which at the ~0.02 kPa/min a tent re-humidifies at is ten minutes away. It still
-        // governs the futility stop below, where running on a little longer costs nothing. The
-        // heat leg restarts from a narrower gap and leans on the minimum OFF instead.
+        // governs the futility stop below, where running on a little longer costs nothing.
         urgent: true,
-        why: heat
-          ? `${heat}, but air VPD ${kpa(fast)} reached the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling — the heat is the cheaper of the two`
-          : `air VPD ${kpa(fast)} reached the ${kpa(band.high)} top of band`
-      };
-    }
-    if (heat) {
-      // The floor is the same kind of rail. A room muggier than the tent drops VPD as fast as a
-      // dry one raises it, and the futility stop below cannot see it: that one asks whether
-      // venting still helps, which is a question about the band, not about the rails.
-      if (fast <= AIR_VPD_HARD_MIN) {
-        return {
-          on: false,
-          urgent: true,
-          why: `${heat}, but air VPD ${kpa(fast)} fell to the ${kpa(AIR_VPD_HARD_MIN)} hard floor`
-        };
-      }
-      return {
-        on: true,
-        why: `${heat}; air VPD ${kpa(fast)} still short of the ${kpa(AIR_VPD_HARD_MAX)} hard ceiling`
+        why: `air VPD ${kpa(fast)} reached the ${kpa(band.high)} top of band`
       };
     }
     // Futility's stop half: a room that turns humid mid-run never lets VPD reach the top.
@@ -256,29 +224,6 @@ function desireExhaust(
       };
     }
     return { on: true, why: `air VPD ${kpa(fast)} still below the ${kpa(band.high)} top of band` };
-  }
-
-  // Heat's start leg comes first and is the wider one — it may vent anywhere up to the week's
-  // target, where the ordinary law needs VPD under the floor — so a hot tent still reaches the
-  // fan when the predictive gate below would have vetoed it on VPD grounds alone.
-  // Above the hard floor only. `<= band.target` admits every value under that rail too, so on
-  // its own it restarts the fan on the tick after the floor stop above clears the minimum off —
-  // a limit cycle driving VPD further under the rail each run. Below the floor the ordinary law
-  // governs instead, and its predictive gate is what tells a dry room from a muggy one.
-  if (heat && vpd > AIR_VPD_HARD_MIN && fast > AIR_VPD_HARD_MIN) {
-    // Resuming at the week's target rather than just under the ceiling the stop above uses:
-    // the gap between the two is the hysteresis keeping the fan off the rail it came down from.
-    // Both windows agree before starting, as every start does.
-    if (vpd <= band.target && fast <= band.target) {
-      // Deliberately NOT urgent, unlike the stop. While the override was unconditional a heat
-      // start could not chatter — it ran until the tent cooled — but a start that now ends on
-      // a VPD rail can, and the minimum off is the only thing bounding how often.
-      return { on: true, why: heat };
-    }
-    return {
-      on: false,
-      why: `${heat}, but air VPD ${kpa(fast)} is above the ${kpa(band.target)} target — venting would only trade VPD for °C`
-    };
   }
 
   if (vpd < band.low && fast < band.low) {

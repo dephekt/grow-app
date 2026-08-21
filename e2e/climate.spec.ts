@@ -27,7 +27,6 @@ const LIVE_STATE = {
     minOnSeconds: 120,
     minOffSeconds: 300,
     minGainKpa: 0.05,
-    ventAlwaysAboveC: 31,
     ventNeverBelowC: 20,
     airVpdOverride: null
   },

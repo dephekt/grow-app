@@ -429,103 +429,46 @@ describe('decideClimate — predictive gate', () => {
     expect(d).toMatchObject({ kind: 'exhaust', on: true });
   });
 
-  it('bypasses the gate on a heat override', () => {
-    // A humid room cannot veto venting a 33 °C tent: that decision is about temperature.
-    const d = decideClimate(input({ airVpd: 1.0, tentTempC: 33, room: { tempC: 30, rhPct: 95 } }));
-    expect(d).toMatchObject({ kind: 'exhaust', on: true });
-    expect(d.reason).toContain('vent limit');
-  });
-
-  it('still stops that heat vent if it drags VPD down to the hard floor', () => {
-    // The gate the heat leg skips is about the band; the rails are not skippable.
-    const d = decideClimate(
-      input({
-        airVpd: AIR_VPD_HARD_MIN,
-        tentTempC: 33,
-        room: { tempC: 30, rhPct: 95 },
-        exhaust: { on: true }
-      })
-    );
-    expect(d).toMatchObject({ kind: 'exhaust', on: false });
-    expect(d.reason).toContain('hard floor');
-  });
-
-  it('does not restart that vent into the same room once the minimum off expires', () => {
-    // The stop above is urgent and `<= band.target` is true of every value under the floor, so
-    // without a floor on the start leg the two make a limit cycle at the minimum off's cadence,
-    // each run pushing VPD further under the rail. Below the floor the predictive gate decides.
-    const d = decideClimate(
-      input({
-        airVpd: AIR_VPD_HARD_MIN,
-        tentTempC: 33,
-        room: { tempC: 20, rhPct: 99 },
-        exhaust: { lastChangeMs: NOW - 400_000 }
-      })
-    );
+  it('applies the gate to a hot tent like any other, since heat no longer bypasses it', () => {
+    // The heat leg used to vent a 33 °C tent regardless of what the room would do to VPD. It is
+    // gone: temperature is the lamp's problem now, so a humid room vetoes this start.
+    const d = decideClimate(input({ airVpd: 0.85, tentTempC: 33, room: { tempC: 30, rhPct: 95 } }));
     expect(d).toMatchObject({ kind: 'blocked', want: 'exhaust' });
-  });
-
-  it('still starts a hot tent below the floor into a room that would actually raise VPD', () => {
-    const d = decideClimate(
-      input({ airVpd: 0.75, tentTempC: 33, exhaust: { lastChangeMs: NOW - 400_000 } })
-    );
-    expect(d).toMatchObject({ kind: 'exhaust', on: true });
   });
 });
 
 describe('decideClimate — temperature limits', () => {
-  it('vents on temperature even with VPD inside the band', () => {
-    const d = decideClimate(input({ airVpd: 1.0, tentTempC: 31.5 }));
-    expect(d).toMatchObject({ kind: 'exhaust', on: true });
+  // Heat deliberately has no leg here. The fan swaps tent air for room air rather than cooling
+  // it, and this room is drier in absolute terms, so venting on temperature spent VPD the tent
+  // could not get back. Heat is answered by dialling the lamp down and reported by the sensor
+  // rig's own temperature_high_alert; only the cold floor remains.
+  it('does NOT vent on temperature alone while VPD sits inside the band', () => {
+    const d = decideClimate(input({ airVpd: 1.0, tentTempC: 35 }));
+    expect(d.kind).toBe('hold');
   });
 
-  // The reason the heat limit stopped being an override: this tent sits at 31 °C under the lamp
-  // and the room is drier in absolute terms, so an unconditional vent walked VPD to 1.5 and held
-  // it there. Cooling that cannot be won is now conceded instead.
-  it('STOPS a heat vent at the hard ceiling rather than venting on', () => {
-    const d = decideClimate(
-      input({ airVpd: AIR_VPD_HARD_MAX, tentTempC: 31, exhaust: { on: true } })
-    );
+  it('stops at the top of band even in a hot tent, with no widened ceiling', () => {
+    const d = decideClimate(input({ airVpd: BAND.high, tentTempC: 35, exhaust: { on: true } }));
     expect(d).toMatchObject({ kind: 'exhaust', on: false });
-    expect(d.reason).toContain('hard ceiling');
+    expect(d.reason).toContain('top of band');
   });
 
-  it('keeps a heat vent running while VPD is still under the ceiling', () => {
-    // The band's top no longer stops it: heat is worth the soft band, just not the rail.
-    const d = decideClimate(input({ airVpd: 1.15, tentTempC: 31, exhaust: { on: true } }));
-    expect(d.kind).toBe('hold');
-    expect(d.reason).toContain('hard ceiling');
-  });
-
-  it('refuses to START a heat vent with VPD already above the week target', () => {
-    const d = decideClimate(input({ airVpd: 1.1, tentTempC: 31 }));
-    expect(d.kind).toBe('hold');
-    expect(d.reason).toContain('trade VPD for °C');
-  });
-
-  it('starts a heat vent once VPD has fallen back to the target', () => {
-    const d = decideClimate(input({ airVpd: BAND.target, tentTempC: 31 }));
-    expect(d).toMatchObject({ kind: 'exhaust', on: true });
-    expect(d.reason).toContain('vent limit');
-  });
-
-  it('takes both windows before starting a heat vent, like every other start', () => {
-    const d = decideClimate(input({ airVpd: 0.95, airVpdFast: 1.15, tentTempC: 31 }));
-    expect(d.kind).toBe('hold');
-  });
-
-  it('hands a hot tent at the ceiling to the humidifier instead of the fan', () => {
-    // The corrective actuator for VPD above the rail was unreachable while the fan held the
-    // override: decideClimate only considers the humidifier when the fan is idle.
+  it('leaves a hot tent to the humidifier once VPD reaches the hard ceiling', () => {
     const d = decideClimate(
       input({
         airVpd: AIR_VPD_HARD_MAX,
-        tentTempC: 31,
+        tentTempC: 35,
         config: { rhSource: 'loop' },
         humidifier: { present: true }
       })
     );
     expect(d).toMatchObject({ kind: 'humidify', on: true });
+  });
+
+  it('vents a hot tent only when VPD asks for it, on the ordinary law', () => {
+    const d = decideClimate(input({ airVpd: 0.5, tentTempC: 35 }));
+    expect(d).toMatchObject({ kind: 'exhaust', on: true });
+    expect(d.reason).toContain('floor of band');
   });
 
   it('blocks venting below the cold floor', () => {
@@ -562,25 +505,14 @@ describe('decideClimate — temperature limits', () => {
     expect(d).toMatchObject({ kind: 'delegated', want: 'exhaust', on: false });
   });
 
-  it('serves the minimum off before restarting a heat vent', () => {
-    // Not the mirror of the hard-ceiling stop, deliberately. A heat vent now ENDS on a VPD rail,
-    // so an urgent restart would put the fan straight back on the rail it just came off; the
-    // minimum off is what bounds that, and the tent is over the limit either way.
-    const d = decideClimate(
-      input({ airVpd: 1.0, tentTempC: 33, exhaust: { lastChangeMs: NOW - 30_000 } })
-    );
-    expect(d.kind).toBe('hold');
-    expect(d.reason).toContain('minimum off');
-  });
-
   it('still serves the minimum off for an ordinary VPD-driven start', () => {
     const d = decideClimate(input({ airVpd: 0.5, exhaust: { lastChangeMs: NOW - 30_000 } }));
     expect(d.kind).toBe('hold');
     expect(d.reason).toContain('minimum off');
   });
 
-  it('tolerates a missing tent temperature without tripping either limit', () => {
-    // airVpd can still be present from a prior smoothed sample; neither limit may fire blind.
+  it('tolerates a missing tent temperature without tripping the cold floor', () => {
+    // airVpd can still be present from a prior smoothed sample; the limit may not fire blind.
     const d = decideClimate(input({ airVpd: 0.5, tentTempC: null }));
     expect(d).toMatchObject({ kind: 'exhaust', on: true });
   });
