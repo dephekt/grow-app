@@ -139,7 +139,8 @@ function stepSeries(points: readonly TrendPoint[]): (t: string) => number | null
   };
 }
 
-/** Turn queried points into charted series; every domain but substrate passes straight through. */
+/** Turn queried points into charted series; every domain but substrate maps spec to series,
+ *  minus the ones with too little history to draw. */
 export function assembleDomainSeries(
   snapshot: Snapshot,
   domain: TrendDomain,
@@ -149,12 +150,12 @@ export function assembleDomainSeries(
   probeBindings: readonly SubstrateProbeBinding[] = []
 ): TrendSeries[] {
   if (domain !== 'substrate') {
-    return specs.map((s) => ({
-      key: s.key,
-      label: s.label,
-      unit: s.unit,
-      points: pointsByKey.get(s.key) ?? []
-    }));
+    // A stopped sensor is still discovered and a line needs two points, so anything short of
+    // that is a legend row naming a reading the chart cannot draw.
+    return specs.flatMap((s) => {
+      const points = pointsByKey.get(s.key) ?? [];
+      return points.length < 2 ? [] : [{ key: s.key, label: s.label, unit: s.unit, points }];
+    });
   }
 
   const probes = resolveSubstrateProbes(snapshot, zones, probeBindings);

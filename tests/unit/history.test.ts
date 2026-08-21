@@ -109,6 +109,86 @@ describe('resolveDomainSeries (live snapshot)', () => {
   });
 });
 
+describe('assembleDomainSeries (charted domains)', () => {
+  const specs = resolveDomainSeries(liveSnapshot, 'climate');
+  const drawable = (v: number): TrendPoint[] => [
+    { t: '2026-08-04T00:00:00Z', v },
+    { t: '2026-08-04T00:01:00Z', v }
+  ];
+  const lux = () => specs.find((s) => s.entity === 'illuminance')!;
+  const allRecorded = () => new Map(specs.map((s) => [s.key, drawable(1)]));
+
+  /** The lux sensor came off the rig; discovery still carries it, so only Influx can say. */
+  it('drops a spec the chosen range recorded nothing for', () => {
+    const recorded = allRecorded();
+    recorded.delete(lux().key);
+    const series = assembleDomainSeries(liveSnapshot, 'climate', specs, recorded);
+    expect(specs.map((s) => s.entity)).toContain('illuminance');
+    expect(series.map((s) => s.key)).not.toContain(lux().key);
+    expect(series).toHaveLength(specs.length - 1);
+  });
+
+  /** The map's type admits an empty array, so presence is not the same question as emptiness. */
+  it('drops a spec recorded as an explicitly empty series', () => {
+    const recorded = allRecorded();
+    recorded.set(lux().key, []);
+    const series = assembleDomainSeries(liveSnapshot, 'climate', specs, recorded);
+    expect(series.map((s) => s.key)).not.toContain(lux().key);
+  });
+
+  /** uPlot strokes nothing for a lone sample when point marks are off, so it is a row with no line. */
+  it('drops a spec with a single sample, which draws no line', () => {
+    const recorded = allRecorded();
+    recorded.set(lux().key, [{ t: '2026-08-04T00:00:00Z', v: 12 }]);
+    const series = assembleDomainSeries(liveSnapshot, 'climate', specs, recorded);
+    expect(series.map((s) => s.key)).not.toContain(lux().key);
+    // Two is the threshold, not an arbitrary minimum.
+    recorded.set(lux().key, drawable(12));
+    expect(
+      assembleDomainSeries(liveSnapshot, 'climate', specs, recorded).map((s) => s.key)
+    ).toContain(lux().key);
+  });
+
+  /**
+   * The chart assigns axis sides and colours by the order the series arrive, so a drop must
+   * close the gap rather than reshuffle what is left.
+   */
+  it('keeps the surviving series in spec order', () => {
+    const recorded = allRecorded();
+    recorded.delete(lux().key);
+    const series = assembleDomainSeries(liveSnapshot, 'climate', specs, recorded);
+    expect(series.map((s) => s.key)).toEqual(
+      specs.filter((s) => s.entity !== 'illuminance').map((s) => s.key)
+    );
+  });
+
+  it('charts every spec the range did record', () => {
+    const series = assembleDomainSeries(liveSnapshot, 'climate', specs, allRecorded());
+    expect(series.map((s) => s.key)).toEqual(specs.map((s) => s.key));
+  });
+
+  it('carries the label and unit through untouched', () => {
+    const co2 = specs.find((s) => s.entity === 'co2')!;
+    const [series] = assembleDomainSeries(
+      liveSnapshot,
+      'climate',
+      [co2],
+      new Map([[co2.key, drawable(1800)]])
+    );
+    expect(series).toEqual({
+      key: co2.key,
+      label: co2.label,
+      unit: co2.unit,
+      points: drawable(1800)
+    });
+  });
+
+  /** Nothing recorded at all is the chart's own empty state, not a partial one. */
+  it('charts nothing when the range recorded nothing', () => {
+    expect(assembleDomainSeries(liveSnapshot, 'climate', specs, new Map())).toEqual([]);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Substrate: the one domain that charts DERIVED values, so it resolves raw specs
 // and converts them after the query.
