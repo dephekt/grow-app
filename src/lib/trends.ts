@@ -65,6 +65,6 @@ export interface TrendSeries {
   label: string;
   unit: string;
   points: TrendPoint[];
-  /** Charted but switched off until the legend turns it on — a secondary reading. */
+  /** Seeds the legend switched off — a secondary reading a user toggle then outranks. */
   hidden?: boolean;
 }

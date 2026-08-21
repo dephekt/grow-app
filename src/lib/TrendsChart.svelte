@@ -6,10 +6,16 @@
   import uPlot from 'uplot';
   import 'uplot/dist/uPlot.min.css';
   import {
+    allSeriesHidden,
+    drawnSeries,
+    isSeriesShown,
+    seriesScale,
     structureSignature,
-    yAxisPlans,
+    yAxisSlotSignature,
+    yAxisSlots,
     zoomWindowLabel,
     zoomedWindow,
+    type YAxisSlot,
     type ZoomWindow
   } from '$lib/trends-chart';
   import type { TrendSeries } from '$lib/trends';
@@ -20,7 +26,17 @@
   let plot: uPlot | null = null;
   let structureSig = '';
 
+  /** Legend clicks reach uPlot directly, so its show-state is mirrored here to survive a rebuild. */
+  const shown = new Map<string, boolean>();
+  /** What the live plot was built from; the hooks reconcile outside `render`'s arguments. */
+  let built: { series: TrendSeries[]; width: number } = { series: [], width: 0 };
+  let lastSeries: TrendSeries[] | null = null;
+  let lastData: uPlot.AlignedData | null = null;
+  /** Per instance, so a destroyed plot's queued commit still reads its own slots. */
+  let slotState: { slots: YAxisSlot[]; sig: string } = { slots: [], sig: '' };
+
   let zoom = $state<ZoomWindow | null>(null);
+  let allHidden = $state(false);
 
   function cssVar(name: string, fallback: string): string {
     if (typeof document === 'undefined') return fallback;
@@ -67,24 +83,74 @@
     return [xs, ...ys] as uPlot.AlignedData;
   }
 
-  function buildOpts(s: TrendSeries[], width: number): uPlot.Options {
+  function hostWidth(): number {
+    return el.clientWidth || 600;
+  }
+
+  /** uPlot's own test for a drawable axis: `axesCalc` hides one whose scale never ranged. */
+  function rangedScales(u: uPlot): Set<string> {
+    return new Set(Object.keys(u.scales).filter((k) => u.scales[k].min != null));
+  }
+
+  /** uPlot cannot add axes after construction, so each fixed slot re-points at what is drawn. */
+  function reconcileAxes(u: uPlot) {
+    const state = slotState;
+    const mask = drawnSeries(built.series, shown, rangedScales(u));
+    const next = yAxisSlots(built.series, built.width, mask);
+    const sig = yAxisSlotSignature(next);
+    if (sig === state.sig) return;
+    state.slots = next;
+    state.sig = sig;
+    next.forEach((slot, i) => {
+      const axis = u.axes[i + 1];
+      axis.scale = slot.scale;
+      // `label != null` is what reserves labelSize, so a parked slot drops the property.
+      axis.label = slot.unit || undefined;
+    });
+    // Only an axesCalc pass re-derives splits, values and size against the swapped scale.
+    u.redraw(false, true);
+  }
+
+  function buildOpts(s: TrendSeries[], width: number, keep: ZoomWindow | null): uPlot.Options {
     const { colors, axis: axisColor } = theme();
     const grid = 'rgba(255,255,255,0.06)';
     const mono = '11px "IBM Plex Mono", ui-monospace, monospace';
     const labelFont = '600 10px "IBM Plex Mono", ui-monospace, monospace';
-    const plans = yAxisPlans(s, width);
+    // No plot yet, so `drawnSeries` falls back to whether a series has samples at all.
+    const slots = yAxisSlots(s, width, drawnSeries(s, shown, null));
+    const state = { slots, sig: yAxisSlotSignature(slots) };
+    slotState = state;
+    const labelled = () => state.slots.filter((slot) => slot.unit).length;
 
     return {
       width,
       height,
+      // Lifted into pendScales at construction, so the first paint is already zoomed.
+      ...(keep ? { scales: { x: { ...keep } } } : {}),
       cursor: { drag: { x: true, y: false }, points: { size: 6 } },
       legend: { live: true },
       hooks: {
-        // Fires per scale; only x is draggable, so only x can be zoomed.
+        // Fires from inside the commit once every scale is settled, so `u.scales` is the truth.
         setScale: [
           (u: uPlot, key: string) => {
+            // A destroyed plot's queued commit still fires this; only the live one may act.
+            if (u !== plot) return;
+            // Only x is draggable, so only x can be zoomed.
             if (key === 'x')
               zoom = zoomedWindow(u.data[0] as number[], u.scales.x.min, u.scales.x.max);
+            reconcileAxes(u);
+          }
+        ],
+        // Legend clicks reach uPlot directly and never touch the `series` prop.
+        setSeries: [
+          (u: uPlot) => {
+            if (u !== plot || u.series.length - 1 !== built.series.length) return;
+            built.series.forEach((ser, i) => {
+              shown.set(ser.key, u.series[i + 1].show !== false);
+            });
+            allHidden = allSeriesHidden(built.series, shown);
+            // A newly shown scale ranges later in this same commit, which re-fires setScale.
+            reconcileAxes(u);
           }
         ]
       },
@@ -92,10 +158,10 @@
         {},
         ...s.map((ser, i) => ({
           label: ser.unit ? `${ser.label} (${ser.unit})` : ser.label,
-          scale: ser.unit || ser.key,
+          scale: seriesScale(ser),
           stroke: colors[i % colors.length],
           width: 1.5,
-          show: !ser.hidden,
+          show: isSeriesShown(ser, shown),
           points: { show: false },
           spanGaps: true
         }))
@@ -107,20 +173,23 @@
           ticks: { stroke: grid, width: 1 },
           font: mono
         },
-        ...plans.map((p) => ({
-          scale: p.scale,
-          side: p.side,
-          // An empty-string label still reserves labelSize, so an unlabelled axis omits it.
-          label: p.unit || undefined,
-          labelSize: p.unit ? 15 : 0,
+        ...slots.map((slot, i) => ({
+          scale: slot.scale,
+          side: slot.side,
+          // An empty-string label still reserves labelSize, so a parked slot omits it entirely.
+          label: slot.unit || undefined,
+          labelSize: 15,
           labelFont,
-          values: p.unit ? undefined : () => [],
-          size: p.unit ? 42 : 0,
+          // Read live, so a re-planned slot resizes and re-labels without rebuilding the plot.
+          size: () => (state.slots[i].unit ? 42 : 0),
+          values: (_u: uPlot, splits: number[]) =>
+            state.slots[i].unit ? splits.map((v) => (v == null ? '' : uPlot.fmtNum(v))) : [],
           // One axis owns the horizontal grid; a second set would overlap it.
-          grid: { show: p.grid, stroke: grid, width: 1 },
+          grid: { show: slot.grid, stroke: grid, width: 1 },
           ticks: { show: false },
           // With several axes the colour is what pairs one with its lines.
-          stroke: plans.length > 1 ? colors[p.seriesIndex % colors.length] : axisColor,
+          stroke: () =>
+            labelled() > 1 ? colors[state.slots[i].seriesIndex % colors.length] : axisColor,
           font: mono
         }))
       ]
@@ -133,19 +202,29 @@
       plot?.destroy();
       plot = null;
       structureSig = '';
+      lastSeries = null;
+      lastData = null;
+      slotState = { slots: [], sig: '' };
       zoom = null;
+      allHidden = false;
       return;
     }
-    const width = el.clientWidth || 600;
-    const data = buildData(s);
+    const width = hostWidth();
+    const fresh = s !== lastSeries;
+    const data = fresh || !lastData ? buildData(s) : lastData;
     const sig = structureSignature(s, width);
+    built = { series: s, width };
+    lastSeries = s;
+    lastData = data;
     if (!plot || sig !== structureSig) {
+      // New data re-ranges x anyway, so only a resize-driven rebuild keeps the window.
       plot?.destroy();
-      plot = new uPlot(buildOpts(s, width), data, el);
+      plot = new uPlot(buildOpts(s, width, fresh ? null : zoom), data, el);
       structureSig = sig;
     } else {
       plot.setData(data);
     }
+    allHidden = allSeriesHidden(s, shown);
   }
 
   /** uPlot's own dblclick reset, which reaches an `autoScaleX` we cannot call. */
@@ -159,9 +238,10 @@
   onMount(() => {
     const ro = new ResizeObserver(() => {
       if (!plot || !el) return;
+      const width = hostWidth();
       // Crossing a width class adds or drops an axis, which only a rebuild can do.
-      if (structureSignature(series, el.clientWidth) !== structureSig) render(series);
-      else plot.setSize({ width: el.clientWidth, height });
+      if (structureSignature(series, width) !== structureSig) render(series);
+      else plot.setSize({ width, height });
     });
     ro.observe(el);
     return () => {
@@ -185,6 +265,8 @@
   <div bind:this={el} class="uplot-host"></div>
   {#if isEmpty}
     <div class="empty-state">No history yet</div>
+  {:else if allHidden}
+    <div class="empty-state">All series hidden</div>
   {:else if zoom}
     <button
       type="button"
@@ -244,9 +326,11 @@
     border-right: 1px solid var(--cyan);
   }
 
+  /* Never over the legend's clicks — an all-hidden chart is undone by clicking a row back on. */
   .empty-state {
     position: absolute;
     inset: 0;
+    pointer-events: none;
     display: flex;
     align-items: center;
     justify-content: center;
